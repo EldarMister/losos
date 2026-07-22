@@ -28,10 +28,11 @@ test("server-renders the storefront", async () => {
 });
 
 test("includes the product, cart and address flows", async () => {
-  const [storefront, catalog, categoryPage, packageJson] = await Promise.all([
+  const [storefront, catalog, categoryPage, globals, packageJson] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/data/catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
@@ -63,6 +64,10 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /Основной соус/);
   assert.match(catalog, /referenceDetail:\s*"popcorn"/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
+  assert.match(globals, /height:\s*min\(792px,\s*calc\(100vh - 40px\)\)/);
+  assert.match(globals, /\.product-modal-simple\s*\{[^}]*width:\s*min\(1160px/);
+  assert.match(globals, /\.product-modal-simple \.modal-description\s*\{\s*height:\s*74px/);
+  assert.match(globals, /white-space:\s*normal/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
