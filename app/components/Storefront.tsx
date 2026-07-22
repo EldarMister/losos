@@ -88,6 +88,8 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [utensilsCount, setUtensilsCount] = useState(1);
+  const [noUtensils, setNoUtensils] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
@@ -392,7 +394,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span>⌄</span></button>
           <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
           <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}><div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button></div><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
-          <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` · ${cartCount}` : ""}</button>
+          <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` ${money(cartTotal)}` : ""}</button>
         </header>
 
         <div className="promo-row" aria-label="Акции">
@@ -535,13 +537,27 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
       {cartOpen ? (
         <div className="drawer-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartOpen(false); }}>
-          <aside className="cart-drawer" aria-label="Корзина">
+          <aside className="cart-drawer" data-filled={cart.length > 0 ? "true" : "false"} aria-label="Корзина">
             <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
-            {cart.length > 0 ? <h2>Корзина</h2> : null}
-            {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : cart.map((line) => (
-              <div className="cart-line" key={line.product.id}><div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div><div><b>{line.product.name}</b><span>{money(line.product.price)}</span></div><div className="line-controls"><button onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
-            ))}
-            {cart.length > 0 ? <button className="checkout">Оформить заказ · {money(cartTotal)}</button> : null}
+            {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : <>
+              <div className="cart-address">{address}</div>
+              <div className="cart-layout">
+                <section className="cart-products">
+                  <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}>⌫</button></div>
+                  {cart.map((line) => (
+                    <div className="cart-line" key={line.product.id}><div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div><div><b>{line.product.name}</b><span>{money(line.product.price)}</span></div><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
+                  ))}
+                </section>
+                <section className="cart-options">
+                  <div className="cart-kit">
+                    <h2>Комплектация</h2>
+                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true">╱╱</span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils} onClick={() => setUtensilsCount((current) => current + 1)}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+                  </div>
+                  <div className="cart-benefit"><h2>Выгода</h2><div><span><b>Промокод или акция</b><small>Нужно будет авторизоваться</small></span><button>Выбрать</button></div></div>
+                  <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/самовызов.png" : "/доставка.png"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 45 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout"><span>Далее</span><b>{money(cartTotal)}</b></button></div>
+                </section>
+              </div>
+            </>}
           </aside>
         </div>
       ) : null}

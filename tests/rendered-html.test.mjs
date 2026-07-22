@@ -51,7 +51,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /ce627f513c731ba28069085078e433dc/);
   assert.match(storefront, /30_000/);
   assert.match(storefront, /writeOverlayQuery/);
-  assert.doesNotMatch(storefront, /Комплектация/);
+  assert.doesNotMatch(storefront, /<button[^>]*>Комплектация<\/button>/);
   assert.match(storefront, /Увеличить количество/);
   assert.match(storefront, /NEXT_PUBLIC_API_URL/);
   assert.match(catalog, /hity-prodaz-2/);
