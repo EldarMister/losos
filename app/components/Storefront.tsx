@@ -22,8 +22,8 @@ const writeOverlayQuery = (name: "product" | "storyInspect", value: string | nul
 
 type StoryGroup = {
   title: string;
-  kind: "student" | "telegram" | "pleasure" | "kids" | "cashback" | "sticks" | "cats";
-  pages: Array<{ src: string; referenceCrop?: "kids" | "sticks" }>;
+  kind: "student" | "telegram" | "pleasure" | "cashback" | "cats";
+  pages: Array<{ src: string }>;
   cta?: string;
 };
 
@@ -46,11 +46,6 @@ const storyGroups: StoryGroup[] = [
     pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/19fb66365769d651613e33c969235601_resize_in_box_2048_2048.jpg" }],
   },
   {
-    title: "Всё вкусное — детям!",
-    kind: "kids",
-    pages: [{ src: "/reference-main.png", referenceCrop: "kids" }],
-  },
-  {
     title: "Кешбэк до 100%",
     kind: "cashback",
     pages: [
@@ -59,11 +54,6 @@ const storyGroups: StoryGroup[] = [
       { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/5f085f197e1afcf72c9ac61c8959140f_resize_in_box_2048_2048.jpg" },
       { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/ce627f513c731ba28069085078e433dc_resize_in_box_2048_2048.jpg" },
     ],
-  },
-  {
-    title: "Мноооого палочки?",
-    kind: "sticks",
-    pages: [{ src: "/reference-main.png", referenceCrop: "sticks" }],
   },
   {
     title: "Помогаем котикам вместе",
@@ -459,9 +449,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storyGroups[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
           <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label="Предыдущая акция">←</button>
           <article className={`story-card story-${storyGroups[promoSlide].kind}`}>
-            {storyGroups[promoSlide].pages[promoPage].referenceCrop
-              ? <span key={`${promoSlide}-${promoPage}`} className={`story-image story-reference story-reference-${storyGroups[promoSlide].pages[promoPage].referenceCrop}`} role="img" aria-label={storyGroups[promoSlide].title} />
-              : <img key={storyGroups[promoSlide].pages[promoPage].src} className="story-image" src={storyGroups[promoSlide].pages[promoPage].src} alt={storyGroups[promoSlide].title} />}
+            <img key={storyGroups[promoSlide].pages[promoPage].src} className="story-image" src={storyGroups[promoSlide].pages[promoPage].src} alt={storyGroups[promoSlide].title} />
             <div className="story-progress" aria-label="Следующая страница через 30 секунд">
               {storyGroups[promoSlide].pages.map((page, index) => (
                 <span className={`story-progress-segment${index < promoPage ? " complete" : ""}${index === promoPage ? " active" : ""}`} key={page.src}>
