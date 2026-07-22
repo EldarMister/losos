@@ -1,0 +1,212 @@
+export type Product = {
+  id: number;
+  slug: string;
+  category: string;
+  name: string;
+  price: number;
+  image: string;
+  description?: string;
+  weight?: number;
+  calories?: number;
+  protein?: number;
+  fat?: number;
+  carbs?: number;
+  badge?: string;
+};
+
+export type Category = {
+  slug: string;
+  title: string;
+  products: Product[];
+};
+
+const images = {
+  wasabi: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/1d1309ca7308f503b15c1c0193501642_thumb_75_1152_1152.JPEG",
+  green: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/c4cc13964520cb9a68303a797e5875e6_thumb_75_1152_1152.PNG",
+  shaurokinawa: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/b005e3217daffde232af4b7ecc77bb5f_thumb_75_1152_1152.JPEG",
+  chuka: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e3f19d21cce0a704dcdb81558f616803_thumb_75_1152_1152.PNG",
+  philadelphia: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/076d35e16c38a7eab8f0d60b2c01ef9e_thumb_75_1152_1152.JPEG",
+  tomyam: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/eddf5dbd63368315455ae082093feb6c_thumb_75_1152_1152.JPEG",
+  rukola: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a07f24708b66d206908fc7cf2249f169_thumb_75_1152_1152.JPEG",
+  bakedShrimp: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/0eaa65e98817c21836327d48f9ae9f2c_thumb_75_1152_1152.JPEG",
+  poke: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/0b2eb39305d53bb8fe7e94aaa04a2e16_thumb_75_1152_1152.JPEG",
+};
+
+const p = (
+  id: number,
+  category: string,
+  name: string,
+  price: number,
+  image: string,
+  extra: Partial<Product> = {},
+): Product => ({
+  id,
+  slug: name.toLowerCase().replace(/[^a-zа-я0-9]+/gi, "-").replace(/(^-|-$)/g, ""),
+  category,
+  name,
+  price,
+  image,
+  weight: 260,
+  calories: 460,
+  protein: 14,
+  fat: 13,
+  carbs: 69,
+  description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.",
+  ...extra,
+});
+
+export const categories: Category[] = [
+  {
+    slug: "novinki",
+    title: "Новинки",
+    products: [
+      p(12001, "novinki", "Соус сладкий васаби", 90, images.wasabi, { badge: "new", weight: 30 }),
+      p(12002, "novinki", "Зелёный", 590, images.green, { badge: "new", weight: 220 }),
+    ],
+  },
+  {
+    slug: "hity-prodaz-2",
+    title: "Хиты продаж",
+    products: [
+      p(11301, "hity-prodaz-2", "Шаурокинава", 405, images.shaurokinawa, {
+        description: "Ещё один представитель Шауролловых. Любите обострять ситуацию и обедать на бегу? Тогда это точно для вас! В меру острая и такая любимая Окинава в удобном формате.",
+        badge: "🌶️",
+      }),
+      p(11155, "hity-prodaz-2", "Чука с ореховым соусом", 395, images.chuka, { weight: 190 }),
+      p(11021, "hity-prodaz-2", "Филадельфия с лососем", 850, images.philadelphia),
+      p(11202, "hity-prodaz-2", "Том Ям с кальмаром и креветками", 635, images.tomyam),
+      p(11355, "hity-prodaz-2", "Ролл Рукола-креветка", 585, images.rukola),
+      p(11277, "hity-prodaz-2", "Запечённый с креветками", 690, images.bakedShrimp),
+      p(11402, "hity-prodaz-2", "Поке с лососем в тобико", 830, images.poke),
+    ],
+  },
+  {
+    slug: "rolly-2",
+    title: "Роллы",
+    products: [
+      p(11022, "rolly-2", "Снежная калифорния", 630, images.philadelphia),
+      p(11023, "rolly-2", "Филадельфия лайт", 720, images.philadelphia),
+      p(11356, "rolly-2", "Филадельфия с креветкой", 645, images.rukola),
+      p(11354, "rolly-2", "Ролл Гуакамоле", 595, images.green),
+      p(11355, "rolly-2", "Ролл Рукола-креветка", 585, images.rukola),
+      p(11064, "rolly-2", "Угорь и лосось", 935, images.philadelphia),
+      p(11049, "rolly-2", "Аляска", 595, images.bakedShrimp),
+      p(11058, "rolly-2", "Даку 2.0", 695, images.chuka),
+      p(11051, "rolly-2", "Калифорния с креветкой спайси", 640, images.rukola),
+      p(11060, "rolly-2", "Калифорния с тунцом спайси", 705, images.philadelphia),
+      p(11062, "rolly-2", "Канада", 820, images.bakedShrimp),
+      p(11025, "rolly-2", "Креветка с тамаго и авокадо", 530, images.rukola),
+      p(11046, "rolly-2", "Окинава", 405, images.shaurokinawa),
+      p(11070, "rolly-2", "Просто авокадо", 270, images.green),
+      p(11065, "rolly-2", "Просто креветка", 350, images.rukola),
+      p(11067, "rolly-2", "Просто лосось", 465, images.philadelphia),
+      p(11066, "rolly-2", "Просто лосось БИГ", 750, images.philadelphia),
+      p(11071, "rolly-2", "Просто огурец", 270, images.green),
+    ],
+  },
+  {
+    slug: "saurolly-3",
+    title: "Шауроллы",
+    products: [
+      p(11301, "saurolly-3", "Шаурокинава", 405, images.shaurokinawa),
+      p(11302, "saurolly-3", "Шаурдельфия", 849, images.philadelphia),
+      p(11303, "saurolly-3", "Шаурфорния", 530, images.rukola),
+    ],
+  },
+  {
+    slug: "tempura-i-zapecennye-rolly-3",
+    title: "Темпура и запеченные роллы",
+    products: [
+      p(11501, "tempura-i-zapecennye-rolly-3", "Темпура с креветками спайси", 620, images.bakedShrimp),
+      p(11502, "tempura-i-zapecennye-rolly-3", "Темпура с тунцом", 530, images.chuka),
+      p(11503, "tempura-i-zapecennye-rolly-3", "Огненный фурай", 650, images.tomyam),
+      p(11504, "tempura-i-zapecennye-rolly-3", "Запеченная калифорния", 595, images.bakedShrimp),
+      p(11505, "tempura-i-zapecennye-rolly-3", "Киото", 595, images.philadelphia),
+      p(11506, "tempura-i-zapecennye-rolly-3", "Запечённый с лососем", 635, images.bakedShrimp),
+    ],
+  },
+  {
+    slug: "sety-2",
+    title: "Сеты",
+    products: [
+      p(11601, "sety-2", "Сет из просто роллов", 1350, images.philadelphia),
+      p(11602, "sety-2", "Лайт сет", 2590, images.rukola),
+      p(11603, "sety-2", "На двоих", 2730, images.bakedShrimp),
+      p(11604, "sety-2", "Сетик", 2520, images.chuka),
+      p(11605, "sety-2", "На компанию", 4950, images.philadelphia),
+      p(11606, "sety-2", "Филадельфия сет", 2950, images.philadelphia),
+    ],
+  },
+  {
+    slug: "poke-2",
+    title: "Поке",
+    products: [
+      p(11701, "poke-2", "Поке с креветками", 780, images.poke),
+      p(11702, "poke-2", "Поке спайси с лососем", 890, images.poke),
+      p(11703, "poke-2", "Поке с тунцом", 795, images.poke),
+      p(11704, "poke-2", "Собери своё поке", 220, images.green),
+      p(11705, "poke-2", "Поке с лососем", 890, images.poke),
+      p(11706, "poke-2", "Поке с лососем в тобико", 830, images.poke),
+    ],
+  },
+  {
+    slug: "zakuski-4",
+    title: "Закуски",
+    products: [
+      p(11801, "zakuski-4", "Картофель фри", 275, images.green),
+      p(11802, "zakuski-4", "Креветки васаби", 695, images.rukola),
+      p(11803, "zakuski-4", "Чипсы креветочные", 150, images.wasabi),
+      p(11804, "zakuski-4", "Наггетсы куриные", 285, images.bakedShrimp),
+    ],
+  },
+  {
+    slug: "salaty-3",
+    title: "Салаты",
+    products: [
+      p(11901, "salaty-3", "Зелёный", 590, images.green),
+      p(11902, "salaty-3", "Цезарь с креветками", 735, images.poke),
+      p(11903, "salaty-3", "Цезарь с опалённым лососем", 820, images.poke),
+      p(11904, "salaty-3", "Битые огурцы", 350, images.green),
+      p(11905, "salaty-3", "Чука с ореховым соусом", 395, images.chuka),
+    ],
+  },
+  {
+    slug: "supy-3",
+    title: "Супы",
+    products: [
+      p(12011, "supy-3", "Том Ям с креветками", 680, images.tomyam),
+      p(12012, "supy-3", "Том Ям с кальмаром и креветками", 635, images.tomyam),
+      p(12013, "supy-3", "Том ям с лососем", 690, images.tomyam),
+      p(12014, "supy-3", "Мисо-суп с лососем", 590, images.tomyam),
+    ],
+  },
+  {
+    slug: "dla-kotika-2",
+    title: "Для котика",
+    products: [
+      p(12101, "dla-kotika-2", "Креветки для котика", 240, images.rukola),
+      p(12102, "dla-kotika-2", "Тунец для котика", 240, images.philadelphia),
+      p(12103, "dla-kotika-2", "Комбо тунец и креветки для котика", 450, images.poke),
+    ],
+  },
+  {
+    slug: "toppingi-9",
+    title: "Топпинги",
+    products: [
+      p(12201, "toppingi-9", "Соус сладкий васаби", 90, images.wasabi),
+      p(12202, "toppingi-9", "Васаби", 70, images.green),
+      p(12203, "toppingi-9", "Имбирь маринованный", 70, images.rukola),
+      p(12204, "toppingi-9", "Соус спайси", 90, images.tomyam),
+    ],
+  },
+];
+
+export const promoCards = [
+  { alt: "Скидка студентам", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/104b14d17af4e66ab32a1f99bfa9cb23_resize_in_box_1104_1104.jpg" },
+  { alt: "Telegram: промокоды и мемы", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/f28303d1312d58d8023742cc7c75a57a_resize_in_box_1104_1104.jpg" },
+  { alt: "Много лосося — удовольствие есть", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/43ddb99861e8cfbedf08f2a313738c4b_resize_in_box_1104_1104.jpg" },
+  { alt: "Кешбэк до 100%", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/c9d2f34588567ee37d2fa4a7c937821a_resize_in_box_1104_1104.jpg" },
+  { alt: "Помогаем котикам вместе", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/9ad2dfc2bfc46d092fcf9d868b4ae85d_resize_in_box_1104_1104.jpg" },
+];
+
+export const allProducts = categories.flatMap((category) => category.products);

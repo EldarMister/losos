@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: losos
+      POSTGRES_USER: losos
+      POSTGRES_PASSWORD: losos
+    ports:
+      - "5432:5432"
+    volumes:
+      - losos_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U losos -d losos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  losos_postgres:
