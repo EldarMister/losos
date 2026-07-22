@@ -465,13 +465,14 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
             </section>
           ))}
         </main>
-
-        <footer className="footer">
-          <div><img src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><p>© 2026 ООО «Гастрономия»</p></div>
-          <div className="footer-links"><a href="#">Правовая информация</a><a href="#">Работа</a><a href="#">Бонусы</a></div>
-          <p>ОГРН 1197746601326, 109029, г. Москва, ул. Средняя Калитниковская, д. 28, стр. 4</p>
-        </footer>
       </div>
+
+      <footer className="footer">
+        <div className="footer-brand"><img className="footer-logo" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><span>© 2026 ООО «Гастрономия»</span></div>
+        <img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" />
+        <div className="footer-links"><a href="#">Правовая информация</a><span>•</span><a href="#">Работа</a></div>
+        <p className="footer-legal">ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48</p>
+      </footer>
 
       {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}>Корзина · {money(cartTotal)}</button> : null}
 
@@ -546,7 +547,13 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
             <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map"}`}>
               <button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button>
               <button className="map-locate" type="button" aria-label="Определить моё местоположение">➤</button>
-              <img className="map-marker" src="https://mnogolososya.ru/_nuxt/active-marker.O4wBI7zK.svg" alt="" />
+              <img
+                className={`map-marker${deliveryType === "pickup" ? " pickup-map-marker" : ""}`}
+                src={deliveryType === "pickup"
+                  ? "https://mnogolososya.ru/_nuxt/pickup-marker-disabled.DSAcVKbt.svg"
+                  : "https://mnogolososya.ru/_nuxt/active-marker.O4wBI7zK.svg"}
+                alt=""
+              />
               <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
               <div className="map-attribution"><span>📍 Открыть Яндекс Карты</span><small>© Яндекс&nbsp; Условия использования</small></div>
             </div>

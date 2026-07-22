@@ -41,6 +41,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /className="cart-drawer"/);
   assert.match(storefront, /aria-label="Самовывоз"/);
   assert.match(storefront, /pickup-location/);
+  assert.match(storefront, /pickup-marker-disabled\.DSAcVKbt\.svg/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
   assert.match(storefront, /addon-groups/);
@@ -63,6 +64,8 @@ test("includes the product, cart and address flows", async () => {
   assert.doesNotMatch(storefront, /<button[^>]*>Комплектация<\/button>/);
   assert.match(storefront, /Увеличить количество/);
   assert.match(storefront, /NEXT_PUBLIC_API_URL/);
+  assert.match(storefront, /className="footer-app"/);
+  assert.match(storefront, /муниципальный округ Нижегородский/);
   assert.match(catalog, /hity-prodaz-2/);
   assert.match(catalog, /Куриный попкорн/);
   assert.match(catalog, /b8d03d4e8617466336260d917af4f21b/);
@@ -70,13 +73,16 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /Основной соус/);
   assert.match(catalog, /referenceDetail:\s*"popcorn"/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
-  assert.match(globals, /height:\s*min\(792px,\s*calc\(100vh - 40px\)\)/);
+  assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1450px[^}]*height:\s*min\(920px/);
   assert.match(globals, /\.product-modal-simple\s*\{[^}]*width:\s*min\(1160px/);
+  assert.match(globals, /\.product-modal-simple\s*\{[^}]*height:\s*min\(792px/);
   assert.match(globals, /\.product-modal-simple \.modal-description\s*\{\s*height:\s*74px/);
   assert.match(globals, /white-space:\s*normal/);
   assert.match(globals, /url\("\/api\/inter\/cyrillic"\)/);
   assert.match(globals, /\.delivery-header\s*\{[^}]*top:\s*20px/);
   assert.match(globals, /\.category-nav\s*\{[^}]*top:\s*146px/);
+  assert.match(globals, /\.footer\s*\{[^}]*background:\s*var\(--orange\)/);
+  assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
