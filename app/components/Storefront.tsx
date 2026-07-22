@@ -64,7 +64,7 @@ const storyGroups: StoryGroup[] = [
 ];
 
 function ProductArt({ product, mode, loading }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" }) {
-  if (mode === "detail" && product.referenceDetail) {
+  if (mode === "detail" && product.referenceDetail === "popcorn") {
     return <span className={`reference-detail-art reference-detail-${product.referenceDetail}`} role="img" aria-label={product.name} />;
   }
   if (product.referenceCard) {
@@ -376,7 +376,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           </div>
           <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span>⌄</span></button>
           <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
-          <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}><div className="desktop-mode-icons"><img className={deliveryType === "delivery" ? "active" : "muted"} src="/доставка.png" alt="" /><img className={deliveryType === "pickup" ? "active" : "muted"} src="/самовызов.png" alt="" /></div><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
+          <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}><div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button></div><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` · ${cartCount}` : ""}</button>
         </header>
 
@@ -472,8 +472,10 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       {compositionOpen && selected ? (
         <div className="overlay composition-overlay" role="dialog" aria-modal="true" aria-labelledby="composition-title">
           <section className="composition-modal">
-            <button className="composition-back" onClick={() => setCompositionOpen(false)} aria-label="Назад">←</button>
-            <button className="composition-close" onClick={() => setCompositionOpen(false)} aria-label="Закрыть">×</button>
+            <div className="composition-navigation">
+              <button className="composition-back" onClick={() => setCompositionOpen(false)} aria-label="Назад">←</button>
+              <button className="composition-close" onClick={() => setCompositionOpen(false)} aria-label="Закрыть">×</button>
+            </div>
             <h2 id="composition-title">Состав</h2>
             <div className="composition-copy">{selected.composition || selected.description}</div>
             <button className="composition-return" onClick={() => setCompositionOpen(false)}>Назад</button>
