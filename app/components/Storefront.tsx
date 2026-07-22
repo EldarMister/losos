@@ -22,7 +22,7 @@ const writeOverlayQuery = (name: "product" | "storyInspect", value: string | nul
 
 type StoryGroup = {
   title: string;
-  kind: "student" | "telegram" | "pleasure" | "cashback" | "cats";
+  kind: "student" | "telegram" | "pleasure" | "kids" | "cashback" | "sticks" | "cats";
   pages: Array<{ src: string }>;
   cta?: string;
 };
@@ -46,6 +46,12 @@ const storyGroups: StoryGroup[] = [
     pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/19fb66365769d651613e33c969235601_resize_in_box_2048_2048.jpg" }],
   },
   {
+    title: "Всё вкусное — детям!",
+    kind: "kids",
+    cta: "Кавабанга!",
+    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/2720f66e5f628289ea1c761222a24eb4_resize_in_box_2048_2048.jpg" }],
+  },
+  {
     title: "Кешбэк до 100%",
     kind: "cashback",
     pages: [
@@ -54,6 +60,12 @@ const storyGroups: StoryGroup[] = [
       { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/5f085f197e1afcf72c9ac61c8959140f_resize_in_box_2048_2048.jpg" },
       { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/ce627f513c731ba28069085078e433dc_resize_in_box_2048_2048.jpg" },
     ],
+  },
+  {
+    title: "Мноооооого палочки?",
+    kind: "sticks",
+    cta: "Хорошо",
+    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/1ebd0558c6daa570f029071ce7bb1648_resize_in_box_2048_2048.jpg" }],
   },
   {
     title: "Помогаем котикам вместе",
@@ -98,6 +110,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
+  const promoRowRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -375,6 +388,18 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     });
   }, [highlightedCategory]);
 
+  useEffect(() => {
+    const row = promoRowRef.current;
+    if (!row || window.innerWidth > 720) return;
+    let index = 0;
+    const timer = window.setInterval(() => {
+      const lastIndex = Math.max(0, Math.floor((row.scrollWidth - row.clientWidth) / 132));
+      index = index >= lastIndex ? 0 : index + 1;
+      row.scrollTo({ left: index * 132, behavior: "smooth" });
+    }, 5_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
@@ -400,7 +425,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` ${money(cartTotal)}` : ""}</button>
         </header>
 
-        <div className="promo-row" aria-label="Акции">
+        <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
           {promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
         </div>
 
