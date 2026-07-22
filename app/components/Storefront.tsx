@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 
 type CartLine = { product: Product; quantity: number };
@@ -18,6 +18,8 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
+  const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
+  const categoryNavRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -45,6 +47,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  const highlightedCategory = categorySlug || activeCategory;
 
   const addToCart = (product: Product) => {
     if (!address) {
@@ -82,6 +85,53 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
   const related = selected ? catalogCategories.flatMap((category) => category.products).filter((product) => product.id !== selected.id).slice(0, 2) : [];
 
+  useEffect(() => {
+    if (categorySlug) return;
+
+    let frame = 0;
+    const updateActiveCategory = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        const anchor = window.innerWidth <= 720 ? 208 : 156;
+        let nextCategory = visibleCategories[0]?.slug || "novinki";
+
+        for (const category of visibleCategories) {
+          const section = document.getElementById(category.slug);
+          if (section && section.getBoundingClientRect().top <= anchor) {
+            nextCategory = category.slug;
+          } else {
+            break;
+          }
+        }
+
+        setActiveCategory((current) => current === nextCategory ? current : nextCategory);
+        frame = 0;
+      });
+    };
+
+    updateActiveCategory();
+    window.addEventListener("scroll", updateActiveCategory, { passive: true });
+    window.addEventListener("resize", updateActiveCategory);
+    return () => {
+      window.removeEventListener("scroll", updateActiveCategory);
+      window.removeEventListener("resize", updateActiveCategory);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [categorySlug, visibleCategories]);
+
+  useEffect(() => {
+    const nav = categoryNavRef.current;
+    const item = nav?.querySelector<HTMLElement>(`[data-category-slug="${highlightedCategory}"]`);
+    if (!nav || !item) return;
+    const targetLeft = window.innerWidth <= 720
+      ? 100
+      : (nav.clientWidth - item.clientWidth) / 2;
+    nav.scrollTo({
+      left: item.offsetLeft - targetLeft,
+      behavior: "smooth",
+    });
+  }, [highlightedCategory]);
+
   return (
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
@@ -97,6 +147,10 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       <div className="store-shell">
         <header className="delivery-header">
           <button className="cat-avatar" aria-label="Открыть меню">🐱</button>
+          <div className="brand-shortcuts" aria-hidden="true">
+            <span className="brand-shortcut active"><img src="https://mnogolososya.ru/_nuxt/delivery.CNJnX9CV.png" alt="" /></span>
+            <span className="brand-shortcut muted">✣</span>
+          </div>
           <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span>⌄</span></button>
           <button className="address-button" onClick={() => setAddressOpen(true)}>{address || "Введите адрес доставки"}</button>
           <div className="delivery-mode" aria-label="Доставка от 45 минут"><span className="bag-icon">🛍️</span><div><strong>Доставка</strong><small>от ~45 минут</small></div></div>
@@ -107,10 +161,16 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           {promoCards.map((card) => <img key={card.src} src={card.src} alt={card.alt} />)}
         </div>
 
-        <nav className="category-nav" aria-label="Категории меню">
+        <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
           <label className="search-pill"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск" aria-label="Поиск" /></label>
           {catalogCategories.map((category) => (
-            <a key={category.slug} href={categorySlug ? `/category/${category.slug}` : `#${category.slug}`} className={category.slug === (categorySlug || "novinki") ? "active" : ""}>{category.title}</a>
+            <a
+              key={category.slug}
+              href={categorySlug ? `/category/${category.slug}` : `#${category.slug}`}
+              data-category-slug={category.slug}
+              className={category.slug === highlightedCategory ? "active" : ""}
+              onClick={() => setActiveCategory(category.slug)}
+            >{category.title}</a>
           ))}
         </nav>
 
