@@ -43,5 +43,6 @@ next-env.d.ts
 /.postgres-data/
 /server/dist/
 /server/node_modules/
+/.vinext-dev*.log
 !.env.example
 !server/.env.example
