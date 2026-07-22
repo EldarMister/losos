@@ -420,9 +420,15 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
             <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button>
             <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button>
           </div>
-          <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span>⌄</span></button>
-          <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
-          <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}><div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button></div><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
+          <div className="order-location-bar">
+            <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span className="city-chevron" aria-hidden="true" /></button>
+            <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
+            <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}>
+              <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button></div>
+              <span className="delivery-connector" aria-hidden="true" />
+              <div className="delivery-status"><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div>
+            </div>
+          </div>
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` ${money(cartTotal)}` : ""}</button>
         </header>
 
