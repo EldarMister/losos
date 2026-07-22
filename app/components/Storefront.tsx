@@ -20,12 +20,47 @@ const writeOverlayQuery = (name: "product" | "storyInspect", value: string | nul
   window.history[`${mode}State`](state, "", url);
 };
 
-const storySlides = [
-  { title: "Скидка студентам", src: promoCards[0].src, kind: "banner" },
-  { title: "Telegram: промокоды и мемы", src: "/reference-telegram-story.png", kind: "telegram" },
-  { title: "Много лосося — удовольствие есть", src: promoCards[2].src, kind: "banner" },
-  { title: "Кешбэк до 100%", src: promoCards[3].src, kind: "banner" },
-  { title: "Помогаем котикам вместе", src: promoCards[4].src, kind: "banner" },
+type StoryGroup = {
+  title: string;
+  kind: "student" | "telegram" | "pleasure" | "cashback" | "cats";
+  pages: Array<{ src: string }>;
+  cta?: string;
+};
+
+const storyGroups: StoryGroup[] = [
+  {
+    title: "Скидка студентам",
+    kind: "student",
+    cta: "Заполнить форму",
+    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/b92972a55683d636714fea75d11469ce_resize_in_box_2048_2048.png" }],
+  },
+  {
+    title: "Telegram: промокоды и мемы",
+    kind: "telegram",
+    cta: "Подарки в студию!",
+    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/c1a7cfbda01814519b617dda85ec062a_resize_in_box_2048_2048.jpg" }],
+  },
+  {
+    title: "Много лосося — удовольствие есть",
+    kind: "pleasure",
+    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/19fb66365769d651613e33c969235601_resize_in_box_2048_2048.jpg" }],
+  },
+  {
+    title: "Кешбэк до 100%",
+    kind: "cashback",
+    pages: [
+      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/e258569da4e992205d8f3ae006d151eb_resize_in_box_2048_2048.jpg" },
+      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/268df916388b662e094cc8fdbab4095f_resize_in_box_2048_2048.jpg" },
+      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/5f085f197e1afcf72c9ac61c8959140f_resize_in_box_2048_2048.jpg" },
+      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/ce627f513c731ba28069085078e433dc_resize_in_box_2048_2048.jpg" },
+    ],
+  },
+  {
+    title: "Помогаем котикам вместе",
+    kind: "cats",
+    cta: "Мяу!",
+    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/7c7596a0dba0e9fff9f96d6e65df547d_resize_in_box_2048_2048.jpg" }],
+  },
 ];
 
 function ProductArt({ product, mode, loading }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" }) {
@@ -51,6 +86,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
+  const [promoPage, setPromoPage] = useState(0);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
@@ -161,16 +197,26 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
   const openPromo = (index: number) => {
     setPromoSlide(index);
+    setPromoPage(0);
     setPromoOpen(true);
     writeOverlayQuery("storyInspect", String(index + 1), "push");
   };
 
   const changePromo = (delta: number) => {
-    setPromoSlide((current) => {
-      const next = (current + delta + storySlides.length) % storySlides.length;
-      writeOverlayQuery("storyInspect", String(next + 1), "replace");
-      return next;
-    });
+    const pageCount = storyGroups[promoSlide].pages.length;
+    if (delta > 0 && promoPage < pageCount - 1) {
+      setPromoPage((current) => current + 1);
+      return;
+    }
+    if (delta < 0 && promoPage > 0) {
+      setPromoPage((current) => current - 1);
+      return;
+    }
+
+    const nextGroup = (promoSlide + delta + storyGroups.length) % storyGroups.length;
+    setPromoSlide(nextGroup);
+    setPromoPage(delta < 0 ? storyGroups[nextGroup].pages.length - 1 : 0);
+    writeOverlayQuery("storyInspect", String(nextGroup + 1), "replace");
   };
 
   const closePromo = () => {
@@ -214,14 +260,17 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   useEffect(() => {
     if (!promoOpen) return;
     const timer = window.setTimeout(() => {
-      setPromoSlide((current) => {
-        const next = (current + 1) % storySlides.length;
-        writeOverlayQuery("storyInspect", String(next + 1), "replace");
-        return next;
-      });
+      if (promoPage < storyGroups[promoSlide].pages.length - 1) {
+        setPromoPage((current) => current + 1);
+        return;
+      }
+      const nextGroup = (promoSlide + 1) % storyGroups.length;
+      setPromoSlide(nextGroup);
+      setPromoPage(0);
+      writeOverlayQuery("storyInspect", String(nextGroup + 1), "replace");
     }, 30_000);
     return () => window.clearTimeout(timer);
-  }, [promoOpen, promoSlide]);
+  }, [promoOpen, promoPage, promoSlide]);
 
   useEffect(() => {
     const syncFromUrl = () => {
@@ -237,8 +286,9 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       }
 
       const storyNumber = Number(params.get("storyInspect"));
-      if (Number.isInteger(storyNumber) && storyNumber >= 1 && storyNumber <= storySlides.length) {
+      if (Number.isInteger(storyNumber) && storyNumber >= 1 && storyNumber <= storyGroups.length) {
         setPromoSlide(storyNumber - 1);
+        setPromoPage(0);
         setPromoOpen(true);
       } else {
         setPromoOpen(false);
@@ -381,12 +431,19 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}>Корзина · {money(cartTotal)}</button> : null}
 
       {promoOpen ? (
-        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storySlides[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
+        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storyGroups[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
           <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label="Предыдущая акция">←</button>
-          <article className={`story-card story-${storySlides[promoSlide].kind}`}>
-            <img key={storySlides[promoSlide].src} className="story-image" src={storySlides[promoSlide].src} alt={storySlides[promoSlide].title} />
-            <div className="story-progress" aria-label="Следующая акция через 30 секунд"><span key={promoSlide} /></div>
+          <article className={`story-card story-${storyGroups[promoSlide].kind}`}>
+            <img key={storyGroups[promoSlide].pages[promoPage].src} className="story-image" src={storyGroups[promoSlide].pages[promoPage].src} alt={storyGroups[promoSlide].title} />
+            <div className="story-progress" aria-label="Следующая страница через 30 секунд">
+              {storyGroups[promoSlide].pages.map((page, index) => (
+                <span className={`story-progress-segment${index < promoPage ? " complete" : ""}${index === promoPage ? " active" : ""}`} key={page.src}>
+                  {index === promoPage ? <i key={`${promoSlide}-${promoPage}`} /> : null}
+                </span>
+              ))}
+            </div>
             <button className="story-close" onClick={closePromo} aria-label="Закрыть">×</button>
+            {storyGroups[promoSlide].cta ? <button className="story-cta" type="button">{storyGroups[promoSlide].cta}</button> : null}
           </article>
           <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label="Следующая акция">→</button>
         </div>
