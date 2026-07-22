@@ -78,9 +78,9 @@ test("includes the product, cart and address flows", async () => {
   assert.ok(catalog.indexOf('"Поке с тунцом", 795') < catalog.indexOf('"Поке спайси с лососем", 890'));
   assert.match(storefront, /title: "Нашли для вас"/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
-  assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1450px[^}]*height:\s*min\(920px/);
-  assert.match(globals, /\.product-modal-simple\s*\{[^}]*width:\s*min\(1160px/);
-  assert.match(globals, /\.product-modal-simple\s*\{[^}]*height:\s*min\(792px/);
+  assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(clamp\(1160px[^}]*height:\s*min\(920px/);
+  assert.match(globals, /\.product-modal-simple\s*\{[^}]*width:\s*min\(clamp\(905px/);
+  assert.match(globals, /\.product-modal-simple\s*\{[^}]*height:\s*min\(920px/);
   assert.match(globals, /\.product-modal-simple \.modal-description\s*\{\s*height:\s*74px/);
   assert.match(globals, /white-space:\s*normal/);
   assert.match(globals, /url\("\/api\/inter\/cyrillic"\)/);
