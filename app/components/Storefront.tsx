@@ -13,6 +13,7 @@ const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + 
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
+  const [compositionOpen, setCompositionOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
   const [address, setAddress] = useState("");
   const [draftAddress, setDraftAddress] = useState("");
@@ -55,6 +56,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
   const openProduct = (product: Product) => {
     setModalQuantity(1);
+    setCompositionOpen(false);
     setSelected(product);
   };
 
@@ -110,7 +112,20 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     setAddressOpen(true);
   };
 
-  const related = selected ? catalogCategories.flatMap((category) => category.products).filter((product) => product.id !== selected.id).slice(0, 2) : [];
+  const allCatalogProducts = catalogCategories.flatMap((category) => category.products);
+  const relatedNames = [
+    "Шаурдельфия",
+    "Шаурфорния",
+    "Соус спайси",
+    "Темпура с креветками спайси",
+    "Запечённый с лососем терияки",
+    "Рисовый сэндвич с лососем (темпура)",
+  ];
+  const related = selected
+    ? (selected.id === 11301
+      ? relatedNames.map((name) => allCatalogProducts.find((product) => product.name === name)).filter((product): product is Product => Boolean(product))
+      : allCatalogProducts.filter((product) => product.id !== selected.id).slice(0, 6))
+    : [];
 
   useEffect(() => {
     if (categorySlug) return;
@@ -173,10 +188,10 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
       <div className="store-shell">
         <header className="delivery-header">
-          <button className="cat-avatar" aria-label="Открыть меню">🐱</button>
+          <button className="cat-avatar" aria-label="Открыть меню"><img src="https://mnogolososya.ru/_nuxt/avatar.D_l_kHnY.png" alt="" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
-            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="https://mnogolososya.ru/_nuxt/delivery.CNJnX9CV.png" alt="" /></button>
-            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><span aria-hidden="true">🏪</span></button>
+            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button>
+            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button>
           </div>
           <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span>⌄</span></button>
           <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
@@ -235,20 +250,32 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       {selected && !addressOpen ? (
         <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
           <div className="product-modal">
-            <button className="modal-close" onClick={() => setSelected(null)} aria-label="Закрыть">×</button>
-            <div className="modal-art">{selected.badge ? <span className="flavour-badge">{selected.badge}</span> : null}<img src={selected.image} alt={selected.name} /></div>
+            <button className="modal-close" onClick={() => { setCompositionOpen(false); setSelected(null); }} aria-label="Закрыть">×</button>
+            <div className={`modal-art ${selected.badge ? "has-badge" : ""}`}>{selected.badge ? <span className="flavour-badge">{selected.badge}</span> : null}<img src={selected.image} alt={selected.name} /></div>
             <div className="modal-info">
               <div className="modal-arrows">← &nbsp; Предыдущее · Следующее &nbsp; →</div>
               <div className="modal-description"><h2>{selected.name}</h2><p>{selected.description}</p></div>
               <div className="nutrition">
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
-                <div className="nutrition-actions"><button>Состав</button><button>Комплектация</button></div>
+                <div className="nutrition-actions"><button onClick={() => setCompositionOpen(true)}>Состав</button></div>
               </div>
               <h3>Вместе вкуснее</h3>
-              <div className="related-row">{related.map((product) => <article key={product.id}><img src={product.image} alt={product.name} /><span>{product.name}</span><b>{money(product.price)}</b></article>)}</div>
+              <div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><img src={product.image} alt={product.name} />{product.badge ? <span className="related-badge">{product.badge}</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); addToCart(product); }}>+</button></div></article>)}</div>
               <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" onClick={() => addToCart(selected, modalQuantity)}>Добавить {money(selected.price * modalQuantity)}</button></div>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {compositionOpen && selected ? (
+        <div className="overlay composition-overlay" role="dialog" aria-modal="true" aria-labelledby="composition-title">
+          <section className="composition-modal">
+            <button className="composition-back" onClick={() => setCompositionOpen(false)} aria-label="Назад">←</button>
+            <button className="composition-close" onClick={() => setCompositionOpen(false)} aria-label="Закрыть">×</button>
+            <h2 id="composition-title">Состав</h2>
+            <div className="composition-copy">{selected.composition || selected.description}</div>
+            <button className="composition-return" onClick={() => setCompositionOpen(false)}>Назад</button>
+          </section>
         </div>
       ) : null}
 
