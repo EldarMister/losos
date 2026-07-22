@@ -104,7 +104,6 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
-  const promoRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -369,16 +368,6 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   }, [categorySlug]);
 
   useEffect(() => {
-    const alignPromoRow = () => {
-      if (!promoRowRef.current) return;
-      promoRowRef.current.scrollLeft = window.innerWidth > 720 ? 92 : 0;
-    };
-    alignPromoRow();
-    window.addEventListener("resize", alignPromoRow);
-    return () => window.removeEventListener("resize", alignPromoRow);
-  }, []);
-
-  useEffect(() => {
     const nav = categoryNavRef.current;
     const item = nav?.querySelector<HTMLElement>(`[data-category-slug="${highlightedCategory}"]`);
     if (!nav || !item) return;
@@ -416,7 +405,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` · ${cartCount}` : ""}</button>
         </header>
 
-        <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
+        <div className="promo-row" aria-label="Акции">
           {promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
         </div>
 
@@ -524,7 +513,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       {addressOpen ? (
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
-            <div className={`map-placeholder ${deliveryType === "pickup" ? "pickup-map" : ""}`}><button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button><div className="map-pin">●</div><div className="map-controls"><button>+</button><button>−</button></div></div>
+            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : ""}`}><button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button><div className="map-pin">●</div><div className="map-controls"><button>+</button><button>−</button></div></div>
             <div className="address-panel">
               <button className="modal-close" onClick={() => setAddressOpen(false)} aria-label="Закрыть">×</button>
               <div className="delivery-mode wide"><span className="bag-icon">🛍️</span><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
@@ -532,12 +521,12 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
                 <h2>Самовывоз</h2><p>Выберите точку для самовывоза<br />из доступных в списке или на карте</p>
                 <div className="address-input muted">Ростов-на-Дону <span>×</span></div>
                 <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>Ростов-на-Дону, Будённовский пр-кт 42</b><small>Ежедневно, без выходных<br />11:30 – 22:30</small></span></button>
-                <button className="save-address" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
+                {pickupLocationSelected ? <button className="save-address save-pickup" onClick={savePickup}>Забрать здесь</button> : null}
               </> : <>
                 <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером<br />или передвигайте пин на карте</p>
                 <div className="address-input muted">Ростов-на-Дону <span>×</span></div>
                 <input className="address-input" autoFocus value={draftAddress} onChange={(event) => setDraftAddress(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveAddress(); }} placeholder="Введите адрес доставки" />
-                <button className="save-address" disabled={!draftAddress.trim()} onClick={saveAddress}>Сохранить адрес</button>
+                {draftAddress.trim() ? <button className="save-address" onClick={saveAddress}>Сохранить адрес</button> : null}
               </>}
             </div>
           </div>
@@ -548,8 +537,8 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         <div className="drawer-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartOpen(false); }}>
           <aside className="cart-drawer" aria-label="Корзина">
             <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
-            <h2>Корзина</h2>
-            {cart.length === 0 ? <div className="cart-empty"><span>🐟</span><h3>Пока пусто</h3><p>Добавьте что-нибудь вкусное из меню</p></div> : cart.map((line) => (
+            {cart.length > 0 ? <h2>Корзина</h2> : null}
+            {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : cart.map((line) => (
               <div className="cart-line" key={line.product.id}><div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div><div><b>{line.product.name}</b><span>{money(line.product.price)}</span></div><div className="line-controls"><button onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
             ))}
             {cart.length > 0 ? <button className="checkout">Оформить заказ · {money(cartTotal)}</button> : null}
