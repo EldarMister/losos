@@ -10,6 +10,35 @@ type DeliveryType = "delivery" | "pickup";
 
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 
+const writeOverlayQuery = (name: "product" | "storyInspect", value: string | null, mode: "push" | "replace") => {
+  const url = new URL(window.location.href);
+  const other = name === "product" ? "storyInspect" : "product";
+  url.searchParams.delete(other);
+  if (value) url.searchParams.set(name, value);
+  else url.searchParams.delete(name);
+  const state = { ...(window.history.state || {}), storefrontOverlay: value ? name : null };
+  window.history[`${mode}State`](state, "", url);
+};
+
+const storySlides = [
+  { title: "Скидка студентам", src: promoCards[0].src, kind: "banner" },
+  { title: "Telegram: промокоды и мемы", src: "/reference-telegram-story.png", kind: "telegram" },
+  { title: "Много лосося — удовольствие есть", src: promoCards[2].src, kind: "banner" },
+  { title: "Кешбэк до 100%", src: promoCards[3].src, kind: "banner" },
+  { title: "Помогаем котикам вместе", src: promoCards[4].src, kind: "banner" },
+];
+
+function ProductArt({ product, mode, loading }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" }) {
+  if (mode === "detail" && product.referenceDetail) {
+    return <span className={`reference-detail-art reference-detail-${product.referenceDetail}`} role="img" aria-label={product.name} />;
+  }
+  if (product.referenceCard) {
+    const detailFallback = mode === "detail" ? " reference-detail-card-art" : "";
+    return <span className={`reference-card-art reference-card-${product.referenceCard}${detailFallback}`} role="img" aria-label={product.name} />;
+  }
+  return <img src={product.image} alt={product.name} loading={loading} />;
+}
+
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Product | null>(null);
@@ -20,8 +49,11 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("delivery");
   const [pickupLocationSelected, setPickupLocationSelected] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [promoOpen, setPromoOpen] = useState(false);
+  const [promoSlide, setPromoSlide] = useState(0);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [modalQuantity, setModalQuantity] = useState(1);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -54,10 +86,23 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const cartTotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
   const highlightedCategory = categorySlug || activeCategory;
 
-  const openProduct = (product: Product) => {
+  const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
     setModalQuantity(1);
+    setSelectedAddons([]);
     setCompositionOpen(false);
     setSelected(product);
+    writeOverlayQuery("product", product.slug, historyMode);
+  };
+
+  const closeProduct = () => {
+    if (window.history.state?.storefrontOverlay === "product") {
+      window.history.back();
+      return;
+    }
+    writeOverlayQuery("product", null, "replace");
+    setCompositionOpen(false);
+    setSelectedAddons([]);
+    setSelected(null);
   };
 
   const addToCart = (product: Product, quantity = 1) => {
@@ -72,6 +117,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         ? current.map((line) => line.product.id === product.id ? { ...line, quantity: line.quantity + quantity } : line)
         : [...current, { product, quantity }];
     });
+    writeOverlayQuery("product", null, "replace");
     setSelected(null);
   };
 
@@ -103,6 +149,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         ? current.map((line) => line.product.id === product.id ? { ...line, quantity: line.quantity + quantity } : line)
         : [...current, { product, quantity }];
     });
+    writeOverlayQuery("product", null, "replace");
     setSelected(null);
   };
 
@@ -110,6 +157,29 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     setDeliveryType(type);
     if (type === "pickup") setPickupLocationSelected(false);
     setAddressOpen(true);
+  };
+
+  const openPromo = (index: number) => {
+    setPromoSlide(index);
+    setPromoOpen(true);
+    writeOverlayQuery("storyInspect", String(index + 1), "push");
+  };
+
+  const changePromo = (delta: number) => {
+    setPromoSlide((current) => {
+      const next = (current + delta + storySlides.length) % storySlides.length;
+      writeOverlayQuery("storyInspect", String(next + 1), "replace");
+      return next;
+    });
+  };
+
+  const closePromo = () => {
+    if (window.history.state?.storefrontOverlay === "storyInspect") {
+      window.history.back();
+      return;
+    }
+    writeOverlayQuery("storyInspect", null, "replace");
+    setPromoOpen(false);
   };
 
   const allCatalogProducts = catalogCategories.flatMap((category) => category.products);
@@ -121,11 +191,72 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     "Запечённый с лососем терияки",
     "Рисовый сэндвич с лососем (темпура)",
   ];
-  const related = selected
+  const related = selected?.modalKind === "related"
     ? (selected.id === 11301
       ? relatedNames.map((name) => allCatalogProducts.find((product) => product.name === name)).filter((product): product is Product => Boolean(product))
       : allCatalogProducts.filter((product) => product.id !== selected.id).slice(0, 6))
     : [];
+  const selectedAddonItems = selected?.addonGroups?.flatMap((group) => group.items).filter((item) => selectedAddons.includes(item.id)) || [];
+  const addonTotal = selectedAddonItems.reduce((sum, item) => sum + item.price, 0);
+
+  const toggleAddon = (addonId: string) => {
+    setSelectedAddons((current) => current.includes(addonId) ? current.filter((id) => id !== addonId) : [...current, addonId]);
+  };
+
+  const navigateProduct = (delta: number) => {
+    if (!selected) return;
+    const uniqueProducts = allCatalogProducts.filter((product, index, items) => items.findIndex((item) => item.id === product.id) === index);
+    const index = uniqueProducts.findIndex((product) => product.id === selected.id);
+    if (index < 0) return;
+    openProduct(uniqueProducts[(index + delta + uniqueProducts.length) % uniqueProducts.length], "replace");
+  };
+
+  useEffect(() => {
+    if (!promoOpen) return;
+    const timer = window.setTimeout(() => {
+      setPromoSlide((current) => {
+        const next = (current + 1) % storySlides.length;
+        writeOverlayQuery("storyInspect", String(next + 1), "replace");
+        return next;
+      });
+    }, 30_000);
+    return () => window.clearTimeout(timer);
+  }, [promoOpen, promoSlide]);
+
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const productSlug = params.get("product");
+      const product = productSlug
+        ? catalogCategories.flatMap((category) => category.products).find((item) => item.slug === productSlug)
+        : null;
+      setSelected(product || null);
+      if (!product) {
+        setCompositionOpen(false);
+        setSelectedAddons([]);
+      }
+
+      const storyNumber = Number(params.get("storyInspect"));
+      if (Number.isInteger(storyNumber) && storyNumber >= 1 && storyNumber <= storySlides.length) {
+        setPromoSlide(storyNumber - 1);
+        setPromoOpen(true);
+      } else {
+        setPromoOpen(false);
+      }
+    };
+
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, [catalogCategories]);
+
+  useEffect(() => {
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || promoOpen);
+    if (!locked) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [selected, compositionOpen, addressOpen, cartOpen, promoOpen]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -188,19 +319,19 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
       <div className="store-shell">
         <header className="delivery-header">
-          <button className="cat-avatar" aria-label="Открыть меню"><img src="https://mnogolososya.ru/_nuxt/avatar.D_l_kHnY.png" alt="" /></button>
+          <button className="cat-avatar" aria-label="Открыть меню"><span className="cat-reference" aria-hidden="true" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
             <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button>
             <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button>
           </div>
           <button className="city-button" onClick={() => setAddressOpen(true)}>Ростов-на-Дону <span>⌄</span></button>
           <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
-          <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}><span className="bag-icon">🛍️</span><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
+          <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз" : "Доставка"} от 45 минут`}><div className="desktop-mode-icons"><img className={deliveryType === "delivery" ? "active" : "muted"} src="/доставка.png" alt="" /><img className={deliveryType === "pickup" ? "active" : "muted"} src="/самовызов.png" alt="" /></div><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` · ${cartCount}` : ""}</button>
         </header>
 
         <div className="promo-row" aria-label="Акции">
-          {promoCards.map((card) => <img key={card.src} src={card.src} alt={card.alt} />)}
+          {promoCards.map((card, index) => <button className="promo-card" key={card.src} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}><img src={card.src} alt={card.alt} /></button>)}
         </div>
 
         <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
@@ -226,7 +357,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
                 {category.products.map((product) => (
                   <article className="product-card" data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-label={`Открыть ${product.name}`} onClick={() => openProduct(product)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
-                      <img src={product.image} alt={product.name} loading="lazy" />
+                      <ProductArt product={product} mode="card" loading="lazy" />
                       {product.badge ? <span className="product-badge">{product.badge}</span> : null}
                     </div>
                     <div className="product-body">
@@ -247,21 +378,35 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         </footer>
       </div>
 
+      {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}>Корзина · {money(cartTotal)}</button> : null}
+
+      {promoOpen ? (
+        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storySlides[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
+          <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label="Предыдущая акция">←</button>
+          <article className={`story-card story-${storySlides[promoSlide].kind}`}>
+            <img key={storySlides[promoSlide].src} className="story-image" src={storySlides[promoSlide].src} alt={storySlides[promoSlide].title} />
+            <div className="story-progress" aria-label="Следующая акция через 30 секунд"><span key={promoSlide} /></div>
+            <button className="story-close" onClick={closePromo} aria-label="Закрыть">×</button>
+          </article>
+          <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label="Следующая акция">→</button>
+        </div>
+      ) : null}
+
       {selected && !addressOpen ? (
-        <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
-          <div className="product-modal">
-            <button className="modal-close" onClick={() => { setCompositionOpen(false); setSelected(null); }} aria-label="Закрыть">×</button>
-            <div className={`modal-art ${selected.badge ? "has-badge" : ""}`}>{selected.badge ? <span className="flavour-badge">{selected.badge}</span> : null}<img src={selected.image} alt={selected.name} /></div>
+        <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
+          <div className={`product-modal product-modal-${selected.modalKind || "related"}`}>
+            <button className="modal-close" onClick={closeProduct} aria-label="Закрыть">×</button>
+            <div className={`modal-art ${selected.badge ? "has-badge" : ""}`}>{selected.badge ? <span className="flavour-badge">{selected.badge}</span> : null}<ProductArt product={selected} mode="detail" /></div>
             <div className="modal-info">
-              <div className="modal-arrows">← &nbsp; Предыдущее · Следующее &nbsp; →</div>
-              <div className="modal-description"><h2>{selected.name}</h2><p>{selected.description}</p></div>
+              <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
+              <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
               <div className="nutrition">
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
                 <div className="nutrition-actions"><button onClick={() => setCompositionOpen(true)}>Состав</button></div>
               </div>
-              <h3>Вместе вкуснее</h3>
-              <div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><img src={product.image} alt={product.name} />{product.badge ? <span className="related-badge">{product.badge}</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); addToCart(product); }}>+</button></div></article>)}</div>
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" onClick={() => addToCart(selected, modalQuantity)}>Добавить {money(selected.price * modalQuantity)}</button></div>
+              {selected.modalKind === "addons" ? <div className="addon-groups">{selected.addonGroups?.map((group) => <section className="addon-group" key={group.title}><h3>{group.title}</h3>{group.items.map((item) => { const chosen = selectedAddons.includes(item.id); return <div className={`addon-row ${chosen ? "selected" : ""}`} key={item.id}><img src={item.image} alt="" /><div><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></div><button onClick={() => toggleAddon(item.id)} aria-label={`${chosen ? "Убрать" : "Добавить"} ${item.name}`}>{chosen ? "−" : "+"}</button></div>; })}</section>)}</div> : null}
+              {selected.modalKind === "related" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.badge ? <span className="related-badge">{product.badge}</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); addToCart(product); }}>+</button></div></article>)}</div></> : null}
+              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" onClick={() => addToCart(selected, modalQuantity)}>Добавить {money((selected.price + addonTotal) * modalQuantity)}</button></div>
             </div>
           </div>
         </div>
@@ -308,7 +453,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
             <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
             <h2>Корзина</h2>
             {cart.length === 0 ? <div className="cart-empty"><span>🐟</span><h3>Пока пусто</h3><p>Добавьте что-нибудь вкусное из меню</p></div> : cart.map((line) => (
-              <div className="cart-line" key={line.product.id}><img src={line.product.image} alt="" /><div><b>{line.product.name}</b><span>{money(line.product.price)}</span></div><div className="line-controls"><button onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
+              <div className="cart-line" key={line.product.id}><div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div><div><b>{line.product.name}</b><span>{money(line.product.price)}</span></div><div className="line-controls"><button onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
             ))}
             {cart.length > 0 ? <button className="checkout">Оформить заказ · {money(cartTotal)}</button> : null}
           </aside>

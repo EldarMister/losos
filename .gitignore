@@ -44,5 +44,6 @@ next-env.d.ts
 /server/dist/
 /server/node_modules/
 /.vinext-dev*.log
+/.vinext-goal-*.log
 !.env.example
 !server/.env.example

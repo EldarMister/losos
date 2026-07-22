@@ -13,6 +13,13 @@ export type Product = {
   fat?: number;
   carbs?: number;
   badge?: string;
+  modalKind?: "simple" | "related" | "addons";
+  referenceCard?: "popcorn" | "batat" | "cheese-sticks" | "crab-salmon";
+  referenceDetail?: "popcorn" | "wasabi";
+  addonGroups?: Array<{
+    title: string;
+    items: Array<{ id: string; name: string; price: number; image: string }>;
+  }>;
 };
 
 export type Category = {
@@ -47,7 +54,30 @@ const images = {
   spicySauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/c095783dce334bac117c8f5596c018d0_thumb_75_1152_1152.JPEG",
   shrimpTempura: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/138a8e926f0747d983388b7d0989d5e7_thumb_75_1152_1152.JPEG",
   bakedSalmonTeriyaki: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/ae99483b3180c9b2e4d17d3bfd783fa6_thumb_75_1152_1152.JPEG",
+  cheeseSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4b81766caade92e23b3e55074bb873fb_thumb_75_1152_1152.JPEG",
+  garlicSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a46fa62f6e4383191defd6f538126d47_thumb_75_1152_1152.JPEG",
+  sweetChiliSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/40f57dae13f5e0ab02896d2dc34d9904_thumb_75_1152_1152.JPEG",
+  caesarSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7b4657268c5591940895bb7ca0a50c1f_thumb_75_1152_1152.JPEG",
+  truffleSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/69c12490d1e4dc0ba898e0ab3cc9bdd8_thumb_75_1152_1152.JPEG",
 };
+
+const popcornAddons: Product["addonGroups"] = [
+  {
+    title: "Основной соус",
+    items: [
+      { id: "cheese", name: "Сырный Heinz", price: 0, image: images.cheeseSauce },
+      { id: "garlic", name: "Чесночный", price: 0, image: images.garlicSauce },
+    ],
+  },
+  {
+    title: "Дополнительный соус",
+    items: [
+      { id: "sweet-chili", name: "Сладкий чили", price: 100, image: images.sweetChiliSauce },
+      { id: "caesar", name: "Цезарь", price: 180, image: images.caesarSauce },
+      { id: "truffle", name: "Трюфельный", price: 180, image: images.truffleSauce },
+    ],
+  },
+];
 
 const shaurokinawaComposition = `рис заправленный, сыр творожный, огурец, креветка темпурная, икра тобико, соус спайс, нори, соевый соус, имбирь маринованный, васаби.
 
@@ -82,6 +112,7 @@ const p = (
   fat: 13,
   carbs: 69,
   description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.",
+  modalKind: "related",
   ...extra,
 });
 
@@ -90,8 +121,33 @@ export const categories: Category[] = [
     slug: "novinki",
     title: "Новинки",
     products: [
-      p(12001, "novinki", "Соус сладкий васаби", 90, images.wasabi, { weight: 30 }),
-      p(12002, "novinki", "Зелёный", 590, images.green, { weight: 220 }),
+      p(12001, "novinki", "Соус сладкий васаби", 90, images.wasabi, {
+        weight: 40,
+        calories: 33,
+        protein: 0,
+        fat: 0,
+        carbs: 7,
+        description: "",
+        composition: "Соус на основе сладкого васаби. Продукция производится на предприятии, где используются аллергены.",
+        modalKind: "simple",
+        referenceDetail: "wasabi",
+      }),
+      p(12002, "novinki", "Куриный попкорн", 345, "", {
+        weight: 150,
+        calories: 497,
+        protein: 14,
+        fat: 31,
+        carbs: 38,
+        description: "Щёлк-щёлк! Предупреждаем. Эта хрустящая закуска разлетается так быстро, что лучше заказать сразу две порции. А ещё лучше дополнить любимым соусом.",
+        composition: "Куриное филе, панировка, масло фритюрное, соль, специи. Продукт готов к употреблению.",
+        modalKind: "addons",
+        referenceCard: "popcorn",
+        referenceDetail: "popcorn",
+        addonGroups: popcornAddons,
+      }),
+      p(12003, "novinki", "Батат фри", 320, "", { referenceCard: "batat", modalKind: "simple" }),
+      p(12004, "novinki", "Сырные палочки с моцареллой", 360, "", { referenceCard: "cheese-sticks", modalKind: "simple" }),
+      p(12005, "novinki", "Краб и лосось", 2850, "", { referenceCard: "crab-salmon", modalKind: "simple" }),
     ],
   },
   {
@@ -101,6 +157,7 @@ export const categories: Category[] = [
       p(11301, "hity-prodaz-2", "Шаурокинава", 405, images.shaurokinawa, {
         description: "Ещё один представитель Шауролловых. Любите обострять ситуацию и обедать на бегу? Тогда это точно для вас! В меру острая и такая любимая Окинава в удобном формате.",
         composition: shaurokinawaComposition,
+        modalKind: "related",
       }),
       p(11155, "hity-prodaz-2", "Чука с ореховым соусом", 395, images.chuka, { weight: 190, badge: "🍃" }),
       p(11021, "hity-prodaz-2", "Филадельфия с лососем", 850, images.philadelphia),

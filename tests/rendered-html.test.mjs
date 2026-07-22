@@ -35,17 +35,24 @@ test("includes the product, cart and address flows", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
 
-  assert.match(storefront, /className="product-modal"/);
+  assert.match(storefront, /product-modal-\$\{selected\.modalKind/);
   assert.match(storefront, /className="address-modal"/);
   assert.match(storefront, /className="cart-drawer"/);
   assert.match(storefront, /aria-label="Самовывоз"/);
   assert.match(storefront, /pickup-location/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
+  assert.match(storefront, /addon-groups/);
+  assert.match(storefront, /story-progress/);
+  assert.match(storefront, /30_000/);
+  assert.match(storefront, /writeOverlayQuery/);
   assert.doesNotMatch(storefront, /Комплектация/);
   assert.match(storefront, /Увеличить количество/);
   assert.match(storefront, /NEXT_PUBLIC_API_URL/);
   assert.match(catalog, /hity-prodaz-2/);
+  assert.match(catalog, /Куриный попкорн/);
+  assert.match(catalog, /Основной соус/);
+  assert.match(catalog, /referenceDetail:\s*"popcorn"/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
