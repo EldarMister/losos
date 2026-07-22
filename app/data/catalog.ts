@@ -380,7 +380,9 @@ export const promoCards = [
   { alt: "Скидка студентам", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/104b14d17af4e66ab32a1f99bfa9cb23_resize_in_box_1104_1104.jpg" },
   { alt: "Telegram: промокоды и мемы", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/f28303d1312d58d8023742cc7c75a57a_resize_in_box_1104_1104.jpg" },
   { alt: "Много лосося — удовольствие есть", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/43ddb99861e8cfbedf08f2a313738c4b_resize_in_box_1104_1104.jpg" },
+  { alt: "Всё вкусное — детям!", src: "/reference-main.png", referenceCrop: "kids" as const },
   { alt: "Кешбэк до 100%", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/c9d2f34588567ee37d2fa4a7c937821a_resize_in_box_1104_1104.jpg" },
+  { alt: "Мноооого палочки?", src: "/reference-main.png", referenceCrop: "sticks" as const },
   { alt: "Помогаем котикам вместе", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/9ad2dfc2bfc46d092fcf9d868b4ae85d_resize_in_box_1104_1104.jpg" },
 ];
 

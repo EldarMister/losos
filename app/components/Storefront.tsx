@@ -22,8 +22,8 @@ const writeOverlayQuery = (name: "product" | "storyInspect", value: string | nul
 
 type StoryGroup = {
   title: string;
-  kind: "student" | "telegram" | "pleasure" | "cashback" | "cats";
-  pages: Array<{ src: string }>;
+  kind: "student" | "telegram" | "pleasure" | "kids" | "cashback" | "sticks" | "cats";
+  pages: Array<{ src: string; referenceCrop?: "kids" | "sticks" }>;
   cta?: string;
 };
 
@@ -46,6 +46,11 @@ const storyGroups: StoryGroup[] = [
     pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/19fb66365769d651613e33c969235601_resize_in_box_2048_2048.jpg" }],
   },
   {
+    title: "Всё вкусное — детям!",
+    kind: "kids",
+    pages: [{ src: "/reference-main.png", referenceCrop: "kids" }],
+  },
+  {
     title: "Кешбэк до 100%",
     kind: "cashback",
     pages: [
@@ -54,6 +59,11 @@ const storyGroups: StoryGroup[] = [
       { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/5f085f197e1afcf72c9ac61c8959140f_resize_in_box_2048_2048.jpg" },
       { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/ce627f513c731ba28069085078e433dc_resize_in_box_2048_2048.jpg" },
     ],
+  },
+  {
+    title: "Мноооого палочки?",
+    kind: "sticks",
+    pages: [{ src: "/reference-main.png", referenceCrop: "sticks" }],
   },
   {
     title: "Помогаем котикам вместе",
@@ -92,7 +102,9 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
+  const [headerPinned, setHeaderPinned] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
+  const promoRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -315,7 +327,9 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     const updateActiveCategory = () => {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
-        const anchor = window.innerWidth <= 720 ? 208 : 156;
+        const isDesktop = window.innerWidth > 720;
+        setHeaderPinned(isDesktop && window.scrollY >= 315);
+        const anchor = isDesktop ? 190 : 208;
         let nextCategory = visibleCategories[0]?.slug || "novinki";
 
         for (const category of visibleCategories) {
@@ -343,6 +357,28 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   }, [categorySlug, visibleCategories]);
 
   useEffect(() => {
+    if (!categorySlug) return;
+    const updatePinnedHeader = () => setHeaderPinned(window.innerWidth > 720 && window.scrollY >= 315);
+    updatePinnedHeader();
+    window.addEventListener("scroll", updatePinnedHeader, { passive: true });
+    window.addEventListener("resize", updatePinnedHeader);
+    return () => {
+      window.removeEventListener("scroll", updatePinnedHeader);
+      window.removeEventListener("resize", updatePinnedHeader);
+    };
+  }, [categorySlug]);
+
+  useEffect(() => {
+    const alignPromoRow = () => {
+      if (!promoRowRef.current) return;
+      promoRowRef.current.scrollLeft = window.innerWidth > 720 ? 92 : 0;
+    };
+    alignPromoRow();
+    window.addEventListener("resize", alignPromoRow);
+    return () => window.removeEventListener("resize", alignPromoRow);
+  }, []);
+
+  useEffect(() => {
     const nav = categoryNavRef.current;
     const item = nav?.querySelector<HTMLElement>(`[data-category-slug="${highlightedCategory}"]`);
     if (!nav || !item) return;
@@ -367,7 +403,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         <img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" />
       </section>
 
-      <div className="store-shell">
+      <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
         <header className="delivery-header">
           <button className="cat-avatar" aria-label="Открыть меню"><span className="cat-reference" aria-hidden="true" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
@@ -380,8 +416,8 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` · ${cartCount}` : ""}</button>
         </header>
 
-        <div className="promo-row" aria-label="Акции">
-          {promoCards.map((card, index) => <button className="promo-card" key={card.src} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}><img src={card.src} alt={card.alt} /></button>)}
+        <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
+          {promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
         </div>
 
         <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
@@ -434,7 +470,9 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storyGroups[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
           <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label="Предыдущая акция">←</button>
           <article className={`story-card story-${storyGroups[promoSlide].kind}`}>
-            <img key={storyGroups[promoSlide].pages[promoPage].src} className="story-image" src={storyGroups[promoSlide].pages[promoPage].src} alt={storyGroups[promoSlide].title} />
+            {storyGroups[promoSlide].pages[promoPage].referenceCrop
+              ? <span key={`${promoSlide}-${promoPage}`} className={`story-image story-reference story-reference-${storyGroups[promoSlide].pages[promoPage].referenceCrop}`} role="img" aria-label={storyGroups[promoSlide].title} />
+              : <img key={storyGroups[promoSlide].pages[promoPage].src} className="story-image" src={storyGroups[promoSlide].pages[promoPage].src} alt={storyGroups[promoSlide].title} />}
             <div className="story-progress" aria-label="Следующая страница через 30 секунд">
               {storyGroups[promoSlide].pages.map((page, index) => (
                 <span className={`story-progress-segment${index < promoPage ? " complete" : ""}${index === promoPage ? " active" : ""}`} key={page.src}>
@@ -463,7 +501,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
               </div>
               {selected.modalKind === "addons" ? <div className="addon-groups">{selected.addonGroups?.map((group) => <section className="addon-group" key={group.title}><h3>{group.title}</h3>{group.items.map((item) => { const chosen = selectedAddons.includes(item.id); return <div className={`addon-row ${chosen ? "selected" : ""}`} key={item.id}><img src={item.image} alt="" /><div><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></div><button onClick={() => toggleAddon(item.id)} aria-label={`${chosen ? "Убрать" : "Добавить"} ${item.name}`}>{chosen ? "−" : "+"}</button></div>; })}</section>)}</div> : null}
               {selected.modalKind === "related" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.badge ? <span className="related-badge">{product.badge}</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); addToCart(product); }}>+</button></div></article>)}</div></> : null}
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" onClick={() => addToCart(selected, modalQuantity)}>Добавить {money((selected.price + addonTotal) * modalQuantity)}</button></div>
+              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" onClick={() => addToCart(selected, modalQuantity)}>Добавить {money((selected.price + addonTotal) * modalQuantity)}</button></div>
             </div>
           </div>
         </div>
