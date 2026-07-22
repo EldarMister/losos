@@ -501,15 +501,27 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       {addressOpen ? (
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
-            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : ""}`}><button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button><div className="map-pin">●</div><div className="map-controls"><button>+</button><button>−</button></div></div>
+            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map"}`}>
+              <button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button>
+              <button className="map-locate" type="button" aria-label="Определить моё местоположение">➤</button>
+              <img className="map-marker" src="https://mnogolososya.ru/_nuxt/active-marker.O4wBI7zK.svg" alt="" />
+              <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
+              <div className="map-attribution"><span>📍 Открыть Яндекс Карты</span><small>© Яндекс&nbsp; Условия использования</small></div>
+            </div>
             <div className="address-panel">
               <button className="modal-close" onClick={() => setAddressOpen(false)} aria-label="Закрыть">×</button>
-              <div className="delivery-mode wide"><span className="bag-icon">🛍️</span><div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>от ~45 минут</small></div></div>
+              <div className="modal-mode-switch" aria-label="Способ получения заказа">
+                <div className="modal-mode-icons">
+                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button>
+                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button>
+                </div>
+                <div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~45 минут" : "от ~45 минут"}</small></div>
+              </div>
               {deliveryType === "pickup" ? <>
                 <h2>Самовывоз</h2><p>Выберите точку для самовывоза<br />из доступных в списке или на карте</p>
                 <div className="address-input muted">Ростов-на-Дону <span>×</span></div>
                 <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>Ростов-на-Дону, Будённовский пр-кт 42</b><small>Ежедневно, без выходных<br />11:30 – 22:30</small></span></button>
-                {pickupLocationSelected ? <button className="save-address save-pickup" onClick={savePickup}>Забрать здесь</button> : null}
+                <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
               </> : <>
                 <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером<br />или передвигайте пин на карте</p>
                 <div className="address-input muted">Ростов-на-Дону <span>×</span></div>
