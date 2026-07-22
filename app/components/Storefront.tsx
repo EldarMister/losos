@@ -132,9 +132,10 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     const source = categorySlug ? catalogCategories.filter((category) => category.slug === categorySlug) : catalogCategories;
     if (!search.trim()) return source;
     const query = search.trim().toLocaleLowerCase("ru");
-    return source
-      .map((category) => ({ ...category, products: category.products.filter((product) => product.name.toLocaleLowerCase("ru").includes(query)) }))
-      .filter((category) => category.products.length > 0);
+    const matches = source.flatMap((category) => category.products)
+      .filter((product) => product.name.toLocaleLowerCase("ru").includes(query))
+      .filter((product, index, products) => products.findIndex((candidate) => candidate.name === product.name) === index);
+    return matches.length > 0 ? [{ slug: "search-results", title: "Нашли для вас", products: matches }] : [];
   }, [catalogCategories, categorySlug, search]);
 
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -447,7 +448,10 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           {visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
           {visibleCategories.map((category) => (
             <section className="category-section" id={category.slug} key={category.slug}>
-              {!categorySlug ? <Link href={`/category/${category.slug}`} className="category-title">{category.title}</Link> : null}
+              {!categorySlug ? search.trim()
+                ? <h2 className="category-title">{category.title}</h2>
+                : <Link href={`/category/${category.slug}`} className="category-title">{category.title}</Link>
+                : null}
               <div className="product-grid">
                 {category.products.map((product) => (
                   <article className="product-card" data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-label={`Открыть ${product.name}`} onClick={() => openProduct(product)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProduct(product); } }}>
