@@ -76,6 +76,7 @@ function ProductArt({ product, mode, loading }: { product: Product; mode: "card"
 
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [compositionOpen, setCompositionOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
@@ -90,12 +91,14 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [utensilsCount, setUtensilsCount] = useState(1);
   const [noUtensils, setNoUtensils] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -304,12 +307,12 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories]);
 
   useEffect(() => {
-    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || promoOpen);
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || promoOpen || menuOpen);
     if (!locked) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [selected, compositionOpen, addressOpen, cartOpen, promoOpen]);
+  }, [selected, compositionOpen, addressOpen, cartOpen, promoOpen, menuOpen]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -386,7 +389,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
       <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
         <header className="delivery-header">
-          <button className="cat-avatar" aria-label="Открыть меню"><span className="cat-reference" aria-hidden="true" /></button>
+          <button className="cat-avatar" aria-label="Открыть меню" onClick={() => setMenuOpen(true)}><span className="cat-reference" aria-hidden="true" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
             <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/доставка.png" alt="" /></button>
             <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/самовызов.png" alt="" /></button>
@@ -402,7 +405,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         </div>
 
         <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
-          <label className="search-pill"><span>⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск" aria-label="Поиск" /></label>
+          <label className={`search-pill ${searchOpen || search ? "search-open" : ""}`} onClick={() => { setSearchOpen(true); window.setTimeout(() => searchInputRef.current?.focus(), 0); }}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onBlur={() => { if (!search) setSearchOpen(false); }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? "Что ищем?" : "Поиск"} aria-label="Поиск" /></label>
           {catalogCategories.map((category) => (
             <a
               key={category.slug}
@@ -446,6 +449,18 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       </div>
 
       {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}>Корзина · {money(cartTotal)}</button> : null}
+
+      {menuOpen ? (
+        <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
+          <section className="profile-modal">
+            <button className="profile-close" onClick={() => setMenuOpen(false)} aria-label="Закрыть">×</button>
+            <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>Привет!</span><strong>Войдите в профиль</strong></div></div>
+            <img className="profile-award" src="https://mnogolososya.ru/_nuxt/auth-roskachestvo-banner.CHXK7t8d.png" alt="Официально лучшее приложение 2025 года для доставки готовой еды по итогам проверки Роскачества. Проверьте сами!" />
+            <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a><a href="https://mnogolososya.ru/page/o-nas"><img src="https://mnogolososya.ru/_nuxt/About.TR1tfEtn.png" alt="" />О нас</a></nav>
+            <button className="profile-login">Войти</button>
+          </section>
+        </div>
+      ) : null}
 
       {promoOpen ? (
         <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storyGroups[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
