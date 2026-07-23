@@ -1,3 +1,6 @@
+import { liveProductCompositions } from "./live-product-compositions";
+import { liveProductMeta } from "./live-product-meta";
+
 export type Product = {
   id: number;
   slug: string;
@@ -13,6 +16,7 @@ export type Product = {
   fat?: number;
   carbs?: number;
   badge?: string;
+  available?: boolean;
   modalKind?: "simple" | "related" | "addons";
   referenceCard?: "popcorn" | "batat" | "cheese-sticks" | "crab-salmon";
   referenceDetail?: "popcorn" | "wasabi";
@@ -182,7 +186,6 @@ const sauceDetails: Partial<Product> = {
   description: "",
   composition: sauceComposition,
   modalKind: "simple",
-  referenceDetail: "wasabi",
 };
 
 const shaurokinawaComposition = `рис заправленный, сыр творожный, огурец, креветка темпурная, икра тобико, соус спайс, нори, соевый соус, имбирь маринованный, васаби.
@@ -218,8 +221,11 @@ const p = (
   fat: 13,
   carbs: 69,
   description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.",
+  composition: liveProductCompositions[name] || undefined,
   modalKind: "related",
   ...extra,
+  ...(liveProductMeta[name] || {}),
+  composition: liveProductCompositions[name] || extra.composition,
 });
 
 export const categories: Category[] = [
@@ -228,23 +234,7 @@ export const categories: Category[] = [
     title: "Новинки",
     products: [
       p(11847, "novinki", "Соус сладкий васаби", 90, images.wasabi, sauceDetails),
-      p(12002, "novinki", "Куриный попкорн", 345, "", {
-        slug: "kurinyj-popkorn",
-        weight: 150,
-        calories: 497,
-        protein: 14,
-        fat: 31,
-        carbs: 38,
-        description: "Щёлк-щёлк! Предупреждаем. Эта хрустящая закуска разлетается так быстро, что лучше заказать сразу две порции. А ещё лучше дополнить любимым соусом.",
-        composition: "Куриное филе, панировка, масло фритюрное, соль, специи. Продукт готов к употреблению.",
-        modalKind: "addons",
-        referenceCard: "popcorn",
-        referenceDetail: "popcorn",
-        addonGroups: popcornAddons,
-      }),
-      p(12003, "novinki", "Батат фри", 320, "", { referenceCard: "batat", modalKind: "simple" }),
-      p(12004, "novinki", "Сырные палочки с моцареллой", 360, "", { referenceCard: "cheese-sticks", modalKind: "simple" }),
-      p(12005, "novinki", "Краб и лосось", 2850, "", { referenceCard: "crab-salmon", modalKind: "simple" }),
+      p(11693, "novinki", "Зелёный", 590, images.green),
     ],
   },
   {
@@ -257,9 +247,9 @@ export const categories: Category[] = [
         composition: shaurokinawaComposition,
         modalKind: "related",
       }),
-      p(11155, "hity-prodaz-2", "Чука с ореховым соусом", 395, images.chuka, { weight: 190, badge: "🍃" }),
+      p(11155, "hity-prodaz-2", "Чука с ореховым соусом", 395, images.chuka, { weight: 190 }),
       p(11021, "hity-prodaz-2", "Филадельфия с лососем", 850, images.philadelphia),
-      p(11202, "hity-prodaz-2", "Том Ям с кальмаром и креветками", 635, images.tomyam, { badge: "🌶️" }),
+      p(11202, "hity-prodaz-2", "Том Ям с кальмаром и креветками", 635, images.tomyam),
       p(11355, "hity-prodaz-2", "Ролл Рукола-креветка", 585, images.rukola),
       p(11277, "hity-prodaz-2", "Запечённый с креветками", 690, images.bakedShrimp, {
         description: "Румяные креветки. В рисовых пышках с огурцом, сливочным сыром и запеченным соусом.",
@@ -269,7 +259,7 @@ export const categories: Category[] = [
         fat: 31,
         carbs: 51,
       }),
-      p(11402, "hity-prodaz-2", "Поке с лососем в тобико", 830, images.poke),
+      p(11402, "hity-prodaz-2", "Поке с лососем в тобико", 830, images.poke, { available: false }),
     ],
   },
   {
@@ -303,8 +293,8 @@ export const categories: Category[] = [
       p(11078, "rolly-2", "Хрустящий лосось", 695, images.philadelphia),
       p(11079, "rolly-2", "Сливочная креветка и тобико", 630, images.rukola),
       p(11080, "rolly-2", "Хрустящая креветка и соус аригато", 495, images.rukola),
-      p(11081, "rolly-2", "Креветка Спайс", 530, images.rukola, { badge: "🌶️" }),
-      p(11082, "rolly-2", "Лосось спайси", 580, images.philadelphia, { badge: "🌶️" }),
+      p(11081, "rolly-2", "Креветка Спайс", 530, images.rukola),
+      p(11082, "rolly-2", "Лосось спайси", 580, images.philadelphia),
       p(11083, "rolly-2", "Унаги и опалённый лосось", 765, images.bakedShrimp),
       p(11084, "rolly-2", "Опалённый лосось и креветка", 825, images.rukola),
       p(11085, "rolly-2", "Калифорния с лососем", 760, images.philadelphia),
@@ -327,7 +317,7 @@ export const categories: Category[] = [
     slug: "tempura-i-zapecennye-rolly-3",
     title: "Темпура и запеченные роллы",
     products: [
-      p(11501, "tempura-i-zapecennye-rolly-3", "Темпура с креветками спайси", 620, images.shrimpTempura, { badge: "🌶️" }),
+      p(11501, "tempura-i-zapecennye-rolly-3", "Темпура с креветками спайси", 620, images.shrimpTempura),
       p(11502, "tempura-i-zapecennye-rolly-3", "Темпура с тунцом", 530, images.chuka),
       p(11503, "tempura-i-zapecennye-rolly-3", "Огненный фурай", 650, images.tomyam),
       p(11504, "tempura-i-zapecennye-rolly-3", "Запеченная калифорния", 595, images.bakedShrimp),
@@ -345,7 +335,6 @@ export const categories: Category[] = [
         fat: 31,
         carbs: 51,
       }),
-      p(11512, "tempura-i-zapecennye-rolly-3", "Рисовый сэндвич с лососем (темпура)", 690, images.rukola),
     ],
   },
   {
@@ -385,18 +374,21 @@ export const categories: Category[] = [
     title: "Поке",
     products: [
       p(11701, "poke-2", "Поке с креветками", 780, images.poke),
+      p(11702, "poke-2", "Поке спайси с лососем", 890, images.poke, { available: false }),
       p(11703, "poke-2", "Поке с тунцом", 795, images.poke),
-      p(11702, "poke-2", "Поке спайси с лососем", 890, images.poke),
-      p(11704, "poke-2", "Собери своё поке", 220, images.green),
-      p(11705, "poke-2", "Поке с лососем", 890, images.poke),
-      p(11706, "poke-2", "Поке с лососем в тобико", 830, images.poke),
+      p(11704, "poke-2", "Собери своё поке", 220, images.green, { available: false }),
+      p(11705, "poke-2", "Поке с лососем", 890, images.poke, { available: false }),
+      p(11706, "poke-2", "Поке с лососем в тобико", 830, images.poke, { available: false }),
     ],
   },
   {
     slug: "zakuski-4",
     title: "Закуски",
     products: [
-      p(11801, "zakuski-4", "Картофель фри", 275, images.green),
+      p(11801, "zakuski-4", "Картофель фри", 275, images.green, {
+        modalKind: "addons",
+        addonGroups: popcornAddons,
+      }),
       p(11802, "zakuski-4", "Креветки васаби", 695, images.rukola),
       p(11803, "zakuski-4", "Чипсы креветочные", 150, images.wasabi),
       p(11804, "zakuski-4", "Наггетсы куриные", 285, images.bakedShrimp),
@@ -430,7 +422,7 @@ export const categories: Category[] = [
     slug: "goracie-bluda",
     title: "Горячие блюда",
     products: [
-      p(12051, "goracie-bluda", "Паста с лососем в сливочном соусе", 750, images.salmonPasta),
+      p(12051, "goracie-bluda", "Паста с лососем в сливочном соусе", 750, images.salmonPasta, { available: false }),
     ],
   },
   {
@@ -467,10 +459,10 @@ export const categories: Category[] = [
     slug: "napitki-4",
     title: "Напитки",
     products: [
-      p(12301, "napitki-4", "Добрый Кола", 170, images.cola),
-      p(12302, "napitki-4", "Добрый Апельсин с витамином С", 170, images.orangeSoda),
-      p(12303, "napitki-4", "Апельсиновый фреш", 470, images.orangeFresh),
-      p(12304, "napitki-4", "Добрый Лимон-лайм", 170, images.limeSoda),
+      p(12301, "napitki-4", "Добрый Кола", 170, images.cola, { available: false }),
+      p(12302, "napitki-4", "Добрый Апельсин с витамином С", 170, images.orangeSoda, { available: false }),
+      p(12303, "napitki-4", "Апельсиновый фреш", 470, images.orangeFresh, { available: false }),
+      p(12304, "napitki-4", "Добрый Лимон-лайм", 170, images.limeSoda, { available: false }),
     ],
   },
 ];
