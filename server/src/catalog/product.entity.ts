@@ -1,10 +1,13 @@
-import { Column, Entity, Index, ManyToOne, PrimaryColumn } from "typeorm";
+import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Category } from "./category.entity";
 
 @Entity("products")
 export class Product {
-  @PrimaryColumn({ type: "int" })
+  @PrimaryGeneratedColumn()
   id!: number;
+
+  @Column({ type: "int", nullable: true })
+  sourceId!: number | null;
 
   @Index()
   @Column()
@@ -21,6 +24,9 @@ export class Product {
 
   @Column({ type: "text", default: "" })
   description!: string;
+
+  @Column({ type: "text", default: "" })
+  composition!: string;
 
   @Column({ type: "int", default: 0 })
   weight!: number;
@@ -39,6 +45,12 @@ export class Product {
 
   @Column({ type: "varchar", nullable: true })
   badge!: string | null;
+
+  @Column({ default: true })
+  available!: boolean;
+
+  @Column({ type: "int", default: 0 })
+  sortOrder!: number;
 
   @ManyToOne(() => Category, (category) => category.products, { onDelete: "CASCADE" })
   category!: Category;

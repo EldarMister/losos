@@ -2,11 +2,19 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 
 type CartLine = { product: Product; quantity: number };
 type DeliveryType = "delivery" | "pickup";
+type RegionOption = { slug: "bishkek" | "osh"; name: string };
+type Promotion = { id: number; title: string; image: string; cta?: string };
+
+const defaultRegions: RegionOption[] = [
+  { slug: "bishkek", name: "Бишкек" },
+  { slug: "osh", name: "Ош" },
+];
 
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 
@@ -27,7 +35,7 @@ type StoryGroup = {
   cta?: string;
 };
 
-const storyGroups: StoryGroup[] = [
+const defaultStoryGroups: StoryGroup[] = [
   {
     title: "Скидка студентам",
     kind: "student",
@@ -87,9 +95,13 @@ function ProductArt({ product, mode, loading }: { product: Product; mode: "card"
 }
 
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
+  const searchParams = useSearchParams();
+  const initialRegion = searchParams.get("region") === "osh" ? "osh" : "bishkek";
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [city, setCity] = useState("Ростов-на-Дону");
+  const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
+  const [regionSlug, setRegionSlug] = useState<"bishkek" | "osh">(initialRegion);
+  const [regionOptions, setRegionOptions] = useState<RegionOption[]>(defaultRegions);
   const [cityOpen, setCityOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [compositionOpen, setCompositionOpen] = useState(false);
@@ -109,6 +121,8 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   const [modalQuantity, setModalQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
+  const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
+  const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -120,16 +134,43 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!apiUrl) return;
     const controller = new AbortController();
-    fetch(`${apiUrl}/categories`, { signal: controller.signal })
+    const baseUrl = apiUrl.replace(/\/$/, "");
+
+    fetch(`${baseUrl}/regions`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Regions request failed")))
+      .then((data: RegionOption[]) => { if (data.length > 0) setRegionOptions(data); })
+      .catch(() => undefined);
+
+    fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Catalog request failed")))
       .then((data: Array<Category & { products: Product[] }>) => setCatalogCategories(data.map((category) => ({
         slug: category.slug,
         title: category.title,
-        products: category.products.map((product) => ({ ...product, category: category.slug })),
+        products: category.products.map((product) => {
+          const localProduct = categories.flatMap((entry) => entry.products)
+            .find((entry) => entry.name === product.name);
+          return { ...localProduct, ...product, category: category.slug };
+        }),
       }))))
       .catch(() => undefined);
+
+    fetch(`${baseUrl}/promotions?region=${regionSlug}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
+      .then((data: Promotion[]) => {
+        setRegionalPromotions(data);
+        if (data.length > 0) {
+          setStoryGroups(data.map((promotion) => ({
+            title: promotion.title,
+            kind: "pleasure",
+            pages: [{ src: promotion.image }],
+            cta: promotion.cta || undefined,
+          })));
+        }
+      })
+      .catch(() => undefined);
+
     return () => controller.abort();
-  }, []);
+  }, [regionSlug]);
 
   useEffect(() => {
     if (!cityOpen) return;
@@ -150,6 +191,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     return matches.length > 0 ? [{ slug: "search-results", title: "Нашли для вас", products: matches }] : [];
   }, [catalogCategories, categorySlug, search]);
 
+  const currentStory = storyGroups[promoSlide] || storyGroups[0] || defaultStoryGroups[0];
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
   const highlightedCategory = categorySlug || activeCategory;
@@ -205,7 +247,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
   const savePickup = () => {
     if (!pickupLocationSelected) return;
-    setAddress("Ростов-на-Дону, Буденновский пр-кт 42");
+    setAddress(regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123");
     setAddressOpen(false);
     if (selected) addToCartAfterAddress(selected, modalQuantity);
   };
@@ -235,7 +277,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   };
 
   const changePromo = (delta: number) => {
-    const pageCount = storyGroups[promoSlide].pages.length;
+    const pageCount = currentStory.pages.length;
     if (delta > 0 && promoPage < pageCount - 1) {
       setPromoPage((current) => current + 1);
       return;
@@ -325,7 +367,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
   useEffect(() => {
     if (!promoOpen) return;
     const timer = window.setTimeout(() => {
-      if (promoPage < storyGroups[promoSlide].pages.length - 1) {
+      if (promoPage < currentStory.pages.length - 1) {
         setPromoPage((current) => current + 1);
         return;
       }
@@ -335,7 +377,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       writeOverlayQuery("storyInspect", String(nextGroup + 1), "replace");
     }, 30_000);
     return () => window.clearTimeout(timer);
-  }, [promoOpen, promoPage, promoSlide]);
+  }, [currentStory.pages.length, promoOpen, promoPage, promoSlide, storyGroups]);
 
   useEffect(() => {
     const syncFromUrl = () => {
@@ -363,7 +405,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     syncFromUrl();
     window.addEventListener("popstate", syncFromUrl);
     return () => window.removeEventListener("popstate", syncFromUrl);
-  }, [catalogCategories]);
+  }, [catalogCategories, storyGroups]);
 
   useEffect(() => {
     const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || promoOpen || menuOpen);
@@ -473,7 +515,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
             <div className="city-select" ref={citySelectRef}>
               <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{city} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
               {cityOpen ? <div className="city-dropdown" role="listbox" aria-label="Город">
-                {["Ростов-на-Дону", "Санкт-Петербург", "Москва и Московская обл."].filter((option) => option !== city).map((option) => <button key={option} role="option" aria-selected={city === option} onClick={() => { setCity(option); setCityOpen(false); setAddress(""); }}>{option}</button>)}
+                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories(categories); setStoryGroups(defaultStoryGroups); setRegionalPromotions(null); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setCart([]); setSelected(null); }}>{option.name}</button>)}
               </div> : null}
             </div>
             <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
@@ -487,7 +529,9 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         </header>
 
         <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
-          {promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
+          {regionalPromotions
+            ? regionalPromotions.map((promotion, index) => <button className="promo-card" key={promotion.id} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${promotion.title}`}><img src={promotion.image} alt={promotion.title} /></button>)
+            : promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
         </div>
 
         <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
@@ -495,7 +539,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
           {catalogCategories.map((category) => (
             <a
               key={category.slug}
-              href={categorySlug ? `/category/${category.slug}` : `#${category.slug}`}
+              href={categorySlug ? `/category/${category.slug}?region=${regionSlug}` : `#${category.slug}`}
               data-category-slug={category.slug}
               className={category.slug === highlightedCategory ? "active" : ""}
               onClick={() => setActiveCategory(category.slug)}
@@ -504,13 +548,13 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
         </nav>
 
         <main className="catalog">
-          {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в Ростове-на-Дону</h1> : null}
+          {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в {city}</h1> : null}
           {visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
           {visibleCategories.map((category) => (
             <section className="category-section" id={category.slug} key={category.slug}>
               {!categorySlug ? search.trim()
                 ? <h2 className="category-title">{category.title}</h2>
-                : <Link href={`/category/${category.slug}`} className="category-title">{category.title}</Link>
+                : <Link href={`/category/${category.slug}?region=${regionSlug}`} className="category-title">{category.title}</Link>
                 : null}
               <div className="product-grid">
                 {category.products.map((product) => (
@@ -554,19 +598,19 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       {promoOpen ? (
-        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={storyGroups[promoSlide].title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
+        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={currentStory.title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
           <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label="Предыдущая акция">←</button>
-          <article className={`story-card story-${storyGroups[promoSlide].kind}`}>
-            <img key={storyGroups[promoSlide].pages[promoPage].src} className="story-image" src={storyGroups[promoSlide].pages[promoPage].src} alt={storyGroups[promoSlide].title} />
+          <article className={`story-card story-${currentStory.kind}`}>
+            <img key={currentStory.pages[promoPage]?.src || currentStory.pages[0].src} className="story-image" src={currentStory.pages[promoPage]?.src || currentStory.pages[0].src} alt={currentStory.title} />
             <div className="story-progress" aria-label="Следующая страница через 30 секунд">
-              {storyGroups[promoSlide].pages.map((page, index) => (
+              {currentStory.pages.map((page, index) => (
                 <span className={`story-progress-segment${index < promoPage ? " complete" : ""}${index === promoPage ? " active" : ""}`} key={page.src}>
                   {index === promoPage ? <i key={`${promoSlide}-${promoPage}`} /> : null}
                 </span>
               ))}
             </div>
             <button className="story-close" onClick={closePromo} aria-label="Закрыть">×</button>
-            {storyGroups[promoSlide].cta ? <button className="story-cta" type="button">{storyGroups[promoSlide].cta}</button> : null}
+            {currentStory.cta ? <button className="story-cta" type="button">{currentStory.cta}</button> : null}
           </article>
           <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label="Следующая акция">→</button>
         </div>
@@ -609,7 +653,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
       {addressOpen ? (
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
-            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map"}`}>
+            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : `delivery-map delivery-map-${regionSlug}`}`}>
               <button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button>
               <button className="map-locate" type="button" aria-label="Определить моё местоположение">➤</button>
               <img
@@ -634,7 +678,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
               {deliveryType === "pickup" ? <>
                 <h2>Самовывоз</h2><p>Выберите точку для самовывоза<br />из доступных в списке или на карте</p>
                 <div className="address-input muted">{city} <span>×</span></div>
-                <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>Ростов-на-Дону, Буденновский пр-кт 42</b><small>Ежедневно, без выходных<br />11:30 – 22:30</small></span></button>
+                <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>{regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123"}</b><small>Ежедневно, без выходных<br />11:30 – 22:30</small></span></button>
                 <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
               </> : <>
                 <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером<br />или передвигайте пин на карте</p>

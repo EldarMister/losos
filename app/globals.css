@@ -115,7 +115,7 @@ a { color: inherit; text-decoration: none; }
 .footer-links span { opacity: .65; }
 .footer-legal { grid-area: legal; margin: -5px 0 0; color: rgba(255,255,255,.52); font-size: 13px; line-height: 20px; }
 .overlay, .drawer-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.57); backdrop-filter: blur(8px); display: grid; place-items: center; padding: 20px; }
-.product-modal { width: min(1160px, calc(100vw - 40px)); height: min(792px, calc(100vh - 40px)); background: var(--soft); border-radius: 32px; position: relative; overflow: hidden; display: grid; grid-template-columns: 2fr 1.05fr; }
+.product-modal { width: min(1186px, calc(100vw - 48px)); height: min(920px, calc(100vh - 48px)); background: var(--soft); border-radius: 32px; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 402px); }
 .product-modal-simple { width: min(905px, calc(100vw - 40px)); grid-template-columns: 64% 36%; }
 .modal-close { position: absolute; z-index: 3; right: 18px; top: 14px; background: transparent; color: #8d8d92; font-size: 34px; line-height: 1; }
 .modal-art { position: relative; min-width: 0; display: grid; place-items: center; overflow: hidden; background: var(--soft); }
@@ -126,9 +126,8 @@ a { color: inherit; text-decoration: none; }
 .modal-art.has-badge::after { content: ""; position: absolute; z-index: 1; left: 64px; top: 48px; width: 118px; height: 118px; background: var(--soft); }
 .flavour-badge { position: absolute; left: 108px; top: 78px; width: 120px; height: 120px; background: white; border-radius: 28px 28px 28px 28px; display: grid; place-items: center; font-size: 64px; }
 .flavour-badge { z-index: 2; }
-.modal-info { min-width: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #a9a9ad transparent; }
-.modal-info::-webkit-scrollbar { width: 4px; }
-.modal-info::-webkit-scrollbar-thumb { border-radius: 4px; background: #a9a9ad; }
+.modal-info { min-width: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
+.modal-info::-webkit-scrollbar { display: none; }
 .modal-arrows { flex: 0 0 57px; height: 57px; color: #aaa; font-size: 12px; text-align: left; margin: 0; padding: 20px 20px 12px; }
 .modal-arrows button { padding: 0; background: transparent; color: inherit; font-weight: 600; }
 .modal-arrows span { margin: 0 8px; }
@@ -145,9 +144,9 @@ a { color: inherit; text-decoration: none; }
 .nutrition-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; gap: 4px; margin-top: 0; }
 .nutrition-actions button { height: 44px; border-radius: 24px; background: var(--soft); }
 .modal-info h3 { margin: 22px 20px 12px; font-size: 17px; }
-.related-row { width: calc(100% - 40px); margin: 0 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-height: 0; flex: 0 0 auto; }
-.related-row article { min-height: 222px; border: 2px solid white; border-radius: 28px; padding: 8px 12px 10px; display: flex; flex-direction: column; min-width: 0; cursor: pointer; }
-.related-image { position: relative; height: 126px; flex: 0 0 126px; }
+.related-row { width: calc(100% - 40px); margin: 0 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-height: 0; flex: 0 0 auto; }
+.related-row article { min-height: 270px; border: 2px solid white; border-radius: 28px; padding: 8px 12px 10px; display: flex; flex-direction: column; min-width: 0; cursor: pointer; }
+.related-image { position: relative; height: 145px; flex: 0 0 145px; }
 .related-image img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: normal; }
 .related-row article > span { min-height: 32px; font-size: 12px; line-height: 16px; overflow: hidden; }
 .related-badge { position: absolute; left: 0; top: 0; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px 8px 8px 2px; background: #fff; font-size: 18px; }
@@ -177,20 +176,24 @@ a { color: inherit; text-decoration: none; }
   .store-shell.header-pinned .category-nav { position: fixed; z-index: 25; top: 124px; left: 50%; width: min(1280px, 100%); transform: translateX(-50%); animation: desktop-sticky-nav .22s ease-out both; }
   .store-shell.header-pinned .promo-row { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; pointer-events: none; }
   .store-shell.header-pinned .catalog { margin-top: 297.2px; }
-  .product-modal:not(.product-modal-simple) .modal-arrows { padding-left: 0; padding-right: 10px; }
+  .product-modal:not(.product-modal-simple) .modal-arrows { padding-left: 0; padding-right: 24px; }
+  .product-modal:not(.product-modal-simple) .modal-arrows { height: 71px; flex-basis: 71px; padding-top: 32px; }
   .product-modal:not(.product-modal-simple) .modal-description,
-  .product-modal:not(.product-modal-simple) .nutrition { width: calc(100% - 10px); margin-left: 0; margin-right: 0; }
-  .product-modal:not(.product-modal-simple) .modal-info h3 { margin-left: 0; margin-right: 0; }
-  .product-modal:not(.product-modal-simple) .related-row { width: calc(100% - 10px); margin-left: 0; margin-right: 0; }
-  .product-modal:not(.product-modal-simple) .addon-groups { padding-left: 0; padding-right: 10px; }
-  .product-modal:not(.product-modal-simple) .modal-buy { width: calc(100% - 10px); margin-left: 0; margin-right: 0; }
+  .product-modal:not(.product-modal-simple) .nutrition { width: calc(100% - 24px); margin-left: 0; margin-right: 0; }
+  .product-modal:not(.product-modal-simple) .modal-description { height: 114px; min-height: 114px; }
+  .product-modal:not(.product-modal-simple) .nutrition { margin-top: 8px; }
+  .product-modal:not(.product-modal-simple) .modal-info h3 { margin: 33px 0 18px; }
+  .product-modal:not(.product-modal-simple) .related-row { width: calc(100% - 24px); margin-left: 0; margin-right: 0; }
+  .product-modal:not(.product-modal-simple) .addon-groups { padding-left: 0; padding-right: 24px; }
+  .product-modal:not(.product-modal-simple) .modal-buy { width: calc(100% - 24px); margin-left: 0; margin-right: 0; }
 }
 @keyframes desktop-sticky-panel { from { height: 357.2px; } to { height: 169.2px; } }
 @keyframes desktop-sticky-header { from { transform: translate(-50%, -27px); } to { transform: translate(-50%, 0); } }
 @keyframes desktop-sticky-nav { from { transform: translate(-50%, clamp(188px, 14.6875vw, 235px)); } to { transform: translate(-50%, 0); } }
 .address-modal { width: min(900px, calc(100vw - 40px)); height: min(580px, calc(100vh - 40px)); background: white; border-radius: 36px; overflow: hidden; display: grid; grid-template-columns: 1.25fr 1fr; }
 .map-placeholder { position: relative; display: grid; place-items: center; overflow: hidden; background-color: #f4f4f4; background-repeat: no-repeat; background-position: center; background-size: cover; }
-.delivery-map { background-image: url("https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=39.715551%2C47.230495&z=15&l=map&size=450%2C450"); }
+.delivery-map-bishkek { background-image: url("https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=74.60354%2C42.87664&z=14&l=map&size=450%2C450"); }
+.delivery-map-osh { background-image: url("https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=72.7985%2C40.5130&z=14&l=map&size=450%2C450"); }
 .map-back { position: absolute; z-index: 2; left: 14px; top: 16px; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.86); font-size: 27px; color: #555; }
 .map-locate { display: none; position: absolute; z-index: 2; right: 12px; top: 48px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.92); color: #404047; font-size: 18px; transform: rotate(-45deg); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .map-marker { position: absolute; z-index: 1; left: 50%; top: 50%; width: 52px; height: 76px; object-fit: contain; transform: translate(-50%, -58%); }

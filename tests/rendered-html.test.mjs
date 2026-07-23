@@ -73,7 +73,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /f449b42a119d8d82dbaf4ec023d4bd95/);
   assert.match(catalog, /Основной соус/);
   assert.match(catalog, /modalKind:\s*"simple"/);
-  assert.match(catalog, /liveProductMeta\[name\]/);
+  assert.match(catalog, /productMetaByName\[name\]/);
   assert.match(catalog, /available:\s*false/);
   assert.match(catalog, /liveProductImages\[name\] \|\| image/);
   assert.match(catalog, /3d9ab65a9c04e36fc93b2c615bf2834c/);
@@ -81,7 +81,9 @@ test("includes the product, cart and address flows", async () => {
   assert.ok(catalog.indexOf('"Поке спайси с лососем", 890') < catalog.indexOf('"Поке с тунцом", 795'));
   assert.match(storefront, /title: "Нашли для вас"/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
-  assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1160px[^}]*height:\s*min\(792px/);
+  assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1186px[^}]*height:\s*min\(920px/);
+  assert.match(globals, /\.modal-info\s*\{[^}]*scrollbar-width:\s*none/);
+  assert.match(globals, /\.related-row\s*\{[^}]*gap:\s*16px/);
   assert.match(globals, /\.product-modal-simple\s*\{[^}]*width:\s*min\(905px/);
   assert.match(globals, /\.product-modal-simple \.modal-description\s*\{\s*height:\s*74px/);
   assert.match(globals, /white-space:\s*normal/);
