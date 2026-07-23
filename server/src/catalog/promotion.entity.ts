@@ -15,6 +15,9 @@ export class Promotion {
   @Column({ type: "varchar", default: "" })
   cta!: string;
 
+  @Column({ type: "text", default: "" })
+  ctaUrl!: string;
+
   @Column({ default: true })
   enabled!: boolean;
 

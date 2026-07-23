@@ -9,7 +9,7 @@ import { categories, promoCards, type Category, type Product } from "../data/cat
 type CartLine = { product: Product; quantity: number };
 type DeliveryType = "delivery" | "pickup";
 type RegionOption = { slug: "bishkek" | "osh"; name: string };
-type Promotion = { id: number; title: string; image: string; cta?: string };
+type Promotion = { id: number; title: string; image: string; cta?: string; ctaUrl?: string };
 
 const defaultRegions: RegionOption[] = [
   { slug: "bishkek", name: "Бишкек" },
@@ -33,6 +33,7 @@ type StoryGroup = {
   kind: "student" | "telegram" | "pleasure" | "kids" | "cashback" | "sticks" | "cats";
   pages: Array<{ src: string }>;
   cta?: string;
+  ctaUrl?: string;
 };
 
 const defaultStoryGroups: StoryGroup[] = [
@@ -168,6 +169,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             kind: "pleasure",
             pages: [{ src: promotion.image }],
             cta: promotion.cta || undefined,
+            ctaUrl: promotion.ctaUrl || undefined,
           })));
         }
       })
@@ -614,7 +616,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               ))}
             </div>
             <button className="story-close" onClick={closePromo} aria-label="Закрыть">×</button>
-            {currentStory.cta ? <button className="story-cta" type="button">{currentStory.cta}</button> : null}
+            {currentStory.cta && currentStory.ctaUrl ? <button className="story-cta" type="button" onClick={() => window.open(currentStory.ctaUrl, "_blank", "noopener,noreferrer")}>{currentStory.cta}</button> : null}
           </article>
           <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label="Следующая акция">→</button>
         </div>

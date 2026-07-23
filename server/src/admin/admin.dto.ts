@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   MaxLength,
   Min,
 } from "class-validator";
@@ -164,6 +165,11 @@ export class CreatePromotionDto {
   @MaxLength(80)
   cta = "";
 
+  @IsOptional()
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
+  @MaxLength(500)
+  ctaUrl = "";
+
   @Transform(optionalBoolean)
   @IsBoolean()
   enabled = true;
@@ -178,6 +184,7 @@ export class UpdatePromotionDto {
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(120) title?: string;
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() @MaxLength(80) cta?: string;
+  @IsOptional() @IsUrl({ protocols: ["http", "https"], require_protocol: true }) @MaxLength(500) ctaUrl?: string;
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
 }

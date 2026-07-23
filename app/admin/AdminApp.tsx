@@ -22,7 +22,7 @@ type Product = {
   carbs: number;
 };
 type Category = { id: number; title: string; slug: string; sortOrder: number; products: Product[] };
-type Promotion = { id: number; title: string; image: string; cta: string; enabled: boolean; sortOrder: number };
+type Promotion = { id: number; title: string; image: string; cta: string; ctaUrl: string; enabled: boolean; sortOrder: number };
 type Dashboard = { region: Region; categories: Category[]; promotions: Promotion[] };
 type Tab = "products" | "promotions" | "categories";
 type EditorKind = "product" | "promotion" | "category";
@@ -165,12 +165,13 @@ export function AdminApp() {
       title: promotion.title,
       image: promotion.image,
       cta: promotion.cta,
+      ctaUrl: promotion.ctaUrl,
       enabled: promotion.enabled,
       sortOrder: String(promotion.sortOrder),
     },
   } : {
     kind: "promotion",
-    values: { title: "", image: "", cta: "", enabled: true, sortOrder: "0" },
+    values: { title: "", image: "", cta: "", ctaUrl: "", enabled: true, sortOrder: "0" },
   });
 
   const openCategory = (category?: Category) => setEditor(category ? {
@@ -330,6 +331,7 @@ export function AdminApp() {
         </> : null}
         {editor.kind === "promotion" ? <>
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
+          <label>Ссылка кнопки<input type="url" required={Boolean(editor.values.cta)} value={String(editor.values.ctaUrl || "")} onChange={(event) => updateValue("ctaUrl", event.target.value)} placeholder="https://t.me/..." /></label>
           <div className="admin-two-fields"><label>Текст кнопки<input value={String(editor.values.cta || "")} onChange={(event) => updateValue("cta", event.target.value)} placeholder="Подробнее" /></label><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
           <label className="admin-switch"><span><b>Показывать акцию</b><small>В ленте выбранного города</small></span><input type="checkbox" checked={Boolean(editor.values.enabled)} onChange={(event) => updateValue("enabled", event.target.checked)} /></label>
         </> : null}
