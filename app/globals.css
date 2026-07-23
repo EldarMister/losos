@@ -354,19 +354,20 @@ a { color: inherit; text-decoration: none; }
   .address-button { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 42px; border-radius: 20px; background: var(--soft); text-align: center; }
   .promo-row { padding: 8px 8px 19.725px; gap: 12px; }
   .promo-card { flex-basis: 120px; width: 120px; height: 130.275px; padding: 2px; border-radius: 28px; }
-  .category-nav { top: 146px; height: 36px; padding: 0 0 0 8px; gap: 10px; box-shadow: 0 -8px 0 #fff; }
+  .category-nav { top: 146px; height: 44px; padding: 0 0 8px 2px; gap: 10px; background: #fff; box-shadow: 0 -10px 0 #fff, 0 10px 0 #fff; }
   .category-nav a { height: 36px; padding: 0 32px; font-size: 12px; }
+  .category-nav a.active { background: var(--soft); color: #9c9ca2; font-weight: 500; }
   .search-pill { width: 36px; height: 36px; padding: 0; justify-content: center; }
-  .search-pill { position: sticky; left: 0; z-index: 3; box-shadow: -8px 0 0 #fff, 8px 0 0 #fff; }
+  .search-pill { position: sticky; left: 2px; z-index: 3; box-shadow: -4px 0 0 #fff, 8px 0 0 #fff; }
   .search-pill input { width: 0; min-width: 0; padding: 0; opacity: 0; pointer-events: none; }
   .search-pill.search-open { width: 145px; padding: 0 16px; justify-content: flex-start; gap: 8px; }
   .search-pill.search-open input { width: 100%; opacity: 1; pointer-events: auto; }
   .catalog { width: 100%; margin-left: 0; margin-right: 0; }
   .catalog h1 { font-size: 25px; line-height: 30px; margin: 24px 0; }
-  .category-section { scroll-margin-top: 206px; margin-top: 20px; }
+  .category-section { scroll-margin-top: 216px; margin-top: 20px; }
   .catalog > .category-section:first-child { margin-top: 47px; }
-  .category-title { margin-left: 8px; font-size: 20px; line-height: 30px; margin-bottom: 20px; }
-  .product-grid { width: calc(100% - 15px); margin-left: 8px; margin-right: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .category-title { margin-left: 2px; font-size: 20px; line-height: 30px; margin-bottom: 20px; }
+  .product-grid { width: calc(100% - 3px); margin-left: 2px; margin-right: 1px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .product-card { height: 280px; border-radius: 32px; font-size: 14px; line-height: 20px; }
   .product-image-wrap { height: auto; flex: 6 1 0; }
   .product-image-wrap img { object-fit: cover; mix-blend-mode: normal; }
