@@ -88,8 +88,9 @@ test("includes the product, cart and address flows", async () => {
   assert.match(globals, /\.category-nav\s*\{[^}]*top:\s*146px/);
   assert.match(globals, /\.footer\s*\{[^}]*background:\s*var\(--orange\)/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);
-  assert.match(globals, /grid-template-columns:\s*repeat\(5, minmax\(0, 1fr\)\)/);
-  assert.match(globals, /\.catalog\s*\{[^}]*width:\s*80%/);
+  assert.match(globals, /\.store-shell\s*\{[^}]*max-width:\s*1280px/);
+  assert.match(globals, /grid-template-columns:\s*repeat\(auto-fill, minmax\(180px, 1fr\)\)/);
+  assert.match(globals, /\.catalog\s*\{[^}]*width:\s*calc\(100%\s*-\s*64px\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
