@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 
 type CartLine = { product: Product; quantity: number };
@@ -95,6 +95,10 @@ function ProductArt({ product, mode, loading }: { product: Product; mode: "card"
 }
 
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
+  return <Suspense fallback={null}><StorefrontContent categorySlug={categorySlug} /></Suspense>;
+}
+
+function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const searchParams = useSearchParams();
   const initialRegion = searchParams.get("region") === "osh" ? "osh" : "bishkek";
   const [search, setSearch] = useState("");
