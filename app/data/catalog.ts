@@ -26,6 +26,9 @@ export type Product = {
   }>;
 };
 
+const productCompositionsByName = liveProductCompositions as Record<string, string>;
+const productMetaByName = liveProductMeta as Record<string, Partial<Product>>;
+
 export type Category = {
   slug: string;
   title: string;
@@ -221,11 +224,10 @@ const p = (
   fat: 13,
   carbs: 69,
   description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.",
-  composition: liveProductCompositions[name] || undefined,
   modalKind: "related",
   ...extra,
-  ...(liveProductMeta[name] || {}),
-  composition: liveProductCompositions[name] || extra.composition,
+  ...(productMetaByName[name] || {}),
+  composition: productCompositionsByName[name] || extra.composition,
 });
 
 export const categories: Category[] = [

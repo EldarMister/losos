@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
+    "vercel-build": "next build",
     "start": "vinext start",
     "api:dev": "npm --prefix server run dev",
     "api:build": "npm --prefix server run build",
