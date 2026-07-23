@@ -102,6 +102,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const searchParams = useSearchParams();
   const initialRegion = searchParams.get("region") === "osh" ? "osh" : "bishkek";
+  const usesRemoteCatalog = Boolean(process.env.NEXT_PUBLIC_API_URL);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
@@ -125,9 +126,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
-  const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
+  const [catalogCategories, setCatalogCategories] = useState<Category[]>(() => usesRemoteCatalog ? [] : categories);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
-  const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
+  const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(() => usesRemoteCatalog ? [] : null);
+  const [catalogLoading, setCatalogLoading] = useState(usesRemoteCatalog);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -148,16 +150,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
     fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Catalog request failed")))
-      .then((data: Array<Category & { products: Product[] }>) => setCatalogCategories(data.map((category) => ({
-        slug: category.slug,
-        title: category.title,
-        products: category.products.map((product) => {
-          const localProduct = categories.flatMap((entry) => entry.products)
-            .find((entry) => entry.name === product.name);
-          return { ...localProduct, ...product, category: category.slug };
-        }),
-      }))))
-      .catch(() => undefined);
+      .then((data: Array<Category & { products: Product[] }>) => {
+        setCatalogCategories(data.map((category) => ({
+          slug: category.slug,
+          title: category.title,
+          products: category.products.map((product) => {
+            const localProduct = categories.flatMap((entry) => entry.products)
+              .find((entry) => entry.name === product.name);
+            return { ...localProduct, ...product, category: category.slug };
+          }),
+        })));
+        setCatalogLoading(false);
+      })
+      .catch(() => { if (!controller.signal.aborted) setCatalogLoading(false); });
 
     fetch(`${baseUrl}/promotions?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
@@ -521,7 +526,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className="city-select" ref={citySelectRef}>
               <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{city} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
               {cityOpen ? <div className="city-dropdown" role="listbox" aria-label="Город">
-                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories(categories); setStoryGroups(defaultStoryGroups); setRegionalPromotions(null); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setCart([]); setSelected(null); }}>{option.name}</button>)}
+                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories([]); setStoryGroups([]); setRegionalPromotions([]); setCatalogLoading(true); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setCart([]); setSelected(null); }}>{option.name}</button>)}
               </div> : null}
             </div>
             <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
@@ -555,7 +560,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
         <main className="catalog">
           {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в {city}</h1> : null}
-          {visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
+          {catalogLoading ? <div className="empty-search">Загружаем меню…</div> : null}
+          {!catalogLoading && visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
           {visibleCategories.map((category) => (
             <section className="category-section" id={category.slug} key={category.slug}>
               {!categorySlug ? search.trim()
