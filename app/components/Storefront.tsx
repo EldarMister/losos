@@ -360,6 +360,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ? relatedForSelected.map((name) => allCatalogProducts.find((product) => product.name === name)).filter((product): product is Product => Boolean(product))
       : allCatalogProducts.filter((product) => product.id !== selected.id).slice(0, 18))
     : [];
+  const cartProductIds = new Set(cart.map((line) => line.product.id));
+  const cartRecommendations = [
+    ...relatedNames.map((name) => allCatalogProducts.find((product) => product.name === name)),
+    ...allCatalogProducts,
+  ]
+    .filter((product): product is Product => product !== undefined && product.available !== false)
+    .filter((product, index, products) => !cartProductIds.has(product.id) && products.findIndex((candidate) => candidate.id === product.id) === index)
+    .slice(0, 12);
   const selectedAddonItems = selected?.addonGroups?.flatMap((group) => group.items).filter((item) => selectedAddons.includes(item.id)) || [];
   const addonTotal = selectedAddonItems.reduce((sum, item) => sum + item.price, 0);
 
@@ -713,8 +721,25 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="cart-products">
                   <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}>⌫</button></div>
                   {cart.map((line) => (
-                    <div className="cart-line" key={line.product.id}><div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div><div><b>{line.product.name}</b><span>{money(line.product.price)}</span></div><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
+                    <div className="cart-line" key={line.product.id}>
+                      <div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div>
+                      <div className="cart-line-copy">
+                        <b>{line.product.name}</b>
+                        {line.product.description ? <p>{line.product.description}</p> : null}
+                        <div className="cart-line-footer"><span>{money(line.product.price)}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
+                      </div>
+                    </div>
                   ))}
+                  {cartRecommendations.length > 0 ? <div className="cart-related">
+                    <h3>Вместе вкуснее</h3>
+                    <div className="cart-related-grid">
+                      {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
+                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.badge ? <span>{product.badge}</span> : null}</div>
+                        <b>{product.name}</b>
+                        <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => addToCart(product)}>+</button></div>
+                      </article>)}
+                    </div>
+                  </div> : null}
                 </section>
                 <section className="cart-options">
                   <div className="cart-kit">
