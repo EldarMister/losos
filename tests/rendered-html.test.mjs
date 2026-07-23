@@ -89,6 +89,9 @@ test("includes the product, cart and address flows", async () => {
   assert.match(globals, /\.footer\s*\{[^}]*background:\s*var\(--orange\)/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);
   assert.match(globals, /\.store-shell\s*\{[^}]*max-width:\s*1280px/);
+  assert.match(globals, /\.store-shell\.header-pinned::after\s*\{[^}]*z-index:\s*24[^}]*height:\s*70px/);
+  assert.match(globals, /\.product-image-wrap img\s*\{[^}]*width:\s*100%[^}]*height:\s*auto/);
+  assert.match(globals, /\.product-image-wrap::after\s*\{\s*content:\s*none/);
   assert.match(globals, /grid-template-columns:\s*repeat\(auto-fill, minmax\(180px, 1fr\)\)/);
   assert.match(globals, /\.catalog\s*\{[^}]*width:\s*calc\(100%\s*-\s*64px\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
