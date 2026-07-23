@@ -426,7 +426,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
     const item = nav?.querySelector<HTMLElement>(`[data-category-slug="${highlightedCategory}"]`);
     if (!nav || !item) return;
     const targetLeft = window.innerWidth <= 720
-      ? 46
+      ? 100
       : (nav.clientWidth - item.clientWidth) / 2;
     nav.scrollTo({
       left: item.offsetLeft - targetLeft,
