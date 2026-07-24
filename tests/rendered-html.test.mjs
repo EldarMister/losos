@@ -28,8 +28,11 @@ test("server-renders the storefront", async () => {
 });
 
 test("includes the product, cart and address flows", async () => {
-  const [storefront, catalog, categoryPage, globals, packageJson] = await Promise.all([
+  const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/YandexDeliveryMap.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/maps-config/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../.env.example", import.meta.url), "utf8"),
     readFile(new URL("../app/data/catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -42,6 +45,23 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /aria-label="Самовывоз"/);
   assert.match(storefront, /pickup-location/);
   assert.match(storefront, /pickup-marker-disabled\.DSAcVKbt\.svg/);
+  assert.match(storefront, /<YandexDeliveryMap/);
+  assert.match(storefront, /deliveryLocation/);
+  assert.match(storefront, /Заказать сюда/);
+  assert.match(storefront, /disabled=\{!deliveryLocation\}/);
+  assert.match(yandexMap, /api-maps\.yandex\.ru\/2\.1/);
+  assert.match(yandexMap, /new ymaps\.SuggestView/);
+  assert.match(yandexMap, /ymaps\.geocode/);
+  assert.match(yandexMap, /strictBounds:\s*true/);
+  assert.match(yandexMap, /map\.events\.add\("click"/);
+  assert.match(yandexMap, /placemark\.events\.add\("dragend"/);
+  assert.match(yandexMap, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(yandexMap, /bishkek:[\s\S]*osh:/);
+  assert.match(mapsConfigRoute, /YANDEX_MAPS_API_KEY/);
+  assert.match(mapsConfigRoute, /YANDEX_SUGGEST_API_KEY/);
+  assert.match(mapsConfigRoute, /Cache-Control/);
+  assert.match(envExample, /YANDEX_MAPS_API_KEY=/);
+  assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
   assert.match(storefront, /addon-groups/);

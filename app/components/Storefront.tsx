@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
+import { YandexDeliveryMap, type DeliveryLocation } from "./YandexDeliveryMap";
 
 type CartLine = { product: Product; quantity: number };
 type DeliveryType = "delivery" | "pickup";
@@ -114,6 +115,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [addressOpen, setAddressOpen] = useState(false);
   const [address, setAddress] = useState("");
   const [draftAddress, setDraftAddress] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocation | null>(null);
+  const [addressSearchRequest, setAddressSearchRequest] = useState(0);
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("delivery");
   const [pickupLocationSelected, setPickupLocationSelected] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -249,9 +252,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   };
 
   const saveAddress = () => {
-    const next = draftAddress.trim();
-    if (!next) return;
-    setAddress(next);
+    if (!deliveryLocation) {
+      if (draftAddress.trim()) setAddressSearchRequest((current) => current + 1);
+      return;
+    }
+    setAddress(deliveryLocation.address);
     setAddressOpen(false);
     if (selected) addToCartAfterAddress(selected, modalQuantity);
   };
@@ -276,7 +281,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   const openDeliveryType = (type: DeliveryType) => {
     setDeliveryType(type);
-    if (type === "pickup") setPickupLocationSelected(false);
+    if (type === "pickup") {
+      setPickupLocationSelected(false);
+    } else {
+      setDraftAddress(address);
+      setDeliveryLocation(null);
+    }
     setAddressOpen(true);
   };
 
@@ -537,7 +547,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories([]); setStoryGroups([]); setRegionalPromotions([]); setCatalogLoading(true); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setCart([]); setSelected(null); }}>{option.name}</button>)}
               </div> : null}
             </div>
-            <button className="address-button" onClick={() => setAddressOpen(true)}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
+            <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
             <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз ~40 минут" : "Доставка от ~45 минут"}`}>
               <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button></div>
               <span className="delivery-connector" aria-hidden="true" />
@@ -673,18 +683,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {addressOpen ? (
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
-            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : `delivery-map delivery-map-${regionSlug}`}`}>
+            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map yandex-map-host"}`}>
               <button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button>
-              <button className="map-locate" type="button" aria-label="Определить моё местоположение">➤</button>
-              <img
-                className={`map-marker${deliveryType === "pickup" ? " pickup-map-marker" : ""}`}
-                src={deliveryType === "pickup"
-                  ? "https://mnogolososya.ru/_nuxt/pickup-marker-disabled.DSAcVKbt.svg"
-                  : "https://mnogolososya.ru/_nuxt/active-marker.O4wBI7zK.svg"}
-                alt=""
-              />
-              <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
-              <div className="map-attribution"><span>📍 Открыть Яндекс Карты</span><small>© Яндекс&nbsp; Условия использования</small></div>
+              {deliveryType === "delivery" ? (
+                <YandexDeliveryMap
+                  inputId="delivery-address-input"
+                  query={draftAddress}
+                  region={regionSlug}
+                  searchRequest={addressSearchRequest}
+                  onQueryChange={setDraftAddress}
+                  onLocationChange={setDeliveryLocation}
+                />
+              ) : <>
+                <img className="map-marker pickup-map-marker" src="https://mnogolososya.ru/_nuxt/pickup-marker-disabled.DSAcVKbt.svg" alt="" />
+                <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
+                <div className="map-attribution"><span>📍 Открыть Яндекс Карты</span><small>© Яндекс&nbsp; Условия использования</small></div>
+              </>}
             </div>
             <div className="address-panel">
               <button className="modal-close" onClick={() => setAddressOpen(false)} aria-label="Закрыть">×</button>
@@ -701,10 +715,24 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>{regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123"}</b><small>Ежедневно, без выходных<br />11:30 – 22:30</small></span></button>
                 <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
               </> : <>
-                <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером<br />или передвигайте пин на карте</p>
+                <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером,<br />выберите подсказку или точку на карте</p>
                 <div className="address-input muted">{city} <span>×</span></div>
-                <input className="address-input" autoFocus value={draftAddress} onChange={(event) => setDraftAddress(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveAddress(); }} placeholder="Введите адрес доставки" />
-                {draftAddress.trim() ? <button className="save-address" onClick={saveAddress}>Сохранить адрес</button> : null}
+                <div className="address-search">
+                  <input
+                    id="delivery-address-input"
+                    className="address-input"
+                    autoFocus
+                    autoComplete="off"
+                    value={draftAddress}
+                    onChange={(event) => { setDraftAddress(event.target.value); setDeliveryLocation(null); }}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setAddressSearchRequest((current) => current + 1); } }}
+                    placeholder="Улица и номер дома"
+                  />
+                  <button type="button" onClick={() => setAddressSearchRequest((current) => current + 1)} aria-label="Найти адрес">⌕</button>
+                  <div id="delivery-address-input-suggestions" className="address-suggestions" />
+                </div>
+                {deliveryLocation ? <div className="resolved-address" aria-live="polite">📍 {deliveryLocation.address}</div> : null}
+                <button className="save-address delivery-save" disabled={!deliveryLocation} onClick={saveAddress}>Заказать сюда</button>
               </>}
             </div>
           </div>
