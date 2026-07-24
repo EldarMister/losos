@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export type DeliveryLocation = {
   address: string;
@@ -101,6 +102,11 @@ type MapCredentials = {
   suggestApiKey: string;
 };
 
+type AddressSuggestion = {
+  value: string;
+  subtitle: string;
+};
+
 export function YandexDeliveryMap({
   inputId,
   query,
@@ -112,12 +118,19 @@ export function YandexDeliveryMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const geocodeAddressRef = useRef<(value: string) => Promise<void>>(async () => undefined);
   const reverseGeocodeRef = useRef<(point: [number, number]) => Promise<void>>(async () => undefined);
+  const suppressSuggestionsRef = useRef("");
   const [credentials, setCredentials] = useState<MapCredentials | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("Настраиваем карту…");
+  const [suggestionResult, setSuggestionResult] = useState<{ query: string; items: AddressSuggestion[] }>({
+    query: "",
+    items: [],
+  });
   const config = regionMapConfig[region];
   const mapsApiKey = credentials?.mapsApiKey || "";
   const suggestApiKey = credentials?.suggestApiKey || mapsApiKey;
+  const suggestionsHost = typeof document === "undefined" ? null : document.getElementById(`${inputId}-suggestions`);
+  const suggestions = suggestionResult.query === query.trim() ? suggestionResult.items : [];
 
   useEffect(() => {
     const controller = new AbortController();
@@ -143,13 +156,63 @@ export function YandexDeliveryMap({
   }, []);
 
   useEffect(() => {
+    const trimmed = query.trim();
+    if (status !== "ready" || !suggestApiKey || trimmed.length < 2) return;
+    if (suppressSuggestionsRef.current === trimmed) {
+      suppressSuggestionsRef.current = "";
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      const [[minLat, minLon], [maxLat, maxLon]] = config.bounds;
+      const request = new RegExp(config.city, "i").test(trimmed) ? trimmed : `${config.city} ${trimmed}`;
+      const params = new URLSearchParams({
+        apikey: suggestApiKey,
+        text: request,
+        lang: "ru",
+        results: "6",
+        highlight: "0",
+        bbox: `${minLon},${minLat}~${maxLon},${maxLat}`,
+        strict_bounds: "1",
+        types: "geo",
+        print_address: "1",
+      });
+
+      try {
+        const response = await fetch(`https://suggest-maps.yandex.ru/v1/suggest?${params}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Геосаджест: ${response.status}`);
+        const data = await response.json() as {
+          results?: Array<{ title?: { text?: string }; subtitle?: { text?: string } }>;
+        };
+        const nextSuggestions = (data.results || []).flatMap((item) => {
+          const value = item.title?.text?.trim();
+          if (!value) return [];
+          return [{ value, subtitle: item.subtitle?.text?.trim() || config.city }];
+        });
+        setSuggestionResult({ query: trimmed, items: nextSuggestions });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("Yandex suggestions failed", error);
+        setSuggestionResult({ query: trimmed, items: [] });
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [config, query, status, suggestApiKey]);
+
+  useEffect(() => {
     if (!credentials) return;
     if (!mapsApiKey || !suggestApiKey) return;
 
     let cancelled = false;
     let map: any;
     let placemark: any;
-    let suggestView: any;
 
     const updatePoint = (point: [number, number], zoom = 17) => {
       placemark?.geometry.setCoordinates(point);
@@ -174,6 +237,7 @@ export function YandexDeliveryMap({
         if (!isInsideBounds(resolvedPoint, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
         const resolvedAddress = cleanAddress(geoObject.getAddressLine());
         updatePoint(resolvedPoint);
+        suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
         onLocationChange({ address: resolvedAddress, coordinates: resolvedPoint });
         setMessage("Адрес найден");
@@ -205,6 +269,7 @@ export function YandexDeliveryMap({
         if (!isInsideBounds(point, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
         const resolvedAddress = cleanAddress(geoObject.getAddressLine());
         updatePoint(point);
+        suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
         onLocationChange({ address: resolvedAddress, coordinates: point });
         setMessage("Адрес найден");
@@ -235,24 +300,6 @@ export function YandexDeliveryMap({
         placemark.events.add("dragend", () => reverseGeocode(placemark.geometry.getCoordinates()));
         reverseGeocodeRef.current = reverseGeocode;
         geocodeAddressRef.current = geocodeAddress;
-
-        const input = document.getElementById(inputId);
-        const suggestions = document.getElementById(`${inputId}-suggestions`);
-        if (input) {
-          suggestView = new ymaps.SuggestView(input, {
-            boundedBy: config.bounds,
-            container: suggestions || undefined,
-            results: 6,
-            zIndex: 50000,
-          });
-          suggestView.events.add("select", (event: any) => {
-            const selected = event.get("item");
-            const value = selected?.value || selected?.displayName;
-            if (!value) return;
-            onQueryChange(value);
-            void geocodeAddress(value);
-          });
-        }
         setStatus("ready");
         setMessage("Введите адрес или выберите точку на карте");
       })
@@ -265,7 +312,6 @@ export function YandexDeliveryMap({
 
     return () => {
       cancelled = true;
-      suggestView?.destroy();
       map?.destroy();
     };
   }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, suggestApiKey]);
@@ -287,9 +333,34 @@ export function YandexDeliveryMap({
     );
   };
 
+  const selectSuggestion = (value: string) => {
+    suppressSuggestionsRef.current = value;
+    setSuggestionResult({ query: "", items: [] });
+    onQueryChange(value);
+    void geocodeAddressRef.current(value);
+  };
+
   return (
     <>
       <div ref={mapContainerRef} className="yandex-map-canvas" aria-label={`Интерактивная карта города ${config.city}`} />
+      {suggestionsHost && suggestions.length > 0 ? createPortal(
+        <div className="custom-address-suggestions" role="listbox" aria-label="Подсказки адресов">
+          {suggestions.map((suggestion, index) => (
+            <button
+              key={`${suggestion.value}-${index}`}
+              type="button"
+              role="option"
+              aria-selected="false"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => selectSuggestion(suggestion.value)}
+            >
+              <strong>{suggestion.value}</strong>
+              <small>{suggestion.subtitle}</small>
+            </button>
+          ))}
+        </div>,
+        suggestionsHost,
+      ) : null}
       {status === "ready" ? <button className="map-locate" type="button" onClick={locateUser} aria-label="Определить моё местоположение">➤</button> : null}
       {status !== "ready" ? (
         <div className={`map-state map-state-${status}`} role={status === "error" ? "alert" : "status"}>

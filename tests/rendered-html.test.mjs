@@ -50,7 +50,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /Заказать сюда/);
   assert.match(storefront, /disabled=\{!deliveryLocation\}/);
   assert.match(yandexMap, /api-maps\.yandex\.ru\/2\.1/);
-  assert.match(yandexMap, /new ymaps\.SuggestView/);
+  assert.match(yandexMap, /suggest-maps\.yandex\.ru\/v1\/suggest/);
+  assert.match(yandexMap, /createPortal/);
   assert.match(yandexMap, /ymaps\.geocode/);
   assert.match(yandexMap, /strictBounds:\s*true/);
   assert.match(yandexMap, /map\.events\.add\("click"/);
