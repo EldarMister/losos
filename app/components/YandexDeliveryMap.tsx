@@ -118,7 +118,7 @@ export function YandexDeliveryMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const geocodeAddressRef = useRef<(value: string) => Promise<void>>(async () => undefined);
   const reverseGeocodeRef = useRef<(point: [number, number]) => Promise<void>>(async () => undefined);
-  const suppressSuggestionsRef = useRef("");
+  const suppressSuggestionsRef = useRef(query.trim());
   const handledSearchRequestRef = useRef(searchRequest);
   const [credentials, setCredentials] = useState<MapCredentials | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
