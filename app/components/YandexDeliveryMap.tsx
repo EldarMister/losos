@@ -76,6 +76,14 @@ function cleanAddress(value: string) {
   return value.replace(/^Кыргызстан,\s*/i, "").trim();
 }
 
+function addressWithoutCity(value: string, city: string) {
+  const cleaned = cleanAddress(value);
+  const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return cleaned
+    .replace(new RegExp(`^(?:г\\.\\s*)?${escapedCity}(?:\\s+город)?\\s*,?\\s*`, "i"), "")
+    .trim();
+}
+
 function yandexErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string" && error.trim()) return error;
@@ -104,7 +112,6 @@ type MapCredentials = {
 
 type AddressSuggestion = {
   value: string;
-  subtitle: string;
 };
 
 export function YandexDeliveryMap({
@@ -189,10 +196,12 @@ export function YandexDeliveryMap({
           results?: Array<{ title?: { text?: string }; subtitle?: { text?: string } }>;
         };
         const nextSuggestions = (data.results || []).flatMap((item) => {
-          const value = item.title?.text?.trim();
+          const value = addressWithoutCity(item.title?.text?.trim() || "", config.city);
           if (!value) return [];
-          return [{ value, subtitle: item.subtitle?.text?.trim() || config.city }];
-        });
+          return [{ value }];
+        }).filter((suggestion, index, items) => (
+          items.findIndex((candidate) => candidate.value === suggestion.value) === index
+        ));
         setSuggestionResult({ query: trimmed, items: nextSuggestions });
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -214,8 +223,10 @@ export function YandexDeliveryMap({
     let cancelled = false;
     let map: any;
     let placemark: any;
+    let fitMapToPanel: (() => void) | null = null;
+    let fitTimers: number[] = [];
 
-    const updatePoint = (point: [number, number], zoom = 17) => {
+    const updatePoint = (point: [number, number], zoom = 15) => {
       placemark?.geometry.setCoordinates(point);
       map?.setCenter(point, zoom, { duration: 250 });
     };
@@ -236,7 +247,7 @@ export function YandexDeliveryMap({
         if (!geoObject) throw new Error("Адрес не найден");
         const resolvedPoint = geoObject.geometry.getCoordinates() as [number, number];
         if (!isInsideBounds(resolvedPoint, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
-        const resolvedAddress = cleanAddress(geoObject.getAddressLine());
+        const resolvedAddress = addressWithoutCity(geoObject.getAddressLine(), config.city);
         updatePoint(resolvedPoint);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
@@ -268,7 +279,7 @@ export function YandexDeliveryMap({
         if (!geoObject) throw new Error(`Адрес в городе ${config.city} не найден`);
         const point = geoObject.geometry.getCoordinates() as [number, number];
         if (!isInsideBounds(point, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
-        const resolvedAddress = cleanAddress(geoObject.getAddressLine());
+        const resolvedAddress = addressWithoutCity(geoObject.getAddressLine(), config.city);
         updatePoint(point);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
@@ -288,17 +299,33 @@ export function YandexDeliveryMap({
           center: config.center,
           zoom: 13,
           controls: ["zoomControl"],
+          type: "yandex#map",
         }, {
           restrictMapArea: config.bounds,
           suppressMapOpenBlock: false,
+          yandexMapDisablePoiInteractivity: true,
         });
+        const markerLayout = ymaps.templateLayoutFactory.createClass(
+          '<div class="delivery-map-marker" aria-hidden="true"><img src="/delivery.png" alt=""></div>',
+        );
         placemark = new ymaps.Placemark(config.center, {}, {
           draggable: true,
-          preset: "islands#redFoodIcon",
+          iconLayout: markerLayout,
+          iconShape: {
+            type: "Rectangle",
+            coordinates: [[-30, -68], [30, 0]],
+          },
+          iconOffset: [-30, -68],
         });
         map.geoObjects.add(placemark);
         map.events.add("click", (event: any) => reverseGeocode(event.get("coords")));
         placemark.events.add("dragend", () => reverseGeocode(placemark.geometry.getCoordinates()));
+        fitMapToPanel = () => map?.container.fitToViewport();
+        window.addEventListener("resize", fitMapToPanel);
+        fitTimers = [
+          window.setTimeout(fitMapToPanel, 0),
+          window.setTimeout(fitMapToPanel, 250),
+        ];
         reverseGeocodeRef.current = reverseGeocode;
         geocodeAddressRef.current = geocodeAddress;
         setStatus("ready");
@@ -313,6 +340,8 @@ export function YandexDeliveryMap({
 
     return () => {
       cancelled = true;
+      fitTimers.forEach((timer) => window.clearTimeout(timer));
+      if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
     };
   }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, suggestApiKey]);
@@ -358,7 +387,6 @@ export function YandexDeliveryMap({
               onClick={() => selectSuggestion(suggestion.value)}
             >
               <strong>{suggestion.value}</strong>
-              <small>{suggestion.subtitle}</small>
             </button>
           ))}
         </div>,

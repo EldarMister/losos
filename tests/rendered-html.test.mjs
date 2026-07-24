@@ -56,6 +56,11 @@ test("includes the product, cart and address flows", async () => {
   assert.match(yandexMap, /strictBounds:\s*true/);
   assert.match(yandexMap, /map\.events\.add\("click"/);
   assert.match(yandexMap, /placemark\.events\.add\("dragend"/);
+  assert.match(yandexMap, /addressWithoutCity/);
+  assert.match(yandexMap, /delivery-map-marker/);
+  assert.match(yandexMap, /fitToViewport/);
+  assert.match(storefront, /aria-label="Очистить адрес"/);
+  assert.doesNotMatch(storefront, /aria-label="Найти адрес"/);
   assert.match(yandexMap, /navigator\.geolocation\.getCurrentPosition/);
   assert.match(yandexMap, /bishkek:[\s\S]*osh:/);
   assert.match(mapsConfigRoute, /YANDEX_MAPS_API_KEY/);

@@ -728,10 +728,20 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setAddressSearchRequest((current) => current + 1); } }}
                     placeholder="Улица и номер дома"
                   />
-                  <button type="button" onClick={() => setAddressSearchRequest((current) => current + 1)} aria-label="Найти адрес">⌕</button>
+                  {draftAddress ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftAddress("");
+                        setDeliveryLocation(null);
+                        window.requestAnimationFrame(() => document.getElementById("delivery-address-input")?.focus());
+                      }}
+                      aria-label="Очистить адрес"
+                    >×</button>
+                  ) : null}
                   <div id="delivery-address-input-suggestions" className="address-suggestions" />
                 </div>
-                {deliveryLocation ? <div className="resolved-address" aria-live="polite">📍 {deliveryLocation.address}</div> : null}
+                {deliveryLocation ? <div className="resolved-address" aria-live="polite">{deliveryLocation.address}</div> : null}
                 <button className="save-address delivery-save" disabled={!deliveryLocation} onClick={saveAddress}>Заказать сюда</button>
               </>}
             </div>
