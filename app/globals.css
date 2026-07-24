@@ -195,9 +195,10 @@ a { color: inherit; text-decoration: none; }
 .yandex-map-host { display: block; isolation: isolate; background: #ecebe7; }
 .yandex-map-canvas { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; image-rendering: auto; }
 .yandex-map-canvas canvas, .yandex-map-canvas img { image-rendering: auto; }
-.delivery-map-marker { position: relative; width: 60px; height: 60px; display: grid; place-items: center; border: 3px solid #ff5300; border-radius: 50%; background: #fff; box-shadow: 0 5px 16px rgba(73, 34, 14, .24); cursor: grab; }
-.delivery-map-marker::after { content: ""; position: absolute; z-index: -1; left: 19px; bottom: -9px; width: 17px; height: 17px; border-right: 3px solid #ff5300; border-bottom: 3px solid #ff5300; border-radius: 0 0 4px; background: #fff; transform: rotate(45deg); }
-.delivery-map-marker img { position: relative; z-index: 1; width: 42px; height: 42px; object-fit: contain; }
+.delivery-map-marker { position: relative; isolation: isolate; width: 46px; height: 46px; display: grid; place-items: center; border: 2px solid #ff5300; border-radius: 50%; background: #fff; box-shadow: 0 4px 12px rgba(73, 34, 14, .22); cursor: grab; }
+.delivery-map-marker::before { content: ""; position: absolute; z-index: -1; left: 21px; bottom: -25px; width: 2px; height: 21px; border-radius: 2px; background: #ff5300; }
+.delivery-map-marker::after { content: ""; position: absolute; z-index: -1; left: 16px; bottom: -7px; width: 11px; height: 11px; border-right: 2px solid #ff5300; border-bottom: 2px solid #ff5300; border-radius: 0 0 3px; background: #fff; transform: rotate(45deg); }
+.delivery-map-marker img { position: relative; z-index: 1; width: 32px; height: 32px; object-fit: contain; }
 .map-back { position: absolute; z-index: 2; left: 14px; top: 16px; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.86); font-size: 27px; color: #555; }
 .map-locate { display: block; position: absolute; z-index: 2; right: 14px; top: 16px; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.94); color: #404047; font-size: 18px; transform: rotate(-45deg); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 .map-state { position: absolute; z-index: 1; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 30px; background: linear-gradient(145deg, #f5f2eb, #e8e6df); color: #666; text-align: center; }
@@ -463,8 +464,8 @@ a { color: inherit; text-decoration: none; }
   .overlay.address-overlay { padding: 0; place-items: stretch; overflow: hidden; }
   .overlay.address-overlay > .address-modal { width: 100vw; height: 100vh; display: flex; flex-direction: column; border-radius: 0; overflow: hidden; }
   .address-modal .map-placeholder { flex: 1 1 0; min-height: 0; max-height: 100dvh; margin-bottom: -40px; }
-  .address-modal .map-back { left: 12px; top: 48px; width: 40px; height: 40px; font-size: 24px; }
-  .address-modal .map-locate { right: 12px; top: 48px; }
+  .address-modal .map-back { left: 12px; top: 12px; width: 40px; height: 40px; font-size: 24px; }
+  .address-modal .map-locate { right: 12px; top: 12px; }
   .address-modal .map-status { left: 60px; right: 60px; top: 50px; max-width: none; text-align: center; }
   .address-modal .map-attribution { display: none; }
   .address-panel { z-index: 2; flex: 0 0 408px; height: 408px; margin: 0; padding: 16px; border-radius: 36px 36px 0 0; background: #fff; box-shadow: 0 -5px 30px rgba(0,0,0,.1); }
