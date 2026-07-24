@@ -119,6 +119,7 @@ export function YandexDeliveryMap({
   const geocodeAddressRef = useRef<(value: string) => Promise<void>>(async () => undefined);
   const reverseGeocodeRef = useRef<(point: [number, number]) => Promise<void>>(async () => undefined);
   const suppressSuggestionsRef = useRef("");
+  const handledSearchRequestRef = useRef(searchRequest);
   const [credentials, setCredentials] = useState<MapCredentials | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("Настраиваем карту…");
@@ -317,7 +318,9 @@ export function YandexDeliveryMap({
   }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, suggestApiKey]);
 
   useEffect(() => {
-    if (searchRequest > 0 && status === "ready") void geocodeAddressRef.current(query);
+    if (status !== "ready" || searchRequest <= handledSearchRequestRef.current) return;
+    handledSearchRequestRef.current = searchRequest;
+    void geocodeAddressRef.current(query);
   }, [query, searchRequest, status]);
 
   const locateUser = () => {
