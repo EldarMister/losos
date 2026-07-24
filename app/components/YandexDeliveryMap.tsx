@@ -74,6 +74,18 @@ function cleanAddress(value: string) {
   return value.replace(/^Кыргызстан,\s*/i, "").trim();
 }
 
+function yandexErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const candidate = error as { message?: unknown; statusText?: unknown; description?: unknown };
+    for (const value of [candidate.message, candidate.statusText, candidate.description]) {
+      if (typeof value === "string" && value.trim()) return value;
+    }
+  }
+  return fallback;
+}
+
 type YandexDeliveryMapProps = {
   inputId: string;
   query: string;
@@ -166,7 +178,8 @@ export function YandexDeliveryMap({
         setMessage("Адрес найден");
       } catch (error) {
         if (cancelled) return;
-        setMessage(error instanceof Error ? error.message : "Не удалось определить адрес");
+        console.error("Yandex reverse geocoding failed", error);
+        setMessage(yandexErrorMessage(error, "Не удалось определить адрес"));
         onLocationChange(null);
       }
     };
@@ -196,7 +209,8 @@ export function YandexDeliveryMap({
         setMessage("Адрес найден");
       } catch (error) {
         if (cancelled) return;
-        setMessage(error instanceof Error ? error.message : "Не удалось найти адрес");
+        console.error("Yandex geocoding failed", error);
+        setMessage(yandexErrorMessage(error, "Не удалось найти адрес"));
       }
     };
 
@@ -243,8 +257,9 @@ export function YandexDeliveryMap({
       })
       .catch((error) => {
         if (cancelled) return;
+        console.error("Yandex Maps loading failed", error);
         setStatus("error");
-        setMessage(error instanceof Error ? error.message : "Карта временно недоступна");
+        setMessage(yandexErrorMessage(error, "Карта временно недоступна"));
       });
 
     return () => {
