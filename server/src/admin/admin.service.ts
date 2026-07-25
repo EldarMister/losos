@@ -70,17 +70,28 @@ export class AdminService {
   async orders(query: ListOrdersQueryDto) {
     const limit = query.limit ?? 50;
     const offset = query.offset ?? 0;
-    const [items, total] = await this.orderRepository.findAndCount({
-      where: {
-        ...(query.regionSlug ? { regionSlug: query.regionSlug } : {}),
-        ...(query.status ? { status: query.status } : {}),
-      },
-      relations: { items: true },
-      order: { createdAt: "DESC" },
-      take: limit,
-      skip: offset,
-    });
-    return { items, total, limit, offset };
+    const where = {
+      ...(query.regionSlug ? { regionSlug: query.regionSlug } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [items, total, rawStatusCounts] = await Promise.all([
+      this.orderRepository.find({
+        where,
+        relations: { items: true },
+        order: { createdAt: "DESC" },
+        take: limit,
+        skip: offset,
+      }),
+      this.orderRepository.count({ where }),
+      this.orderRepository.createQueryBuilder("order")
+        .select("order.status", "status")
+        .addSelect("COUNT(*)", "count")
+        .where(query.regionSlug ? "order.regionSlug = :regionSlug" : "1 = 1", { regionSlug: query.regionSlug })
+        .groupBy("order.status")
+        .getRawMany<{ status: OrderStatus; count: string }>(),
+    ]);
+    const statusCounts = Object.fromEntries(rawStatusCounts.map((item) => [item.status, Number(item.count)])) as Partial<Record<OrderStatus, number>>;
+    return { items, total, limit, offset, statusCounts };
   }
 
   async order(id: string) {

@@ -16,11 +16,7 @@ button { cursor: pointer; }
 .admin-mark { width: 46px; height: 46px; display: grid; flex: none; place-items: center; border-radius: 14px; background: linear-gradient(135deg, #ff6317, #ff3708); color: #fff; font-size: 17px; font-weight: 900; box-shadow: 0 6px 18px #ff4b0b24; }
 
 /* Login */
-.admin-login { position: relative; display: grid; place-items: center; padding: 124px 20px 92px; background: radial-gradient(circle at 50% 38%, #fff 0, #fbfbfc 52%, #f5f6f8 100%); }
-.admin-login-brand { position: absolute; inset: 0 0 auto; height: 104px; display: flex; align-items: center; gap: 16px; padding: 0 32px; border-bottom: 1px solid var(--admin-line); background: #fff; }
-.admin-login-brand span { display: flex; flex-direction: column; gap: 7px; }
-.admin-login-brand b { font-size: 21px; }
-.admin-login-brand small { color: var(--admin-muted); font-size: 16px; }
+.admin-login { display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at 50% 38%, #fff 0, #fbfbfc 52%, #f5f6f8 100%); }
 .admin-login form { width: min(100%, 488px); padding: 48px 52px; border: 1px solid #dfe2e8; border-radius: 18px; background: #fff; box-shadow: 0 22px 55px #1d27330d; }
 .admin-login h1 { margin: 0 0 12px; font-size: 34px; line-height: 1.1; font-weight: 500; }
 .admin-login h1 + label { margin-top: 34px; }
@@ -88,8 +84,9 @@ button { cursor: pointer; }
 .admin-order-open { color: #9a9eaa; font-size: 20px; }
 .admin-orders footer { height: 54px; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding: 0 14px; color: var(--admin-muted); font-size: 12px; }
 .admin-orders footer span { margin-right: auto; }
-.admin-orders footer b { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--admin-line); border-radius: 8px; color: #484b54; }
-.admin-orders footer b.active { border-color: var(--admin-orange); color: var(--admin-orange); }
+.admin-orders footer button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--admin-line); border-radius: 8px; background: #fff; color: #484b54; }
+.admin-orders footer button.active { border-color: var(--admin-orange); color: var(--admin-orange); }
+.admin-orders footer button:disabled { cursor: default; opacity: .4; }
 .admin-empty { min-height: 220px; display: grid; place-content: center; gap: 8px; color: var(--admin-muted); text-align: center; }
 .admin-empty b { color: var(--admin-ink); font-size: 17px; }
 
@@ -316,9 +313,7 @@ button { cursor: pointer; }
   .admin-order-detail .admin-editor-head > button { position: static; font-size: 23px; }
   .admin-order-detail .admin-editor-head > button::after { content: none; }
   .admin-order-actions { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
-  .admin-login { padding: 112px 18px 90px; }
-  .admin-login-brand { height: 88px; padding: 0 20px; }
-  .admin-login-brand small { display: none; }
+  .admin-login { padding: 18px; }
   .admin-login form { padding: 34px 24px; }
   .admin-login h1 { font-size: 28px; }
 }

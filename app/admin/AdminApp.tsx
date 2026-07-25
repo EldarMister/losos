@@ -93,7 +93,7 @@ type AdminOrder = {
   updatedAt: string;
   items: AdminOrderItem[];
 };
-type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number };
+type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
 type Tab = "orders" | "products" | "promotions" | "categories" | "settings";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
@@ -137,6 +137,7 @@ const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
 }).format(new Date(value));
 
 const formatOrderNumber = (id: string) => `№ ${id.slice(0, 8).toUpperCase()}`;
+const ordersPerPage = 10;
 
 const emptyProduct = (categoryId = ""): Editor => ({
   kind: "product",
@@ -197,6 +198,8 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
+  const [orderPage, setOrderPage] = useState(1);
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
 
   useEffect(() => {
@@ -237,6 +240,12 @@ export function AdminApp() {
     void loadSettings();
   }, [loadSettings]);
 
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(""), 3_500);
+    return () => window.clearTimeout(timer);
+  }, [message]);
+
   const loadDashboard = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -259,9 +268,12 @@ export function AdminApp() {
     if (!token) return;
     if (!silent) setOrdersLoading(true);
     try {
-      const result = await request(`/admin/orders?regionSlug=${region}&limit=100`) as OrdersResponse;
+      const query = new URLSearchParams({ regionSlug: region, limit: String(ordersPerPage), offset: String((orderPage - 1) * ordersPerPage) });
+      if (orderFilter !== "all") query.set("status", orderFilter);
+      const result = await request(`/admin/orders?${query}`) as OrdersResponse;
       setOrders(result.items);
       setOrdersTotal(result.total);
+      setStatusCounts(result.statusCounts || {});
       setSelectedOrder((current) => current
         ? result.items.find((order) => order.id === current.id) || current
         : null);
@@ -270,7 +282,7 @@ export function AdminApp() {
     } finally {
       if (!silent) setOrdersLoading(false);
     }
-  }, [region, request, token]);
+  }, [orderFilter, orderPage, region, request, token]);
 
   useEffect(() => {
     if (tab !== "orders" || !token) return;
@@ -488,10 +500,6 @@ export function AdminApp() {
 
   if (!token) {
     return <main className="admin-login">
-      <header className="admin-login-brand">
-        <div className="admin-mark">МЛ</div>
-        <span><b>Управление меню</b><small>Блюда и акции по городам</small></span>
-      </header>
       <form onSubmit={authorize}>
         <h1>Вход в систему</h1>
         <label>Код администратора
@@ -541,28 +549,26 @@ export function AdminApp() {
       <div className="admin-mobile-title">
         <div className="admin-mark">МЛ</div>
         <h1>{tabTitle}</h1>
-        <button onClick={() => setRegion(availableRegions[(availableRegions.findIndex((item) => item.slug === region) + 1) % availableRegions.length]?.slug || region)}>{availableRegions.find((item) => item.slug === region)?.name}⌄</button>
+        <button onClick={() => { setRegion(availableRegions[(availableRegions.findIndex((item) => item.slug === region) + 1) % availableRegions.length]?.slug || region); setOrderPage(1); }}>{availableRegions.find((item) => item.slug === region)?.name}⌄</button>
         <span>≡⌕</span>
       </div>
       <div className="admin-regions" aria-label="Регион">
-        {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setEditor(null); }}>{item.name}</button>)}
+        {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setOrderPage(1); setEditor(null); }}>{item.name}</button>)}
       </div>
       <div className="admin-section-title">
         <div>
           <h1>{tabTitle}</h1>
           {tab === "orders" ? <p>{ordersTotal} заказов в выбранном городе</p> : null}
         </div>
-        {tab === "orders"
-          ? <button className="admin-refresh" disabled={ordersLoading} onClick={() => void loadOrders()} aria-label="Обновить заказы">↻</button>
-          : tab === "settings"
-            ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
-            : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>＋ Добавить {tab === "products" ? "блюдо" : tab === "promotions" ? "акцию" : "категорию"}</button>}
+        {tab === "orders" ? null : tab === "settings"
+          ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
+          : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>＋ Добавить {tab === "products" ? "блюдо" : tab === "promotions" ? "акцию" : "категорию"}</button>}
       </div>
 
       {tab === "orders" ? <>
         <div className="admin-order-filters">
-          {filterOptions.map((option) => <button key={option.value} className={orderFilter === option.value ? "active" : ""} onClick={() => setOrderFilter(option.value)}>
-            {option.label}<i>{option.value === "all" ? orders.length : orders.filter((order) => order.status === option.value).length}</i>
+          {filterOptions.map((option) => <button key={option.value} className={orderFilter === option.value ? "active" : ""} onClick={() => { setOrderFilter(option.value); setOrderPage(1); }}>
+            {option.label}<i>{option.value === "all" ? Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0) : statusCounts[option.value] || 0}</i>
           </button>)}
         </div>
         <div className="admin-list-tools">
@@ -583,7 +589,11 @@ export function AdminApp() {
         </button>)}
         {!ordersLoading && orders.length === 0 ? <div className="admin-empty"><b>Заказов пока нет</b><span>Новые заказы появятся здесь автоматически.</span></div> : null}
         {!ordersLoading && orders.length > 0 && visibleOrders.length === 0 ? <div className="admin-empty"><b>Ничего не найдено</b><span>Попробуйте изменить поиск или фильтр.</span></div> : null}
-        <footer><span>Показано {visibleOrders.length} из {ordersTotal}</span><b>‹</b><b className="active">1</b><b>2</b><b>›</b></footer>
+        <footer><span>Показано {(ordersPage - 1) * ordersPerPage + visibleOrders.length} из {ordersTotal}</span>{Math.ceil(ordersTotal / ordersPerPage) > 1 ? <>
+          <button type="button" disabled={orderPage === 1} onClick={() => setOrderPage((current) => current - 1)}>‹</button>
+          {Array.from({ length: Math.ceil(ordersTotal / ordersPerPage) }, (_, index) => index + 1).map((page) => <button type="button" key={page} className={page === orderPage ? "active" : ""} onClick={() => setOrderPage(page)}>{page}</button>)}
+          <button type="button" disabled={orderPage === Math.ceil(ordersTotal / ordersPerPage)} onClick={() => setOrderPage((current) => current + 1)}>›</button>
+        </> : null}</footer>
       </div></> : null}
 
       {tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
