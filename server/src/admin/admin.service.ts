@@ -66,7 +66,6 @@ export class AdminService {
     return this.products.save(this.products.create({
       ...data,
       sourceId: null,
-      badge: data.badge?.trim() || null,
       category,
     }));
   }
@@ -82,7 +81,6 @@ export class AdminService {
       product.category = category;
     }
     Object.assign(product, data);
-    if ("badge" in data) product.badge = data.badge?.trim() || null;
     return this.products.save(product);
   }
 

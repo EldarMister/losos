@@ -128,7 +128,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [noUtensils, setNoUtensils] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({});
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(() => usesRemoteCatalog ? [] : categories);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(() => usesRemoteCatalog ? [] : null);
@@ -212,7 +212,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
     setModalQuantity(1);
-    setSelectedAddons([]);
+    setModifierSelections({});
     setCompositionOpen(false);
     setSelected(product);
     writeOverlayQuery("product", product.slug, historyMode);
@@ -225,7 +225,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
     writeOverlayQuery("product", null, "replace");
     setCompositionOpen(false);
-    setSelectedAddons([]);
+    setModifierSelections({});
     setSelected(null);
   };
 
@@ -378,11 +378,27 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     .filter((product): product is Product => product !== undefined && product.available !== false)
     .filter((product, index, products) => !cartProductIds.has(product.id) && products.findIndex((candidate) => candidate.id === product.id) === index)
     .slice(0, 12);
-  const selectedAddonItems = selected?.addonGroups?.flatMap((group) => group.items).filter((item) => selectedAddons.includes(item.id)) || [];
-  const addonTotal = selectedAddonItems.reduce((sum, item) => sum + item.price, 0);
+  const modifierGroups = selected?.modifierGroups || [];
+  const selectedModifierItems = modifierGroups.flatMap((group) =>
+    group.items.filter((item) => (modifierSelections[group.id] || []).includes(item.id)));
+  const modifierTotal = selectedModifierItems.reduce((sum, item) => sum + item.price, 0);
+  const modifiersComplete = modifierGroups.every((group) => {
+    const count = (modifierSelections[group.id] || []).length;
+    const minimum = group.required ? Math.max(1, group.minSelections || 1) : group.minSelections || 0;
+    return count >= minimum;
+  });
 
-  const toggleAddon = (addonId: string) => {
-    setSelectedAddons((current) => current.includes(addonId) ? current.filter((id) => id !== addonId) : [...current, addonId]);
+  const toggleModifier = (groupId: string, itemId: string) => {
+    const group = modifierGroups.find((candidate) => candidate.id === groupId);
+    if (!group) return;
+    setModifierSelections((current) => {
+      const selectedIds = current[groupId] || [];
+      const alreadySelected = selectedIds.includes(itemId);
+      if (group.selectionType === "single") return { ...current, [groupId]: alreadySelected && !group.required ? [] : [itemId] };
+      if (alreadySelected) return { ...current, [groupId]: selectedIds.filter((id) => id !== itemId) };
+      if (group.maxSelections && selectedIds.length >= group.maxSelections) return current;
+      return { ...current, [groupId]: [...selectedIds, itemId] };
+    });
   };
 
   const navigateProduct = (delta: number) => {
@@ -418,7 +434,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setSelected(product || null);
       if (!product) {
         setCompositionOpen(false);
-        setSelectedAddons([]);
+        setModifierSelections({});
       }
 
       const storyNumber = Number(params.get("storyInspect"));
@@ -591,12 +607,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-label={`Открыть ${product.name}`} onClick={() => openProduct(product)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading="lazy" />
-                      {product.badge ? <span className="product-badge">{product.badge}</span> : null}
+                      {product.isNew ? <span className="product-new-badge">Новинка</span> : null}
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
                       <div className="product-name">{product.name}</div>
-                      <div className="product-actions"><span>{money(product.price)}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); addToCart(product); }}>+</button>}</div>
+                      <div className="product-actions"><span>{money(product.price)}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</div>
                     </div>
                   </article>
                 ))}
@@ -650,7 +666,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
           <div className={`product-modal product-modal-${selected.modalKind || "related"}`}>
             <button className="modal-close" onClick={closeProduct} aria-label="Закрыть">×</button>
-            <div className={`modal-art ${selected.badge ? "has-badge" : ""}`}>{selected.badge ? <span className="flavour-badge">{selected.badge}</span> : null}<ProductArt product={selected} mode="detail" /></div>
+            <div className="modal-art"><ProductArt product={selected} mode="detail" />{selected.isNew ? <span className="modal-new-badge">Новинка</span> : null}</div>
             <div className="modal-info">
               <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
               <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
@@ -658,9 +674,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
                 <div className="nutrition-actions"><button onClick={() => setCompositionOpen(true)}>Состав</button></div>
               </div>
-              {selected.modalKind === "addons" ? <div className="addon-groups">{selected.addonGroups?.map((group) => <section className="addon-group" key={group.title}><h3>{group.title}</h3>{group.items.map((item) => { const chosen = selectedAddons.includes(item.id); return <div className={`addon-row ${chosen ? "selected" : ""}`} key={item.id}><img src={item.image} alt="" /><div><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></div><button onClick={() => toggleAddon(item.id)} aria-label={`${chosen ? "Убрать" : "Добавить"} ${item.name}`}>{chosen ? "−" : "+"}</button></div>; })}</section>)}</div> : null}
-              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.badge ? <span className="related-badge">{product.badge}</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); addToCart(product); }}>+</button></div></article>)}</div></> : null}
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" onClick={() => addToCart(selected, modalQuantity)}>Добавить {money((selected.price + addonTotal) * modalQuantity)}</button></div>
+              {modifierGroups.length ? <div className="modifier-groups">{modifierGroups.map((group) => {
+                const selectedIds = modifierSelections[group.id] || [];
+                return <section className={`modifier-group modifier-group-${group.selectionType}`} key={group.id}>
+                  <div className="modifier-heading"><h3>{group.title}</h3>{group.required ? <span>Нужно выбрать</span> : null}</div>
+                  <div className="modifier-options">{group.items.filter((item) => item.enabled !== false).map((item) => {
+                    const chosen = selectedIds.includes(item.id);
+                    return <button type="button" className={`modifier-option ${chosen ? "selected" : ""}`} key={item.id} onClick={() => toggleModifier(group.id, item.id)} aria-pressed={chosen}>
+                      {item.image ? <img src={item.image} alt="" /> : <span className="modifier-option-placeholder" />}
+                      <span><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></span>
+                      <i>{chosen ? "✓" : "+"}</i>
+                    </button>;
+                  })}</div>
+                </section>;
+              })}</div> : null}
+              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
+              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" disabled={!modifiersComplete} onClick={() => addToCart({ ...selected, price: selected.price + modifierTotal }, modalQuantity)}>{modifiersComplete ? `Добавить ${money((selected.price + modifierTotal) * modalQuantity)}` : "Настройте блюдо"}</button></div>
             </div>
           </div>
         </div>
@@ -772,7 +801,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <h3>Вместе вкуснее</h3>
                     <div className="cart-related-grid">
                       {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
-                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.badge ? <span>{product.badge}</span> : null}</div>
+                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew ? <span>Новинка</span> : null}</div>
                         <b>{product.name}</b>
                         <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => addToCart(product)}>+</button></div>
                       </article>)}

@@ -11,6 +11,7 @@ import { Order } from "./orders/order.entity";
 import { OrderItem } from "./orders/order-item.entity";
 import { OrdersModule } from "./orders/orders.module";
 import { HealthController } from "./health.controller";
+import { AddProductCustomization1784979000000 } from "./migrations/1784979000000-AddProductCustomization";
 
 @Module({
   imports: [
@@ -24,6 +25,8 @@ import { HealthController } from "./health.controller";
           type: "postgres" as const,
           url: databaseUrl,
           entities: [Region, Category, Product, Promotion, Order, OrderItem],
+          migrations: [AddProductCustomization1784979000000],
+          migrationsRun: true,
           synchronize:
             config.get<string>("DB_SYNCHRONIZE") === "true" ||
             config.get<string>("NODE_ENV") !== "production",

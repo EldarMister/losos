@@ -1,6 +1,16 @@
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Category } from "./category.entity";
 
+export type ProductModifierGroup = {
+  id: string;
+  title: string;
+  selectionType: "single" | "multiple";
+  required: boolean;
+  minSelections?: number;
+  maxSelections?: number;
+  items: Array<{ id: string; name: string; price: number; image: string; enabled?: boolean }>;
+};
+
 @Entity("products")
 export class Product {
   @PrimaryGeneratedColumn()
@@ -43,8 +53,11 @@ export class Product {
   @Column({ type: "int", default: 0 })
   carbs!: number;
 
-  @Column({ type: "varchar", nullable: true })
-  badge!: string | null;
+  @Column({ default: false })
+  isNew!: boolean;
+
+  @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
+  modifierGroups!: ProductModifierGroup[];
 
   @Column({ default: true })
   available!: boolean;

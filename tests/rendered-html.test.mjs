@@ -70,7 +70,9 @@ test("includes the product, cart and address flows", async () => {
   assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
-  assert.match(storefront, /addon-groups/);
+  assert.match(storefront, /modifier-groups/);
+  assert.match(storefront, /Настройте блюдо/);
+  assert.match(storefront, /product-new-badge/);
   assert.match(storefront, /story-progress/);
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
@@ -97,7 +99,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /"Зелёный", 590/);
   assert.match(catalog, /b8d03d4e8617466336260d917af4f21b/);
   assert.match(catalog, /f449b42a119d8d82dbaf4ec023d4bd95/);
-  assert.match(catalog, /Основной соус/);
+  assert.match(catalog, /Соус к картошке фри/);
+  assert.match(catalog, /selectionType:\s*"single"/);
   assert.match(catalog, /modalKind:\s*"simple"/);
   assert.match(catalog, /productMetaByName\[name\]/);
   assert.match(catalog, /available:\s*false/);

@@ -15,14 +15,19 @@ export type Product = {
   protein?: number;
   fat?: number;
   carbs?: number;
-  badge?: string;
+  isNew?: boolean;
   available?: boolean;
   modalKind?: "simple" | "related" | "addons";
   referenceCard?: "popcorn" | "batat" | "cheese-sticks" | "crab-salmon";
   referenceDetail?: "popcorn" | "wasabi";
-  addonGroups?: Array<{
+  modifierGroups?: Array<{
+    id: string;
     title: string;
-    items: Array<{ id: string; name: string; price: number; image: string }>;
+    selectionType: "single" | "multiple";
+    required: boolean;
+    minSelections?: number;
+    maxSelections?: number;
+    items: Array<{ id: string; name: string; price: number; image: string; enabled?: boolean }>;
   }>;
 };
 
@@ -151,16 +156,25 @@ const liveProductImages: Record<string, string> = {
   "Чипсы креветочные": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fffd098e1fc3069d23ea6c0215eaf244_thumb_75_1152_1152.PNG",
 };
 
-const popcornAddons: Product["addonGroups"] = [
+const friesModifiers: Product["modifierGroups"] = [
   {
-    title: "Основной соус",
+    id: "fries-sauce",
+    title: "Соус к картошке фри",
+    selectionType: "single",
+    required: true,
+    minSelections: 1,
+    maxSelections: 1,
     items: [
       { id: "cheese", name: "Сырный Heinz", price: 0, image: images.cheeseSauce },
       { id: "garlic", name: "Чесночный", price: 0, image: images.garlicSauce },
     ],
   },
   {
+    id: "extra-sauce",
     title: "Дополнительный соус",
+    selectionType: "multiple",
+    required: false,
+    maxSelections: 3,
     items: [
       { id: "sweet-chili", name: "Сладкий чили", price: 100, image: images.sweetChiliSauce },
       { id: "caesar", name: "Цезарь", price: 180, image: images.caesarSauce },
@@ -235,8 +249,8 @@ export const categories: Category[] = [
     slug: "novinki",
     title: "Новинки",
     products: [
-      p(11847, "novinki", "Соус сладкий васаби", 90, images.wasabi, sauceDetails),
-      p(11693, "novinki", "Зелёный", 590, images.green),
+      p(11847, "novinki", "Соус сладкий васаби", 90, images.wasabi, { ...sauceDetails, isNew: true }),
+      p(11693, "novinki", "Зелёный", 590, images.green, { isNew: true }),
     ],
   },
   {
@@ -389,7 +403,7 @@ export const categories: Category[] = [
     products: [
       p(11801, "zakuski-4", "Картофель фри", 275, images.green, {
         modalKind: "addons",
-        addonGroups: popcornAddons,
+        modifierGroups: friesModifiers,
       }),
       p(11802, "zakuski-4", "Креветки васаби", 695, images.rukola),
       p(11803, "zakuski-4", "Чипсы креветочные", 150, images.wasabi),

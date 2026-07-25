@@ -1,3 +1,5 @@
+import type { ProductModifierGroup } from "./product.entity";
+
 const img = {
   wasabi: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/1d1309ca7308f503b15c1c0193501642_thumb_75_1152_1152.JPEG",
   green: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/c4cc13964520cb9a68303a797e5875e6_thumb_75_1152_1152.PNG",
@@ -10,12 +12,12 @@ const img = {
   poke: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/0b2eb39305d53bb8fe7e94aaa04a2e16_thumb_75_1152_1152.JPEG",
 };
 
-type SeedProduct = { id: number; slug: string; name: string; price: number; image: string; description: string; weight: number; calories: number; protein: number; fat: number; carbs: number; badge: string | null };
-const product = (id: number, name: string, price: number, image: string, badge: string | null = null): SeedProduct => ({ id, slug: name.toLowerCase().replace(/[^a-zа-я0-9]+/gi, "-").replace(/(^-|-$)/g, ""), name, price, image, description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.", weight: 260, calories: 460, protein: 14, fat: 13, carbs: 69, badge });
+type SeedProduct = { id: number; slug: string; name: string; price: number; image: string; description: string; weight: number; calories: number; protein: number; fat: number; carbs: number; isNew: boolean; modifierGroups: ProductModifierGroup[] };
+const product = (id: number, name: string, price: number, image: string, isNew = false): SeedProduct => ({ id, slug: name.toLowerCase().replace(/[^a-zа-я0-9]+/gi, "-").replace(/(^-|-$)/g, ""), name, price, image, description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.", weight: 260, calories: 460, protein: 14, fat: 13, carbs: 69, isNew, modifierGroups: [] });
 
 export const seedCategories = [
-  { slug: "novinki", title: "Новинки", products: [product(12001, "Соус сладкий васаби", 90, img.wasabi, "new"), product(12002, "Зелёный", 590, img.green, "new")] },
-  { slug: "hity-prodaz-2", title: "Хиты продаж", products: [product(11301, "Шаурокинава", 405, img.shaurokinawa, "🌶️"), product(11155, "Чука с ореховым соусом", 395, img.chuka), product(11021, "Филадельфия с лососем", 850, img.philadelphia), product(11202, "Том Ям с кальмаром и креветками", 635, img.tomyam), product(11355, "Ролл Рукола-креветка", 585, img.rukola), product(11277, "Запечённый с креветками", 690, img.baked), product(11402, "Поке с лососем в тобико", 830, img.poke)] },
+  { slug: "novinki", title: "Новинки", products: [product(12001, "Соус сладкий васаби", 90, img.wasabi, true), product(12002, "Зелёный", 590, img.green, true)] },
+  { slug: "hity-prodaz-2", title: "Хиты продаж", products: [product(11301, "Шаурокинава", 405, img.shaurokinawa), product(11155, "Чука с ореховым соусом", 395, img.chuka), product(11021, "Филадельфия с лососем", 850, img.philadelphia), product(11202, "Том Ям с кальмаром и креветками", 635, img.tomyam), product(11355, "Ролл Рукола-креветка", 585, img.rukola), product(11277, "Запечённый с креветками", 690, img.baked), product(11402, "Поке с лососем в тобико", 830, img.poke)] },
   { slug: "rolly-2", title: "Роллы", products: [product(11022, "Снежная калифорния", 630, img.philadelphia), product(11023, "Филадельфия лайт", 720, img.philadelphia), product(11356, "Филадельфия с креветкой", 645, img.rukola), product(11354, "Ролл Гуакамоле", 595, img.green), product(11064, "Угорь и лосось", 935, img.philadelphia), product(11049, "Аляска", 595, img.baked)] },
   { slug: "saurolly-3", title: "Шауроллы", products: [product(11302, "Шаурдельфия", 849, img.philadelphia), product(11303, "Шаурфорния", 530, img.rukola)] },
   { slug: "tempura-i-zapecennye-rolly-3", title: "Темпура и запеченные роллы", products: [product(11501, "Темпура с креветками спайси", 620, img.baked), product(11504, "Запеченная калифорния", 595, img.baked)] },

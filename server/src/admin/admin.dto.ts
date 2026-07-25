@@ -1,6 +1,7 @@
 import { Transform, Type } from "class-transformer";
 import {
   IsBoolean,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -9,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import type { ProductModifierGroup } from "../catalog/product.entity";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
 
@@ -89,9 +91,13 @@ export class CreateProductDto {
   @IsString()
   composition = "";
 
+  @Transform(optionalBoolean)
+  @IsBoolean()
+  isNew = false;
+
   @IsOptional()
-  @IsString()
-  badge?: string | null;
+  @IsArray()
+  modifierGroups: ProductModifierGroup[] = [];
 
   @Transform(optionalBoolean)
   @IsBoolean()
@@ -136,7 +142,8 @@ export class UpdateProductDto {
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() composition?: string;
-  @IsOptional() @IsString() badge?: string | null;
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() isNew?: boolean;
+  @IsOptional() @IsArray() modifierGroups?: ProductModifierGroup[];
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() available?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) weight?: number;

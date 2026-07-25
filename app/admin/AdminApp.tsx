@@ -12,7 +12,8 @@ type Product = {
   image: string;
   description: string;
   composition: string;
-  badge: string | null;
+  isNew: boolean;
+  modifierGroups: ModifierGroup[];
   available: boolean;
   sortOrder: number;
   weight: number;
@@ -21,12 +22,23 @@ type Product = {
   fat: number;
   carbs: number;
 };
+type ModifierItem = { id: string; name: string; price: number; image: string; enabled?: boolean };
+type ModifierGroup = {
+  id: string;
+  title: string;
+  selectionType: "single" | "multiple";
+  required: boolean;
+  minSelections?: number;
+  maxSelections?: number;
+  items: ModifierItem[];
+};
 type Category = { id: number; title: string; slug: string; sortOrder: number; products: Product[] };
 type Promotion = { id: number; title: string; image: string; cta: string; ctaUrl: string; enabled: boolean; sortOrder: number };
 type Dashboard = { region: Region; categories: Category[]; promotions: Promotion[] };
 type Tab = "products" | "promotions" | "categories";
 type EditorKind = "product" | "promotion" | "category";
-type Editor = { kind: EditorKind; id?: number; values: Record<string, string | boolean> };
+type EditorValue = string | boolean | ModifierGroup[];
+type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
 const apiUrl = (configuredApiUrl || "http://localhost:4000/api").replace(/\/$/, "");
@@ -45,7 +57,8 @@ const emptyProduct = (categoryId = ""): Editor => ({
     image: "",
     description: "",
     composition: "",
-    badge: "",
+    isNew: false,
+    modifierGroups: [],
     available: true,
     sortOrder: "0",
     weight: "0",
@@ -145,7 +158,8 @@ export function AdminApp() {
         description: product.description,
         composition: product.composition,
         available: product.available,
-        badge: product.badge || "",
+        isNew: product.isNew,
+        modifierGroups: product.modifierGroups || [],
         categoryId: String(product.categoryId),
         price: String(product.price),
         sortOrder: String(product.sortOrder),
@@ -183,7 +197,7 @@ export function AdminApp() {
     values: { title: "", slug: "", sortOrder: "0" },
   });
 
-  const updateValue = (name: string, value: string | boolean) => {
+  const updateValue = (name: string, value: EditorValue) => {
     setEditor((current) => current ? { ...current, values: { ...current.values, [name]: value } } : current);
   };
 
@@ -323,10 +337,12 @@ export function AdminApp() {
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
           <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
           <label>Состав<textarea value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
-          <div className="admin-two-fields"><label>Бейдж<input value={String(editor.values.badge || "")} onChange={(event) => updateValue("badge", event.target.value)} placeholder="🌶️" /></label><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
+          <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
+          <ModifierGroupsEditor value={editor.values.modifierGroups as ModifierGroup[] || []} onChange={(value) => updateValue("modifierGroups", value)} />
           <div className="admin-nutrition">
             {[["weight", "Граммы"], ["calories", "Ккал"], ["protein", "Белки"], ["fat", "Жиры"], ["carbs", "Углеводы"]].map(([name, label]) => <label key={name}>{label}<input type="number" min="0" value={String(editor.values[name])} onChange={(event) => updateValue(name, event.target.value)} /></label>)}
           </div>
+          <label className="admin-switch"><span><b>Бейдж «Новинка»</b><small>Фиксированно справа снизу на фото</small></span><input type="checkbox" checked={Boolean(editor.values.isNew)} onChange={(event) => updateValue("isNew", event.target.checked)} /></label>
           <label className="admin-switch"><span><b>В продаже</b><small>Можно заказать на сайте</small></span><input type="checkbox" checked={Boolean(editor.values.available)} onChange={(event) => updateValue("available", event.target.checked)} /></label>
         </> : null}
         {editor.kind === "promotion" ? <>
@@ -344,6 +360,67 @@ export function AdminApp() {
       </form>
     </div> : null}
   </main>;
+}
+
+function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onChange: (groups: ModifierGroup[]) => void }) {
+  const updateGroup = (index: number, patch: Partial<ModifierGroup>) =>
+    onChange(value.map((group, groupIndex) => groupIndex === index ? { ...group, ...patch } : group));
+  const removeGroup = (index: number) => onChange(value.filter((_, groupIndex) => groupIndex !== index));
+  const addGroup = () => onChange([...value, {
+    id: `group-${Date.now()}`,
+    title: "Новая группа",
+    selectionType: "single",
+    required: false,
+    minSelections: 0,
+    maxSelections: 1,
+    items: [],
+  }]);
+  const updateItem = (groupIndex: number, itemIndex: number, patch: Partial<ModifierItem>) => {
+    const group = value[groupIndex];
+    updateGroup(groupIndex, {
+      items: group.items.map((item, currentIndex) => currentIndex === itemIndex ? { ...item, ...patch } : item),
+    });
+  };
+  const addItem = (groupIndex: number) => {
+    const group = value[groupIndex];
+    updateGroup(groupIndex, {
+      items: [...group.items, { id: `option-${Date.now()}`, name: "Новый вариант", price: 0, image: "", enabled: true }],
+    });
+  };
+  const removeItem = (groupIndex: number, itemIndex: number) => {
+    const group = value[groupIndex];
+    updateGroup(groupIndex, { items: group.items.filter((_, currentIndex) => currentIndex !== itemIndex) });
+  };
+
+  return <section className="admin-modifiers">
+    <div className="admin-modifiers-head">
+      <span><b>Группы выбора и добавки</b><small>Название и назначение могут быть любыми</small></span>
+      <button type="button" onClick={addGroup}>+ Группа</button>
+    </div>
+    {value.map((group, groupIndex) => <article className="admin-modifier-group" key={group.id}>
+      <div className="admin-modifier-title">
+        <input aria-label="Название группы" value={group.title} onChange={(event) => updateGroup(groupIndex, { title: event.target.value })} />
+        <button type="button" onClick={() => removeGroup(groupIndex)} aria-label={`Удалить группу ${group.title}`}>×</button>
+      </div>
+      <div className="admin-modifier-rules">
+        <label>Режим<select value={group.selectionType} onChange={(event) => updateGroup(groupIndex, { selectionType: event.target.value as ModifierGroup["selectionType"], maxSelections: event.target.value === "single" ? 1 : Math.max(1, group.maxSelections || 1) })}><option value="single">Один вариант</option><option value="multiple">Несколько вариантов</option></select></label>
+        <label>Максимум<input type="number" min="1" disabled={group.selectionType === "single"} value={group.selectionType === "single" ? 1 : group.maxSelections || 1} onChange={(event) => updateGroup(groupIndex, { maxSelections: Number(event.target.value) })} /></label>
+        <label className="admin-required"><span>Обязательно</span><input type="checkbox" checked={group.required} onChange={(event) => updateGroup(groupIndex, { required: event.target.checked, minSelections: event.target.checked ? 1 : 0 })} /></label>
+      </div>
+      <div className="admin-modifier-items">
+        {group.items.map((item, itemIndex) => <div className="admin-modifier-item" key={item.id}>
+          {item.image ? <img src={item.image} alt="" /> : <span className="admin-modifier-placeholder">Фото</span>}
+          <div>
+            <input aria-label="Название варианта" value={item.name} onChange={(event) => updateItem(groupIndex, itemIndex, { name: event.target.value })} />
+            <input aria-label="Ссылка на фото варианта" value={item.image} onChange={(event) => updateItem(groupIndex, itemIndex, { image: event.target.value })} placeholder="Ссылка на фото" />
+          </div>
+          <label>Цена<input type="number" min="0" value={item.price} onChange={(event) => updateItem(groupIndex, itemIndex, { price: Number(event.target.value) })} /></label>
+          <button type="button" onClick={() => removeItem(groupIndex, itemIndex)} aria-label={`Удалить ${item.name}`}>×</button>
+        </div>)}
+      </div>
+      <button className="admin-add-option" type="button" onClick={() => addItem(groupIndex)}>+ Добавить вариант</button>
+    </article>)}
+  </section>;
 }
 
 function ImageField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
