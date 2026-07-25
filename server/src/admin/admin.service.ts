@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Between, Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
 import {
   assertValidModifierGroups,
@@ -73,6 +73,12 @@ export class AdminService {
     const where = {
       ...(query.regionSlug ? { regionSlug: query.regionSlug } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(query.from || query.to ? {
+        createdAt: Between(
+          query.from ? new Date(query.from) : new Date(0),
+          query.to ? new Date(query.to) : new Date(),
+        ),
+      } : {}),
     };
     const [items, total, rawStatusCounts] = await Promise.all([
       this.orderRepository.find({
@@ -83,12 +89,16 @@ export class AdminService {
         skip: offset,
       }),
       this.orderRepository.count({ where }),
-      this.orderRepository.createQueryBuilder("order")
+      (() => {
+        const counts = this.orderRepository.createQueryBuilder("order")
         .select("order.status", "status")
         .addSelect("COUNT(*)", "count")
         .where(query.regionSlug ? "order.regionSlug = :regionSlug" : "1 = 1", { regionSlug: query.regionSlug })
-        .groupBy("order.status")
-        .getRawMany<{ status: OrderStatus; count: string }>(),
+        .groupBy("order.status");
+        if (query.from) counts.andWhere("order.\"createdAt\" >= :from", { from: new Date(query.from) });
+        if (query.to) counts.andWhere("order.\"createdAt\" <= :to", { to: new Date(query.to) });
+        return counts.getRawMany<{ status: OrderStatus; count: string }>();
+      })(),
     ]);
     const statusCounts = Object.fromEntries(rawStatusCounts.map((item) => [item.status, Number(item.count)])) as Partial<Record<OrderStatus, number>>;
     return { items, total, limit, offset, statusCounts };

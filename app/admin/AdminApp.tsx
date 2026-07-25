@@ -94,6 +94,7 @@ type AdminOrder = {
   items: AdminOrderItem[];
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
+type OrderPeriod = "all" | "today" | "week" | "month";
 type Tab = "orders" | "products" | "promotions" | "categories" | "settings";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
@@ -198,6 +199,7 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
+  const [orderPeriod, setOrderPeriod] = useState<OrderPeriod>("all");
   const [orderPage, setOrderPage] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
@@ -270,6 +272,15 @@ export function AdminApp() {
     try {
       const query = new URLSearchParams({ regionSlug: region, limit: String(ordersPerPage), offset: String((orderPage - 1) * ordersPerPage) });
       if (orderFilter !== "all") query.set("status", orderFilter);
+      if (orderPeriod !== "all") {
+        const now = new Date();
+        const from = new Date(now);
+        from.setHours(0, 0, 0, 0);
+        if (orderPeriod === "week") from.setDate(from.getDate() - 6);
+        if (orderPeriod === "month") from.setDate(1);
+        query.set("from", from.toISOString());
+        query.set("to", now.toISOString());
+      }
       const result = await request(`/admin/orders?${query}`) as OrdersResponse;
       setOrders(result.items);
       setOrdersTotal(result.total);
@@ -282,7 +293,7 @@ export function AdminApp() {
     } finally {
       if (!silent) setOrdersLoading(false);
     }
-  }, [orderFilter, orderPage, region, request, token]);
+  }, [orderFilter, orderPage, orderPeriod, region, request, token]);
 
   useEffect(() => {
     if (tab !== "orders" || !token) return;
@@ -512,12 +523,15 @@ export function AdminApp() {
 
   const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
   const tabIcon: Record<Tab, string> = { orders: "▣", products: "♨", promotions: "✿", categories: "▦", settings: "⚙" };
-  const filterOptions: { value: "all" | OrderStatus; label: string }[] = [
-    { value: "all", label: "Все" },
+  const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
+    { value: "all", label: "Все статусы" },
     { value: "new", label: "Новые" },
-    { value: "confirmed", label: "Подтверждены" },
+    { value: "confirmed", label: "Подтверждённые" },
     { value: "preparing", label: "Готовятся" },
-    { value: "completed", label: "Доставлены" },
+    { value: "ready", label: "Готовые" },
+    { value: "delivering", label: "В пути" },
+    { value: "completed", label: "Завершённые" },
+    { value: "cancelled", label: "Отменённые" },
   ];
 
   return <main className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
@@ -566,15 +580,10 @@ export function AdminApp() {
       </div>
 
       {tab === "orders" ? <>
-        <div className="admin-order-filters">
-          {filterOptions.map((option) => <button key={option.value} className={orderFilter === option.value ? "active" : ""} onClick={() => { setOrderFilter(option.value); setOrderPage(1); }}>
-            {option.label}<i>{option.value === "all" ? Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0) : statusCounts[option.value] || 0}</i>
-          </button>)}
-        </div>
         <div className="admin-list-tools">
           <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по № заказа, клиенту или адресу..." /></label>
-          <button>☷&nbsp; Фильтры</button>
-          <button>▣&nbsp; Выбрать дату</button>
+          <label className="admin-select-control"><i>☷</i><select aria-label="Статус заказа" value={orderFilter} onChange={(event) => { setOrderFilter(event.target.value as "all" | OrderStatus); setOrderPage(1); }}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}{option.value === "all" ? ` (${Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0)})` : ` (${statusCounts[option.value] || 0})`}</option>)}</select></label>
+          <label className="admin-select-control"><i>▣</i><select aria-label="Период заказов" value={orderPeriod} onChange={(event) => { setOrderPeriod(event.target.value as OrderPeriod); setOrderPage(1); }}><option value="all">Всё время</option><option value="today">Сегодня</option><option value="week">За 7 дней</option><option value="month">В этом месяце</option></select></label>
         </div>
         <div className="admin-orders">
           <div className="admin-table-head"><span>Заказ</span><span>Клиент</span><span>Адрес</span><span>Статус</span><span>Сумма</span><span>Время</span></div>
@@ -598,7 +607,6 @@ export function AdminApp() {
 
       {tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
         <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === "products" ? "Поиск по названию блюда" : tab === "promotions" ? "Поиск по акциям" : "Поиск по категориям"} /></label>
-        <button>☷&nbsp; Фильтры</button>
       </div> : null}
 
       {tab === "products" ? <div className="admin-products-table">

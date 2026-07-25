@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { IsDateString, IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 import { OrderStatus } from "../orders/order.enums";
 
 export class ListOrdersQueryDto {
@@ -11,6 +11,14 @@ export class ListOrdersQueryDto {
   @IsOptional()
   @IsEnum(OrderStatus)
   status?: OrderStatus;
+
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
 
   @IsOptional()
   @Type(() => Number)
