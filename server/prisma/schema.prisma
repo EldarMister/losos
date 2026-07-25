@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// This schema deliberately mirrors the existing production tables.  It is
+// introduced alongside TypeORM so the migration can be verified without a
+// destructive database reset or a loss of orders/catalogue data.
+model Region {
+  id             Int         @id @default(autoincrement())
+  slug           String      @unique
+  name           String
+  enabled        Boolean     @default(true)
+  sortOrder      Int         @default(0)
+  contactPhone   String      @default("")
+  contactEmail   String      @default("")
+  contactAddress String      @default("")
+  categories     Category[]
+  promotions     Promotion[]
+
+  @@map("regions")
+}
+
+model Category {
+  id        Int       @id @default(autoincrement())
+  slug      String
+  title     String
+  sortOrder Int       @default(0)
+  regionId  Int
+  region    Region    @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([regionId, slug])
+  @@map("categories")
+}
+
+model Product {
+  id             Int      @id @default(autoincrement())
+  sourceId       Int?
+  slug           String
+  name           String
+  price          Int
+  image          String
+  description    String   @default("")
+  composition    String   @default("")
+  weight         Float    @default(0)
+  calories       Int      @default(0)
+  protein        Int      @default(0)
+  fat            Int      @default(0)
+  carbs          Int      @default(0)
+  isNew          Boolean  @default(false)
+  modifierGroups Json     @default("[]")
+  available      Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  categoryId     Int
+  category       Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model Promotion {
+  id        Int     @id @default(autoincrement())
+  title     String
+  image     String
+  cta       String  @default("")
+  ctaUrl    String  @default("")
+  enabled   Boolean @default(true)
+  sortOrder Int     @default(0)
+  regionId  Int
+  region    Region  @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  @@index([regionId])
+  @@map("promotions")
+}
+
+model Order {
+  id                 String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  regionSlug         String      @default("bishkek") @db.VarChar(100)
+  deliveryType       String      @default("delivery") @db.VarChar(20)
+  customerName       String
+  phone              String
+  address            String
+  latitude           Float?
+  longitude          Float?
+  apartment          String      @default("")
+  entrance           String      @default("")
+  floor              String      @default("")
+  intercom           String      @default("")
+  comment            String      @default("")
+  utensilsCount      Int         @default(1)
+  noUtensils         Boolean     @default(false)
+  paymentMethod      String      @default("cash") @db.VarChar(30)
+  idempotencyKey     String      @unique @db.VarChar(120)
+  requestFingerprint String      @db.VarChar(64)
+  subtotal           Int
+  total              Int
+  status             String      @default("new") @db.VarChar(30)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  items              OrderItem[]
+
+  @@index([regionSlug])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                Int      @id @default(autoincrement())
+  productId         Int
+  productName       String
+  basePrice         Int
+  baseTotal         Int
+  modifiersPrice    Int      @default(0)
+  modifiersTotal    Int      @default(0)
+  unitPrice         Int
+  quantity          Int
+  lineTotal         Int
+  pricingVersion    String   @default("scoped-v2") @db.VarChar(30)
+  configurationKey  String   @db.VarChar(64)
+  modifierSnapshots Json     @default("[]")
+  orderId           String   @db.Uuid
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}

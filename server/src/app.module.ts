@@ -10,6 +10,8 @@ import { Region } from "./catalog/region.entity";
 import { Order } from "./orders/order.entity";
 import { OrderItem } from "./orders/order-item.entity";
 import { OrdersModule } from "./orders/orders.module";
+import { PrismaModule } from "./prisma/prisma.module";
+import { RealtimeModule } from "./realtime/realtime.module";
 import { HealthController } from "./health.controller";
 import { BootstrapSchema1784978000000 } from "./migrations/1784978000000-BootstrapSchema";
 import { AddProductCustomization1784979000000 } from "./migrations/1784979000000-AddProductCustomization";
@@ -48,6 +50,8 @@ import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRe
         };
       },
     }),
+    PrismaModule,
+    RealtimeModule,
     CatalogModule,
     AdminModule,
     OrdersModule,

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { io } from "socket.io-client";
 
 type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string };
 type Product = {
@@ -138,6 +139,7 @@ const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
 
 const formatOrderNumber = (id: string) => `№ ${id.slice(0, 8).toUpperCase()}`;
 const ordersPerPage = 10;
+const realtimeUrl = apiUrl.replace(/\/api$/, "");
 
 const emptyProduct = (categoryId = ""): Editor => ({
   kind: "product",
@@ -287,10 +289,24 @@ export function AdminApp() {
   useEffect(() => {
     if (tab !== "orders" || !token) return;
     const initialTimer = window.setTimeout(() => void loadOrders(), 0);
-    const refreshTimer = window.setInterval(() => void loadOrders(true), 15_000);
+    const socket = io(realtimeUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1_000,
+      reconnectionDelayMax: 5_000,
+    });
+    let eventTimer: number | undefined;
+    const handleOrderChange = () => {
+      if (eventTimer) window.clearTimeout(eventTimer);
+      eventTimer = window.setTimeout(() => void loadOrders(true), 150);
+    };
+    socket.on("orders:changed", handleOrderChange);
     return () => {
       window.clearTimeout(initialTimer);
-      window.clearInterval(refreshTimer);
+      if (eventTimer) window.clearTimeout(eventTimer);
+      socket.off("orders:changed", handleOrderChange);
+      socket.disconnect();
     };
   }, [loadOrders, tab, token]);
 

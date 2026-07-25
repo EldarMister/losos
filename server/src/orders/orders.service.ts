@@ -9,6 +9,7 @@ import { OrderItem } from "./order-item.entity";
 import { Order } from "./order.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
 import { OrderPricingError, priceOrderLine } from "./order-pricing";
+import { OrdersGateway } from "../realtime/orders.gateway";
 
 function fingerprintRequest(dto: CreateOrderDto) {
   const items = (dto.items ?? []).map((item) => ({
@@ -54,6 +55,7 @@ function isUniqueViolation(error: unknown) {
 export class OrdersService {
   constructor(
     @InjectRepository(Order) private readonly orders: Repository<Order>,
+    private readonly ordersGateway: OrdersGateway,
   ) {}
 
   async create(dto: CreateOrderDto) {
@@ -65,7 +67,7 @@ export class OrdersService {
     if (existing) return this.ensureMatchingIdempotency(existing, requestFingerprint);
 
     try {
-      return await this.orders.manager.transaction(async (manager) => {
+      const created = await this.orders.manager.transaction(async (manager) => {
         const orders = manager.getRepository(Order);
         const items = manager.getRepository(OrderItem);
         const productRepository = manager.getRepository(Product);
@@ -137,6 +139,8 @@ export class OrdersService {
         });
         return orders.save(order);
       });
+      this.ordersGateway.orderCreated(created);
+      return created;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);

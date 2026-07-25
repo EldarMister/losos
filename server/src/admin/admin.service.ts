@@ -12,6 +12,7 @@ import { Region } from "../catalog/region.entity";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
+import { OrdersGateway } from "../realtime/orders.gateway";
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -31,6 +32,7 @@ export class AdminService {
     @InjectRepository(Product) private readonly products: Repository<Product>,
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
     @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
+    private readonly ordersGateway: OrdersGateway,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -110,7 +112,9 @@ export class AdminService {
     }
     if (order.status === nextStatus) return order;
     order.status = nextStatus;
-    return this.orderRepository.save(order);
+    const updated = await this.orderRepository.save(order);
+    this.ordersGateway.orderUpdated(updated);
+    return updated;
   }
 
   async createCategory(dto: CreateCategoryDto) {

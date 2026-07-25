@@ -9,9 +9,10 @@ import { Order } from "../orders/order.entity";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
+import { RealtimeModule } from "../realtime/realtime.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Region, Category, Product, Promotion, Order, OrderItem])],
+  imports: [TypeOrmModule.forFeature([Region, Category, Product, Promotion, Order, OrderItem]), RealtimeModule],
   controllers: [AdminController],
   providers: [AdminService, AdminTokenGuard],
 })
