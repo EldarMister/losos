@@ -396,12 +396,11 @@ const reconcilePromotions = (promotions: Promotion[]) => {
 };
 
 function ProductArt({ product, mode, loading }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" }) {
-  if (mode === "detail" && product.referenceDetail) {
-    return <span className={`reference-detail-art reference-detail-${product.referenceDetail}`} role="img" aria-label={product.name} />;
+  if (mode === "detail") {
+    return <img src={product.image} alt={product.name} loading="eager" fetchPriority="high" />;
   }
   if (product.referenceCard) {
-    const detailFallback = mode === "detail" ? " reference-detail-card-art" : "";
-    return <span className={`reference-card-art reference-card-${product.referenceCard}${detailFallback}`} role="img" aria-label={product.name} />;
+    return <span className={`reference-card-art reference-card-${product.referenceCard}`} role="img" aria-label={product.name} />;
   }
   return <img src={product.image} alt={product.name} loading={loading} />;
 }
