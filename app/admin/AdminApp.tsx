@@ -589,7 +589,7 @@ export function AdminApp() {
         </button>)}
         {!ordersLoading && orders.length === 0 ? <div className="admin-empty"><b>Заказов пока нет</b><span>Новые заказы появятся здесь автоматически.</span></div> : null}
         {!ordersLoading && orders.length > 0 && visibleOrders.length === 0 ? <div className="admin-empty"><b>Ничего не найдено</b><span>Попробуйте изменить поиск или фильтр.</span></div> : null}
-        <footer><span>Показано {(ordersPage - 1) * ordersPerPage + visibleOrders.length} из {ordersTotal}</span>{Math.ceil(ordersTotal / ordersPerPage) > 1 ? <>
+        <footer><span>Показано {(orderPage - 1) * ordersPerPage + visibleOrders.length} из {ordersTotal}</span>{Math.ceil(ordersTotal / ordersPerPage) > 1 ? <>
           <button type="button" disabled={orderPage === 1} onClick={() => setOrderPage((current) => current - 1)}>‹</button>
           {Array.from({ length: Math.ceil(ordersTotal / ordersPerPage) }, (_, index) => index + 1).map((page) => <button type="button" key={page} className={page === orderPage ? "active" : ""} onClick={() => setOrderPage(page)}>{page}</button>)}
           <button type="button" disabled={orderPage === Math.ceil(ordersTotal / ordersPerPage)} onClick={() => setOrderPage((current) => current + 1)}>›</button>
