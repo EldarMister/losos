@@ -87,8 +87,12 @@ type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
 
-const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
-const apiUrl = (configuredApiUrl || "http://localhost:4000/api").replace(/\/$/, "");
+const apiUrl = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:4000/api"
+    : "https://losos-production.up.railway.app/api")
+).replace(/\/$/, "");
 const regions = [
   { slug: "bishkek", name: "Бишкек" },
   { slug: "osh", name: "Ош" },
@@ -389,7 +393,6 @@ export function AdminApp() {
         <p>Введите код администратора. Он хранится только в этом браузере.</p>
         <input type="password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Код администратора" autoFocus />
         <button type="submit">Войти</button>
-        {!configuredApiUrl ? <small>Для публикации нужно указать NEXT_PUBLIC_API_URL.</small> : null}
       </form>
     </main>;
   }

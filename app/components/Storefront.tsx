@@ -60,6 +60,12 @@ const defaultRegions: RegionOption[] = [
 const STOREFRONT_STORAGE_KEY = "losos.storefront.v1";
 const STOREFRONT_STORAGE_VERSION = 1;
 const MAX_MODIFIER_UNITS = 50;
+const STOREFRONT_API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "development"
+    ? "http://localhost:4000/api"
+    : "https://losos-production.up.railway.app/api")
+).replace(/\/$/, "");
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 const cartLineKey = (productId: number, modifiers: SelectedModifier[]) => {
   const signature = modifiers
@@ -327,7 +333,7 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const searchParams = useSearchParams();
   const initialRegion = searchParams.get("region") === "osh" ? "osh" : "bishkek";
-  const usesRemoteCatalog = Boolean(process.env.NEXT_PUBLIC_API_URL);
+  const usesRemoteCatalog = Boolean(STOREFRONT_API_URL);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
@@ -384,10 +390,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const citySelectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!apiUrl) return;
     const controller = new AbortController();
-    const baseUrl = apiUrl.replace(/\/$/, "");
+    const baseUrl = STOREFRONT_API_URL;
 
     fetch(`${baseUrl}/regions`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Regions request failed")))
@@ -698,11 +702,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!cart.length || checkoutSubmitting) return;
-    const orderApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
-    if (!orderApiUrl) {
-      setCheckoutError("Сервис заказов пока не подключён. Укажите адрес API для опубликованного сайта.");
-      return;
-    }
+    const orderApiUrl = STOREFRONT_API_URL;
 
     const phone = normalizePhone(checkoutForm.phone);
     if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {

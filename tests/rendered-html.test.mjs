@@ -21,8 +21,7 @@ test("server-renders the storefront", async () => {
   const html = await response.text();
   assert.match(html, /<title>Много лосося \| Суши, пиццы, роллы<\/title>/i);
   assert.match(html, /Salmon Lovers Club/);
-  assert.match(html, /Новинки/);
-  assert.match(html, /Шаурокинава/);
+  assert.match(html, /Загружаем меню/);
   assert.match(html, /Корзина/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
@@ -92,6 +91,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, />Комплектация<\/button>/);
   assert.match(storefront, /Увеличить количество/);
   assert.match(storefront, /NEXT_PUBLIC_API_URL/);
+  assert.match(storefront, /https:\/\/losos-production\.up\.railway\.app\/api/);
   assert.match(storefront, /cartLineKey/);
   assert.match(storefront, /selectedModifiersForCart/);
   assert.match(storefront, /line\.modifiers/);
