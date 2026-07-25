@@ -2,6 +2,10 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
+import {
+  assertValidModifierGroups,
+  ModifierCatalogValidationError,
+} from "../catalog/modifier-validation";
 import { Product } from "../catalog/product.entity";
 import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
@@ -98,6 +102,7 @@ export class AdminService {
   }
 
   async createProduct(dto: CreateProductDto) {
+    this.validateModifierGroups(dto.modifierGroups);
     const region = await this.requireRegion(dto.regionSlug);
     const category = await this.requireCategory(dto.categoryId);
     if (category.region.id !== region.id) throw new BadRequestException("Category belongs to another region");
@@ -110,6 +115,7 @@ export class AdminService {
   }
 
   async updateProduct(id: number, dto: UpdateProductDto) {
+    if (dto.modifierGroups !== undefined) this.validateModifierGroups(dto.modifierGroups);
     const product = await this.requireProduct(id);
     const { categoryId, ...data } = dto;
     if (categoryId !== undefined) {
@@ -172,5 +178,16 @@ export class AdminService {
     const promotion = await this.promotions.findOne({ where: { id }, relations: { region: true } });
     if (!promotion) throw new NotFoundException("Promotion not found");
     return promotion;
+  }
+
+  private validateModifierGroups(groups: CreateProductDto["modifierGroups"]) {
+    try {
+      assertValidModifierGroups(groups);
+    } catch (error) {
+      if (error instanceof ModifierCatalogValidationError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
   }
 }

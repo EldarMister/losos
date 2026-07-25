@@ -17,6 +17,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from "class-validator";
+import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
 
@@ -34,6 +35,7 @@ export class ProductModifierItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(POSTGRES_INTEGER_MAX)
   price!: number;
 
   @IsString()
@@ -44,6 +46,13 @@ export class ProductModifierItemDto {
   @Transform(optionalBoolean)
   @IsBoolean()
   enabled = true;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  maxQuantity?: number;
 }
 
 export class ProductModifierGroupDto {
@@ -72,15 +81,19 @@ export class ProductModifierGroupDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(50)
+  @Max(99)
   minSelections?: number;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(50)
+  @Max(99)
   maxSelections?: number;
+
+  @IsOptional()
+  @IsIn(["per-product", "per-line"])
+  priceScope?: "per-product" | "per-line";
 
   @IsArray()
   @ArrayMinSize(1)
@@ -153,6 +166,7 @@ export class CreateProductDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(POSTGRES_INTEGER_MAX)
   price!: number;
 
   @IsString()
@@ -217,7 +231,12 @@ export class UpdateProductDto {
   @IsOptional() @Type(() => Number) @IsInt() categoryId?: number;
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(140) name?: string;
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(160) slug?: string;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(0) price?: number;
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(POSTGRES_INTEGER_MAX)
+  price?: number;
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() composition?: string;

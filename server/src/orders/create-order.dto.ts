@@ -43,7 +43,7 @@ export class CreateOrderModifierDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(20)
+  @Max(99)
   quantity = 1;
 }
 

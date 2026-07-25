@@ -98,16 +98,18 @@
 .admin-modifier-title { display: grid; grid-template-columns: 1fr 36px; gap: 8px; }
 .admin-modifier-title input { font-weight: 700; background: white; }
 .admin-modifier-title button, .admin-modifier-item > button { border: 0; border-radius: 10px; background: #fff0f0; color: #bd3030; font-size: 20px; }
-.admin-modifier-rules { display: grid; grid-template-columns: 1fr 100px 100px 112px; gap: 8px; }
+.admin-modifier-rules { display: grid; grid-template-columns: 1fr 100px 90px 90px minmax(150px, 1fr) 112px; gap: 8px; }
 .admin-modifier-rules label, .admin-modifier-item label { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; font-size: 11px; font-weight: 700; }
 .admin-modifier-rules .admin-required { flex-direction: row; align-items: center; justify-content: space-between; padding: 0 8px; }
 .admin-modifier-rules .admin-required input { width: 22px; height: 22px; }
-.admin-modifier-item { display: grid; grid-template-columns: 48px 1fr 76px 34px; gap: 8px; align-items: center; margin-top: 10px; }
+.admin-modifier-item { display: grid; grid-template-columns: 48px minmax(160px, 1fr) 76px 82px 82px 34px; gap: 8px; align-items: center; margin-top: 10px; }
 .admin-modifier-item img, .admin-modifier-placeholder { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: white; }
 .admin-modifier-placeholder { display: grid; place-items: center; color: #999; font-size: 10px; }
 .admin-modifier-item > div { display: grid; gap: 5px; }
 .admin-modifier-item input { padding: 8px 9px; border-radius: 9px; background: white; font-size: 12px; }
 .admin-modifier-item label { margin-top: 0; }
+.admin-modifier-item .admin-modifier-enabled { align-items: center; }
+.admin-modifier-item .admin-modifier-enabled input { width: 22px; height: 22px; accent-color: var(--admin-orange); }
 .admin-add-option { width: 100%; margin-top: 12px; }
 .admin-editor-actions { position: sticky; bottom: -24px; display: flex; justify-content: space-between; gap: 12px; margin: 22px -24px -24px; padding: 16px 24px 20px; border-top: 1px solid var(--admin-line); background: white; }
 .admin-editor-actions button { min-width: 128px; height: 48px; border: 0; border-radius: 14px; font-weight: 700; }
@@ -154,7 +156,9 @@
   .admin-nutrition { grid-template-columns: repeat(2, 1fr); }
   .admin-modifier-rules { grid-template-columns: 1fr 1fr; }
   .admin-modifier-rules .admin-required { grid-column: 1 / -1; }
-  .admin-modifier-item { grid-template-columns: 42px 1fr 64px 32px; }
+  .admin-modifier-item { grid-template-columns: 42px minmax(0, 1fr) 64px 70px 32px; }
+  .admin-modifier-item .admin-modifier-enabled { grid-column: 2 / 5; flex-direction: row; justify-content: space-between; }
+  .admin-modifier-item > button { grid-column: 5; grid-row: 1; height: 42px; }
   .admin-modifier-item img, .admin-modifier-placeholder { width: 42px; height: 42px; }
   .admin-editor-actions { bottom: -20px; margin: 22px -16px -20px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); }
   .admin-order-actions { bottom: -20px; flex-wrap: wrap; margin: 18px -16px -20px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); }

@@ -1,4 +1,5 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import type { ModifierPriceScope } from "../catalog/product.entity";
 import { Order } from "./order.entity";
 
 export type OrderModifierSnapshot = {
@@ -9,6 +10,7 @@ export type OrderModifierSnapshot = {
   price: number;
   quantity: number;
   totalPrice: number;
+  priceScope: ModifierPriceScope;
 };
 
 @Entity("order_items")
@@ -25,8 +27,14 @@ export class OrderItem {
   @Column({ type: "int" })
   basePrice!: number;
 
+  @Column({ type: "int" })
+  baseTotal!: number;
+
   @Column({ type: "int", default: 0 })
   modifiersPrice!: number;
+
+  @Column({ type: "int", default: 0 })
+  modifiersTotal!: number;
 
   @Column({ type: "int" })
   unitPrice!: number;
@@ -36,6 +44,9 @@ export class OrderItem {
 
   @Column({ type: "int" })
   lineTotal!: number;
+
+  @Column({ length: 30, default: "scoped-v2" })
+  pricingVersion!: string;
 
   @Column({ length: 64 })
   configurationKey!: string;

@@ -23,22 +23,256 @@
         "sortOrder": 0
       },
       {
-        "sourceId": 11693,
-        "slug": "zelenyj",
-        "name": "Зелёный",
-        "price": 590,
-        "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/c4cc13964520cb9a68303a797e5875e6_thumb_75_1152_1152.PNG",
-        "description": "Когда зелёного не жалели! Собрали много свежего и хрустящего в одной тарелке. А чтобы было не скучно, добавили авокадо, бобы Эдамаме, пармезан и секретный соус из петрушки, чтобы всё подружить.",
-        "composition": "авокадо, айсберг, рукола, соус петрушковый, огурцы, бобы эдамаме, сыр пармезан.\n\nСостав: авокадо свежее, салат айсберг свежий, салат рукола свежая, соус петрушковый (масло подсолнечное рафинированное дезодорированное вымороженное первый сорт, петрушка (зелень петрушка свежая), сыр пармезан (молоко нормализованное пастеризованное, соль пищевая, закваска культур молочнокислых микроорганизмов, молокосвёртывающий ферментный препарат микробного происхождения, уплотнитель – хлорид кальция), лимон (лимон свежий), мёд натуральный (мёд натуральный цветочный), соль пищевая (соль пищевая выварочная, агент антислеживающий Е536), чеснок тёртый (чеснок свежий, соль пищевая, регулятор кислотности: лимонная кислота), соус бальзамический (концентрированное виноградное сусло, бальзамический уксус модены 20% (винный уксус (вино, антиокислитель E224), концентрированное виноградноесусло, краситель E150d), винный уксус, модифицированный кукурузный крахмал), масло кунжутное (масло соевое рафинированное, масло кунжутное рафинированное), васаби (порошок горчичный, приправа сухая на основе хрена (хрен сушеный молотый, крахмал кукурузный), мука кукурузная, крахмал кукурузный, антислеживающий агент Е551, антиокислители аскорбиновая кислота и Е224, красители – Е102, Е133)), огурцы длинноплодные свежие, эдамаме замороженные (зеленые соевые бобы, вода), сыр пармезан (молоко нормализованное пастеризованное, соль пищевая, закваска культур молочнокислых микроорганизмов, молокосвёртывающий ферментный препарат микробного происхождения, уплотнитель – хлорид кальция).\n\nПродукция производится на предприятии, где используются аллергены: яйца , молоко , соя , рыба, сельдерей , злаки содержащие глютен, горчица, орехи, арахис, кунжут, ракообразные, моллюски, диоксид серы и сульфиты и продукты, аспартам, люпин.Содержит краситель(красители), который (которые) может (могут) оказывать отрицательное влияние на активность и внимание детей.\n\nСрок годности не более 3х часов (в оригинальной невскрытой упаковке) при хранении и транспортировке от +15 до +25 °С\n\nПродукт произведен из мороженого сырья.\nТУ 10.85.13-015-41745829-2026\nПродукт готов к употреблению. Употребить сразу после вскрытия упаковки.\nМасса нетто: 165 г.",
-        "weight": 165,
-        "calories": 429,
-        "protein": 5,
-        "fat": 40,
-        "carbs": 10,
+        "sourceId": 11682,
+        "slug": "kurinyj-popkorn",
+        "name": "Куриный попкорн",
+        "price": 345,
+        "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/41a0724c8ff19845d777aeb24dc9a96d_thumb_75_1152_1152.JPEG",
+        "description": "Щёлк-щёлк! Предупреждаем. Эта хрустящая закуска разлетается так быстро, что лучше заказать сразу две порции. А ещё лучше дополнить любимым соусом.",
+        "composition": "",
+        "weight": 150,
+        "calories": 497,
+        "protein": 14,
+        "fat": 31,
+        "carbs": 38,
+        "isNew": true,
+        "modifierGroups": [
+          {
+            "id": "main-sauce",
+            "title": "Основной соус",
+            "selectionType": "single",
+            "presentation": "rows",
+            "required": false,
+            "minSelections": 0,
+            "maxSelections": 1,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "cheese",
+                "name": "Сырный Heinz",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5b7394f4b03a4e08d0960fd9fd50a817_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "garlic",
+                "name": "Чесночный",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5ff884103ce5dbbc0df31ee32a267ea4_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              }
+            ]
+          },
+          {
+            "id": "extra-sauce",
+            "title": "Дополнительный соус",
+            "selectionType": "multiple",
+            "presentation": "rows",
+            "required": false,
+            "minSelections": 0,
+            "maxSelections": 99,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "sweet-chili",
+                "name": "Сладкий чили",
+                "price": 100,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ab5f8daadca4e3b5eb469010e296ba0c_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              },
+              {
+                "id": "caesar",
+                "name": "Цезарь",
+                "price": 180,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/55b49f70aed04e9f94474d2a26585ca9_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              },
+              {
+                "id": "truffle",
+                "name": "Трюфельный",
+                "price": 180,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ff0796675446ed1cff5a9916bd39fb01_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              }
+            ]
+          }
+        ],
+        "available": true,
+        "sortOrder": 1
+      },
+      {
+        "sourceId": 11677,
+        "slug": "батат-фри",
+        "name": "Батат фри",
+        "price": 320,
+        "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/99d85e3390522b69d9dec106275c2e15_thumb_75_1152_1152.JPEG",
+        "description": "Кто-то точно будет рад. Ведь у нас теперь батат! Сладко-солёные и хрустящие брусочки батата фри уже готовы составить компанию вашему перекусу или обеду. Идеально сочетается с Трюфельным соусом.",
+        "composition": "",
+        "weight": 150,
+        "calories": 311,
+        "protein": 4,
+        "fat": 16,
+        "carbs": 35,
+        "isNew": true,
+        "modifierGroups": [
+          {
+            "id": "main-sauce",
+            "title": "Основной соус",
+            "selectionType": "single",
+            "presentation": "rows",
+            "required": false,
+            "minSelections": 0,
+            "maxSelections": 1,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "cheese",
+                "name": "Сырный Heinz",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5b7394f4b03a4e08d0960fd9fd50a817_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "garlic",
+                "name": "Чесночный",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5ff884103ce5dbbc0df31ee32a267ea4_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              }
+            ]
+          },
+          {
+            "id": "extra-sauce",
+            "title": "Дополнительный соус",
+            "selectionType": "multiple",
+            "presentation": "rows",
+            "required": false,
+            "minSelections": 0,
+            "maxSelections": 99,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "sweet-chili",
+                "name": "Сладкий чили",
+                "price": 100,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ab5f8daadca4e3b5eb469010e296ba0c_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              },
+              {
+                "id": "caesar",
+                "name": "Цезарь",
+                "price": 180,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/55b49f70aed04e9f94474d2a26585ca9_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              },
+              {
+                "id": "truffle",
+                "name": "Трюфельный",
+                "price": 180,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ff0796675446ed1cff5a9916bd39fb01_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              }
+            ]
+          }
+        ],
+        "available": true,
+        "sortOrder": 2
+      },
+      {
+        "sourceId": 11678,
+        "slug": "сырные-палочки-с-моцареллой",
+        "name": "Сырные палочки с моцареллой",
+        "price": 360,
+        "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f782589e74a48358c38827fe11847dc1_thumb_75_1152_1152.JPEG",
+        "description": "Скажите, сыыыыыыыр! Наши хрустящие снаружи и нежные внутри сырные палочки с моцареллой без всяких сомнений заставят вас улыбнуться!",
+        "composition": "",
+        "weight": 180,
+        "calories": 394,
+        "protein": 17,
+        "fat": 24,
+        "carbs": 25,
+        "isNew": true,
+        "modifierGroups": [
+          {
+            "id": "main-sauce",
+            "title": "Основной соус",
+            "selectionType": "single",
+            "presentation": "rows",
+            "required": false,
+            "minSelections": 0,
+            "maxSelections": 1,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "cheese",
+                "name": "Сырный Heinz",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5b7394f4b03a4e08d0960fd9fd50a817_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "garlic",
+                "name": "Чесночный",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5ff884103ce5dbbc0df31ee32a267ea4_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              }
+            ]
+          },
+          {
+            "id": "extra-sauce",
+            "title": "Дополнительный соус",
+            "selectionType": "multiple",
+            "presentation": "rows",
+            "required": false,
+            "minSelections": 0,
+            "maxSelections": 99,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "sweet-chili",
+                "name": "Сладкий чили",
+                "price": 100,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ab5f8daadca4e3b5eb469010e296ba0c_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              },
+              {
+                "id": "caesar",
+                "name": "Цезарь",
+                "price": 180,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/55b49f70aed04e9f94474d2a26585ca9_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              },
+              {
+                "id": "truffle",
+                "name": "Трюфельный",
+                "price": 180,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ff0796675446ed1cff5a9916bd39fb01_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
+              }
+            ]
+          }
+        ],
+        "available": true,
+        "sortOrder": 3
+      },
+      {
+        "sourceId": 11587,
+        "slug": "краб-и-лосось",
+        "name": "Краб и лосось",
+        "price": 2850,
+        "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/c3f2ffed0ac5c4d115dba3e48854dd63_thumb_75_1152_1152.JPEG",
+        "description": "Две дюжины удовольствия с крабом и вкуснейшей красной рыбой. Собрали их месте в одном сете для вашего удовольствия!",
+        "composition": "",
+        "weight": 260,
+        "calories": 460,
+        "protein": 14,
+        "fat": 13,
+        "carbs": 69,
         "isNew": true,
         "modifierGroups": [],
         "available": true,
-        "sortOrder": 1
+        "sortOrder": 4
       }
     ]
   },
@@ -176,9 +410,61 @@
     ]
   },
   {
+    "slug": "kombo",
+    "title": "Комбо",
+    "sortOrder": 2,
+    "products": [
+      {
+        "sourceId": 11765,
+        "slug": "комбо-с-тремя-роллами",
+        "name": "Комбо с тремя роллами",
+        "price": 2000,
+        "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f589018e1d71e197faf6bf4b3536db59_thumb_75_1152_1152.JPEG",
+        "description": "Роллы, роллы и ещё раз роллы! Да, в этом комбо их аж 3 порции. Филадельфия лайт, Сливочная креветка и тобико, Снежная калифорния. Не забудьте выбрать любимый напиток Черноголовка в придачу.",
+        "composition": "",
+        "weight": 560,
+        "calories": 1022,
+        "protein": 40,
+        "fat": 31,
+        "carbs": 143,
+        "isNew": false,
+        "modifierGroups": [
+          {
+            "id": "drink-choice",
+            "title": "Напиток на выбор",
+            "selectionType": "single",
+            "presentation": "rows",
+            "required": true,
+            "minSelections": 1,
+            "maxSelections": 1,
+            "priceScope": "per-line",
+            "items": [
+              {
+                "id": "tarhun",
+                "name": "Тархун",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/e8473d25e978a09481a648233d67b364_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "duchesse",
+                "name": "Дюшес",
+                "price": 0,
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/32e027cfa90a62290fc6877ff9ddc83d_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
+              }
+            ]
+          }
+        ],
+        "available": true,
+        "sortOrder": 0
+      }
+    ]
+  },
+  {
     "slug": "rolly-2",
     "title": "Роллы",
-    "sortOrder": 2,
+    "sortOrder": 3,
     "products": [
       {
         "sourceId": 11022,
@@ -761,7 +1047,7 @@
   {
     "slug": "saurolly-3",
     "title": "Шауроллы",
-    "sortOrder": 3,
+    "sortOrder": 4,
     "products": [
       {
         "sourceId": 11301,
@@ -822,7 +1108,7 @@
   {
     "slug": "tempura-i-zapecennye-rolly-3",
     "title": "Темпура и запеченные роллы",
-    "sortOrder": 4,
+    "sortOrder": 5,
     "products": [
       {
         "sourceId": 11079,
@@ -1027,7 +1313,7 @@
   {
     "slug": "susi-i-sasimi-2",
     "title": "Суши и сашими",
-    "sortOrder": 5,
+    "sortOrder": 6,
     "products": [
       {
         "sourceId": 11093,
@@ -1052,7 +1338,7 @@
   {
     "slug": "sety-2",
     "title": "Сеты",
-    "sortOrder": 6,
+    "sortOrder": 7,
     "products": [
       {
         "sourceId": 11018,
@@ -1145,46 +1431,109 @@
             "id": "set-roll-1",
             "title": "Первый ролл",
             "selectionType": "single",
-            "presentation": "cards",
+            "presentation": "rows",
             "required": true,
             "minSelections": 1,
             "maxSelections": 1,
+            "priceScope": "per-line",
             "items": [
               {
                 "id": "okinawa",
                 "name": "Окинава",
                 "price": 0,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
-                "id": "alaska",
-                "name": "Аляска",
+                "id": "shrimp-spicy",
+                "name": "Креветка Спайс",
                 "price": 120,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG"
-              },
-              {
-                "id": "snow-california",
-                "name": "Снежная калифорния",
-                "price": 180,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/efe736542fce0cf90173a9a6c0939414_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "shrimp-tamago",
                 "name": "Креветка с тамаго и авокадо",
-                "price": 210,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG"
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "snow-california",
+                "name": "Снежная калифорния",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "creamy-shrimp-tobiko",
+                "name": "Сливочная креветка и тобико",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7d2a1c848698e0c0cff2cbfbb6ea6293_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "alaska",
+                "name": "Аляска",
+                "price": 180,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-shrimp-spicy",
+                "name": "Калифорния с креветкой спайси",
+                "price": 220,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/14d52bd7e11d67be4ddefc81beb92a56_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "philadelphia-light",
                 "name": "Филадельфия лайт",
                 "price": 260,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "crispy-salmon",
+                "name": "Хрустящий лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/b0e22fa3beb9f1f5f43505f0429b03b7_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "unagi-seared-salmon",
+                "name": "Унаги и опалённый лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f56272f46511a33082fe55f7d621efce_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "daku",
                 "name": "Даку 2.0",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-tuna-spicy",
+                "name": "Калифорния с тунцом спайси",
                 "price": 280,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa605058aded981eeff4112c70ce2f52_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "philadelphia-eel",
+                "name": "Филадельфия с угрём",
+                "price": 390,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/39870b4a8dceea0175311a0eae610523_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "eel-salmon",
+                "name": "Угорь и лосось",
+                "price": 490,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/66c9293a777be589f130add90d8bcfd4_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               }
             ]
           },
@@ -1192,46 +1541,109 @@
             "id": "set-roll-2",
             "title": "Второй ролл",
             "selectionType": "single",
-            "presentation": "cards",
+            "presentation": "rows",
             "required": true,
             "minSelections": 1,
             "maxSelections": 1,
+            "priceScope": "per-line",
             "items": [
               {
                 "id": "okinawa",
                 "name": "Окинава",
                 "price": 0,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
-                "id": "alaska",
-                "name": "Аляска",
+                "id": "shrimp-spicy",
+                "name": "Креветка Спайс",
                 "price": 120,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG"
-              },
-              {
-                "id": "snow-california",
-                "name": "Снежная калифорния",
-                "price": 180,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/efe736542fce0cf90173a9a6c0939414_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "shrimp-tamago",
                 "name": "Креветка с тамаго и авокадо",
-                "price": 210,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG"
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "snow-california",
+                "name": "Снежная калифорния",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "creamy-shrimp-tobiko",
+                "name": "Сливочная креветка и тобико",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7d2a1c848698e0c0cff2cbfbb6ea6293_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "alaska",
+                "name": "Аляска",
+                "price": 180,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-shrimp-spicy",
+                "name": "Калифорния с креветкой спайси",
+                "price": 220,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/14d52bd7e11d67be4ddefc81beb92a56_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "philadelphia-light",
                 "name": "Филадельфия лайт",
                 "price": 260,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "crispy-salmon",
+                "name": "Хрустящий лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/b0e22fa3beb9f1f5f43505f0429b03b7_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "unagi-seared-salmon",
+                "name": "Унаги и опалённый лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f56272f46511a33082fe55f7d621efce_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "daku",
                 "name": "Даку 2.0",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-tuna-spicy",
+                "name": "Калифорния с тунцом спайси",
                 "price": 280,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa605058aded981eeff4112c70ce2f52_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "philadelphia-eel",
+                "name": "Филадельфия с угрём",
+                "price": 390,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/39870b4a8dceea0175311a0eae610523_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "eel-salmon",
+                "name": "Угорь и лосось",
+                "price": 490,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/66c9293a777be589f130add90d8bcfd4_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               }
             ]
           },
@@ -1239,46 +1651,109 @@
             "id": "set-roll-3",
             "title": "Третий ролл",
             "selectionType": "single",
-            "presentation": "cards",
+            "presentation": "rows",
             "required": true,
             "minSelections": 1,
             "maxSelections": 1,
+            "priceScope": "per-line",
             "items": [
               {
                 "id": "okinawa",
                 "name": "Окинава",
                 "price": 0,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
-                "id": "alaska",
-                "name": "Аляска",
+                "id": "shrimp-spicy",
+                "name": "Креветка Спайс",
                 "price": 120,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG"
-              },
-              {
-                "id": "snow-california",
-                "name": "Снежная калифорния",
-                "price": 180,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/efe736542fce0cf90173a9a6c0939414_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "shrimp-tamago",
                 "name": "Креветка с тамаго и авокадо",
-                "price": 210,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG"
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "snow-california",
+                "name": "Снежная калифорния",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "creamy-shrimp-tobiko",
+                "name": "Сливочная креветка и тобико",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7d2a1c848698e0c0cff2cbfbb6ea6293_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "alaska",
+                "name": "Аляска",
+                "price": 180,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-shrimp-spicy",
+                "name": "Калифорния с креветкой спайси",
+                "price": 220,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/14d52bd7e11d67be4ddefc81beb92a56_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "philadelphia-light",
                 "name": "Филадельфия лайт",
                 "price": 260,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "crispy-salmon",
+                "name": "Хрустящий лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/b0e22fa3beb9f1f5f43505f0429b03b7_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "unagi-seared-salmon",
+                "name": "Унаги и опалённый лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f56272f46511a33082fe55f7d621efce_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "daku",
                 "name": "Даку 2.0",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-tuna-spicy",
+                "name": "Калифорния с тунцом спайси",
                 "price": 280,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa605058aded981eeff4112c70ce2f52_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "philadelphia-eel",
+                "name": "Филадельфия с угрём",
+                "price": 390,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/39870b4a8dceea0175311a0eae610523_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "eel-salmon",
+                "name": "Угорь и лосось",
+                "price": 490,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/66c9293a777be589f130add90d8bcfd4_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               }
             ]
           },
@@ -1286,46 +1761,109 @@
             "id": "set-roll-4",
             "title": "Четвёртый ролл",
             "selectionType": "single",
-            "presentation": "cards",
+            "presentation": "rows",
             "required": true,
             "minSelections": 1,
             "maxSelections": 1,
+            "priceScope": "per-line",
             "items": [
               {
                 "id": "okinawa",
                 "name": "Окинава",
                 "price": 0,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4ec72dd2978f9881e1734f2b7192a64b_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
-                "id": "alaska",
-                "name": "Аляска",
+                "id": "shrimp-spicy",
+                "name": "Креветка Спайс",
                 "price": 120,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG"
-              },
-              {
-                "id": "snow-california",
-                "name": "Снежная калифорния",
-                "price": 180,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/efe736542fce0cf90173a9a6c0939414_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "shrimp-tamago",
                 "name": "Креветка с тамаго и авокадо",
-                "price": 210,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG"
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8e0f47c296b666f6b7f56815d8399b67_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "snow-california",
+                "name": "Снежная калифорния",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71c175e490b2daeacfeb55a309e70de_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "creamy-shrimp-tobiko",
+                "name": "Сливочная креветка и тобико",
+                "price": 120,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7d2a1c848698e0c0cff2cbfbb6ea6293_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "alaska",
+                "name": "Аляска",
+                "price": 180,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/e9afaf8f2765df55c0df8991bee43e88_thumb_75_1152_1152.PNG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-shrimp-spicy",
+                "name": "Калифорния с креветкой спайси",
+                "price": 220,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/14d52bd7e11d67be4ddefc81beb92a56_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "philadelphia-light",
                 "name": "Филадельфия лайт",
                 "price": 260,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/50973116b94f40154e2c3ef989650e3d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "crispy-salmon",
+                "name": "Хрустящий лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/b0e22fa3beb9f1f5f43505f0429b03b7_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "unagi-seared-salmon",
+                "name": "Унаги и опалённый лосось",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f56272f46511a33082fe55f7d621efce_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "daku",
                 "name": "Даку 2.0",
+                "price": 270,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "california-tuna-spicy",
+                "name": "Калифорния с тунцом спайси",
                 "price": 280,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fc848411b0a362bf5605b007224da18d_thumb_75_1152_1152.JPEG"
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa605058aded981eeff4112c70ce2f52_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "philadelphia-eel",
+                "name": "Филадельфия с угрём",
+                "price": 390,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/39870b4a8dceea0175311a0eae610523_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
+              },
+              {
+                "id": "eel-salmon",
+                "name": "Угорь и лосось",
+                "price": 490,
+                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/66c9293a777be589f130add90d8bcfd4_thumb_75_1152_1152.JPEG",
+                "maxQuantity": 1
               }
             ]
           }
@@ -1392,7 +1930,7 @@
   {
     "slug": "tempurnye-i-zapecennye-sety-2",
     "title": "Темпурные и запеченные сеты",
-    "sortOrder": 7,
+    "sortOrder": 8,
     "products": [
       {
         "sourceId": 11128,
@@ -1489,7 +2027,7 @@
   {
     "slug": "poke-2",
     "title": "Поке",
-    "sortOrder": 8,
+    "sortOrder": 9,
     "products": [
       {
         "sourceId": 11527,
@@ -1604,7 +2142,7 @@
   {
     "slug": "zakuski-4",
     "title": "Закуски",
-    "sortOrder": 9,
+    "sortOrder": 10,
     "products": [
       {
         "sourceId": 11152,
@@ -1622,25 +2160,28 @@
         "isNew": false,
         "modifierGroups": [
           {
-            "id": "fries-sauce",
-            "title": "Соус к картошке фри",
+            "id": "main-sauce",
+            "title": "Основной соус",
             "selectionType": "single",
             "presentation": "rows",
-            "required": true,
-            "minSelections": 1,
+            "required": false,
+            "minSelections": 0,
             "maxSelections": 1,
+            "priceScope": "per-line",
             "items": [
               {
                 "id": "cheese",
                 "name": "Сырный Heinz",
                 "price": 0,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/4b81766caade92e23b3e55074bb873fb_thumb_75_1152_1152.JPEG"
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5b7394f4b03a4e08d0960fd9fd50a817_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
               },
               {
                 "id": "garlic",
                 "name": "Чесночный",
                 "price": 0,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a46fa62f6e4383191defd6f538126d47_thumb_75_1152_1152.JPEG"
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5ff884103ce5dbbc0df31ee32a267ea4_resize_in_box_288_288.JPEG",
+                "maxQuantity": 1
               }
             ]
           },
@@ -1650,25 +2191,30 @@
             "selectionType": "multiple",
             "presentation": "rows",
             "required": false,
-            "maxSelections": 3,
+            "minSelections": 0,
+            "maxSelections": 99,
+            "priceScope": "per-line",
             "items": [
               {
                 "id": "sweet-chili",
                 "name": "Сладкий чили",
                 "price": 100,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/40f57dae13f5e0ab02896d2dc34d9904_thumb_75_1152_1152.JPEG"
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ab5f8daadca4e3b5eb469010e296ba0c_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
               },
               {
                 "id": "caesar",
                 "name": "Цезарь",
                 "price": 180,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7b4657268c5591940895bb7ca0a50c1f_thumb_75_1152_1152.JPEG"
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/55b49f70aed04e9f94474d2a26585ca9_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
               },
               {
                 "id": "truffle",
                 "name": "Трюфельный",
                 "price": 180,
-                "image": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/69c12490d1e4dc0ba898e0ab3cc9bdd8_thumb_75_1152_1152.JPEG"
+                "image": "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ff0796675446ed1cff5a9916bd39fb01_resize_in_box_288_288.JPEG",
+                "maxQuantity": 99
               }
             ]
           }
@@ -1735,7 +2281,7 @@
   {
     "slug": "salaty-3",
     "title": "Салаты",
-    "sortOrder": 10,
+    "sortOrder": 11,
     "products": [
       {
         "sourceId": 11693,
@@ -1850,7 +2396,7 @@
   {
     "slug": "supy-3",
     "title": "Супы",
-    "sortOrder": 11,
+    "sortOrder": 12,
     "products": [
       {
         "sourceId": 11160,
@@ -1965,7 +2511,7 @@
   {
     "slug": "goracie-bluda",
     "title": "Горячие блюда",
-    "sortOrder": 12,
+    "sortOrder": 13,
     "products": [
       {
         "sourceId": 11175,
@@ -1990,7 +2536,7 @@
   {
     "slug": "dla-kotika-2",
     "title": "Для котика",
-    "sortOrder": 13,
+    "sortOrder": 14,
     "products": [
       {
         "sourceId": 11216,
@@ -2051,7 +2597,7 @@
   {
     "slug": "toppingi-9",
     "title": "Топпинги",
-    "sortOrder": 14,
+    "sortOrder": 15,
     "products": [
       {
         "sourceId": 11847,
@@ -2328,7 +2874,7 @@
   {
     "slug": "napitki-4",
     "title": "Напитки",
-    "sortOrder": 15,
+    "sortOrder": 16,
     "products": [
       {
         "sourceId": 11241,

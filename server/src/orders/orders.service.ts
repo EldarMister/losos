@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
 import { Product } from "../catalog/product.entity";
+import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 import { CreateOrderDto } from "./create-order.dto";
 import { OrderItem } from "./order-item.entity";
 import { Order } from "./order.entity";
@@ -104,7 +105,12 @@ export class OrdersService {
         });
 
         const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-        if (!Number.isSafeInteger(subtotal)) throw new BadRequestException("Order total is too large");
+        if (
+          !Number.isSafeInteger(subtotal)
+          || subtotal > POSTGRES_INTEGER_MAX
+        ) {
+          throw new BadRequestException("Order total is too large");
+        }
 
         const order = orders.create({
           regionSlug,

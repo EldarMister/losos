@@ -111,8 +111,12 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /modifier\.price \* modifier\.quantity/);
   assert.match(storefront, /quantity: modifier\.quantity/);
   assert.match(storefront, /changeModifierQuantity/);
-  assert.match(storefront, /modifierQuantity >= 20/);
-  assert.match(storefront, /MAX_MODIFIER_UNITS = 50/);
+  assert.match(storefront, /modifierQuantity >= maximumQuantity/);
+  assert.match(storefront, /MAX_MODIFIER_ITEM_QUANTITY = 99/);
+  assert.match(storefront, /MAX_MODIFIER_UNITS = 500/);
+  assert.match(storefront, /modifier\.priceScope === "per-product" \? productQuantity : 1/);
+  assert.match(storefront, /priceScope: group\.priceScope \?\? "per-product"/);
+  assert.match(storefront, /configuredProductTotal/);
   assert.match(storefront, /selectedModifierUnits >= MAX_MODIFIER_UNITS/);
   assert.match(storefront, /alreadySelected \? \{\} : \{ \[itemId\]: 1 \}/);
   assert.match(storefront, /Object\.values\(groupSelections\)\.filter\(\(quantity\) => quantity > 0\)\.length/);
@@ -149,7 +153,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /"Зелёный", 590/);
   assert.match(catalog, /b8d03d4e8617466336260d917af4f21b/);
   assert.match(catalog, /f449b42a119d8d82dbaf4ec023d4bd95/);
-  assert.match(catalog, /Соус к картошке фри/);
+  assert.match(catalog, /Основной соус/);
   assert.match(catalog, /selectionType:\s*"single"/);
   assert.match(catalog, /modalKind:\s*"simple"/);
   assert.match(catalog, /productMetaByName\[name\]/);

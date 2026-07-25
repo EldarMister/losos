@@ -89,6 +89,7 @@ a { color: inherit; text-decoration: none; }
 .product-image-wrap::after { content: none; }
 .product-image-wrap img { display: block; width: 100%; height: 100%; max-width: 100%; object-fit: cover; mix-blend-mode: normal; }
 .reference-card-art { display: block; width: 100%; height: 100%; background-image: url("/reference-main-scroll.png"); background-size: 1536px 864px; background-repeat: no-repeat; }
+.reference-card-wasabi { background-position: -153px -341px; }
 .reference-card-popcorn { background-position: -357px -341px; }
 .reference-card-batat { background-position: -561px -341px; }
 .reference-card-cheese-sticks { background-position: -765px -341px; }
@@ -133,13 +134,14 @@ a { color: inherit; text-decoration: none; }
 .modal-description { min-height: 0; height: auto; flex: 0 0 auto; padding: 16px; }
 .modal-description h2 { margin: 0 0 10px; font-size: 24px; line-height: 28.8px; font-weight: 600; }
 .modal-description h2:only-child { margin-bottom: 0; }
-.product-modal-simple .modal-description { height: clamp(92px, 7.1875vw, 115px); }
+.product-modal-simple .modal-description { height: 92px; }
 .modal-description p { margin: 0; font-size: 12px; line-height: 1.45; }
-.nutrition { height: clamp(120px, 9.375vw, 150px); min-height: clamp(120px, 9.375vw, 150px); margin-top: clamp(8px, .625vw, 10px); padding: clamp(20px, 1.5625vw, 25px) clamp(12px, .9375vw, 15px) clamp(12px, .9375vw, 15px); display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: clamp(28px, 2.1875vw, 35px) clamp(44px, 3.4375vw, 55px); column-gap: clamp(8px, .625vw, 10px); row-gap: clamp(16px, 1.25vw, 20px); text-align: center; }
+.nutrition { height: 120px; min-height: 120px; margin-top: 8px; padding: 20px 12px 12px; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: 28px 44px; column-gap: 8px; row-gap: 16px; text-align: center; }
 .nutrition b, .nutrition small { display: block; }
 .nutrition b { font-weight: 400; line-height: 16px; }
 .nutrition small { font-size: 10px; line-height: 12px; color: #aaa; }
-.nutrition-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-top: 0; }
+.nutrition-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; gap: 4px; margin-top: 0; }
+.nutrition-actions.has-equipment { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .nutrition-actions button { height: 44px; border-radius: 24px; background: var(--soft); }
 .modal-info h3 { margin: 22px 20px 12px; font-size: 17px; }
 .related-row { width: calc(100% - 40px); margin: 0 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-height: 0; flex: 0 0 auto; }
@@ -163,9 +165,9 @@ a { color: inherit; text-decoration: none; }
 .modifier-option strong, .modifier-option small { display: block; }
 .modifier-option strong { font-size: 15px; font-weight: 500; }
 .modifier-option small { margin-top: 5px; color: #a0a0a4; }
-.modifier-option i { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #a8a8ac; font-size: 24px; font-style: normal; }
-.modifier-option.selected i { background: var(--orange); color: white; }
-.modifier-group-multiple .modifier-option.selected { grid-template-columns: 64px minmax(0, 1fr) 108px; }
+.modifier-option i { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--orange); font-size: 24px; font-style: normal; }
+.modifier-option.selected i { background: #fff; color: var(--orange); font-size: 21px; font-weight: 700; }
+.modifier-option.has-quantity { grid-template-columns: 64px minmax(0, 1fr) 108px; }
 .modifier-option-quantity { width: 108px; height: 40px; display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; border-radius: 22px; background: #fff; text-align: center; }
 .modifier-option-quantity button { width: 36px; height: 36px; padding: 0; border-radius: 50%; background: transparent; color: var(--orange); font-size: 22px; line-height: 1; }
 .modifier-option-quantity button:disabled { color: #b6b6bb; cursor: default; }
@@ -196,12 +198,12 @@ a { color: inherit; text-decoration: none; }
   .store-shell.header-pinned .promo-row { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; pointer-events: none; }
   .store-shell.header-pinned .catalog { margin-top: 297.2px; }
   .product-modal:not(.product-modal-simple) .modal-arrows { padding-left: 0; padding-right: 24px; }
-  .product-modal:not(.product-modal-simple) .modal-arrows { height: 71px; flex-basis: 71px; padding-top: 32px; }
   .product-modal:not(.product-modal-simple) .modal-description,
   .product-modal:not(.product-modal-simple) .nutrition { width: calc(100% - 24px); margin-left: 0; margin-right: 0; }
-  .product-modal:not(.product-modal-simple) .modal-description { height: 114px; min-height: 114px; }
+  .product-modal:not(.product-modal-simple) .modal-description { height: 122px; min-height: 122px; }
   .product-modal:not(.product-modal-simple) .nutrition { margin-top: 8px; }
   .product-modal:not(.product-modal-simple) .modal-info h3 { margin: 33px 0 18px; }
+  .product-modal:not(.product-modal-simple) .modifier-group + .modifier-group { margin-top: 46px; }
   .product-modal:not(.product-modal-simple) .related-row { width: calc(100% - 24px); margin-left: 0; margin-right: 0; }
   .product-modal:not(.product-modal-simple) .modifier-groups { padding-left: 0; padding-right: 24px; }
   .product-modal:not(.product-modal-simple) .modal-buy { width: calc(100% - 24px); margin-left: 0; margin-right: 0; }
@@ -488,7 +490,7 @@ a { color: inherit; text-decoration: none; }
   .category-section { scroll-margin-top: 206px; margin-top: 20px; }
   .catalog > .category-section:first-child { margin-top: 47px; }
   .category-title { margin-left: 8px; font-size: 20px; line-height: 30px; margin-bottom: 20px; }
-  .product-grid { width: min(360px, calc(100% - 15px)); margin-left: 8px; margin-right: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: start; gap: 8px; }
+  .product-grid { width: calc(100% - 15px); margin-left: 8px; margin-right: 7px; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: start; gap: 8px; }
   .product-card { height: 280px; border-radius: 32px; font-size: 14px; line-height: 20px; }
   .product-image-wrap { height: 156px; flex: 0 0 156px; border-radius: 32px 32px 0 0; }
   .product-image-wrap img { object-fit: cover; mix-blend-mode: normal; }
@@ -501,11 +503,11 @@ a { color: inherit; text-decoration: none; }
   .footer-legal { margin-top: 0; }
   .product-overlay { padding: 0; place-items: start center; overflow: hidden; }
   .product-modal { display: block; width: 100vw; height: calc(100dvh - 42px); margin-top: 42px; border-radius: 40px 40px 0 0; overflow-x: hidden; overflow-y: auto; background: var(--soft); }
-  .product-modal > .modal-close { position: fixed; z-index: 96; right: 12px; top: 52px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.9); color: #77777d; font-size: 28px; box-shadow: 0 3px 14px rgba(0,0,0,.08); }
+  .product-modal > .modal-close { display: none; }
   .modal-art { width: calc(100% - 8px); height: auto; aspect-ratio: 1; margin: 0 4px; display: grid; place-items: center; border-radius: 36px 36px 0 0; }
   .modal-art img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
   .reference-detail-popcorn { background-size: auto 118%; background-position: -25.72vw -14.67vw; }
-  .reference-detail-wasabi { background-size: 1062px 597px; background-position: -218px -74px; }
+  .reference-detail-wasabi { background-size: 1118px 628px; background-position: -229px -78px; }
   .reference-detail-card-art { width: 100%; height: 100%; background-size: 3072px 1728px; }
   .reference-detail-card-art.reference-card-popcorn { background-position: -714px -649px; }
   .reference-detail-card-art.reference-card-batat { background-position: -1122px -649px; }
@@ -531,13 +533,14 @@ a { color: inherit; text-decoration: none; }
   .related-row article > span { min-height: 34px; font-size: 12px; line-height: 16px; }
   .related-actions button { width: 36px; height: 36px; }
   .modifier-groups { padding: 0 0 18px; }
+  .modifier-group + .modifier-group { margin-top: 32px; }
   .modifier-heading h3 { font-size: 16px; line-height: 20px; }
   .modifier-option { min-height: 72px; grid-template-columns: 56px 1fr 40px; }
   .modifier-option img, .modifier-option-placeholder { width: 56px; height: 56px; }
   .modifier-option strong { font-size: 14px; }
   .modifier-option small { font-size: 13px; }
   .modifier-option i { width: 36px; height: 36px; }
-  .modifier-group-multiple .modifier-option.selected { grid-template-columns: 56px minmax(0, 1fr) 104px; }
+  .modifier-option.has-quantity { grid-template-columns: 56px minmax(0, 1fr) 104px; }
   .modifier-option-quantity { width: 104px; }
   .modifier-presentation-cards .modifier-option { min-width: 113px; max-width: 113px; min-height: 156px; grid-template-columns: 1fr; grid-template-rows: 84px auto; padding: 8px; border-radius: 16px; }
   .modifier-presentation-cards .modifier-option img, .modifier-presentation-cards .modifier-option-placeholder { height: 84px; }

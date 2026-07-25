@@ -7,8 +7,10 @@ import {
   CreateProductDto,
   CreatePromotionDto,
 } from "../src/admin/admin.dto";
+import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
+import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
 import { OrdersController } from "../src/orders/orders.controller";
 import {
@@ -50,12 +52,22 @@ test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => 
   });
   assert.ok(validateSync(excessiveQuantity).some((error) => error.property === "items"));
 
+  const maximumModifierQuantity = plainToInstance(CreateOrderDto, {
+    ...baseOrder,
+    items: [{
+      productId: 1,
+      quantity: 1,
+      modifiers: [{ groupId: "sauce", itemId: "cheese", quantity: 99 }],
+    }],
+  });
+  assert.deepEqual(validateSync(maximumModifierQuantity), []);
+
   const excessiveModifierQuantity = plainToInstance(CreateOrderDto, {
     ...baseOrder,
     items: [{
       productId: 1,
       quantity: 1,
-      modifiers: [{ groupId: "sauce", itemId: "cheese", quantity: 21 }],
+      modifiers: [{ groupId: "sauce", itemId: "cheese", quantity: 100 }],
     }],
   });
   assert.ok(validateSync(excessiveModifierQuantity).some((error) => error.property === "items"));
@@ -105,7 +117,7 @@ const product = {
   modifierGroups,
 };
 
-test("server pricing validates modifier rules and snapshots quantity arithmetic", () => {
+test("legacy modifier groups default to per-product pricing and quantity 20", () => {
   const line = priceOrderLine(product, 2, [
     { groupId: "sauce", itemId: "cheese", quantity: 1 },
     { groupId: "extras", itemId: "ginger", quantity: 3 },
@@ -113,22 +125,28 @@ test("server pricing validates modifier rules and snapshots quantity arithmetic"
   ]);
 
   assert.equal(line.basePrice, 100);
+  assert.equal(line.baseTotal, 200);
   assert.equal(line.modifiersPrice, 49);
+  assert.equal(line.modifiersTotal, 98);
   assert.equal(line.unitPrice, 149);
   assert.equal(line.lineTotal, 298);
+  assert.equal(line.pricingVersion, "scoped-v2");
   assert.deepEqual(
-    line.modifierSnapshots.map(({ itemId, quantity, totalPrice }) => ({ itemId, quantity, totalPrice })),
+    line.modifierSnapshots.map(
+      ({ itemId, quantity, totalPrice, priceScope }) =>
+        ({ itemId, quantity, totalPrice, priceScope }),
+    ),
     [
-      { itemId: "cheese", quantity: 1, totalPrice: 20 },
-      { itemId: "ginger", quantity: 3, totalPrice: 15 },
-      { itemId: "wasabi", quantity: 2, totalPrice: 14 },
+      { itemId: "cheese", quantity: 1, totalPrice: 20, priceScope: "per-product" },
+      { itemId: "ginger", quantity: 3, totalPrice: 15, priceScope: "per-product" },
+      { itemId: "wasabi", quantity: 2, totalPrice: 14, priceScope: "per-product" },
     ],
   );
 
   assert.throws(() => priceOrderLine(product, 1, []), /Select at least 1/);
   assert.throws(() => priceOrderLine(product, 1, [
     { groupId: "sauce", itemId: "cheese", quantity: 2 },
-  ]), /must have quantity 1/);
+  ]), /cannot exceed 1/);
   assert.throws(() => priceOrderLine(product, 1, [
     { groupId: "sauce", itemId: "cheese", quantity: 1 },
     { groupId: "extras", itemId: "hidden", quantity: 1 },
@@ -140,6 +158,129 @@ test("server pricing validates modifier rules and snapshots quantity arithmetic"
     { groupId: "extras", itemId: "other", quantity: 1 },
   ]), /Unknown modifier/);
 
+  assert.throws(() => priceOrderLine(product, 1, [
+    { groupId: "sauce", itemId: "cheese", quantity: 1 },
+    { groupId: "extras", itemId: "ginger", quantity: 21 },
+  ]), /cannot exceed 20/);
+});
+
+test("per-line pricing preserves original cart arithmetic and independent limits", () => {
+  const exactProduct = {
+    id: 11,
+    name: "Картофель фри",
+    price: 275,
+    modifierGroups: [
+      {
+        id: "fries-sauce",
+        title: "Основной соус",
+        selectionType: "single" as const,
+        required: false,
+        minSelections: 0,
+        maxSelections: 1,
+        priceScope: "per-line" as const,
+        items: [
+          {
+            id: "cheese",
+            name: "Сырный",
+            price: 0,
+            image: "",
+            enabled: true,
+            maxQuantity: 1,
+          },
+        ],
+      },
+      {
+        id: "extra-sauce",
+        title: "Дополнительный соус",
+        selectionType: "multiple" as const,
+        required: false,
+        minSelections: 0,
+        maxSelections: 1,
+        priceScope: "per-line" as const,
+        items: [
+          {
+            id: "sweet-chili",
+            name: "Сладкий чили",
+            price: 100,
+            image: "",
+            enabled: true,
+            maxQuantity: 99,
+          },
+          {
+            id: "caesar",
+            name: "Цезарь",
+            price: 180,
+            image: "",
+            enabled: true,
+            maxQuantity: 99,
+          },
+        ],
+      },
+    ],
+  };
+
+  const withoutOptionalSauce = priceOrderLine(exactProduct, 2, []);
+  assert.equal(withoutOptionalSauce.lineTotal, 550);
+
+  const line = priceOrderLine(exactProduct, 2, [
+    { groupId: "extra-sauce", itemId: "sweet-chili", quantity: 3 },
+  ]);
+  assert.equal(line.baseTotal, 550);
+  assert.equal(line.modifiersPrice, 300);
+  assert.equal(line.modifiersTotal, 300);
+  assert.equal(line.unitPrice, 275);
+  assert.equal(line.lineTotal, 850);
+  assert.equal(line.modifierSnapshots[0].priceScope, "per-line");
+
+  assert.throws(() => priceOrderLine(exactProduct, 1, [
+    { groupId: "extra-sauce", itemId: "sweet-chili", quantity: 1 },
+    { groupId: "extra-sauce", itemId: "caesar", quantity: 1 },
+  ]), /Select no more than 1/);
+  assert.throws(() => priceOrderLine(exactProduct, 1, [
+    { groupId: "extra-sauce", itemId: "sweet-chili", quantity: 100 },
+  ]), /between 1 and 99/);
+});
+
+test("required choices and per-item quantities are validated independently", () => {
+  const champion = {
+    id: 12,
+    name: "Чемпион",
+    price: 1_000,
+    modifierGroups: [{
+      id: "drink",
+      title: "Напиток",
+      selectionType: "multiple" as const,
+      required: true,
+      minSelections: 1,
+      maxSelections: 2,
+      priceScope: "per-line" as const,
+      items: ["cola", "fanta", "tonic"].map((id) => ({
+        id,
+        name: id,
+        price: id === "tonic" ? 15 : 0,
+        image: "",
+        enabled: true,
+        maxQuantity: 1,
+      })),
+    }],
+  };
+
+  assert.throws(() => priceOrderLine(champion, 1, []), /Select at least 1/);
+  assert.equal(priceOrderLine(champion, 1, [
+    { groupId: "drink", itemId: "cola", quantity: 1 },
+    { groupId: "drink", itemId: "tonic", quantity: 1 },
+  ]).lineTotal, 1_015);
+  assert.throws(() => priceOrderLine(champion, 1, [
+    { groupId: "drink", itemId: "cola", quantity: 2 },
+  ]), /cannot exceed 1/);
+  assert.throws(() => priceOrderLine(champion, 1, [
+    { groupId: "drink", itemId: "cola", quantity: 1 },
+    { groupId: "drink", itemId: "fanta", quantity: 1 },
+    { groupId: "drink", itemId: "tonic", quantity: 1 },
+  ]), /Select no more than 2/);
+});
+
+test("server caps pathological aggregate modifier quantities", () => {
   const manyExtras = {
     ...product,
     modifierGroups: [{
@@ -147,21 +288,58 @@ test("server pricing validates modifier rules and snapshots quantity arithmetic"
       title: "Много добавок",
       selectionType: "multiple" as const,
       required: false,
-      maxSelections: 3,
-      items: ["one", "two", "three"].map((id) => ({
+      maxSelections: 6,
+      items: ["one", "two", "three", "four", "five", "six"].map((id) => ({
         id,
         name: id,
         price: 1,
         image: "",
         enabled: true,
+        maxQuantity: 99,
       })),
     }],
   };
-  assert.throws(() => priceOrderLine(manyExtras, 1, [
-    { groupId: "many", itemId: "one", quantity: 20 },
-    { groupId: "many", itemId: "two", quantity: 20 },
-    { groupId: "many", itemId: "three", quantity: 20 },
-  ]), /cannot exceed 50/);
+  assert.throws(() => priceOrderLine(
+    manyExtras,
+    1,
+    ["one", "two", "three", "four", "five", "six"].map((itemId) => ({
+      groupId: "many",
+      itemId,
+      quantity: 99,
+    })),
+  ), /cannot exceed 500/);
+});
+
+test("priced values must fit PostgreSQL integer columns", () => {
+  assert.throws(() => priceOrderLine({
+    id: 13,
+    name: "Overflow",
+    price: POSTGRES_INTEGER_MAX,
+    modifierGroups: [],
+  }, 2), /Invalid base total/);
+
+  assert.throws(() => priceOrderLine({
+    id: 14,
+    name: "Modifier overflow",
+    price: 0,
+    modifierGroups: [{
+      id: "extra",
+      title: "Добавка",
+      selectionType: "multiple",
+      required: false,
+      maxSelections: 1,
+      priceScope: "per-line",
+      items: [{
+        id: "expensive",
+        name: "Дорогая добавка",
+        price: POSTGRES_INTEGER_MAX,
+        image: "",
+        maxQuantity: 2,
+      }],
+    }],
+  }, 1, [
+    { groupId: "extra", itemId: "expensive", quantity: 2 },
+  ]), /Invalid modifier total/);
 });
 
 test("configuration key distinguishes modifier quantities", () => {
@@ -174,6 +352,18 @@ test("configuration key distinguishes modifier quantities", () => {
     { groupId: "extras", itemId: "ginger", quantity: 2 },
   ]);
   assert.notEqual(first.configurationKey, second.configurationKey);
+
+  const perLine = priceOrderLine({
+    ...product,
+    modifierGroups: product.modifierGroups.map((group) => ({
+      ...group,
+      priceScope: "per-line" as const,
+    })),
+  }, 1, [
+    { groupId: "sauce", itemId: "cheese", quantity: 1 },
+    { groupId: "extras", itemId: "ginger", quantity: 1 },
+  ]);
+  assert.notEqual(first.configurationKey, perLine.configurationKey);
 });
 
 test("admin modifier DTO validates nested catalog data", () => {
@@ -189,10 +379,93 @@ test("admin modifier DTO validates nested catalog data", () => {
       title: "Группа",
       selectionType: "wrong",
       required: true,
-      items: [{ id: "item", name: "Добавка", price: -1, image: "" }],
+      priceScope: "per-order",
+      items: [{
+        id: "item",
+        name: "Добавка",
+        price: -1,
+        image: "",
+        maxQuantity: 100,
+      }],
     }],
   });
   assert.ok(validateSync(invalid).some((error) => error.property === "modifierGroups"));
+});
+
+test("admin catalog semantics reject inconsistent modifier groups", () => {
+  assert.throws(() => assertValidModifierGroups([{
+      id: "drink",
+      title: "Напиток",
+      selectionType: "multiple",
+      required: true,
+      minSelections: 2,
+      maxSelections: 1,
+      priceScope: "per-line",
+      items: [{
+        id: "cola",
+        name: "Кола",
+        price: 0,
+        image: "",
+        enabled: true,
+        maxQuantity: 1,
+      }],
+    }]),
+    /Invalid maximum selections in Напиток/,
+  );
+
+  assert.throws(() => assertValidModifierGroups([{
+    id: "single",
+    title: "Один вариант",
+    selectionType: "single",
+    required: false,
+    items: [{
+      id: "item",
+      name: "Вариант",
+      price: 0,
+      image: "",
+      maxQuantity: 2,
+    }],
+  }]), /maximum quantity 1/);
+
+  assert.throws(() => assertValidModifierGroups([{
+    id: "required-disabled",
+    title: "Недоступные варианты",
+    selectionType: "multiple",
+    required: true,
+    minSelections: 1,
+    maxSelections: 2,
+    items: [{
+      id: "disabled",
+      name: "Недоступен",
+      price: 0,
+      image: "",
+      enabled: false,
+      maxQuantity: 1,
+    }],
+  }]), /requires more enabled options/);
+
+  const tooManyRequiredGroups: ProductModifierGroup[] = Array.from(
+    { length: 6 },
+    (_, groupIndex) => ({
+      id: `required-${groupIndex}`,
+      title: `Обязательная группа ${groupIndex}`,
+      selectionType: "multiple",
+      required: true,
+      minSelections: 90,
+      maxSelections: 90,
+      items: Array.from({ length: 90 }, (_, itemIndex) => ({
+        id: `item-${itemIndex}`,
+        name: `Вариант ${itemIndex}`,
+        price: 0,
+        image: "",
+        maxQuantity: 1,
+      })),
+    }),
+  );
+  assert.throws(
+    () => assertValidModifierGroups(tooManyRequiredGroups),
+    /Required modifier quantity cannot exceed 500/,
+  );
 });
 
 test("empty promotion CTA URL is optional but malformed URLs are rejected", () => {
@@ -230,15 +503,23 @@ test("public orders controller does not expose an order-details endpoint", () =>
 });
 
 test("generated backend seed mirrors the current frontend catalog", () => {
-  assert.equal(seedCategories.length, 16);
-  assert.equal(seedCategories.reduce((count, category) => count + category.products.length, 0), 114);
+  assert.equal(seedCategories.length, 17);
+  assert.equal(seedCategories.reduce((count, category) => count + category.products.length, 0), 118);
   assert.ok(seedCategories.some((category) =>
     category.products.some((entry) => entry.modifierGroups.length > 0)));
   const products = seedCategories.flatMap((category) => category.products);
   const fries = products.find((product) => product.name === "Картофель фри");
   const customSet = products.find((product) => product.name === "Собери свой сет");
-  assert.ok(fries?.modifierGroups.every((group) => group.presentation === "rows"));
+  const friesExtraSauce = fries?.modifierGroups.find((group) => group.id === "extra-sauce");
+  assert.ok(fries?.modifierGroups.every((group) =>
+    group.presentation === "rows" && group.priceScope === "per-line"));
+  assert.equal(friesExtraSauce?.maxSelections, 99);
+  assert.ok(friesExtraSauce?.items.every((item) => item.maxQuantity === 99));
   assert.equal(customSet?.modifierGroups.length, 4);
   assert.ok(customSet?.modifierGroups.every((group) =>
-    group.presentation === "cards" && group.required && group.items.length === 6));
+    group.presentation === "rows"
+    && group.required
+    && group.priceScope === "per-line"
+    && group.items.length === 14
+    && group.items.every((item) => item.maxQuantity === 1)));
 });

@@ -14,6 +14,7 @@ type SelectedModifier = {
   itemName: string;
   price: number;
   quantity: number;
+  priceScope: "per-product" | "per-line";
 };
 type ModifierSelections = Record<string, Record<string, number>>;
 type CartLine = {
@@ -59,7 +60,8 @@ const defaultRegions: RegionOption[] = [
 
 const STOREFRONT_STORAGE_KEY = "losos.storefront.v1";
 const STOREFRONT_STORAGE_VERSION = 1;
-const MAX_MODIFIER_UNITS = 50;
+const MAX_MODIFIER_ITEM_QUANTITY = 99;
+const MAX_MODIFIER_UNITS = 500;
 const STOREFRONT_API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "development"
@@ -69,11 +71,34 @@ const STOREFRONT_API_URL = (
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 const cartLineKey = (productId: number, modifiers: SelectedModifier[]) => {
   const signature = modifiers
-    .map((modifier) => `${modifier.groupId}:${modifier.itemId}:${modifier.quantity}`)
+    .map((modifier) => `${modifier.groupId}:${modifier.itemId}:${modifier.quantity}:${modifier.priceScope}`)
     .sort()
     .join("|");
   return `${productId}:${signature}`;
 };
+const modifierCharge = (modifier: SelectedModifier, productQuantity: number) => (
+  modifier.price
+  * modifier.quantity
+  * (modifier.priceScope === "per-product" ? productQuantity : 1)
+);
+const configuredProductTotal = (
+  product: Product,
+  quantity: number,
+  modifiers: SelectedModifier[],
+) => (
+  product.price * quantity
+  + modifiers.reduce((sum, modifier) => sum + modifierCharge(modifier, quantity), 0)
+);
+const cartLineTotal = (line: CartLine) => (
+  configuredProductTotal(line.product, line.quantity, line.modifiers)
+);
+const modifierItemMaximum = (
+  group: NonNullable<Product["modifierGroups"]>[number],
+  item: NonNullable<Product["modifierGroups"]>[number]["items"][number],
+) => Math.min(
+  MAX_MODIFIER_ITEM_QUANTITY,
+  Math.max(1, item.maxQuantity ?? (group.selectionType === "single" ? 1 : 20)),
+);
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === "object" && value !== null && !Array.isArray(value)
 );
@@ -129,7 +154,7 @@ const restoreStoredProduct = (value: unknown): Product | null => {
   const description = boundedString(value.description, 2_000);
   if (description) product.description = description;
   if (value.isNew === true) product.isNew = true;
-  if (["popcorn", "batat", "cheese-sticks", "crab-salmon"].includes(String(value.referenceCard))) {
+  if (["wasabi", "popcorn", "batat", "cheese-sticks", "crab-salmon"].includes(String(value.referenceCard))) {
     product.referenceCard = value.referenceCard as NonNullable<Product["referenceCard"]>;
   }
   if (["popcorn", "wasabi"].includes(String(value.referenceDetail))) {
@@ -150,6 +175,7 @@ const restoreStoredModifiers = (value: unknown): SelectedModifier[] | null => {
     const itemName = boundedString(candidate.itemName, 200);
     const price = candidate.price;
     const quantity = candidate.quantity === undefined ? 1 : candidate.quantity;
+    const priceScope = candidate.priceScope === "per-line" ? "per-line" : "per-product";
     const identity = `${groupId}:${itemId}`;
     if (
       !groupId ||
@@ -161,7 +187,7 @@ const restoreStoredModifiers = (value: unknown): SelectedModifier[] | null => {
       (price as number) > 1_000_000 ||
       !Number.isInteger(quantity) ||
       (quantity as number) < 1 ||
-      (quantity as number) > 20 ||
+      (quantity as number) > MAX_MODIFIER_ITEM_QUANTITY ||
       uniqueIds.has(identity)
     ) return null;
     totalQuantity += quantity as number;
@@ -174,6 +200,7 @@ const restoreStoredModifiers = (value: unknown): SelectedModifier[] | null => {
       itemName,
       price: price as number,
       quantity: quantity as number,
+      priceScope,
     });
   }
   return restored;
@@ -207,10 +234,17 @@ const parseStoredStorefrontState = (
       ) continue;
       const key = cartLineKey(product.id, modifiers);
       const unitPrice = product.price + modifiers.reduce(
-        (sum, modifier) => sum + modifier.price * modifier.quantity,
+        (sum, modifier) => sum + (
+          modifier.priceScope === "per-product"
+            ? modifier.price * modifier.quantity
+            : 0
+        ),
         0,
       );
-      if (unitPrice > 10_000_000) continue;
+      if (
+        unitPrice > 10_000_000
+        || configuredProductTotal(product, quantity as number, modifiers) > 100_000_000
+      ) continue;
       const existing = cart.find((line) => line.key === key);
       if (existing) {
         existing.quantity = Math.min(20, existing.quantity + (quantity as number));
@@ -278,7 +312,8 @@ const defaultStoryGroups: StoryGroup[] = [
     title: "Telegram: промокоды и мемы",
     kind: "telegram",
     cta: "Подарки в студию!",
-    pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/c1a7cfbda01814519b617dda85ec062a_resize_in_box_2048_2048.jpg" }],
+    ctaUrl: "https://t.me/mnogolososya",
+    pages: [{ src: "/reference-telegram-story.png" }],
   },
   {
     title: "Много лосося — удовольствие есть",
@@ -315,8 +350,50 @@ const defaultStoryGroups: StoryGroup[] = [
   },
 ];
 
+const promotionTitleAliases: Record<string, string> = {
+  "Промокоды и подарки": "Telegram: промокоды и мемы",
+  "Удовольствие есть": "Много лосося — удовольствие есть",
+};
+
+const reconcilePromotions = (promotions: Promotion[]) => {
+  const normalized = promotions
+    .filter((promotion) => promotion.title !== "Memories/test")
+    .map((promotion) => ({
+      ...promotion,
+      title: promotionTitleAliases[promotion.title] || promotion.title,
+    }));
+  const canonicalTitles = new Set(defaultStoryGroups.map((group) => group.title));
+  const stories: StoryGroup[] = defaultStoryGroups.map((group) => ({ ...group }));
+  const cards: Promotion[] = defaultStoryGroups.map((group, index) => {
+    const remote = normalized.find((promotion) => promotion.title === group.title);
+    const referenceCard = promoCards.find((card) => card.alt === group.title);
+    return {
+      id: remote?.id ?? -(index + 1),
+      title: group.title,
+      image: referenceCard?.src || group.pages[0].src,
+      cta: group.cta,
+      ctaUrl: group.ctaUrl,
+    };
+  });
+
+  normalized
+    .filter((promotion) => !canonicalTitles.has(promotion.title))
+    .forEach((promotion) => {
+      stories.push({
+        title: promotion.title,
+        kind: "pleasure",
+        pages: [{ src: promotion.image }],
+        cta: promotion.cta || undefined,
+        ctaUrl: promotion.ctaUrl || undefined,
+      });
+      cards.push(promotion);
+    });
+
+  return { cards, stories };
+};
+
 function ProductArt({ product, mode, loading }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" }) {
-  if (mode === "detail" && product.referenceDetail === "popcorn") {
+  if (mode === "detail" && product.referenceDetail) {
     return <span className={`reference-detail-art reference-detail-${product.referenceDetail}`} role="img" aria-label={product.name} />;
   }
   if (product.referenceCard) {
@@ -423,14 +500,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
       .then((data: Promotion[]) => {
         if (!Array.isArray(data) || data.length === 0) throw new Error("Promotions response is empty");
-        setRegionalPromotions(data);
-        setStoryGroups(data.map((promotion) => ({
-          title: promotion.title,
-          kind: "pleasure",
-          pages: [{ src: promotion.image }],
-          cta: promotion.cta || undefined,
-          ctaUrl: promotion.ctaUrl || undefined,
-        })));
+        const reconciled = reconcilePromotions(data);
+        setRegionalPromotions(reconciled.cards);
+        setStoryGroups(reconciled.stories);
       })
       .catch(() => {
         if (controller.signal.aborted) return;
@@ -545,7 +617,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   const currentStory = storyGroups[promoSlide] || storyGroups[0] || defaultStoryGroups[0];
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
-  const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+  const cartTotal = cart.reduce((sum, line) => sum + cartLineTotal(line), 0);
   const highlightedCategory = categorySlug || activeCategory;
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
@@ -573,7 +645,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     if (product.available === false || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) return;
     const key = cartLineKey(product.id, modifiers);
     const unitPrice = product.price + modifiers.reduce(
-      (sum, modifier) => sum + modifier.price * modifier.quantity,
+      (sum, modifier) => sum + (
+        modifier.priceScope === "per-product"
+          ? modifier.price * modifier.quantity
+          : 0
+      ),
       0,
     );
     setCart((current) => {
@@ -862,36 +938,47 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         item.enabled !== false &&
         (modifierSelections[group.id]?.[item.id] || 0) > 0
       ))
-      .map((item) => ({
-        groupId: group.id,
-        groupTitle: group.title,
-        itemId: item.id,
-        itemName: item.name,
-        price: item.price,
-        quantity: group.selectionType === "single"
-          ? 1
-          : Math.min(20, Math.max(1, modifierSelections[group.id]?.[item.id] || 1)),
-      })));
-  const modifierTotal = selectedModifiersForCart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0,
-  );
+      .map((item) => {
+        const maximumQuantity = modifierItemMaximum(group, item);
+        return {
+          groupId: group.id,
+          groupTitle: group.title,
+          itemId: item.id,
+          itemName: item.name,
+          price: item.price,
+          quantity: Math.min(
+            maximumQuantity,
+            Math.max(1, modifierSelections[group.id]?.[item.id] || 1),
+          ),
+          priceScope: group.priceScope ?? "per-product",
+        };
+      }));
+  const configuredModalTotal = selected
+    ? configuredProductTotal(selected, modalQuantity, selectedModifiersForCart)
+    : 0;
   const selectedModifierUnits = selectedModifiersForCart.reduce(
     (sum, item) => sum + item.quantity,
     0,
   );
   const modifiersComplete = modifierGroups.every((group) => {
-    const quantities = Object.values(modifierSelections[group.id] || {})
-      .filter((quantity) => Number.isInteger(quantity) && quantity > 0);
-    const count = quantities.length;
+    const groupSelections = modifierSelections[group.id] || {};
+    const activeItems = group.items.filter((item) => item.enabled !== false);
+    const selectedEntries = Object.entries(groupSelections)
+      .filter(([, quantity]) => Number.isInteger(quantity) && quantity > 0);
+    const count = selectedEntries.length;
     const minimum = group.required ? Math.max(1, group.minSelections || 1) : group.minSelections || 0;
     const maximum = group.selectionType === "single"
       ? 1
-      : group.maxSelections ?? group.items.filter((item) => item.enabled !== false).length;
-    const quantitiesValid = quantities.every((quantity) => (
-      quantity <= 20 && (group.selectionType === "multiple" || quantity === 1)
-    ));
-    return quantitiesValid && count >= minimum && count <= maximum;
+      : group.maxSelections ?? activeItems.length;
+    const selectionsValid = selectedEntries.every(([itemId, quantity]) => {
+      const item = activeItems.find((candidate) => candidate.id === itemId);
+      return Boolean(
+        item
+        && quantity <= modifierItemMaximum(group, item)
+        && (group.selectionType === "multiple" || quantity === 1),
+      );
+    });
+    return selectionsValid && count >= minimum && count <= maximum;
   }) && selectedModifierUnits <= MAX_MODIFIER_UNITS;
 
   const toggleModifier = (groupId: string, itemId: string) => {
@@ -908,9 +995,16 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         if (!alreadySelected && Object.keys(groupSelections).length === 0 && totalUnits >= MAX_MODIFIER_UNITS) {
           return current;
         }
+        const minimum = group.required ? Math.max(1, group.minSelections || 1) : group.minSelections || 0;
+        if (alreadySelected && minimum > 0) return current;
         return { ...current, [groupId]: alreadySelected ? {} : { [itemId]: 1 } };
       }
-      if (alreadySelected) return current;
+      if (alreadySelected) {
+        if (modifierItemMaximum(group, item) > 1) return current;
+        const nextGroupSelections = { ...groupSelections };
+        delete nextGroupSelections[itemId];
+        return { ...current, [groupId]: nextGroupSelections };
+      }
       const selectedItems = Object.values(groupSelections).filter((quantity) => quantity > 0).length;
       if (group.maxSelections !== undefined && selectedItems >= group.maxSelections) return current;
       const totalUnits = Object.values(current)
@@ -925,6 +1019,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     const group = modifierGroups.find((candidate) => candidate.id === groupId);
     const item = group?.items.find((candidate) => candidate.id === itemId);
     if (!group || group.selectionType !== "multiple" || !item || item.enabled === false) return;
+    const maximumQuantity = modifierItemMaximum(group, item);
     setModifierSelections((current) => {
       const groupSelections = current[groupId] || {};
       const quantity = groupSelections[itemId];
@@ -936,7 +1031,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       const nextQuantity = quantity + delta;
       const nextGroupSelections = { ...groupSelections };
       if (nextQuantity < 1) delete nextGroupSelections[itemId];
-      else nextGroupSelections[itemId] = Math.min(20, nextQuantity);
+      else if (nextQuantity <= maximumQuantity) nextGroupSelections[itemId] = nextQuantity;
+      else return current;
       return { ...current, [groupId]: nextGroupSelections };
     });
   };
@@ -1151,7 +1247,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading="lazy" />
-                      {product.isNew ? <span className="product-new-badge">Новинка</span> : null}
+                      {product.isNew && !product.referenceCard ? <span className="product-new-badge">Новинка</span> : null}
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
@@ -1200,7 +1296,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               ))}
             </div>
             <button className="story-close" onClick={closePromo} aria-label="Закрыть">×</button>
-            {currentStory.cta && currentStory.ctaUrl ? <button className="story-cta" type="button" onClick={() => window.open(currentStory.ctaUrl, "_blank", "noopener,noreferrer")}>{currentStory.cta}</button> : null}
+            {currentStory.cta ? <button className="story-cta" type="button" onClick={() => { if (currentStory.ctaUrl) window.open(currentStory.ctaUrl, "_blank", "noopener,noreferrer"); }}>{currentStory.cta}</button> : null}
           </article>
           <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label="Следующая акция">→</button>
         </div>
@@ -1210,13 +1306,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
           <div className={`product-modal product-modal-${selected.modalKind || "related"}`}>
             <button className="modal-close" onClick={closeProduct} aria-label="Закрыть">×</button>
-            <div className="modal-art"><ProductArt product={selected} mode="detail" />{selected.isNew ? <span className="modal-new-badge">Новинка</span> : null}</div>
+            <div className="modal-art"><ProductArt product={selected} mode="detail" />{selected.isNew && !selected.referenceCard ? <span className="modal-new-badge">Новинка</span> : null}</div>
             <div className="modal-info">
               <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
               <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
               <div className="nutrition">
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
-                <div className="nutrition-actions"><button onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>Состав</button><button onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>Комплектация</button></div>
+                <div className={`nutrition-actions${selected.name === "Собери свой сет" ? " has-equipment" : ""}`}><button onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>Состав</button>{selected.name === "Собери свой сет" ? <button onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>Комплектация</button> : null}</div>
               </div>
               {modifierGroups.length ? <div className="modifier-groups">{modifierGroups.map((group) => {
                 const selectedQuantities = modifierSelections[group.id] || {};
@@ -1231,16 +1327,17 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <div className="modifier-options">{group.items.filter((item) => item.enabled !== false).map((item) => {
                     const modifierQuantity = selectedQuantities[item.id] || 0;
                     const chosen = modifierQuantity > 0;
+                    const maximumQuantity = modifierItemMaximum(group, item);
                     const art = item.image ? <img src={item.image} alt="" /> : <span className="modifier-option-placeholder" />;
                     const copy = <span><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></span>;
-                    if (group.selectionType === "multiple" && chosen) {
-                      return <div className="modifier-option selected" key={item.id}>
+                    if (group.selectionType === "multiple" && chosen && maximumQuantity > 1) {
+                      return <div className="modifier-option selected has-quantity" key={item.id}>
                         {art}
                         {copy}
                         <span className="modifier-option-quantity" role="group" aria-label={`Количество ${item.name}`}>
                           <button type="button" aria-label={`Уменьшить количество ${item.name}`} onClick={() => changeModifierQuantity(group.id, item.id, -1)}>−</button>
                           <b aria-live="polite">{modifierQuantity}</b>
-                          <button type="button" aria-label={`Увеличить количество ${item.name}`} disabled={modifierQuantity >= 20 || selectedModifierUnits >= MAX_MODIFIER_UNITS} onClick={() => changeModifierQuantity(group.id, item.id, 1)}>+</button>
+                          <button type="button" aria-label={`Увеличить количество ${item.name}`} disabled={modifierQuantity >= maximumQuantity || selectedModifierUnits >= MAX_MODIFIER_UNITS} onClick={() => changeModifierQuantity(group.id, item.id, 1)}>+</button>
                         </span>
                       </div>;
                     }
@@ -1252,8 +1349,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   })}</div>
                 </section>;
               })}</div> : null}
-              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? `Добавить ${money((selected.price + modifierTotal) * modalQuantity)}` : "Настройте блюдо"}</button></div>
+              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew && !product.referenceCard ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
+              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? `Добавить ${money(configuredModalTotal)}` : "Настройте блюдо"}</button></div>
             </div>
           </div>
         </div>
@@ -1271,9 +1368,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               ? <div className="composition-copy">{selected.composition || selected.description}</div>
               : <div className="composition-copy equipment-copy">
                   <p>К заказу добавим базовую комплектацию. Количество палочек можно изменить в корзине.</p>
-                  <div><span>Соевый соус</span><b>1 шт.</b></div>
-                  <div><span>Имбирь</span><b>1 шт.</b></div>
                   <div><span>Васаби</span><b>1 шт.</b></div>
+                  <div><span>Соевый соус</span><b>{selected.name === "Собери свой сет" ? "2 шт." : "1 шт."}</b></div>
+                  <div><span>Имбирь</span><b>1 шт.</b></div>
                   {selected.modifierGroups?.length ? <small>Соусы и добавки, выбранные в карточке блюда, будут сохранены в заказе отдельно.</small> : null}
                 </div>}
             <button className="composition-return" onClick={() => setCompositionOpen(false)}>Назад</button>
@@ -1366,7 +1463,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                         <b>{line.product.name}</b>
                         {line.product.description ? <p>{line.product.description}</p> : null}
                         {line.modifiers.length ? <div className="cart-line-modifiers">{line.modifiers.map((modifier) => <span key={`${modifier.groupId}-${modifier.itemId}`}>{modifier.itemName} ×{modifier.quantity}{modifier.price ? ` +${money(modifier.price * modifier.quantity)}` : ""}</span>)}</div> : null}
-                        <div className="cart-line-footer"><span>{money(line.unitPrice)}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
+                        <div className="cart-line-footer"><span>{money(cartLineTotal(line))}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
                       </div>
                     </div>
                   ))}
@@ -1374,7 +1471,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <h3>Вместе вкуснее</h3>
                     <div className="cart-related-grid">
                       {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
-                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew ? <span>Новинка</span> : null}</div>
+                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew && !product.referenceCard ? <span>Новинка</span> : null}</div>
                         <b>{product.name}</b>
                         <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => { if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div>
                       </article>)}
@@ -1447,7 +1544,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <h3>Ваш заказ</h3>
                   {cart.map((line) => <div className="checkout-line" key={line.key}>
                     <span><b>{line.product.name} × {line.quantity}</b>{line.modifiers.length ? <small>{line.modifiers.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}</span>
-                    <strong>{money(line.unitPrice * line.quantity)}</strong>
+                    <strong>{money(cartLineTotal(line))}</strong>
                   </div>)}
                   <div className="checkout-total"><span>Итого</span><b>{money(cartTotal)}</b></div>
                 </section>

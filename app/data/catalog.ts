@@ -18,7 +18,7 @@ export type Product = {
   isNew?: boolean;
   available?: boolean;
   modalKind?: "simple" | "related" | "addons";
-  referenceCard?: "popcorn" | "batat" | "cheese-sticks" | "crab-salmon";
+  referenceCard?: "wasabi" | "popcorn" | "batat" | "cheese-sticks" | "crab-salmon";
   referenceDetail?: "popcorn" | "wasabi";
   modifierGroups?: Array<{
     id: string;
@@ -28,7 +28,15 @@ export type Product = {
     required: boolean;
     minSelections?: number;
     maxSelections?: number;
-    items: Array<{ id: string; name: string; price: number; image: string; enabled?: boolean }>;
+    priceScope?: "per-product" | "per-line";
+    items: Array<{
+      id: string;
+      name: string;
+      price: number;
+      image: string;
+      enabled?: boolean;
+      maxQuantity?: number;
+    }>;
   }>;
 };
 
@@ -72,6 +80,11 @@ const images = {
   sweetChiliSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/40f57dae13f5e0ab02896d2dc34d9904_thumb_75_1152_1152.JPEG",
   caesarSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/7b4657268c5591940895bb7ca0a50c1f_thumb_75_1152_1152.JPEG",
   truffleSauce: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/69c12490d1e4dc0ba898e0ab3cc9bdd8_thumb_75_1152_1152.JPEG",
+  popcorn: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/41a0724c8ff19845d777aeb24dc9a96d_thumb_75_1152_1152.JPEG",
+  batat: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/99d85e3390522b69d9dec106275c2e15_thumb_75_1152_1152.JPEG",
+  cheeseSticks: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f782589e74a48358c38827fe11847dc1_thumb_75_1152_1152.JPEG",
+  crabSalmon: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/c3f2ffed0ac5c4d115dba3e48854dd63_thumb_75_1152_1152.JPEG",
+  threeRollCombo: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/f589018e1d71e197faf6bf4b3536db59_thumb_75_1152_1152.JPEG",
 };
 
 const liveProductImages: Record<string, string> = {
@@ -157,18 +170,31 @@ const liveProductImages: Record<string, string> = {
   "Чипсы креветочные": "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/fffd098e1fc3069d23ea6c0215eaf244_thumb_75_1152_1152.PNG",
 };
 
-const friesModifiers: Product["modifierGroups"] = [
+const snackSauceModifiers: Product["modifierGroups"] = [
   {
-    id: "fries-sauce",
-    title: "Соус к картошке фри",
+    id: "main-sauce",
+    title: "Основной соус",
     selectionType: "single",
     presentation: "rows",
-    required: true,
-    minSelections: 1,
+    required: false,
+    minSelections: 0,
     maxSelections: 1,
+    priceScope: "per-line",
     items: [
-      { id: "cheese", name: "Сырный Heinz", price: 0, image: images.cheeseSauce },
-      { id: "garlic", name: "Чесночный", price: 0, image: images.garlicSauce },
+      {
+        id: "cheese",
+        name: "Сырный Heinz",
+        price: 0,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5b7394f4b03a4e08d0960fd9fd50a817_resize_in_box_288_288.JPEG",
+        maxQuantity: 1,
+      },
+      {
+        id: "garlic",
+        name: "Чесночный",
+        price: 0,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/5ff884103ce5dbbc0df31ee32a267ea4_resize_in_box_288_288.JPEG",
+        maxQuantity: 1,
+      },
     ],
   },
   {
@@ -177,32 +203,90 @@ const friesModifiers: Product["modifierGroups"] = [
     selectionType: "multiple",
     presentation: "rows",
     required: false,
-    maxSelections: 3,
+    minSelections: 0,
+    maxSelections: 99,
+    priceScope: "per-line",
     items: [
-      { id: "sweet-chili", name: "Сладкий чили", price: 100, image: images.sweetChiliSauce },
-      { id: "caesar", name: "Цезарь", price: 180, image: images.caesarSauce },
-      { id: "truffle", name: "Трюфельный", price: 180, image: images.truffleSauce },
+      {
+        id: "sweet-chili",
+        name: "Сладкий чили",
+        price: 100,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ab5f8daadca4e3b5eb469010e296ba0c_resize_in_box_288_288.JPEG",
+        maxQuantity: 99,
+      },
+      {
+        id: "caesar",
+        name: "Цезарь",
+        price: 180,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/55b49f70aed04e9f94474d2a26585ca9_resize_in_box_288_288.JPEG",
+        maxQuantity: 99,
+      },
+      {
+        id: "truffle",
+        name: "Трюфельный",
+        price: 180,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/ff0796675446ed1cff5a9916bd39fb01_resize_in_box_288_288.JPEG",
+        maxQuantity: 99,
+      },
+    ],
+  },
+];
+
+const drinkChoiceModifiers: Product["modifierGroups"] = [
+  {
+    id: "drink-choice",
+    title: "Напиток на выбор",
+    selectionType: "single",
+    presentation: "rows",
+    required: true,
+    minSelections: 1,
+    maxSelections: 1,
+    priceScope: "per-line",
+    items: [
+      {
+        id: "tarhun",
+        name: "Тархун",
+        price: 0,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/e8473d25e978a09481a648233d67b364_resize_in_box_288_288.JPEG",
+        maxQuantity: 1,
+      },
+      {
+        id: "duchesse",
+        name: "Дюшес",
+        price: 0,
+        image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/CatalogItemModificator/32e027cfa90a62290fc6877ff9ddc83d_resize_in_box_288_288.JPEG",
+        maxQuantity: 1,
+      },
     ],
   },
 ];
 
 const setRollOptions = [
-  { id: "okinawa", name: "Окинава", price: 0, image: liveProductImages["Окинава"] || images.shaurokinawa },
-  { id: "alaska", name: "Аляска", price: 120, image: liveProductImages["Аляска"] || images.bakedShrimp },
-  { id: "snow-california", name: "Снежная калифорния", price: 180, image: liveProductImages["Снежная калифорния"] || images.philadelphia },
-  { id: "shrimp-tamago", name: "Креветка с тамаго и авокадо", price: 210, image: liveProductImages["Креветка с тамаго и авокадо"] || images.rukola },
-  { id: "philadelphia-light", name: "Филадельфия лайт", price: 260, image: liveProductImages["Филадельфия лайт"] || images.philadelphia },
-  { id: "daku", name: "Даку 2.0", price: 280, image: liveProductImages["Даку 2.0"] || images.chuka },
+  { id: "okinawa", name: "Окинава", price: 0, image: liveProductImages["Окинава"] || images.shaurokinawa, maxQuantity: 1 },
+  { id: "shrimp-spicy", name: "Креветка Спайс", price: 120, image: liveProductImages["Креветка Спайс"] || images.rukola, maxQuantity: 1 },
+  { id: "shrimp-tamago", name: "Креветка с тамаго и авокадо", price: 120, image: liveProductImages["Креветка с тамаго и авокадо"] || images.rukola, maxQuantity: 1 },
+  { id: "snow-california", name: "Снежная калифорния", price: 120, image: liveProductImages["Снежная калифорния"] || images.philadelphia, maxQuantity: 1 },
+  { id: "creamy-shrimp-tobiko", name: "Сливочная креветка и тобико", price: 120, image: liveProductImages["Сливочная креветка и тобико"] || images.rukola, maxQuantity: 1 },
+  { id: "alaska", name: "Аляска", price: 180, image: liveProductImages["Аляска"] || images.bakedShrimp, maxQuantity: 1 },
+  { id: "california-shrimp-spicy", name: "Калифорния с креветкой спайси", price: 220, image: liveProductImages["Калифорния с креветкой спайси"] || images.rukola, maxQuantity: 1 },
+  { id: "philadelphia-light", name: "Филадельфия лайт", price: 260, image: liveProductImages["Филадельфия лайт"] || images.philadelphia, maxQuantity: 1 },
+  { id: "crispy-salmon", name: "Хрустящий лосось", price: 270, image: liveProductImages["Хрустящий лосось"] || images.philadelphia, maxQuantity: 1 },
+  { id: "unagi-seared-salmon", name: "Унаги и опалённый лосось", price: 270, image: liveProductImages["Унаги и опалённый лосось"] || images.bakedShrimp, maxQuantity: 1 },
+  { id: "daku", name: "Даку 2.0", price: 270, image: liveProductImages["Даку 2.0"] || images.chuka, maxQuantity: 1 },
+  { id: "california-tuna-spicy", name: "Калифорния с тунцом спайси", price: 280, image: liveProductImages["Калифорния с тунцом спайси"] || images.philadelphia, maxQuantity: 1 },
+  { id: "philadelphia-eel", name: "Филадельфия с угрём", price: 390, image: liveProductImages["Филадельфия с угрём"] || images.bakedShrimp, maxQuantity: 1 },
+  { id: "eel-salmon", name: "Угорь и лосось", price: 490, image: liveProductImages["Угорь и лосось"] || images.philadelphia, maxQuantity: 1 },
 ];
 
 const buildSetRollGroup = (position: number): NonNullable<Product["modifierGroups"]>[number] => ({
   id: `set-roll-${position}`,
   title: `${["Первый", "Второй", "Третий", "Четвёртый"][position - 1]} ролл`,
   selectionType: "single",
-  presentation: "cards",
+  presentation: "rows",
   required: true,
   minSelections: 1,
   maxSelections: 1,
+  priceScope: "per-line",
   items: setRollOptions,
 });
 
@@ -274,8 +358,56 @@ export const categories: Category[] = [
     slug: "novinki",
     title: "Новинки",
     products: [
-      p(11847, "novinki", "Соус сладкий васаби", 90, images.wasabi, { ...sauceDetails, isNew: true }),
-      p(11693, "novinki", "Зелёный", 590, images.green, { isNew: true }),
+      p(11847, "novinki", "Соус сладкий васаби", 90, images.wasabi, {
+        ...sauceDetails,
+        isNew: true,
+        referenceCard: "wasabi",
+        referenceDetail: "wasabi",
+      }),
+      p(11682, "novinki", "Куриный попкорн", 345, images.popcorn, {
+        slug: "kurinyj-popkorn",
+        description: "Щёлк-щёлк! Предупреждаем. Эта хрустящая закуска разлетается так быстро, что лучше заказать сразу две порции. А ещё лучше дополнить любимым соусом.",
+        weight: 150,
+        calories: 497,
+        protein: 14,
+        fat: 31,
+        carbs: 38,
+        isNew: true,
+        modalKind: "addons",
+        referenceCard: "popcorn",
+        referenceDetail: "popcorn",
+        modifierGroups: snackSauceModifiers,
+      }),
+      p(11677, "novinki", "Батат фри", 320, images.batat, {
+        description: "Кто-то точно будет рад. Ведь у нас теперь батат! Сладко-солёные и хрустящие брусочки батата фри уже готовы составить компанию вашему перекусу или обеду. Идеально сочетается с Трюфельным соусом.",
+        weight: 150,
+        calories: 311,
+        protein: 4,
+        fat: 16,
+        carbs: 35,
+        isNew: true,
+        modalKind: "addons",
+        referenceCard: "batat",
+        modifierGroups: snackSauceModifiers,
+      }),
+      p(11678, "novinki", "Сырные палочки с моцареллой", 360, images.cheeseSticks, {
+        description: "Скажите, сыыыыыыыр! Наши хрустящие снаружи и нежные внутри сырные палочки с моцареллой без всяких сомнений заставят вас улыбнуться!",
+        weight: 180,
+        calories: 394,
+        protein: 17,
+        fat: 24,
+        carbs: 25,
+        isNew: true,
+        modalKind: "addons",
+        referenceCard: "cheese-sticks",
+        modifierGroups: snackSauceModifiers,
+      }),
+      p(11587, "novinki", "Краб и лосось", 2850, images.crabSalmon, {
+        description: "Две дюжины удовольствия с крабом и вкуснейшей красной рыбой. Собрали их месте в одном сете для вашего удовольствия!",
+        isNew: true,
+        modalKind: "related",
+        referenceCard: "crab-salmon",
+      }),
     ],
   },
   {
@@ -301,6 +433,22 @@ export const categories: Category[] = [
         carbs: 51,
       }),
       p(11402, "hity-prodaz-2", "Поке с лососем в тобико", 830, images.poke, { available: false }),
+    ],
+  },
+  {
+    slug: "kombo",
+    title: "Комбо",
+    products: [
+      p(11765, "kombo", "Комбо с тремя роллами", 2000, images.threeRollCombo, {
+        description: "Роллы, роллы и ещё раз роллы! Да, в этом комбо их аж 3 порции. Филадельфия лайт, Сливочная креветка и тобико, Снежная калифорния. Не забудьте выбрать любимый напиток Черноголовка в придачу.",
+        weight: 560,
+        calories: 1022,
+        protein: 40,
+        fat: 31,
+        carbs: 143,
+        modalKind: "addons",
+        modifierGroups: drinkChoiceModifiers,
+      }),
     ],
   },
   {
@@ -430,7 +578,7 @@ export const categories: Category[] = [
     products: [
       p(11801, "zakuski-4", "Картофель фри", 275, images.green, {
         modalKind: "addons",
-        modifierGroups: friesModifiers,
+        modifierGroups: snackSauceModifiers,
       }),
       p(11802, "zakuski-4", "Креветки васаби", 695, images.rukola),
       p(11803, "zakuski-4", "Чипсы креветочные", 150, images.wasabi),

@@ -1,6 +1,17 @@
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Category } from "./category.entity";
 
+export type ModifierPriceScope = "per-product" | "per-line";
+
+export type ProductModifierItem = {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  enabled?: boolean;
+  maxQuantity?: number;
+};
+
 export type ProductModifierGroup = {
   id: string;
   title: string;
@@ -9,7 +20,8 @@ export type ProductModifierGroup = {
   required: boolean;
   minSelections?: number;
   maxSelections?: number;
-  items: Array<{ id: string; name: string; price: number; image: string; enabled?: boolean }>;
+  priceScope?: ModifierPriceScope;
+  items: ProductModifierItem[];
 };
 
 @Entity("products")

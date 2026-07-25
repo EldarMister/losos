@@ -22,7 +22,14 @@ type Product = {
   fat: number;
   carbs: number;
 };
-type ModifierItem = { id: string; name: string; price: number; image: string; enabled?: boolean };
+type ModifierItem = {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  enabled?: boolean;
+  maxQuantity?: number;
+};
 type ModifierGroup = {
   id: string;
   title: string;
@@ -31,6 +38,7 @@ type ModifierGroup = {
   required: boolean;
   minSelections?: number;
   maxSelections?: number;
+  priceScope?: "per-product" | "per-line";
   items: ModifierItem[];
 };
 type Category = { id: number; title: string; slug: string; sortOrder: number; products: Product[] };
@@ -45,16 +53,20 @@ type OrderModifierSnapshot = {
   price: number;
   quantity: number;
   totalPrice: number;
+  priceScope: "per-product" | "per-line";
 };
 type AdminOrderItem = {
   id: number;
   productId: number;
   productName: string;
   basePrice: number;
+  baseTotal?: number;
   modifiersPrice: number;
+  modifiersTotal?: number;
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  pricingVersion?: string;
   modifierSnapshots: OrderModifierSnapshot[];
 };
 type AdminOrder = {
@@ -530,7 +542,18 @@ export function AdminApp() {
         <div className="admin-order-lines">
           {selectedOrder.items.map((item) => <article key={item.id}>
             <span className="admin-order-qty">{item.quantity}×</span>
-            <span><b>{item.productName}</b>{item.modifierSnapshots.map((modifier) => <small key={`${modifier.groupId}:${modifier.itemId}`}>{modifier.groupTitle}: {modifier.itemName}{modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}{modifier.totalPrice ? ` (+${modifier.totalPrice} сом)` : ""}</small>)}</span>
+            <span><b>{item.productName}</b>{item.modifierSnapshots.map((modifier) => {
+              const contribution = modifier.totalPrice
+                * (modifier.priceScope === "per-product" ? item.quantity : 1);
+              const scopeLabel = modifier.priceScope === "per-line"
+                ? "за строку"
+                : `за ${item.quantity} шт.`;
+              return <small key={`${modifier.groupId}:${modifier.itemId}`}>
+                {modifier.groupTitle}: {modifier.itemName}
+                {modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}
+                {contribution ? ` (+${contribution} сом ${scopeLabel})` : ""}
+              </small>;
+            })}</span>
             <strong>{item.lineTotal} сом</strong>
           </article>)}
         </div>
@@ -567,6 +590,7 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
     required: false,
     minSelections: 0,
     maxSelections: 1,
+    priceScope: "per-line",
     items: [],
   }]);
   const updateItem = (groupIndex: number, itemIndex: number, patch: Partial<ModifierItem>) => {
@@ -578,7 +602,14 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
   const addItem = (groupIndex: number) => {
     const group = value[groupIndex];
     updateGroup(groupIndex, {
-      items: [...group.items, { id: `option-${Date.now()}`, name: "Новый вариант", price: 0, image: "", enabled: true }],
+      items: [...group.items, {
+        id: `option-${Date.now()}`,
+        name: "Новый вариант",
+        price: 0,
+        image: "",
+        enabled: true,
+        maxQuantity: group.selectionType === "single" ? 1 : 20,
+      }],
     });
   };
   const removeItem = (groupIndex: number, itemIndex: number) => {
@@ -597,10 +628,33 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
         <button type="button" onClick={() => removeGroup(groupIndex)} aria-label={`Удалить группу ${group.title}`}>×</button>
       </div>
       <div className="admin-modifier-rules">
-        <label>Режим<select value={group.selectionType} onChange={(event) => updateGroup(groupIndex, { selectionType: event.target.value as ModifierGroup["selectionType"], maxSelections: event.target.value === "single" ? 1 : Math.max(1, group.maxSelections || 1) })}><option value="single">Один вариант</option><option value="multiple">Несколько вариантов</option></select></label>
+        <label>Режим<select value={group.selectionType} onChange={(event) => {
+          const selectionType = event.target.value as ModifierGroup["selectionType"];
+          updateGroup(groupIndex, {
+            selectionType,
+            minSelections: selectionType === "single"
+              ? Math.min(1, group.minSelections ?? (group.required ? 1 : 0))
+              : group.minSelections,
+            maxSelections: selectionType === "single" ? 1 : Math.max(1, group.maxSelections || 1),
+            items: selectionType === "single"
+              ? group.items.map((item) => ({ ...item, maxQuantity: 1 }))
+              : group.items,
+          });
+        }}><option value="single">Один вариант</option><option value="multiple">Несколько вариантов</option></select></label>
         <label>Вид<select value={group.presentation || "rows"} onChange={(event) => updateGroup(groupIndex, { presentation: event.target.value as NonNullable<ModifierGroup["presentation"]> })}><option value="rows">Строки</option><option value="cards">Карточки</option></select></label>
-        <label>Максимум<input type="number" min="1" disabled={group.selectionType === "single"} value={group.selectionType === "single" ? 1 : group.maxSelections || 1} onChange={(event) => updateGroup(groupIndex, { maxSelections: Number(event.target.value) })} /></label>
-        <label className="admin-required"><span>Обязательно</span><input type="checkbox" checked={group.required} onChange={(event) => updateGroup(groupIndex, { required: event.target.checked, minSelections: event.target.checked ? 1 : 0 })} /></label>
+        <label>Минимум<input type="number" min="0" max={group.selectionType === "single" ? 1 : 99} value={group.minSelections ?? (group.required ? 1 : 0)} onChange={(event) => {
+          const minSelections = Number(event.target.value);
+          updateGroup(groupIndex, { minSelections, required: minSelections > 0 });
+        }} /></label>
+        <label>Максимум<input type="number" min="0" max="99" disabled={group.selectionType === "single"} value={group.selectionType === "single" ? 1 : group.maxSelections ?? group.items.length} onChange={(event) => updateGroup(groupIndex, { maxSelections: Number(event.target.value) })} /></label>
+        <label>Цена применяется<select value={group.priceScope || "per-product"} onChange={(event) => updateGroup(groupIndex, { priceScope: event.target.value as NonNullable<ModifierGroup["priceScope"]> })}><option value="per-product">К каждой порции</option><option value="per-line">Один раз в строке</option></select></label>
+        <label className="admin-required"><span>Обязательно</span><input type="checkbox" checked={group.required} onChange={(event) => {
+          const required = event.target.checked;
+          updateGroup(groupIndex, {
+            required,
+            minSelections: required ? Math.max(1, group.minSelections || 0) : 0,
+          });
+        }} /></label>
       </div>
       <div className="admin-modifier-items">
         {group.items.map((item, itemIndex) => <div className="admin-modifier-item" key={item.id}>
@@ -610,6 +664,8 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
             <input aria-label="Ссылка на фото варианта" value={item.image} onChange={(event) => updateItem(groupIndex, itemIndex, { image: event.target.value })} placeholder="Ссылка на фото" />
           </div>
           <label>Цена<input type="number" min="0" value={item.price} onChange={(event) => updateItem(groupIndex, itemIndex, { price: Number(event.target.value) })} /></label>
+          <label>Макс. шт.<input type="number" min="1" max="99" disabled={group.selectionType === "single"} value={item.maxQuantity ?? (group.selectionType === "single" ? 1 : 20)} onChange={(event) => updateItem(groupIndex, itemIndex, { maxQuantity: Number(event.target.value) })} /></label>
+          <label className="admin-modifier-enabled"><span>Доступен</span><input type="checkbox" checked={item.enabled !== false} onChange={(event) => updateItem(groupIndex, itemIndex, { enabled: event.target.checked })} /></label>
           <button type="button" onClick={() => removeItem(groupIndex, itemIndex)} aria-label={`Удалить ${item.name}`}>×</button>
         </div>)}
       </div>
