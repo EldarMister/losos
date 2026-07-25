@@ -581,9 +581,7 @@ export function AdminApp() {
 
     <section className="admin-content">
       <div className="admin-mobile-title">
-        <div className="admin-mark">МЛ</div>
         <h1>{tabTitle}</h1>
-        <button onClick={() => { setRegion(availableRegions[(availableRegions.findIndex((item) => item.slug === region) + 1) % availableRegions.length]?.slug || region); setOrderPage(1); }}>{availableRegions.find((item) => item.slug === region)?.name}⌄</button>
         <span>≡⌕</span>
       </div>
       <div className="admin-regions" aria-label="Регион">
