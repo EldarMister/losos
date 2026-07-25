@@ -59,11 +59,21 @@ button { cursor: pointer; }
 .admin-list-tools label i { width: 43px; font-size: 22px; font-style: normal; text-align: center; }
 .admin-list-tools input { min-width: 0; flex: 1; height: 100%; padding: 0 14px 0 0; border: 0; outline: 0; background: transparent; font-size: 13px; }
 .admin-list-tools > button { height: 44px; padding: 0 18px; border: 1px solid var(--admin-line); border-radius: 10px; background: #fff; color: #474a53; }
-.admin-list-tools .admin-select-control { position: relative; width: 202px; min-width: 202px; height: 48px; padding: 0 43px 0 17px; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; color: #30333b; transition: border-color .16s ease, box-shadow .16s ease; }
+.admin-order-selects { display: flex; gap: 12px; }
+.admin-list-tools .admin-select-control { position: relative; width: 202px; min-width: 202px; height: 48px; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; color: #30333b; transition: border-color .16s ease, box-shadow .16s ease; }
 .admin-list-tools .admin-select-control::after { position: absolute; top: 18px; right: 19px; width: 8px; height: 8px; border-right: 1.5px solid #778093; border-bottom: 1.5px solid #778093; content: ""; pointer-events: none; transform: rotate(45deg); }
-.admin-list-tools .admin-select-control:hover, .admin-list-tools .admin-select-control:focus-within, .admin-list-tools .admin-select-control.selected { border-color: var(--admin-orange); box-shadow: 0 0 0 3px #ff4b0b0d; }
+.admin-list-tools .admin-select-control.open::after { transform: rotate(225deg); top: 22px; }
+.admin-list-tools .admin-select-control:hover, .admin-list-tools .admin-select-control:focus-within, .admin-list-tools .admin-select-control.selected, .admin-list-tools .admin-select-control.open { border-color: var(--admin-orange); box-shadow: 0 0 0 3px #ff4b0b0d; }
 .admin-list-tools .admin-period-control { width: 184px; min-width: 184px; }
-.admin-select-control select { width: 100%; min-width: 0; height: 100%; appearance: none; border: 0; outline: 0; background: transparent; color: #30333b; cursor: pointer; font-size: 14px; font-weight: 600; }
+.admin-select-trigger { width: 100%; height: 100%; display: flex; align-items: center; gap: 7px; padding: 0 42px 0 16px; border: 0; border-radius: inherit; background: transparent; color: #30333b; cursor: pointer; font-size: 14px; font-weight: 600; text-align: left; }
+.admin-select-trigger > span { overflow: hidden; flex: 1; text-overflow: ellipsis; white-space: nowrap; }
+.admin-select-trigger em, .admin-select-options em { color: var(--admin-muted); font-size: 12px; font-style: normal; font-weight: 500; }
+.admin-select-options { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: 100%; padding: 7px; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; box-shadow: 0 16px 34px #1f24351c; }
+.admin-select-options button { width: 100%; min-height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: #586276; cursor: pointer; font-size: 14px; text-align: left; }
+.admin-select-options button span { flex: 1; }
+.admin-select-options button:hover, .admin-select-options button.selected { background: #fff2ec; color: var(--admin-orange); }
+.admin-select-options button.selected em { color: var(--admin-orange); }
+.admin-select-options b { color: var(--admin-orange); font-size: 15px; }
 
 /* Orders */
 .admin-orders, .admin-products-table, .admin-categories { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; }

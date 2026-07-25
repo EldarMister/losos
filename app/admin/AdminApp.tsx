@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string };
 type Product = {
@@ -203,6 +203,8 @@ export function AdminApp() {
   const [orderPage, setOrderPage] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
+  const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
+  const orderControlsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     queueMicrotask(() => setToken(sessionStorage.getItem("losos-admin-token") || ""));
@@ -247,6 +249,15 @@ export function AdminApp() {
     const timer = window.setTimeout(() => setMessage(""), 3_500);
     return () => window.clearTimeout(timer);
   }, [message]);
+
+  useEffect(() => {
+    if (!openOrderMenu) return;
+    const closeMenu = (event: PointerEvent) => {
+      if (!orderControlsRef.current?.contains(event.target as Node)) setOpenOrderMenu(null);
+    };
+    document.addEventListener("pointerdown", closeMenu);
+    return () => document.removeEventListener("pointerdown", closeMenu);
+  }, [openOrderMenu]);
 
   const loadDashboard = useCallback(async () => {
     if (!token) return;
@@ -533,6 +544,15 @@ export function AdminApp() {
     { value: "completed", label: "Завершённые" },
     { value: "cancelled", label: "Отменённые" },
   ];
+  const periodOptions: { value: OrderPeriod; label: string }[] = [
+    { value: "all", label: "Всё время" },
+    { value: "today", label: "Сегодня" },
+    { value: "week", label: "За 7 дней" },
+    { value: "month", label: "В этом месяце" },
+  ];
+  const totalStatusCount = Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0);
+  const selectedStatus = statusOptions.find((option) => option.value === orderFilter) || statusOptions[0];
+  const selectedPeriod = periodOptions.find((option) => option.value === orderPeriod) || periodOptions[0];
 
   return <main className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
 
@@ -582,8 +602,25 @@ export function AdminApp() {
       {tab === "orders" ? <>
         <div className="admin-list-tools">
           <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по № заказа, клиенту или адресу..." /></label>
-          <label className={`admin-select-control${orderFilter !== "all" ? " selected" : ""}`}><select aria-label="Статус заказа" value={orderFilter} onChange={(event) => { setOrderFilter(event.target.value as "all" | OrderStatus); setOrderPage(1); }}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}{option.value === "all" ? ` (${Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0)})` : ` (${statusCounts[option.value] || 0})`}</option>)}</select></label>
-          <label className={`admin-select-control admin-period-control${orderPeriod !== "all" ? " selected" : ""}`}><select aria-label="Период заказов" value={orderPeriod} onChange={(event) => { setOrderPeriod(event.target.value as OrderPeriod); setOrderPage(1); }}><option value="all">Всё время</option><option value="today">Сегодня</option><option value="week">За 7 дней</option><option value="month">В этом месяце</option></select></label>
+          <div className="admin-order-selects" ref={orderControlsRef}>
+            <div className={`admin-select-control${openOrderMenu === "status" ? " open" : ""}${orderFilter !== "all" ? " selected" : ""}`}>
+              <button type="button" className="admin-select-trigger" aria-haspopup="listbox" aria-expanded={openOrderMenu === "status"} onClick={() => setOpenOrderMenu((current) => current === "status" ? null : "status")}>
+                <span>{selectedStatus.label}</span><em>{orderFilter === "all" ? totalStatusCount : statusCounts[orderFilter] || 0}</em>
+              </button>
+              {openOrderMenu === "status" ? <div className="admin-select-options" role="listbox" aria-label="Статус заказа">
+                {statusOptions.map((option) => {
+                  const count = option.value === "all" ? totalStatusCount : statusCounts[option.value] || 0;
+                  return <button type="button" role="option" aria-selected={orderFilter === option.value} className={orderFilter === option.value ? "selected" : ""} key={option.value} onClick={() => { setOrderFilter(option.value); setOrderPage(1); setOpenOrderMenu(null); }}><span>{option.label}</span><em>{count}</em>{orderFilter === option.value ? <b>✓</b> : null}</button>;
+                })}
+              </div> : null}
+            </div>
+            <div className={`admin-select-control admin-period-control${openOrderMenu === "period" ? " open" : ""}${orderPeriod !== "all" ? " selected" : ""}`}>
+              <button type="button" className="admin-select-trigger" aria-haspopup="listbox" aria-expanded={openOrderMenu === "period"} onClick={() => setOpenOrderMenu((current) => current === "period" ? null : "period")}><span>{selectedPeriod.label}</span></button>
+              {openOrderMenu === "period" ? <div className="admin-select-options" role="listbox" aria-label="Период заказов">
+                {periodOptions.map((option) => <button type="button" role="option" aria-selected={orderPeriod === option.value} className={orderPeriod === option.value ? "selected" : ""} key={option.value} onClick={() => { setOrderPeriod(option.value); setOrderPage(1); setOpenOrderMenu(null); }}><span>{option.label}</span>{orderPeriod === option.value ? <b>✓</b> : null}</button>)}
+              </div> : null}
+            </div>
+          </div>
         </div>
         <div className="admin-orders">
           <div className="admin-table-head"><span>Заказ</span><span>Клиент</span><span>Адрес</span><span>Статус</span><span>Сумма</span><span>Время</span></div>
