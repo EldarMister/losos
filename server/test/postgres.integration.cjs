@@ -26,7 +26,7 @@ async function main() {
   let adminProductId = null;
   let staleProductId = null;
   let adminPromotionId = null;
-  let artifactPromotionId = null;
+  const artifactPromotionIds = [];
   const promotionBackups = [];
 
   try {
@@ -365,16 +365,19 @@ async function main() {
     telegramPromotion.title = "Промокоды и подарки";
     pleasurePromotion.title = "Удовольствие есть";
     await promotionRepository.save([telegramPromotion, pleasurePromotion]);
-    const artifactPromotion = await promotionRepository.save(promotionRepository.create({
-      title: "Memories/test",
-      image: "https://example.com/test.webp",
-      cta: "Test",
-      ctaUrl: "",
-      enabled: true,
-      sortOrder: 100,
-      region: product.category.region,
-    }));
-    artifactPromotionId = artifactPromotion.id;
+    const artifactPromotions = await promotionRepository.save(
+      [" Memories/TEST ", " TEST ", "  ТеСт  "].map((title, index) =>
+        promotionRepository.create({
+          title,
+          image: "https://example.com/test.webp",
+          cta: "Test",
+          ctaUrl: "",
+          enabled: true,
+          sortOrder: 100 + index,
+          region: product.category.region,
+        })),
+    );
+    artifactPromotionIds.push(...artifactPromotions.map((promotion) => promotion.id));
     const adminPromotion = await promotionRepository.save(promotionRepository.create({
       title: "Admin campaign",
       image: "https://example.com/admin-promo.webp",
@@ -481,7 +484,14 @@ async function main() {
     }
     assert.equal(
       reconciledPromotions.some((entry) =>
-        ["Промокоды и подарки", "Удовольствие есть", "Memories/test"].includes(entry.title)),
+        ["Промокоды и подарки", "Удовольствие есть"].includes(entry.title)),
+      false,
+    );
+    assert.equal(
+      reconciledPromotions.some((entry) =>
+        ["memories/test", "test", "тест"].includes(
+          entry.title.trim().toLocaleLowerCase("ru-RU"),
+        )),
       false,
     );
     const preservedAdminPromotion = reconciledPromotions.find((entry) =>
@@ -533,7 +543,7 @@ async function main() {
     if (adminPromotionId !== null) {
       await dataSource.getRepository(Promotion).delete(adminPromotionId);
     }
-    if (artifactPromotionId !== null) {
+    for (const artifactPromotionId of artifactPromotionIds) {
       await dataSource.getRepository(Promotion).delete(artifactPromotionId);
     }
     for (const backup of promotionBackups) {

@@ -63,7 +63,11 @@ const promotionAliases = new Map<string, string>([
   ["Удовольствие есть", "Много лосося — удовольствие есть"],
 ]);
 
-const promotionArtifacts = new Set(["Memories/test"]);
+const promotionArtifacts = new Set(["memories/test", "test", "тест"]);
+
+function normalizePromotionTitle(title: string) {
+  return title.trim().toLocaleLowerCase("ru-RU");
+}
 
 function seedProductNeedsUpdate(product: Product, seed: SeedProduct) {
   return (
@@ -180,11 +184,11 @@ export class CatalogService implements OnModuleInit {
           where: { region: { id: region.id } },
         });
         const artifacts = existingPromotions.filter((promotion) =>
-          promotionArtifacts.has(promotion.title));
+          promotionArtifacts.has(normalizePromotionTitle(promotion.title)));
         if (artifacts.length) await promotions.remove(artifacts);
 
         const activePromotions = existingPromotions.filter((promotion) =>
-          !promotionArtifacts.has(promotion.title));
+          !promotionArtifacts.has(normalizePromotionTitle(promotion.title)));
         const promotionsToSave: Promotion[] = [];
         const duplicatePromotionsToRemove: Promotion[] = [];
         for (const [sortOrder, definition] of defaultPromotions.entries()) {

@@ -355,9 +355,12 @@ const promotionTitleAliases: Record<string, string> = {
   "Удовольствие есть": "Много лосося — удовольствие есть",
 };
 
+const promotionArtifactTitles = new Set(["memories/test", "test", "тест"]);
+const normalizedPromotionTitle = (title: string) => title.trim().toLocaleLowerCase("ru-RU");
+
 const reconcilePromotions = (promotions: Promotion[]) => {
   const normalized = promotions
-    .filter((promotion) => promotion.title !== "Memories/test")
+    .filter((promotion) => !promotionArtifactTitles.has(normalizedPromotionTitle(promotion.title)))
     .map((promotion) => ({
       ...promotion,
       title: promotionTitleAliases[promotion.title] || promotion.title,

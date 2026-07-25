@@ -163,6 +163,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /116ebec73cfa9103dd9332b8438cd9e1/);
   assert.ok(catalog.indexOf('"Поке спайси с лососем", 890') < catalog.indexOf('"Поке с тунцом", 795'));
   assert.match(storefront, /title: "Нашли для вас"/);
+  assert.match(storefront, /promotionArtifactTitles = new Set\(\["memories\/test", "test", "тест"\]\)/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
   assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1160px[^}]*height:\s*min\(920px/);
   assert.match(globals, /\.modal-info\s*\{[^}]*scrollbar-width:\s*none/);
