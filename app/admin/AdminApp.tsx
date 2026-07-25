@@ -2,7 +2,9 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { io } from "socket.io-client";
+import { useAdminAuth } from "./admin-auth-store";
 
 type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string };
 type Product = {
@@ -95,7 +97,8 @@ type AdminOrder = {
   items: AdminOrderItem[];
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
-type Tab = "orders" | "products" | "promotions" | "categories" | "settings";
+type Statistics = { totalOrders: number; revenue: number; averageOrder: number; completedOrders: number; activeOrders: number; cancelledOrders: number; days: { date: string; orders: number; revenue: number }[] };
+type Tab = "orders" | "statistics" | "products" | "promotions" | "categories" | "settings";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
@@ -185,7 +188,10 @@ function fileToOptimizedDataUrl(file: File) {
 }
 
 export function AdminApp() {
-  const [token, setToken] = useState("");
+  const token = useAdminAuth((state) => state.token);
+  const hydrateAuth = useAdminAuth((state) => state.hydrate);
+  const signIn = useAdminAuth((state) => state.signIn);
+  const signOut = useAdminAuth((state) => state.signOut);
   const [tokenDraft, setTokenDraft] = useState("");
   const [region, setRegion] = useState("bishkek");
   const [availableRegions, setAvailableRegions] = useState<Region[]>(defaultRegions);
@@ -202,28 +208,35 @@ export function AdminApp() {
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
   const [orderPage, setOrderPage] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
+  const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
 
   useEffect(() => {
-    queueMicrotask(() => setToken(sessionStorage.getItem("losos-admin-token") || ""));
-  }, []);
+    hydrateAuth();
+  }, [hydrateAuth]);
 
   const request = useCallback(async (path: string, init?: RequestInit) => {
-    const response = await fetch(`${apiUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        "x-admin-token": token,
-        ...init?.headers,
-      },
-    });
-    if (response.status === 401) throw new Error("Неверный код администратора");
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      const details = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-      throw new Error(details || "Не удалось сохранить изменения");
+    try {
+      const response = await axios.request({
+        url: `${apiUrl}${path}`,
+        method: init?.method || "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": token,
+          ...Object.fromEntries(new Headers(init?.headers).entries()),
+        },
+        data: typeof init?.body === "string" ? JSON.parse(init.body) : init?.body,
+      });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) throw new Error("Неверный код администратора");
+        const body = error.response?.data as { message?: string | string[] } | undefined;
+        const details = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        throw new Error(details || "Не удалось сохранить изменения");
+      }
+      throw error;
     }
-    return response.json();
   }, [token]);
 
   const loadSettings = useCallback(async () => {
@@ -309,6 +322,13 @@ export function AdminApp() {
       socket.disconnect();
     };
   }, [loadOrders, tab, token]);
+
+  useEffect(() => {
+    if (tab !== "statistics" || !token) return;
+    void request(`/admin/statistics?region=${region}`)
+      .then((result) => setStatistics(result as Statistics))
+      .catch((error) => setMessage(error instanceof Error ? error.message : "Не удалось загрузить статистику"));
+  }, [region, request, tab, token]);
 
   const products = useMemo(() => dashboard?.categories.flatMap((category) =>
     category.products.map((product) => ({ ...product, categoryId: category.id, categoryTitle: category.title }))) || [], [dashboard]);
@@ -431,13 +451,11 @@ export function AdminApp() {
     event.preventDefault();
     const nextToken = tokenDraft.trim();
     if (!nextToken) return;
-    sessionStorage.setItem("losos-admin-token", nextToken);
-    setToken(nextToken);
+    signIn(nextToken);
   };
 
   const logout = () => {
-    sessionStorage.removeItem("losos-admin-token");
-    setToken("");
+    signOut();
     setDashboard(null);
     setOrders([]);
     setSelectedOrder(null);
@@ -526,8 +544,8 @@ export function AdminApp() {
     </main>;
   }
 
-  const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
-  const tabIcon: Record<Tab, string> = { orders: "▣", products: "♨", promotions: "✿", categories: "▦", settings: "⚙" };
+  const tabTitle = tab === "orders" ? "Заказы" : tab === "statistics" ? "Статистика" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
+  const tabIcon: Record<Tab, string> = { orders: "▣", statistics: "◔", products: "♨", promotions: "✿", categories: "▦", settings: "⚙" };
   const filterOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все" },
     { value: "new", label: "Новые" },
@@ -540,9 +558,9 @@ export function AdminApp() {
 
     <aside className="admin-sidebar">
       <nav>
-        {(["orders", "products", "promotions", "categories"] as Tab[]).map((item) =>
+        {(["orders", "statistics", "products", "promotions", "categories"] as Tab[]).map((item) =>
           <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-            <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
+            <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "statistics" ? "Статистика" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
           </button>)}
       </nav>
       <div>
@@ -551,9 +569,9 @@ export function AdminApp() {
     </aside>
 
     <nav className="admin-mobile-nav">
-      {(["orders", "products", "promotions", "categories"] as Tab[]).map((item) =>
+      {(["orders", "statistics", "products", "promotions", "categories"] as Tab[]).map((item) =>
         <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-          <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
+          <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "statistics" ? "Статистика" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
         </button>)}
       <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
     </nav>
@@ -576,7 +594,7 @@ export function AdminApp() {
           <h1>{tabTitle}</h1>
           {tab === "orders" ? <p>{ordersTotal} заказов в выбранном городе</p> : null}
         </div>
-        {tab === "orders" ? null : tab === "settings"
+        {tab === "orders" || tab === "statistics" ? null : tab === "settings"
           ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
           : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>＋ Добавить {tab === "products" ? "блюдо" : tab === "promotions" ? "акцию" : "категорию"}</button>}
       </div>
@@ -605,14 +623,24 @@ export function AdminApp() {
         </button>)}
         {!ordersLoading && orders.length === 0 ? <div className="admin-empty"><b>Заказов пока нет</b><span>Новые заказы появятся здесь автоматически.</span></div> : null}
         {!ordersLoading && orders.length > 0 && visibleOrders.length === 0 ? <div className="admin-empty"><b>Ничего не найдено</b><span>Попробуйте изменить поиск или фильтр.</span></div> : null}
-        <footer><span>Показано {(ordersPage - 1) * ordersPerPage + visibleOrders.length} из {ordersTotal}</span>{Math.ceil(ordersTotal / ordersPerPage) > 1 ? <>
+        <footer><span>Показано {(orderPage - 1) * ordersPerPage + visibleOrders.length} из {ordersTotal}</span>{Math.ceil(ordersTotal / ordersPerPage) > 1 ? <>
           <button type="button" disabled={orderPage === 1} onClick={() => setOrderPage((current) => current - 1)}>‹</button>
           {Array.from({ length: Math.ceil(ordersTotal / ordersPerPage) }, (_, index) => index + 1).map((page) => <button type="button" key={page} className={page === orderPage ? "active" : ""} onClick={() => setOrderPage(page)}>{page}</button>)}
           <button type="button" disabled={orderPage === Math.ceil(ordersTotal / ordersPerPage)} onClick={() => setOrderPage((current) => current + 1)}>›</button>
         </> : null}</footer>
       </div></> : null}
 
-      {tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
+      {tab === "statistics" ? <div className="admin-statistics">
+        <div className="admin-stat-cards">
+          <article><small>Выручка</small><b>{(statistics?.revenue || 0).toLocaleString("ru-RU")} сом</b><span>Без отменённых заказов</span></article>
+          <article><small>Всего заказов</small><b>{statistics?.totalOrders || 0}</b><span>В выбранном городе</span></article>
+          <article><small>Средний чек</small><b>{(statistics?.averageOrder || 0).toLocaleString("ru-RU")} сом</b><span>По всем заказам</span></article>
+          <article><small>В работе</small><b>{statistics?.activeOrders || 0}</b><span>{statistics?.completedOrders || 0} завершено</span></article>
+        </div>
+        <section className="admin-stat-chart"><header><span><b>Заказы за 7 дней</b><small>Количество заказов по дням</small></span><i>{statistics?.cancelledOrders || 0} отменено</i></header><div className="admin-stat-bars">{(statistics?.days || []).map((day) => <article key={day.date} title={`${day.orders} заказов, ${day.revenue} сом`}><span style={{ height: `${Math.max(10, Math.round((day.orders / Math.max(...(statistics?.days || []).map((item) => item.orders), 1)) * 100))}%` }} /><b>{day.orders}</b><small>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(new Date(day.date))}</small></article>)}{!statistics?.days.length ? <p>За последние 7 дней заказов ещё не было.</p> : null}</div></section>
+      </div> : null}
+
+      {tab !== "orders" && tab !== "settings" && tab !== "statistics" ? <div className="admin-list-tools">
         <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === "products" ? "Поиск по названию блюда" : tab === "promotions" ? "Поиск по акциям" : "Поиск по категориям"} /></label>
         <button>☷&nbsp; Фильтры</button>
       </div> : null}

@@ -55,6 +55,11 @@ export class AdminController {
     return this.admin.orders(query);
   }
 
+  @Get("statistics")
+  statistics(@Query("region") region = "bishkek") {
+    return this.admin.statistics(region);
+  }
+
   @Get("orders/:id")
   order(@Param("id", ParseUUIDPipe) id: string) {
     return this.admin.order(id);

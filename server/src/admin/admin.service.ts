@@ -96,6 +96,44 @@ export class AdminService {
     return { items, total, limit, offset, statusCounts };
   }
 
+  async statistics(regionSlug: string) {
+    const since = new Date();
+    since.setDate(since.getDate() - 6);
+    since.setHours(0, 0, 0, 0);
+    const [summary, daily] = await Promise.all([
+      this.orderRepository.createQueryBuilder("order")
+        .select("COUNT(*)", "totalOrders")
+        .addSelect("COALESCE(SUM(CASE WHEN order.status != :cancelled THEN order.total ELSE 0 END), 0)", "revenue")
+        .addSelect("COUNT(*) FILTER (WHERE order.status = :completed)", "completedOrders")
+        .addSelect("COUNT(*) FILTER (WHERE order.status NOT IN (:cancelled, :completed))", "activeOrders")
+        .addSelect("COUNT(*) FILTER (WHERE order.status = :cancelled)", "cancelledOrders")
+        .where("order.regionSlug = :regionSlug", { regionSlug })
+        .setParameters({ cancelled: OrderStatus.CANCELLED, completed: OrderStatus.COMPLETED })
+        .getRawOne<{ totalOrders: string; revenue: string; completedOrders: string; activeOrders: string; cancelledOrders: string }>(),
+      this.orderRepository.createQueryBuilder("order")
+        .select("DATE(order.\"createdAt\")", "date")
+        .addSelect("COUNT(*)", "orders")
+        .addSelect("COALESCE(SUM(CASE WHEN order.status != :cancelled THEN order.total ELSE 0 END), 0)", "revenue")
+        .where("order.regionSlug = :regionSlug", { regionSlug })
+        .andWhere("order.\"createdAt\" >= :since", { since })
+        .setParameter("cancelled", OrderStatus.CANCELLED)
+        .groupBy("DATE(order.\"createdAt\")")
+        .orderBy("DATE(order.\"createdAt\")", "ASC")
+        .getRawMany<{ date: string; orders: string; revenue: string }>(),
+    ]);
+    const totalOrders = Number(summary?.totalOrders || 0);
+    const revenue = Number(summary?.revenue || 0);
+    return {
+      totalOrders,
+      revenue,
+      averageOrder: totalOrders ? Math.round(revenue / totalOrders) : 0,
+      completedOrders: Number(summary?.completedOrders || 0),
+      activeOrders: Number(summary?.activeOrders || 0),
+      cancelledOrders: Number(summary?.cancelledOrders || 0),
+      days: daily.map((item) => ({ date: item.date, orders: Number(item.orders), revenue: Number(item.revenue) })),
+    };
+  }
+
   async order(id: string) {
     const order = await this.orderRepository.findOne({
       where: { id },
