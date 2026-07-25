@@ -13,6 +13,11 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; background: var(--orange); color: var(--ink); font-family: Inter, Arial, Helvetica, sans-serif; font-size: 15px; line-height: 20px; }
+.site-fallback { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f7f8fa; }
+.site-fallback-card { width: min(100%, 390px); display: flex; flex-direction: column; align-items: center; gap: 13px; padding: 34px 28px; border: 1px solid #e5e7eb; border-radius: 20px; background: #fff; color: #202126; text-align: center; box-shadow: 0 18px 42px rgba(20, 24, 32, .08); }
+.site-fallback-card > span:not(.site-fallback-mark) { color: #777b85; }
+.site-fallback-mark { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 15px; background: var(--orange); color: #fff; font-size: 18px; font-weight: 900; }
+.site-fallback-card button { min-width: 140px; height: 44px; margin-top: 5px; border-radius: 22px; background: var(--orange); color: #fff; font-weight: 700; }
 body ::-webkit-scrollbar { width: 8px; }
 body ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 20px 0 0 20px; }
 body ::-webkit-scrollbar-track { background: transparent; }
