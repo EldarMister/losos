@@ -147,6 +147,12 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /item\.slug === productSlug && item\.available !== false/);
   assert.match(storefront, /disabled=\{selected\.available === false \|\| !modifiersComplete\}/);
   assert.match(storefront, /className="footer-app"/);
+  assert.match(storefront, /0503 178 916/);
+  assert.match(storefront, /musaev\.janybek\.kg@gmail\.com/);
+  assert.match(storefront, /format\(value\) \+ " сом"/);
+  assert.match(storefront, /const cartLocation = address\.trim\(\)/);
+  assert.match(storefront, /const cartKitItems = \[/);
+  assert.match(storefront, /if \(mode === "cart"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(storefront, /муниципальный округ Нижегородский/);
   assert.match(catalog, /hity-prodaz-2/);
   assert.match(catalog, /Соус сладкий васаби/);
@@ -177,6 +183,9 @@ test("includes the product, cart and address flows", async () => {
   assert.match(globals, /\.delivery-header\s*\{[^}]*top:\s*12px/);
   assert.match(globals, /\.category-nav\s*\{[^}]*top:\s*82px/);
   assert.match(globals, /\.footer\s*\{[^}]*background:\s*var\(--orange\)/);
+  assert.match(globals, /\.cart-drawer\[data-filled="true"\]\s*\{[^}]*width:\s*min\(816px/);
+  assert.match(globals, /\.modal-buy\s*\{[^}]*height:\s*56px[^}]*grid-template-columns:\s*142px/);
+  assert.match(globals, /\.chopsticks-art::before,\s*\.chopsticks-art::after/);
   assert.match(globals, /\.checkout-drawer\s*\{/);
   assert.match(globals, /\.checkout-submit\s*\{/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);

@@ -68,7 +68,21 @@ const STOREFRONT_API_URL = (
     ? "http://localhost:4000/api"
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
-const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
+const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
+const cartKitItems = [
+  {
+    name: "Соевый соус",
+    image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8a6ed9632df66e2010fc4a1eccef758c_thumb_75_1152_1152.JPEG",
+  },
+  {
+    name: "Васаби",
+    image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa8eef7dfdda0436a337ddb4c0970125_thumb_75_1152_1152.JPEG",
+  },
+  {
+    name: "Имбирь маринованный",
+    image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71852e053134d8a7863bc1ce6a13ece_thumb_75_1152_1152.JPEG",
+  },
+] as const;
 const cartLineKey = (productId: number, modifiers: SelectedModifier[]) => {
   const signature = modifiers
     .map((modifier) => `${modifier.groupId}:${modifier.itemId}:${modifier.quantity}:${modifier.priceScope}`)
@@ -402,6 +416,9 @@ function ProductArt({ product, mode, loading }: { product: Product; mode: "card"
   if (mode === "related") {
     return <img src={product.image} alt={product.name} loading="lazy" />;
   }
+  if (mode === "cart") {
+    return <img src={product.image} alt={product.name} loading="lazy" />;
+  }
   if (product.referenceCard) {
     return <span className={`reference-card-art reference-card-${product.referenceCard}`} role="img" aria-label={product.name} />;
   }
@@ -623,6 +640,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const currentStory = storyGroups[promoSlide] || storyGroups[0] || defaultStoryGroups[0];
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cart.reduce((sum, line) => sum + cartLineTotal(line), 0);
+  const cartLocation = address.trim()
+    ? (address.trim().toLocaleLowerCase("ru-RU").startsWith(city.toLocaleLowerCase("ru-RU"))
+      ? address.trim()
+      : `${city}, ${address.trim()}`)
+    : city;
   const highlightedCategory = categorySlug || activeCategory;
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
@@ -1267,9 +1289,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         </main>
       </div>
 
-      <footer className="footer">
+      <footer className="footer" id="contacts">
         <div className="footer-brand"><img className="footer-logo" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><span>© 2026 ООО «Гастрономия»</span></div>
-        <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
+        <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
+        <div className="footer-contacts"><a href="tel:+996503178916">0503 178 916</a><a href="mailto:musaev.janybek.kg@gmail.com">musaev.janybek.kg@gmail.com</a></div>
         <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
         <p className="footer-legal">ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48</p>
       </footer>
@@ -1457,7 +1480,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <aside className="cart-drawer" data-filled={cart.length > 0 ? "true" : "false"} aria-label="Корзина">
             <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
             {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : <>
-              <div className="cart-address">{address}</div>
+              <div className="cart-address">{cartLocation}</div>
               <div className="cart-layout">
                 <section className="cart-products">
                   <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}>⌫</button></div>
@@ -1486,7 +1509,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="cart-options">
                   <div className="cart-kit">
                     <h2>Комплектация</h2>
-                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true">╱╱</span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true" /><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+                    <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.name}><img src={item.image} alt="" /><span><b>{item.name}</b><small>1 шт.</small></span></div>)}</div>
                   </div>
                   <div className="cart-benefit"><h2>Выгода</h2><div><span><b>Промокод или акция</b><small>Нужно будет авторизоваться</small></span><button>Выбрать</button></div></div>
                   <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout" onClick={beginCheckout}><span>Оформить заказ</span><b>{money(cartTotal)}</b></button></div>
@@ -1536,7 +1560,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <h3>Оплата при получении</h3>
                   <div className="checkout-payment" role="group" aria-label="Способ оплаты">
                     <button type="button" className={checkoutForm.paymentMethod === "card_on_delivery" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "card_on_delivery"} onClick={() => updateCheckoutField("paymentMethod", "card_on_delivery")}><span>▣</span><b>Картой курьеру</b></button>
-                    <button type="button" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><span>₽</span><b>Наличными</b></button>
+                    <button type="button" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><span>сом</span><b>Наличными</b></button>
                   </div>
                 </section>
 
