@@ -1483,7 +1483,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <div className="cart-address">{cartLocation}</div>
               <div className="cart-layout">
                 <section className="cart-products">
-                  <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}>⌫</button></div>
+                  <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}><svg className="trash-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.9 12h9.2l.9-12" /><path d="M10 11v5" /><path d="M14 11v5" /></svg></button></div>
                   {cart.map((line) => (
                     <div className="cart-line" key={line.key}>
                       <div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div>
@@ -1509,7 +1509,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="cart-options">
                   <div className="cart-kit">
                     <h2>Комплектация</h2>
-                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true" /><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
                     <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.name}><img src={item.image} alt="" /><span><b>{item.name}</b><small>1 шт.</small></span></div>)}</div>
                   </div>
                   <div className="cart-benefit"><h2>Выгода</h2><div><span><b>Промокод или акция</b><small>Нужно будет авторизоваться</small></span><button>Выбрать</button></div></div>

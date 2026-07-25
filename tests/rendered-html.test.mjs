@@ -185,7 +185,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(globals, /\.footer\s*\{[^}]*background:\s*var\(--orange\)/);
   assert.match(globals, /\.cart-drawer\[data-filled="true"\]\s*\{[^}]*width:\s*min\(816px/);
   assert.match(globals, /\.modal-buy\s*\{[^}]*height:\s*56px[^}]*grid-template-columns:\s*142px/);
-  assert.match(globals, /\.chopsticks-art::before,\s*\.chopsticks-art::after/);
+  assert.match(globals, /\.chopsticks-icon\s*\{/);
+  assert.match(storefront, /className="trash-icon"/);
   assert.match(globals, /\.checkout-drawer\s*\{/);
   assert.match(globals, /\.checkout-submit\s*\{/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);

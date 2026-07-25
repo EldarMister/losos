@@ -292,17 +292,14 @@ a { color: inherit; text-decoration: none; }
 .cart-products::-webkit-scrollbar-thumb { border-radius: 8px; background: #aaa; }
 .cart-section-heading { height: 54px; display: flex; align-items: flex-start; justify-content: space-between; padding: 0 16px 0 0; }
 .cart-section-heading h2, .cart-kit h2, .cart-benefit h2 { margin: 0; font-size: 22px; line-height: 27px; font-weight: 600; }
-.cart-section-heading button { position: relative; width: 40px; height: 40px; margin-top: 0; border-radius: 50%; background: var(--soft); color: transparent; font-size: 0; }
-.cart-section-heading button::before { content: ""; position: absolute; left: 15px; top: 15px; width: 10px; height: 13px; border: 2px solid #a1a1a5; border-top: 0; border-radius: 0 0 2px 2px; }
-.cart-section-heading button::after { content: ""; position: absolute; left: 12px; top: 11px; width: 16px; height: 2px; border-radius: 2px; background: #a1a1a5; box-shadow: 4px -3px 0 -1px #a1a1a5; }
+.cart-section-heading button { display: grid; place-items: center; width: 40px; height: 40px; margin-top: 0; border-radius: 50%; background: var(--soft); }
+.trash-icon { width: 21px; height: 21px; fill: none; stroke: #a1a1a5; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .cart-options { min-width: 0; display: grid; grid-template-rows: 298px 132px minmax(0, 1fr) 142px; gap: 16px; }
 .cart-kit, .cart-benefit, .cart-summary { border-radius: 32px; background: #fff; }
 .cart-kit { padding: 23px 24px; }
 .kit-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) 142px; gap: 14px; align-items: start; margin-top: 36px; }
-.chopsticks-art { position: relative; width: 48px; height: 48px; overflow: hidden; border-radius: 7px; background: var(--soft); }
-.chopsticks-art::before, .chopsticks-art::after { content: ""; position: absolute; top: -4px; width: 2px; height: 59px; border-radius: 2px; background: #111; transform: rotate(24deg); transform-origin: center; }
-.chopsticks-art::before { left: 19px; }
-.chopsticks-art::after { left: 30px; }
+.chopsticks-art { display: grid; place-items: center; width: 48px; height: 48px; overflow: hidden; border-radius: 7px; background: var(--soft); }
+.chopsticks-icon { width: 100%; height: 100%; fill: none; stroke: #111; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .kit-row b, .kit-row small { display: block; }
 .kit-row > div > b { margin-bottom: 7px; font-size: 13px; font-weight: 500; }
 .kit-quantity { display: grid; grid-template-columns: 22px 20px 22px; align-items: center; text-align: center; font-size: 15px; }
@@ -592,8 +589,6 @@ a { color: inherit; text-decoration: none; }
   .cart-section-heading { height: 44px; padding: 0; }
   .cart-section-heading h2, .cart-kit h2, .cart-benefit h2 { font-size: 20px; line-height: 26px; }
   .cart-section-heading button { width: 39px; height: 39px; }
-  .cart-section-heading button::before { left: 14px; top: 14px; width: 11px; height: 13px; }
-  .cart-section-heading button::after { left: 12px; top: 11px; width: 15px; }
   .cart-line { grid-template-columns: 72px minmax(0, 1fr); gap: 12px; padding: 10px 0 14px; }
   .cart-line-art, .cart-line-art img { width: 72px; height: 72px; }
   .cart-line-art .reference-card-art { transform: scale(.37); }
