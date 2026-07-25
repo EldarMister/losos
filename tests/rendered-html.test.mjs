@@ -165,6 +165,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /title: "Нашли для вас"/);
   assert.match(storefront, /promotionArtifactTitles = new Set\(\["memories\/test", "test", "тест"\]\)/);
   assert.match(storefront, /if \(mode === "detail"\) \{\s*return <img src=\{product\.image\}/);
+  assert.match(storefront, /if \(mode === "related"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
   assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1160px[^}]*height:\s*min\(920px/);
   assert.match(globals, /\.modal-info\s*\{[^}]*scrollbar-width:\s*none/);

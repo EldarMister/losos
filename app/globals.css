@@ -146,8 +146,8 @@ a { color: inherit; text-decoration: none; }
 .modal-info h3 { margin: 22px 20px 12px; font-size: 17px; }
 .related-row { width: calc(100% - 40px); margin: 0 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-height: 0; flex: 0 0 auto; }
 .related-row article { min-height: 270px; border: 2px solid white; border-radius: 28px; padding: 8px 12px 10px; display: flex; flex-direction: column; min-width: 0; cursor: pointer; }
-.related-image { position: relative; height: 145px; flex: 0 0 145px; }
-.related-image img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: normal; }
+.related-image { position: relative; height: 145px; flex: 0 0 145px; overflow: hidden; }
+.related-image img { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
 .related-row article > span { min-height: 32px; font-size: 12px; line-height: 16px; overflow: hidden; }
 .related-new-badge { right: 0; bottom: 0; padding: 6px 9px; font-size: 10px; }
 .related-actions { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 8px; }
@@ -345,7 +345,7 @@ a { color: inherit; text-decoration: none; }
 .cart-related-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding-right: 2px; }
 .cart-related-grid article { min-width: 0; min-height: 234px; display: flex; flex-direction: column; padding: 8px 10px 10px; border-radius: 32px; background: var(--soft); }
 .cart-related-art { position: relative; height: 132px; display: grid; place-items: center; overflow: hidden; }
-.cart-related-art > img { width: 100%; height: 100%; object-fit: contain; }
+.cart-related-art > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .cart-related-art .reference-card-art { transform: scale(.66); }
 .cart-related-art > span:not(.reference-card-art) { position: absolute; left: 0; top: 0; min-width: 30px; height: 30px; display: grid; place-items: center; padding: 0 5px; border-radius: 8px 8px 8px 0; background: #fff; font-size: 16px; }
 .cart-related-grid article > b { min-height: 43px; display: -webkit-box; overflow: hidden; font-size: 13px; line-height: 16px; font-weight: 500; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }

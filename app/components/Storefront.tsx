@@ -399,6 +399,9 @@ function ProductArt({ product, mode, loading }: { product: Product; mode: "card"
   if (mode === "detail") {
     return <img src={product.image} alt={product.name} loading="eager" fetchPriority="high" />;
   }
+  if (mode === "related") {
+    return <img src={product.image} alt={product.name} loading="lazy" />;
+  }
   if (product.referenceCard) {
     return <span className={`reference-card-art reference-card-${product.referenceCard}`} role="img" aria-label={product.name} />;
   }
