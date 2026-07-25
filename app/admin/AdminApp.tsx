@@ -422,16 +422,11 @@ export function AdminApp() {
       </header>
       <form onSubmit={authorize}>
         <h1>Вход в систему</h1>
-        <p>Введите код администратора для доступа к панели управления.</p>
         <label>Код администратора
-          <span className="admin-login-input"><i>♙</i><input type="password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Введите код" autoFocus /></span>
+          <span className="admin-login-input"><input type="password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Введите код" autoFocus /></span>
         </label>
         <button type="submit">Войти</button>
-        <small>▣&nbsp;&nbsp; Код сохраняется в этом браузере</small>
       </form>
-      <div className="admin-login-regions" aria-label="Регион">
-        {regions.map((item) => <button type="button" key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => setRegion(item.slug)}>{item.name}</button>)}
-      </div>
     </main>;
   }
 

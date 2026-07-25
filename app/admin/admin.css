@@ -23,16 +23,11 @@ button { cursor: pointer; }
 .admin-login-brand small { color: var(--admin-muted); font-size: 16px; }
 .admin-login form { width: min(100%, 488px); padding: 48px 52px; border: 1px solid #dfe2e8; border-radius: 18px; background: #fff; box-shadow: 0 22px 55px #1d27330d; }
 .admin-login h1 { margin: 0 0 12px; font-size: 34px; line-height: 1.1; font-weight: 500; }
-.admin-login p { margin: 0 0 34px; color: var(--admin-muted); font-size: 17px; line-height: 1.55; }
+.admin-login h1 + label { margin-top: 34px; }
 .admin-login label { display: grid; gap: 10px; font-size: 14px; font-weight: 700; }
 .admin-login-input { height: 56px; display: flex; align-items: center; border: 1px solid #dfe2e8; border-radius: 13px; color: #9499a6; }
-.admin-login-input i { width: 52px; text-align: center; font-size: 22px; font-style: normal; }
-.admin-login-input input { min-width: 0; flex: 1; height: 100%; padding: 0 16px 0 0; border: 0; outline: 0; background: transparent; }
+.admin-login-input input { min-width: 0; flex: 1; height: 100%; padding: 0 16px; border: 0; outline: 0; background: transparent; }
 .admin-login form > button { width: 100%; height: 56px; margin-top: 30px; border: 0; border-radius: 13px; background: linear-gradient(100deg, #ff4708, #ff5b13); color: #fff; font-size: 16px; font-weight: 800; box-shadow: 0 9px 22px #ff4b0b26; }
-.admin-login form > small { display: block; margin-top: 26px; color: var(--admin-muted); font-size: 14px; }
-.admin-login-regions { position: absolute; top: calc(50% + 302px); width: min(100% - 40px, 370px); display: flex; padding: 4px; border: 1px solid #dfe2e8; border-radius: 13px; background: #fff; }
-.admin-login-regions button { flex: 1; height: 42px; border: 0; border-radius: 9px; background: transparent; font-weight: 700; }
-.admin-login-regions button.active { background: var(--admin-orange-soft); color: var(--admin-orange); }
 
 /* App frame */
 .admin-header { position: fixed; inset: 0 0 auto; z-index: 20; height: 88px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; border-bottom: 1px solid var(--admin-line); background: #fff; }
@@ -308,5 +303,4 @@ button { cursor: pointer; }
   .admin-login-brand small { display: none; }
   .admin-login form { padding: 34px 24px; }
   .admin-login h1 { font-size: 28px; }
-  .admin-login-regions { top: auto; bottom: 26px; }
 }
