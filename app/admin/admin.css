@@ -35,13 +35,6 @@ button { cursor: pointer; }
 .admin-header > div:first-child > span { display: flex; flex-direction: column; gap: 5px; }
 .admin-header > div:first-child b { font-size: 17px; }
 .admin-header small { color: var(--admin-muted); font-size: 13px; }
-.admin-account { display: flex; align-items: center; gap: 11px; }
-.admin-account > span:not(.admin-avatar) { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-.admin-avatar { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: #f1f2f5; color: #c0c4cd; font-size: 30px; }
-.admin-notifications, .admin-account-arrow { position: relative; border: 0; background: transparent; font-size: 22px; }
-.admin-notifications { margin-right: 12px; }
-.admin-notifications i { position: absolute; top: -7px; right: -7px; min-width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; background: var(--admin-orange); color: #fff; font-size: 10px; font-style: normal; }
-.admin-account-arrow { font-size: 17px; }
 .admin-sidebar { position: fixed; inset: 88px auto 0 0; z-index: 12; width: 222px; display: flex; flex-direction: column; justify-content: space-between; padding: 22px 12px 28px; border-right: 1px solid var(--admin-line); background: #fff; }
 .admin-sidebar nav, .admin-sidebar > div { display: grid; gap: 7px; }
 .admin-sidebar button { position: relative; width: 100%; height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 20px; border: 0; border-radius: 10px; background: transparent; color: #34363e; text-align: left; }
@@ -78,14 +71,10 @@ button { cursor: pointer; }
 
 /* Orders */
 .admin-orders, .admin-products-table, .admin-categories { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; }
-.admin-table-head { min-height: 48px; display: grid; grid-template-columns: 32px 100px minmax(120px, 1fr) minmax(150px, 1.3fr) 104px 62px 105px 112px 16px; gap: 12px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--admin-line); background: #fafbfc; color: var(--admin-muted); font-size: 12px; }
-.admin-table-head::before { content: ""; }
-.admin-table-head span:nth-child(1) { grid-column: 2; }
-.admin-order-card { width: 100%; min-height: 64px; display: grid; grid-template-columns: 32px 100px minmax(120px, 1fr) minmax(150px, 1.3fr) 104px 62px 105px 112px 16px; gap: 12px; align-items: center; padding: 9px 14px; border: 0; border-bottom: 1px solid var(--admin-line); background: #fff; color: var(--admin-ink); text-align: left; }
+.admin-table-head { min-height: 48px; display: grid; grid-template-columns: 100px minmax(120px, 1fr) minmax(150px, 1.3fr) 104px 62px 105px 112px 16px; gap: 12px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--admin-line); background: #fafbfc; color: var(--admin-muted); font-size: 12px; }
+.admin-order-card { width: 100%; min-height: 64px; display: grid; grid-template-columns: 100px minmax(120px, 1fr) minmax(150px, 1.3fr) 104px 62px 105px 112px 16px; gap: 12px; align-items: center; padding: 9px 14px; border: 0; border-bottom: 1px solid var(--admin-line); background: #fff; color: var(--admin-ink); text-align: left; }
 .admin-order-card:hover { background: #fffaf7; }
 .admin-order-card.selected { border-left: 2px solid var(--admin-orange); background: #fff7f2; }
-.admin-check { width: 17px; height: 17px; display: grid; place-items: center; border: 1px solid #cdd1da; border-radius: 4px; color: #fff; font-size: 11px; }
-.selected .admin-check { border-color: var(--admin-orange); background: var(--admin-orange); }
 .admin-order-number, .admin-order-customer { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .admin-order-number small { display: none; }
 .admin-order-number b, .admin-order-customer b { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -218,7 +207,7 @@ button { cursor: pointer; }
 
 @media (max-width: 1100px) {
   .admin-content { padding-right: 22px; padding-left: 22px; }
-  .admin-table-head, .admin-order-card { grid-template-columns: 32px 95px minmax(120px, 1fr) minmax(140px, 1.2fr) 98px 56px 96px 16px; }
+  .admin-table-head, .admin-order-card { grid-template-columns: 95px minmax(120px, 1fr) minmax(140px, 1.2fr) 98px 56px 96px 16px; }
   .admin-table-head span:nth-last-child(1), .admin-order-time { display: none; }
   .admin-products-head { grid-template-columns: 1.7fr 1fr .7fr .8fr; }
   .admin-products-head span:last-child, .admin-row-actions { display: none; }
@@ -245,9 +234,8 @@ button { cursor: pointer; }
   .admin-list-tools { display: none; }
   .admin-orders { overflow: visible; display: grid; gap: 12px; border: 0; border-radius: 0; }
   .admin-table-head, .admin-orders footer { display: none; }
-  .admin-order-card { position: relative; min-height: 176px; display: block; padding: 22px 48px 58px 78px; border: 1px solid var(--admin-line); border-radius: 14px; }
+  .admin-order-card { position: relative; min-height: 176px; display: block; padding: 22px 48px 58px 30px; border: 1px solid var(--admin-line); border-radius: 14px; }
   .admin-order-card.selected { border-color: #ffb594; border-left: 3px solid var(--admin-orange); background: #fff8f4; }
-  .admin-check { position: absolute; top: 62px; left: 20px; width: 22px; height: 22px; }
   .admin-order-number { margin-bottom: 15px; }
   .admin-order-number b { color: #5d616d; font-size: 14px; font-weight: 500; }
   .admin-order-customer b { font-size: 18px; }
@@ -256,7 +244,7 @@ button { cursor: pointer; }
   .admin-order-status { position: absolute; top: 18px; right: 18px; }
   .admin-order-count { display: none; }
   .admin-order-total, .admin-order-time { position: absolute; bottom: 0; height: 48px; display: flex; align-items: center; border-top: 1px solid var(--admin-line); }
-  .admin-order-total { left: 0; right: 50%; padding-left: 78px; font-size: 15px; }
+  .admin-order-total { left: 0; right: 50%; padding-left: 30px; font-size: 15px; }
   .admin-order-time { right: 18px; color: #636773; font-size: 14px; }
   .admin-order-open { position: absolute; top: 75px; right: 20px; color: var(--admin-ink); }
   .admin-products-table { overflow: visible; border: 0; }

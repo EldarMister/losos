@@ -443,12 +443,6 @@ export function AdminApp() {
   return <main className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
     <header className="admin-header">
       <div><div className="admin-mark">МЛ</div><span><b>Управление меню</b><small>Блюда и акции по городам</small></span></div>
-      <div className="admin-account">
-        <button className="admin-notifications" aria-label="Уведомления">♧<i>{orders.filter((order) => order.status === "new").length || 0}</i></button>
-        <span className="admin-avatar">●</span>
-        <span><b>Администратор</b><small>Супер-админ</small></span>
-        <button className="admin-account-arrow" aria-label="Меню профиля">⌄</button>
-      </div>
     </header>
 
     <aside className="admin-sidebar">
@@ -508,7 +502,6 @@ export function AdminApp() {
         <div className="admin-orders">
           <div className="admin-table-head"><span>№ заказа</span><span>Клиент</span><span>Адрес</span><span>Статус</span><span>Позиций</span><span>Сумма</span><span>Время</span></div>
         {visibleOrders.map((order) => <button className={`admin-order-card${selectedOrder?.id === order.id ? " selected" : ""}`} key={order.id} onClick={() => setSelectedOrder(order)}>
-          <span className="admin-check">{selectedOrder?.id === order.id ? "✓" : ""}</span>
           <span className="admin-order-number"><b>{order.id.slice(0, 8).toUpperCase()}</b><small>{order.phone}</small></span>
           <span className="admin-order-customer"><b>{order.customerName}</b><small>{order.phone}</small></span>
           <span className="admin-order-address">{order.deliveryType === "pickup" ? "Самовывоз" : order.address}</span>
