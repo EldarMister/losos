@@ -5,12 +5,26 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import type { RequestListener } from "node:http";
 import { AppModule } from "./app.module";
 
+const trustedFrontendOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://losos-omega.vercel.app",
+  "https://mnogolososya-react-copy.azizbek1996.chatgpt.site",
+];
+
 async function createApplication(): Promise<INestApplication> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useBodyParser("json", { limit: "8mb" });
   app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.enableCors({ origin: process.env.FRONTEND_ORIGIN?.split(",") ?? true, credentials: true });
+  const configuredOrigins = process.env.FRONTEND_ORIGIN
+    ?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean) ?? [];
+  app.enableCors({
+    origin: [...new Set([...configuredOrigins, ...trustedFrontendOrigins])],
+    credentials: true,
+  });
   return app;
 }
 
