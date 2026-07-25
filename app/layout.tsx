@@ -15,18 +15,18 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const metadataBase = new URL(`${protocol}://${host}`);
-  const previewImage = new URL("/og.png", metadataBase).toString();
+  const previewImage = new URL("/og-social-v2.png", metadataBase).toString();
 
   return {
     title,
     description,
     metadataBase,
-    icons: { icon: "https://mnogolososya.ru/favicon.ico" },
+    icons: { icon: "/favicon.svg" },
     openGraph: {
       title,
       description,
       type: "website",
-      images: [{ url: previewImage, width: 1744, height: 909 }],
+      images: [{ url: previewImage, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",

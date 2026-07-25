@@ -3,21 +3,245 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import { YandexDeliveryMap, type DeliveryLocation } from "./YandexDeliveryMap";
 
-type CartLine = { product: Product; quantity: number };
+type SelectedModifier = {
+  groupId: string;
+  groupTitle: string;
+  itemId: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+};
+type ModifierSelections = Record<string, Record<string, number>>;
+type CartLine = {
+  key: string;
+  product: Product;
+  quantity: number;
+  unitPrice: number;
+  modifiers: SelectedModifier[];
+};
+type PendingCartLine = {
+  product: Product;
+  quantity: number;
+  modifiers: SelectedModifier[];
+};
 type DeliveryType = "delivery" | "pickup";
 type RegionOption = { slug: "bishkek" | "osh"; name: string };
 type Promotion = { id: number; title: string; image: string; cta?: string; ctaUrl?: string };
+type CheckoutForm = {
+  customerName: string;
+  phone: string;
+  apartment: string;
+  entrance: string;
+  floor: string;
+  intercom: string;
+  comment: string;
+  paymentMethod: "cash" | "card_on_delivery";
+};
+type PlacedOrder = { id: string; orderNumber?: number; total: number; status: string };
+type PersistedStorefrontState = {
+  cart: CartLine[];
+  deliveryType: DeliveryType;
+  address: string;
+  pickupLocationSelected: boolean;
+  utensilsCount: number;
+  noUtensils: boolean;
+  deliveryLocation: DeliveryLocation | null;
+};
 
 const defaultRegions: RegionOption[] = [
   { slug: "bishkek", name: "Бишкек" },
   { slug: "osh", name: "Ош" },
 ];
 
+const STOREFRONT_STORAGE_KEY = "losos.storefront.v1";
+const STOREFRONT_STORAGE_VERSION = 1;
+const MAX_MODIFIER_UNITS = 50;
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " ₽";
+const cartLineKey = (productId: number, modifiers: SelectedModifier[]) => {
+  const signature = modifiers
+    .map((modifier) => `${modifier.groupId}:${modifier.itemId}:${modifier.quantity}`)
+    .sort()
+    .join("|");
+  return `${productId}:${signature}`;
+};
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === "object" && value !== null && !Array.isArray(value)
+);
+const boundedString = (value: unknown, maximum: number) => (
+  typeof value === "string" ? value.trim().slice(0, maximum) : ""
+);
+const isValidDeliveryCoordinates = (value: unknown): value is [number, number] => (
+  Array.isArray(value) &&
+  value.length === 2 &&
+  Number.isFinite(value[0]) &&
+  Number.isFinite(value[1]) &&
+  value[0] >= -90 &&
+  value[0] <= 90 &&
+  value[1] >= -180 &&
+  value[1] <= 180
+);
+const restoreStoredDeliveryLocation = (value: unknown): DeliveryLocation | null => {
+  if (!isRecord(value) || !isValidDeliveryCoordinates(value.coordinates)) return null;
+  const address = boundedString(value.address, 300);
+  if (!address) return null;
+  return { address, coordinates: value.coordinates };
+};
+const restoreStoredProduct = (value: unknown): Product | null => {
+  if (!isRecord(value)) return null;
+  const id = value.id;
+  const price = value.price;
+  const slug = boundedString(value.slug, 200);
+  const category = boundedString(value.category, 200);
+  const name = boundedString(value.name, 200);
+  const image = boundedString(value.image, 2_048);
+  if (
+    !Number.isInteger(id) ||
+    (id as number) <= 0 ||
+    !Number.isInteger(price) ||
+    (price as number) < 0 ||
+    (price as number) > 10_000_000 ||
+    !slug ||
+    !category ||
+    !name ||
+    !/^(?:https?:\/\/|\/)/i.test(image) ||
+    value.available === false
+  ) return null;
+
+  const product: Product = {
+    id: id as number,
+    slug,
+    category,
+    name,
+    price: price as number,
+    image,
+    available: true,
+  };
+  const description = boundedString(value.description, 2_000);
+  if (description) product.description = description;
+  if (value.isNew === true) product.isNew = true;
+  if (["popcorn", "batat", "cheese-sticks", "crab-salmon"].includes(String(value.referenceCard))) {
+    product.referenceCard = value.referenceCard as NonNullable<Product["referenceCard"]>;
+  }
+  if (["popcorn", "wasabi"].includes(String(value.referenceDetail))) {
+    product.referenceDetail = value.referenceDetail as NonNullable<Product["referenceDetail"]>;
+  }
+  return product;
+};
+const restoreStoredModifiers = (value: unknown): SelectedModifier[] | null => {
+  if (!Array.isArray(value) || value.length > 24) return null;
+  const restored: SelectedModifier[] = [];
+  const uniqueIds = new Set<string>();
+  let totalQuantity = 0;
+  for (const candidate of value) {
+    if (!isRecord(candidate)) return null;
+    const groupId = boundedString(candidate.groupId, 120);
+    const groupTitle = boundedString(candidate.groupTitle, 200);
+    const itemId = boundedString(candidate.itemId, 120);
+    const itemName = boundedString(candidate.itemName, 200);
+    const price = candidate.price;
+    const quantity = candidate.quantity === undefined ? 1 : candidate.quantity;
+    const identity = `${groupId}:${itemId}`;
+    if (
+      !groupId ||
+      !groupTitle ||
+      !itemId ||
+      !itemName ||
+      !Number.isInteger(price) ||
+      (price as number) < 0 ||
+      (price as number) > 1_000_000 ||
+      !Number.isInteger(quantity) ||
+      (quantity as number) < 1 ||
+      (quantity as number) > 20 ||
+      uniqueIds.has(identity)
+    ) return null;
+    totalQuantity += quantity as number;
+    if (totalQuantity > MAX_MODIFIER_UNITS) return null;
+    uniqueIds.add(identity);
+    restored.push({
+      groupId,
+      groupTitle,
+      itemId,
+      itemName,
+      price: price as number,
+      quantity: quantity as number,
+    });
+  }
+  return restored;
+};
+const parseStoredStorefrontState = (
+  rawValue: string | null,
+  regionSlug: "bishkek" | "osh",
+): PersistedStorefrontState | null => {
+  if (!rawValue || rawValue.length > 250_000) return null;
+  try {
+    const value: unknown = JSON.parse(rawValue);
+    if (
+      !isRecord(value) ||
+      value.version !== STOREFRONT_STORAGE_VERSION ||
+      value.regionSlug !== regionSlug ||
+      !Array.isArray(value.cart)
+    ) return null;
+
+    const cart: CartLine[] = [];
+    for (const candidate of value.cart.slice(0, 100)) {
+      if (!isRecord(candidate)) continue;
+      const product = restoreStoredProduct(candidate.product);
+      const modifiers = restoreStoredModifiers(candidate.modifiers);
+      const quantity = candidate.quantity;
+      if (
+        !product ||
+        !modifiers ||
+        !Number.isInteger(quantity) ||
+        (quantity as number) < 1 ||
+        (quantity as number) > 20
+      ) continue;
+      const key = cartLineKey(product.id, modifiers);
+      const unitPrice = product.price + modifiers.reduce(
+        (sum, modifier) => sum + modifier.price * modifier.quantity,
+        0,
+      );
+      if (unitPrice > 10_000_000) continue;
+      const existing = cart.find((line) => line.key === key);
+      if (existing) {
+        existing.quantity = Math.min(20, existing.quantity + (quantity as number));
+      } else {
+        cart.push({ key, product, quantity: quantity as number, unitPrice, modifiers });
+      }
+    }
+
+    const address = boundedString(value.address, 300);
+    const deliveryType: DeliveryType = value.deliveryType === "pickup" ? "pickup" : "delivery";
+    const utensilsCount = Number.isInteger(value.utensilsCount)
+      ? Math.min(20, Math.max(0, value.utensilsCount as number))
+      : 1;
+    const restoredDeliveryLocation = deliveryType === "delivery"
+      ? restoreStoredDeliveryLocation(value.deliveryLocation)
+      : null;
+    return {
+      cart,
+      deliveryType,
+      address,
+      pickupLocationSelected: Boolean(address && deliveryType === "pickup" && value.pickupLocationSelected === true),
+      utensilsCount,
+      noUtensils: value.noUtensils === true,
+      deliveryLocation: restoredDeliveryLocation?.address === address ? restoredDeliveryLocation : null,
+    };
+  } catch {
+    return null;
+  }
+};
+const normalizePhone = (value: string) => {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.startsWith("996")) return `+${digits.slice(0, 12)}`;
+  if (digits.startsWith("7")) return `+${digits.slice(0, 11)}`;
+  if (digits.startsWith("8") && digits.length === 11) return `+7${digits.slice(1)}`;
+  return trimmed;
+};
 
 const writeOverlayQuery = (name: "product" | "storyInspect", value: string | null, mode: "push" | "replace") => {
   const url = new URL(window.location.href);
@@ -112,6 +336,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [cityOpen, setCityOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [compositionOpen, setCompositionOpen] = useState(false);
+  const [compositionView, setCompositionView] = useState<"composition" | "equipment">("composition");
   const [addressOpen, setAddressOpen] = useState(false);
   const [address, setAddress] = useState("");
   const [draftAddress, setDraftAddress] = useState("");
@@ -124,17 +349,35 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [pendingCartLine, setPendingCartLine] = useState<PendingCartLine | null>(null);
   const [utensilsCount, setUtensilsCount] = useState(1);
   const [noUtensils, setNoUtensils] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [resumeCheckoutAfterAddress, setResumeCheckoutAfterAddress] = useState(false);
+  const [checkoutForm, setCheckoutForm] = useState<CheckoutForm>({
+    customerName: "",
+    phone: "",
+    apartment: "",
+    entrance: "",
+    floor: "",
+    intercom: "",
+    comment: "",
+    paymentMethod: "card_on_delivery",
+  });
+  const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState("");
+  const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
-  const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({});
+  const [modifierSelections, setModifierSelections] = useState<ModifierSelections>({});
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(() => usesRemoteCatalog ? [] : categories);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(() => usesRemoteCatalog ? [] : null);
   const [catalogLoading, setCatalogLoading] = useState(usesRemoteCatalog);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
+  const [storageHydrated, setStorageHydrated] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
   const promoRowRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -154,6 +397,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Catalog request failed")))
       .then((data: Array<Category & { products: Product[] }>) => {
+        if (!Array.isArray(data) || data.length === 0) throw new Error("Catalog response is empty");
         setCatalogCategories(data.map((category) => ({
           slug: category.slug,
           title: category.title,
@@ -165,26 +409,116 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         })));
         setCatalogLoading(false);
       })
-      .catch(() => { if (!controller.signal.aborted) setCatalogLoading(false); });
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setCatalogCategories(categories);
+        setCatalogLoading(false);
+      });
 
     fetch(`${baseUrl}/promotions?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
       .then((data: Promotion[]) => {
+        if (!Array.isArray(data) || data.length === 0) throw new Error("Promotions response is empty");
         setRegionalPromotions(data);
-        if (data.length > 0) {
-          setStoryGroups(data.map((promotion) => ({
-            title: promotion.title,
-            kind: "pleasure",
-            pages: [{ src: promotion.image }],
-            cta: promotion.cta || undefined,
-            ctaUrl: promotion.ctaUrl || undefined,
-          })));
-        }
+        setStoryGroups(data.map((promotion) => ({
+          title: promotion.title,
+          kind: "pleasure",
+          pages: [{ src: promotion.image }],
+          cta: promotion.cta || undefined,
+          ctaUrl: promotion.ctaUrl || undefined,
+        })));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setRegionalPromotions(null);
+        setStoryGroups(defaultStoryGroups);
+      });
 
     return () => controller.abort();
   }, [regionSlug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const restored = parseStoredStorefrontState(
+          window.localStorage.getItem(STOREFRONT_STORAGE_KEY),
+          initialRegion,
+        );
+        if (restored) {
+          setCart(restored.cart);
+          setDeliveryType(restored.deliveryType);
+          setAddress(restored.address);
+          setDraftAddress(restored.deliveryType === "delivery" ? restored.address : "");
+          setPickupLocationSelected(restored.pickupLocationSelected);
+          setUtensilsCount(restored.utensilsCount);
+          setNoUtensils(restored.noUtensils);
+          setDeliveryLocation(restored.deliveryLocation);
+        }
+      } catch {
+        // Storage can be unavailable in private or restricted browser contexts.
+      } finally {
+        if (!cancelled) setStorageHydrated(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [initialRegion]);
+
+  useEffect(() => {
+    if (!storageHydrated) return;
+    try {
+      window.localStorage.setItem(STOREFRONT_STORAGE_KEY, JSON.stringify({
+        version: STOREFRONT_STORAGE_VERSION,
+        regionSlug,
+        deliveryType,
+        address: boundedString(address, 300),
+        pickupLocationSelected,
+        utensilsCount: Math.min(20, Math.max(0, utensilsCount)),
+        noUtensils,
+        deliveryLocation: (
+          deliveryType === "delivery" &&
+          deliveryLocation?.address === address &&
+          isValidDeliveryCoordinates(deliveryLocation.coordinates)
+        ) ? {
+          address: boundedString(deliveryLocation.address, 300),
+          coordinates: deliveryLocation.coordinates,
+        } : null,
+        cart: cart
+          .filter((line) => line.product.available !== false)
+          .slice(0, 100)
+          .map((line) => ({
+            product: {
+              id: line.product.id,
+              slug: line.product.slug,
+              category: line.product.category,
+              name: line.product.name,
+              price: line.product.price,
+              image: line.product.image,
+              description: line.product.description,
+              isNew: line.product.isNew,
+              referenceCard: line.product.referenceCard,
+              referenceDetail: line.product.referenceDetail,
+              available: line.product.available,
+            },
+            quantity: Math.min(20, Math.max(1, line.quantity)),
+            modifiers: line.modifiers,
+          })),
+      }));
+    } catch {
+      // A full quota or disabled storage must not break ordering in-memory.
+    }
+  }, [
+    address,
+    cart,
+    deliveryLocation,
+    deliveryType,
+    noUtensils,
+    pickupLocationSelected,
+    regionSlug,
+    storageHydrated,
+    utensilsCount,
+  ]);
 
   useEffect(() => {
     if (!cityOpen) return;
@@ -207,12 +541,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   const currentStory = storyGroups[promoSlide] || storyGroups[0] || defaultStoryGroups[0];
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
-  const cartTotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
+  const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const highlightedCategory = categorySlug || activeCategory;
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
+    if (product.available === false) return;
     setModalQuantity(1);
     setModifierSelections({});
+    setCompositionView("composition");
     setCompositionOpen(false);
     setSelected(product);
     writeOverlayQuery("product", product.slug, historyMode);
@@ -229,26 +565,61 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setSelected(null);
   };
 
-  const addToCart = (product: Product, quantity = 1) => {
+  const addCartLine = (product: Product, quantity: number, modifiers: SelectedModifier[]) => {
+    if (product.available === false || !Number.isInteger(quantity) || quantity < 1 || quantity > 20) return;
+    const key = cartLineKey(product.id, modifiers);
+    const unitPrice = product.price + modifiers.reduce(
+      (sum, modifier) => sum + modifier.price * modifier.quantity,
+      0,
+    );
+    setCart((current) => {
+      const found = current.find((line) => line.key === key);
+      return found
+        ? current.map((line) => line.key === key
+          ? { ...line, quantity: Math.min(20, line.quantity + quantity) }
+          : line)
+        : [...current, { key, product, quantity, unitPrice, modifiers }];
+    });
+  };
+
+  const addToCart = (product: Product, quantity = 1, modifiers: SelectedModifier[] = []) => {
+    if (product.available === false) return;
     if (!address) {
+      setPendingCartLine({ product, quantity, modifiers });
       setSelected(product);
       setAddressOpen(true);
       return;
     }
-    setCart((current) => {
-      const found = current.find((line) => line.product.id === product.id);
-      return found
-        ? current.map((line) => line.product.id === product.id ? { ...line, quantity: line.quantity + quantity } : line)
-        : [...current, { product, quantity }];
-    });
+    addCartLine(product, quantity, modifiers);
+    setPendingCartLine(null);
     writeOverlayQuery("product", null, "replace");
     setSelected(null);
   };
 
-  const changeQuantity = (productId: number, delta: number) => {
+  const changeQuantity = (lineKey: string, delta: number) => {
     setCart((current) => current
-      .map((line) => line.product.id === productId ? { ...line, quantity: line.quantity + delta } : line)
+      .map((line) => line.key === lineKey
+        ? { ...line, quantity: Math.min(20, line.quantity + delta) }
+        : line)
       .filter((line) => line.quantity > 0));
+  };
+
+  const finishPendingCartAdd = () => {
+    if (pendingCartLine) {
+      addCartLine(pendingCartLine.product, pendingCartLine.quantity, pendingCartLine.modifiers);
+      setPendingCartLine(null);
+      writeOverlayQuery("product", null, "replace");
+      setSelected(null);
+    }
+  };
+
+  const closeAddress = () => {
+    setAddressOpen(false);
+    setPendingCartLine(null);
+    if (resumeCheckoutAfterAddress) {
+      setResumeCheckoutAfterAddress(false);
+      setCheckoutOpen(true);
+    }
   };
 
   const saveAddress = () => {
@@ -258,25 +629,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
     setAddress(deliveryLocation.address);
     setAddressOpen(false);
-    if (selected) addToCartAfterAddress(selected, modalQuantity);
+    finishPendingCartAdd();
+    if (resumeCheckoutAfterAddress) {
+      setResumeCheckoutAfterAddress(false);
+      createCheckoutAttempt();
+    }
   };
 
   const savePickup = () => {
     if (!pickupLocationSelected) return;
     setAddress(regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123");
     setAddressOpen(false);
-    if (selected) addToCartAfterAddress(selected, modalQuantity);
-  };
-
-  const addToCartAfterAddress = (product: Product, quantity = 1) => {
-    setCart((current) => {
-      const found = current.find((line) => line.product.id === product.id);
-      return found
-        ? current.map((line) => line.product.id === product.id ? { ...line, quantity: line.quantity + quantity } : line)
-        : [...current, { product, quantity }];
-    });
-    writeOverlayQuery("product", null, "replace");
-    setSelected(null);
+    finishPendingCartAdd();
+    if (resumeCheckoutAfterAddress) {
+      setResumeCheckoutAfterAddress(false);
+      createCheckoutAttempt();
+    }
   };
 
   const openDeliveryType = (type: DeliveryType) => {
@@ -288,6 +656,111 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setDeliveryLocation(null);
     }
     setAddressOpen(true);
+  };
+
+  const createCheckoutAttempt = () => {
+    const key = typeof window.crypto?.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setCheckoutIdempotencyKey(key);
+    setCheckoutError("");
+    setPlacedOrder(null);
+    setCartOpen(false);
+    setCheckoutOpen(true);
+  };
+
+  const beginCheckout = () => {
+    if (!address) {
+      setResumeCheckoutAfterAddress(true);
+      setCartOpen(false);
+      openDeliveryType(deliveryType);
+      return;
+    }
+    createCheckoutAttempt();
+  };
+
+  const editCheckoutAddress = () => {
+    setResumeCheckoutAfterAddress(true);
+    setCheckoutOpen(false);
+    if (deliveryType === "delivery") {
+      setDraftAddress(address);
+      setDeliveryLocation(null);
+    } else {
+      setPickupLocationSelected(false);
+    }
+    setAddressOpen(true);
+  };
+
+  const updateCheckoutField = <Key extends keyof CheckoutForm>(key: Key, value: CheckoutForm[Key]) => {
+    setCheckoutForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!cart.length || checkoutSubmitting) return;
+    const orderApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+    if (!orderApiUrl) {
+      setCheckoutError("Сервис заказов пока не подключён. Укажите адрес API для опубликованного сайта.");
+      return;
+    }
+
+    const phone = normalizePhone(checkoutForm.phone);
+    if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {
+      setCheckoutError("Введите телефон в формате +996 XXX XXX XXX или +7 XXX XXX-XX-XX.");
+      return;
+    }
+
+    setCheckoutSubmitting(true);
+    setCheckoutError("");
+    try {
+      const response = await fetch(`${orderApiUrl}/orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: checkoutIdempotencyKey,
+          regionSlug,
+          deliveryType,
+          customerName: checkoutForm.customerName.trim(),
+          phone,
+          address,
+          ...(deliveryType === "delivery" &&
+          deliveryLocation?.address === address &&
+          isValidDeliveryCoordinates(deliveryLocation.coordinates) ? {
+              latitude: deliveryLocation.coordinates[0],
+              longitude: deliveryLocation.coordinates[1],
+            } : {}),
+          apartment: checkoutForm.apartment.trim(),
+          entrance: checkoutForm.entrance.trim(),
+          floor: checkoutForm.floor.trim(),
+          intercom: checkoutForm.intercom.trim(),
+          comment: checkoutForm.comment.trim(),
+          paymentMethod: checkoutForm.paymentMethod,
+          utensilsCount: noUtensils ? 0 : utensilsCount,
+          noUtensils,
+          items: cart.map((line) => ({
+            productId: line.product.id,
+            quantity: line.quantity,
+            modifiers: line.modifiers.map((modifier) => ({
+              groupId: modifier.groupId,
+              itemId: modifier.itemId,
+              quantity: modifier.quantity,
+            })),
+          })),
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        throw new Error(message || "Не удалось отправить заказ. Попробуйте ещё раз.");
+      }
+      setPlacedOrder(body as PlacedOrder);
+      setCart([]);
+      setPendingCartLine(null);
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Не удалось отправить заказ. Попробуйте ещё раз.");
+    } finally {
+      setCheckoutSubmitting(false);
+    }
   };
 
   const openPromo = (index: number) => {
@@ -367,8 +840,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const relatedForSelected = selected?.name === "Картофель фри" ? potatoRelatedNames : relatedNames;
   const related = selected?.modalKind === "related" || selected?.modalKind === "addons"
     ? (selected.id === 11301 || selected.name === "Картофель фри"
-      ? relatedForSelected.map((name) => allCatalogProducts.find((product) => product.name === name)).filter((product): product is Product => Boolean(product))
-      : allCatalogProducts.filter((product) => product.id !== selected.id).slice(0, 18))
+      ? relatedForSelected
+        .map((name) => allCatalogProducts.find((product) => product.name === name))
+        .filter((product): product is Product => product !== undefined && product.available !== false)
+      : allCatalogProducts
+        .filter((product) => product.id !== selected.id && product.available !== false)
+        .slice(0, 18))
     : [];
   const cartProductIds = new Set(cart.map((line) => line.product.id));
   const cartRecommendations = [
@@ -379,31 +856,96 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     .filter((product, index, products) => !cartProductIds.has(product.id) && products.findIndex((candidate) => candidate.id === product.id) === index)
     .slice(0, 12);
   const modifierGroups = selected?.modifierGroups || [];
-  const selectedModifierItems = modifierGroups.flatMap((group) =>
-    group.items.filter((item) => (modifierSelections[group.id] || []).includes(item.id)));
-  const modifierTotal = selectedModifierItems.reduce((sum, item) => sum + item.price, 0);
+  const selectedModifiersForCart = modifierGroups.flatMap((group) =>
+    group.items
+      .filter((item) => (
+        item.enabled !== false &&
+        (modifierSelections[group.id]?.[item.id] || 0) > 0
+      ))
+      .map((item) => ({
+        groupId: group.id,
+        groupTitle: group.title,
+        itemId: item.id,
+        itemName: item.name,
+        price: item.price,
+        quantity: group.selectionType === "single"
+          ? 1
+          : Math.min(20, Math.max(1, modifierSelections[group.id]?.[item.id] || 1)),
+      })));
+  const modifierTotal = selectedModifiersForCart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+  const selectedModifierUnits = selectedModifiersForCart.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
   const modifiersComplete = modifierGroups.every((group) => {
-    const count = (modifierSelections[group.id] || []).length;
+    const quantities = Object.values(modifierSelections[group.id] || {})
+      .filter((quantity) => Number.isInteger(quantity) && quantity > 0);
+    const count = quantities.length;
     const minimum = group.required ? Math.max(1, group.minSelections || 1) : group.minSelections || 0;
-    return count >= minimum;
-  });
+    const maximum = group.selectionType === "single"
+      ? 1
+      : group.maxSelections ?? group.items.filter((item) => item.enabled !== false).length;
+    const quantitiesValid = quantities.every((quantity) => (
+      quantity <= 20 && (group.selectionType === "multiple" || quantity === 1)
+    ));
+    return quantitiesValid && count >= minimum && count <= maximum;
+  }) && selectedModifierUnits <= MAX_MODIFIER_UNITS;
 
   const toggleModifier = (groupId: string, itemId: string) => {
     const group = modifierGroups.find((candidate) => candidate.id === groupId);
-    if (!group) return;
+    const item = group?.items.find((candidate) => candidate.id === itemId);
+    if (!group || !item || item.enabled === false) return;
     setModifierSelections((current) => {
-      const selectedIds = current[groupId] || [];
-      const alreadySelected = selectedIds.includes(itemId);
-      if (group.selectionType === "single") return { ...current, [groupId]: alreadySelected && !group.required ? [] : [itemId] };
-      if (alreadySelected) return { ...current, [groupId]: selectedIds.filter((id) => id !== itemId) };
-      if (group.maxSelections && selectedIds.length >= group.maxSelections) return current;
-      return { ...current, [groupId]: [...selectedIds, itemId] };
+      const groupSelections = current[groupId] || {};
+      const alreadySelected = (groupSelections[itemId] || 0) > 0;
+      if (group.selectionType === "single") {
+        const totalUnits = Object.values(current)
+          .flatMap((selections) => Object.values(selections))
+          .reduce((sum, quantity) => sum + quantity, 0);
+        if (!alreadySelected && Object.keys(groupSelections).length === 0 && totalUnits >= MAX_MODIFIER_UNITS) {
+          return current;
+        }
+        return { ...current, [groupId]: alreadySelected ? {} : { [itemId]: 1 } };
+      }
+      if (alreadySelected) return current;
+      const selectedItems = Object.values(groupSelections).filter((quantity) => quantity > 0).length;
+      if (group.maxSelections !== undefined && selectedItems >= group.maxSelections) return current;
+      const totalUnits = Object.values(current)
+        .flatMap((selections) => Object.values(selections))
+        .reduce((sum, quantity) => sum + quantity, 0);
+      if (totalUnits >= MAX_MODIFIER_UNITS) return current;
+      return { ...current, [groupId]: { ...groupSelections, [itemId]: 1 } };
+    });
+  };
+
+  const changeModifierQuantity = (groupId: string, itemId: string, delta: -1 | 1) => {
+    const group = modifierGroups.find((candidate) => candidate.id === groupId);
+    const item = group?.items.find((candidate) => candidate.id === itemId);
+    if (!group || group.selectionType !== "multiple" || !item || item.enabled === false) return;
+    setModifierSelections((current) => {
+      const groupSelections = current[groupId] || {};
+      const quantity = groupSelections[itemId];
+      if (!Number.isInteger(quantity) || quantity < 1) return current;
+      const totalUnits = Object.values(current)
+        .flatMap((selections) => Object.values(selections))
+        .reduce((sum, value) => sum + value, 0);
+      if (delta > 0 && totalUnits >= MAX_MODIFIER_UNITS) return current;
+      const nextQuantity = quantity + delta;
+      const nextGroupSelections = { ...groupSelections };
+      if (nextQuantity < 1) delete nextGroupSelections[itemId];
+      else nextGroupSelections[itemId] = Math.min(20, nextQuantity);
+      return { ...current, [groupId]: nextGroupSelections };
     });
   };
 
   const navigateProduct = (delta: number) => {
     if (!selected) return;
-    const uniqueProducts = allCatalogProducts.filter((product, index, items) => items.findIndex((item) => item.id === product.id) === index);
+    const uniqueProducts = allCatalogProducts
+      .filter((product) => product.available !== false)
+      .filter((product, index, items) => items.findIndex((item) => item.id === product.id) === index);
     const index = uniqueProducts.findIndex((product) => product.id === selected.id);
     if (index < 0) return;
     openProduct(uniqueProducts[(index + delta + uniqueProducts.length) % uniqueProducts.length], "replace");
@@ -429,7 +971,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       const params = new URLSearchParams(window.location.search);
       const productSlug = params.get("product");
       const product = productSlug
-        ? catalogCategories.flatMap((category) => category.products).find((item) => item.slug === productSlug)
+        ? catalogCategories
+          .flatMap((category) => category.products)
+          .find((item) => item.slug === productSlug && item.available !== false)
         : null;
       setSelected(product || null);
       if (!product) {
@@ -453,12 +997,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories, storyGroups]);
 
   useEffect(() => {
-    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || promoOpen || menuOpen);
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || checkoutOpen || promoOpen || menuOpen);
     if (!locked) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [selected, compositionOpen, addressOpen, cartOpen, promoOpen, menuOpen]);
+  }, [selected, compositionOpen, addressOpen, cartOpen, checkoutOpen, promoOpen, menuOpen]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -560,7 +1104,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className="city-select" ref={citySelectRef}>
               <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{city} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
               {cityOpen ? <div className="city-dropdown" role="listbox" aria-label="Город">
-                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories([]); setStoryGroups([]); setRegionalPromotions([]); setCatalogLoading(true); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setCart([]); setSelected(null); }}>{option.name}</button>)}
+                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories([]); setStoryGroups([]); setRegionalPromotions([]); setCatalogLoading(true); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setDeliveryLocation(null); setCart([]); setPendingCartLine(null); setUtensilsCount(1); setNoUtensils(false); setCheckoutOpen(false); setPlacedOrder(null); setSelected(null); }}>{option.name}</button>)}
               </div> : null}
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
@@ -604,7 +1148,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 : null}
               <div className="product-grid">
                 {category.products.map((product) => (
-                  <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-label={`Открыть ${product.name}`} onClick={() => openProduct(product)} tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openProduct(product); } }}>
+                  <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading="lazy" />
                       {product.isNew ? <span className="product-new-badge">Новинка</span> : null}
@@ -672,24 +1216,44 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
               <div className="nutrition">
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
-                <div className="nutrition-actions"><button onClick={() => setCompositionOpen(true)}>Состав</button></div>
+                <div className="nutrition-actions"><button onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>Состав</button><button onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>Комплектация</button></div>
               </div>
               {modifierGroups.length ? <div className="modifier-groups">{modifierGroups.map((group) => {
-                const selectedIds = modifierSelections[group.id] || [];
-                return <section className={`modifier-group modifier-group-${group.selectionType}`} key={group.id}>
-                  <div className="modifier-heading"><h3>{group.title}</h3>{group.required ? <span>Нужно выбрать</span> : null}</div>
+                const selectedQuantities = modifierSelections[group.id] || {};
+                const presentation = group.presentation ?? "rows";
+                const minimumSelections = group.required
+                  ? Math.max(1, group.minSelections || 1)
+                  : group.minSelections || 0;
+                const selectedItems = Object.values(selectedQuantities)
+                  .filter((quantity) => quantity > 0).length;
+                return <section className={`modifier-group modifier-group-${group.selectionType} modifier-presentation-${presentation}`} key={group.id}>
+                  <div className="modifier-heading"><h3>{group.title}</h3>{group.required && selectedItems < minimumSelections ? <span>Нужно выбрать</span> : null}</div>
                   <div className="modifier-options">{group.items.filter((item) => item.enabled !== false).map((item) => {
-                    const chosen = selectedIds.includes(item.id);
+                    const modifierQuantity = selectedQuantities[item.id] || 0;
+                    const chosen = modifierQuantity > 0;
+                    const art = item.image ? <img src={item.image} alt="" /> : <span className="modifier-option-placeholder" />;
+                    const copy = <span><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></span>;
+                    if (group.selectionType === "multiple" && chosen) {
+                      return <div className="modifier-option selected" key={item.id}>
+                        {art}
+                        {copy}
+                        <span className="modifier-option-quantity" role="group" aria-label={`Количество ${item.name}`}>
+                          <button type="button" aria-label={`Уменьшить количество ${item.name}`} onClick={() => changeModifierQuantity(group.id, item.id, -1)}>−</button>
+                          <b aria-live="polite">{modifierQuantity}</b>
+                          <button type="button" aria-label={`Увеличить количество ${item.name}`} disabled={modifierQuantity >= 20 || selectedModifierUnits >= MAX_MODIFIER_UNITS} onClick={() => changeModifierQuantity(group.id, item.id, 1)}>+</button>
+                        </span>
+                      </div>;
+                    }
                     return <button type="button" className={`modifier-option ${chosen ? "selected" : ""}`} key={item.id} onClick={() => toggleModifier(group.id, item.id)} aria-pressed={chosen}>
-                      {item.image ? <img src={item.image} alt="" /> : <span className="modifier-option-placeholder" />}
-                      <span><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></span>
+                      {art}
+                      {copy}
                       <i>{chosen ? "✓" : "+"}</i>
                     </button>;
                   })}</div>
                 </section>;
               })}</div> : null}
               {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" onClick={() => setModalQuantity((current) => current + 1)}>+</button></div><button className="buy-button" disabled={!modifiersComplete} onClick={() => addToCart({ ...selected, price: selected.price + modifierTotal }, modalQuantity)}>{modifiersComplete ? `Добавить ${money((selected.price + modifierTotal) * modalQuantity)}` : "Настройте блюдо"}</button></div>
+              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? `Добавить ${money((selected.price + modifierTotal) * modalQuantity)}` : "Настройте блюдо"}</button></div>
             </div>
           </div>
         </div>
@@ -702,8 +1266,16 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <button className="composition-back" onClick={() => setCompositionOpen(false)} aria-label="Назад">←</button>
               <button className="composition-close" onClick={() => setCompositionOpen(false)} aria-label="Закрыть">×</button>
             </div>
-            <h2 id="composition-title">Состав</h2>
-            <div className="composition-copy">{selected.composition || selected.description}</div>
+            <h2 id="composition-title">{compositionView === "composition" ? "Состав" : "Комплектация"}</h2>
+            {compositionView === "composition"
+              ? <div className="composition-copy">{selected.composition || selected.description}</div>
+              : <div className="composition-copy equipment-copy">
+                  <p>К заказу добавим базовую комплектацию. Количество палочек можно изменить в корзине.</p>
+                  <div><span>Соевый соус</span><b>1 шт.</b></div>
+                  <div><span>Имбирь</span><b>1 шт.</b></div>
+                  <div><span>Васаби</span><b>1 шт.</b></div>
+                  {selected.modifierGroups?.length ? <small>Соусы и добавки, выбранные в карточке блюда, будут сохранены в заказе отдельно.</small> : null}
+                </div>}
             <button className="composition-return" onClick={() => setCompositionOpen(false)}>Назад</button>
           </section>
         </div>
@@ -713,7 +1285,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
             <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map yandex-map-host"}`}>
-              <button className="map-back" onClick={() => setAddressOpen(false)} aria-label="Назад">←</button>
+              <button className="map-back" onClick={closeAddress} aria-label="Назад">←</button>
               {deliveryType === "delivery" ? (
                 <YandexDeliveryMap
                   inputId="delivery-address-input"
@@ -730,7 +1302,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </>}
             </div>
             <div className="address-panel">
-              <button className="modal-close" onClick={() => setAddressOpen(false)} aria-label="Закрыть">×</button>
+              <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>
               <div className="modal-mode-switch" aria-label="Способ получения заказа">
                 <div className="modal-mode-icons">
                   <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
@@ -788,12 +1360,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="cart-products">
                   <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}>⌫</button></div>
                   {cart.map((line) => (
-                    <div className="cart-line" key={line.product.id}>
+                    <div className="cart-line" key={line.key}>
                       <div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div>
                       <div className="cart-line-copy">
                         <b>{line.product.name}</b>
                         {line.product.description ? <p>{line.product.description}</p> : null}
-                        <div className="cart-line-footer"><span>{money(line.product.price)}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} onClick={() => changeQuantity(line.product.id, 1)}>+</button></div></div>
+                        {line.modifiers.length ? <div className="cart-line-modifiers">{line.modifiers.map((modifier) => <span key={`${modifier.groupId}-${modifier.itemId}`}>{modifier.itemName} ×{modifier.quantity}{modifier.price ? ` +${money(modifier.price * modifier.quantity)}` : ""}</span>)}</div> : null}
+                        <div className="cart-line-footer"><span>{money(line.unitPrice)}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
                       </div>
                     </div>
                   ))}
@@ -803,7 +1376,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                       {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
                         <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew ? <span>Новинка</span> : null}</div>
                         <b>{product.name}</b>
-                        <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => addToCart(product)}>+</button></div>
+                        <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => { if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div>
                       </article>)}
                     </div>
                   </div> : null}
@@ -811,13 +1384,84 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="cart-options">
                   <div className="cart-kit">
                     <h2>Комплектация</h2>
-                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true">╱╱</span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils} onClick={() => setUtensilsCount((current) => current + 1)}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true">╱╱</span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
                   </div>
                   <div className="cart-benefit"><h2>Выгода</h2><div><span><b>Промокод или акция</b><small>Нужно будет авторизоваться</small></span><button>Выбрать</button></div></div>
-                  <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout"><span>Далее</span><b>{money(cartTotal)}</b></button></div>
+                  <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout" onClick={beginCheckout}><span>Оформить заказ</span><b>{money(cartTotal)}</b></button></div>
                 </section>
               </div>
             </>}
+          </aside>
+        </div>
+      ) : null}
+
+      {checkoutOpen ? (
+        <div className="drawer-overlay checkout-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !checkoutSubmitting) setCheckoutOpen(false); }}>
+          <aside className="checkout-drawer" aria-label={placedOrder ? "Заказ принят" : "Оформление заказа"}>
+            {placedOrder ? <section className="checkout-success">
+              <div className="checkout-success-mark" aria-hidden="true">✓</div>
+              <span>Спасибо!</span>
+              <h2>Заказ принят</h2>
+              <p>Номер заказа <b>#{placedOrder.orderNumber || placedOrder.id.slice(0, 8).toUpperCase()}</b>. Мы уже передали его ресторану.</p>
+              <div><span>К оплате</span><b>{money(placedOrder.total)}</b></div>
+              <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>Вернуться в меню</button>
+            </section> : <form className="checkout-form" onSubmit={submitOrder}>
+              <header className="checkout-head">
+                <button type="button" onClick={() => { setCheckoutOpen(false); setCartOpen(true); }} aria-label="Вернуться в корзину">←</button>
+                <div><small>Последний шаг</small><h2>Оформление заказа</h2></div>
+                <button type="button" onClick={() => setCheckoutOpen(false)} aria-label="Закрыть">×</button>
+              </header>
+
+              <div className="checkout-scroll">
+                <section className="checkout-section checkout-contact">
+                  <h3>Контакты</h3>
+                  <label><span>Имя</span><input required autoComplete="name" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Как к вам обращаться" /></label>
+                  <label><span>Телефон</span><input required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutField("phone", event.target.value)} placeholder="+996 555 123 456" /></label>
+                </section>
+
+                <section className="checkout-section checkout-destination">
+                  <div className="checkout-section-heading"><div><h3>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><p>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</p></div><button type="button" onClick={editCheckoutAddress}>Изменить</button></div>
+                  <strong>{address}</strong>
+                  {deliveryType === "delivery" ? <div className="checkout-address-details">
+                    <label><span>Квартира</span><input value={checkoutForm.apartment} onChange={(event) => updateCheckoutField("apartment", event.target.value)} /></label>
+                    <label><span>Подъезд</span><input value={checkoutForm.entrance} onChange={(event) => updateCheckoutField("entrance", event.target.value)} /></label>
+                    <label><span>Этаж</span><input value={checkoutForm.floor} onChange={(event) => updateCheckoutField("floor", event.target.value)} /></label>
+                    <label><span>Домофон</span><input value={checkoutForm.intercom} onChange={(event) => updateCheckoutField("intercom", event.target.value)} /></label>
+                  </div> : null}
+                </section>
+
+                <section className="checkout-section">
+                  <h3>Оплата при получении</h3>
+                  <div className="checkout-payment" role="group" aria-label="Способ оплаты">
+                    <button type="button" className={checkoutForm.paymentMethod === "card_on_delivery" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "card_on_delivery"} onClick={() => updateCheckoutField("paymentMethod", "card_on_delivery")}><span>▣</span><b>Картой курьеру</b></button>
+                    <button type="button" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><span>₽</span><b>Наличными</b></button>
+                  </div>
+                </section>
+
+                <section className="checkout-section">
+                  <h3>Комментарий</h3>
+                  <textarea value={checkoutForm.comment} onChange={(event) => updateCheckoutField("comment", event.target.value)} placeholder="Например, не звонить в домофон" maxLength={500} />
+                </section>
+
+                <section className="checkout-section checkout-order-summary">
+                  <h3>Ваш заказ</h3>
+                  {cart.map((line) => <div className="checkout-line" key={line.key}>
+                    <span><b>{line.product.name} × {line.quantity}</b>{line.modifiers.length ? <small>{line.modifiers.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}</span>
+                    <strong>{money(line.unitPrice * line.quantity)}</strong>
+                  </div>)}
+                  <div className="checkout-total"><span>Итого</span><b>{money(cartTotal)}</b></div>
+                </section>
+              </div>
+
+              <footer className="checkout-footer">
+                {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
+                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || !checkoutForm.customerName.trim() || !checkoutForm.phone.trim()}>
+                  <span>{checkoutSubmitting ? "Отправляем заказ…" : "Заказать"}</span>
+                  <b>{money(cartTotal)}</b>
+                </button>
+                <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>
+              </footer>
+            </form>}
           </aside>
         </div>
       ) : null}

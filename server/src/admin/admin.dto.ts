@@ -1,18 +1,94 @@
 import { Transform, Type } from "class-transformer";
 import {
-  IsBoolean,
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
+  IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
+  ValidateIf,
+  ValidateNested,
 } from "class-validator";
-import type { ProductModifierGroup } from "../catalog/product.entity";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
+
+export class ProductModifierItemDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  id!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(140)
+  name!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  price!: number;
+
+  @IsString()
+  @MaxLength(2_000_000)
+  image = "";
+
+  @IsOptional()
+  @Transform(optionalBoolean)
+  @IsBoolean()
+  enabled = true;
+}
+
+export class ProductModifierGroupDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  id!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(140)
+  title!: string;
+
+  @IsIn(["single", "multiple"])
+  selectionType!: "single" | "multiple";
+
+  @IsOptional()
+  @IsIn(["rows", "cards"])
+  presentation?: "rows" | "cards";
+
+  @Transform(optionalBoolean)
+  @IsBoolean()
+  required!: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  minSelections?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  maxSelections?: number;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => ProductModifierItemDto)
+  items!: ProductModifierItemDto[];
+}
 
 export class CreateCategoryDto {
   @IsString()
@@ -97,7 +173,10 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsArray()
-  modifierGroups: ProductModifierGroup[] = [];
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProductModifierGroupDto)
+  modifierGroups: ProductModifierGroupDto[] = [];
 
   @Transform(optionalBoolean)
   @IsBoolean()
@@ -109,7 +188,7 @@ export class CreateProductDto {
   sortOrder = 0;
 
   @Type(() => Number)
-  @IsInt()
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   weight = 0;
 
@@ -143,10 +222,15 @@ export class UpdateProductDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() composition?: string;
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() isNew?: boolean;
-  @IsOptional() @IsArray() modifierGroups?: ProductModifierGroup[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProductModifierGroupDto)
+  modifierGroups?: ProductModifierGroupDto[];
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() available?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(0) weight?: number;
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) weight?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) calories?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) protein?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) fat?: number;
@@ -172,7 +256,7 @@ export class CreatePromotionDto {
   @MaxLength(80)
   cta = "";
 
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined && value !== null && value !== "")
   @IsUrl({ protocols: ["http", "https"], require_protocol: true })
   @MaxLength(500)
   ctaUrl = "";
@@ -191,7 +275,10 @@ export class UpdatePromotionDto {
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(120) title?: string;
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() @MaxLength(80) cta?: string;
-  @IsOptional() @IsUrl({ protocols: ["http", "https"], require_protocol: true }) @MaxLength(500) ctaUrl?: string;
+  @ValidateIf((_object, value) => value !== undefined && value !== null && value !== "")
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
+  @MaxLength(500)
+  ctaUrl?: string;
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
 }

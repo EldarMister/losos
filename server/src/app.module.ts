@@ -11,7 +11,11 @@ import { Order } from "./orders/order.entity";
 import { OrderItem } from "./orders/order-item.entity";
 import { OrdersModule } from "./orders/orders.module";
 import { HealthController } from "./health.controller";
+import { BootstrapSchema1784978000000 } from "./migrations/1784978000000-BootstrapSchema";
 import { AddProductCustomization1784979000000 } from "./migrations/1784979000000-AddProductCustomization";
+import { AddProductionOrders1784980000000 } from "./migrations/1784980000000-AddProductionOrders";
+import { AllowFractionalWeight1784981000000 } from "./migrations/1784981000000-AllowFractionalWeight";
+import { AddOrderCoordinates1784982000000 } from "./migrations/1784982000000-AddOrderCoordinates";
 
 @Module({
   imports: [
@@ -25,11 +29,17 @@ import { AddProductCustomization1784979000000 } from "./migrations/1784979000000
           type: "postgres" as const,
           url: databaseUrl,
           entities: [Region, Category, Product, Promotion, Order, OrderItem],
-          migrations: [AddProductCustomization1784979000000],
+          migrations: [
+            BootstrapSchema1784978000000,
+            AddProductCustomization1784979000000,
+            AddProductionOrders1784980000000,
+            AllowFractionalWeight1784981000000,
+            AddOrderCoordinates1784982000000,
+          ],
           migrationsRun: true,
           synchronize:
-            config.get<string>("DB_SYNCHRONIZE") === "true" ||
-            config.get<string>("NODE_ENV") !== "production",
+            config.get<string>("NODE_ENV") !== "production" &&
+            config.get<string>("DB_SYNCHRONIZE") === "true",
           ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },
         };
       },

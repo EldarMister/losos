@@ -40,42 +40,69 @@ export class CatalogService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    for (const definition of defaultRegions) {
-      let region = await this.regionRepository.findOne({ where: { slug: definition.slug } });
-      if (!region) {
-        region = await this.regionRepository.save(this.regionRepository.create(definition));
-      }
-      if (await this.categoryRepository.count({ where: { region: { id: region.id } } })) continue;
+    if (process.env.SEED_CATALOG_ON_STARTUP === "false") return;
 
-      for (const [categoryIndex, entry] of seedCategories.entries()) {
-        const category = await this.categoryRepository.save(this.categoryRepository.create({
-          slug: entry.slug,
-          title: entry.title,
-          sortOrder: categoryIndex,
-          region,
-        }));
-        const products = entry.products.map((seed, productIndex) => {
-          const { id: sourceId, ...product } = seed;
-          return this.productRepository.create({
-            ...product,
-            sourceId,
-            sortOrder: productIndex,
-            available: true,
-            composition: "",
-            category,
-          });
+    await this.regionRepository.manager.transaction(async (manager) => {
+      // Serializes additive seed runs across concurrently starting Railway instances.
+      await manager.query(`SELECT pg_advisory_xact_lock($1)`, [729_172]);
+      const regions = manager.getRepository(Region);
+      const categories = manager.getRepository(Category);
+      const products = manager.getRepository(Product);
+      const promotions = manager.getRepository(Promotion);
+
+      for (const definition of defaultRegions) {
+        let region = await regions.findOne({ where: { slug: definition.slug } });
+        if (!region) region = await regions.save(regions.create(definition));
+
+        const existingCategories = await categories.find({
+          where: { region: { id: region.id } },
+          relations: { products: true },
         });
-        await this.productRepository.save(products);
-      }
+        const categoriesBySlug = new Map(existingCategories.map((category) => [category.slug, category]));
 
-      const promotions = defaultPromotions.map((promotion, index) => this.promotionRepository.create({
-        ...promotion,
-        sortOrder: index,
-        enabled: true,
-        region,
-      }));
-      await this.promotionRepository.save(promotions);
-    }
+        for (const entry of seedCategories) {
+          let category = categoriesBySlug.get(entry.slug);
+          if (!category) {
+            category = await categories.save(categories.create({
+              slug: entry.slug,
+              title: entry.title,
+              sortOrder: entry.sortOrder,
+              region,
+            }));
+            category.products = [];
+            categoriesBySlug.set(category.slug, category);
+          }
+
+          const missingProducts = entry.products.filter((seed) =>
+            !category.products.some((product) =>
+              product.sourceId === seed.sourceId ||
+              product.slug === seed.slug ||
+              product.name === seed.name));
+          if (missingProducts.length) {
+            const createdProducts = missingProducts.map((seed) => products.create({
+              ...seed,
+              category,
+            }));
+            const savedProducts = await products.save(createdProducts);
+            category.products.push(...savedProducts);
+          }
+        }
+
+        const existingPromotions = await promotions.find({
+          where: { region: { id: region.id } },
+        });
+        const existingPromotionTitles = new Set(existingPromotions.map((promotion) => promotion.title));
+        const missingPromotions = defaultPromotions
+          .filter((promotion) => !existingPromotionTitles.has(promotion.title))
+          .map((promotion, index) => promotions.create({
+            ...promotion,
+            sortOrder: index,
+            enabled: true,
+            region,
+          }));
+        if (missingPromotions.length) await promotions.save(missingPromotions);
+      }
+    });
   }
 
   regions() {

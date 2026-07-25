@@ -27,6 +27,7 @@ type ModifierGroup = {
   id: string;
   title: string;
   selectionType: "single" | "multiple";
+  presentation?: "rows" | "cards";
   required: boolean;
   minSelections?: number;
   maxSelections?: number;
@@ -35,7 +36,53 @@ type ModifierGroup = {
 type Category = { id: number; title: string; slug: string; sortOrder: number; products: Product[] };
 type Promotion = { id: number; title: string; image: string; cta: string; ctaUrl: string; enabled: boolean; sortOrder: number };
 type Dashboard = { region: Region; categories: Category[]; promotions: Promotion[] };
-type Tab = "products" | "promotions" | "categories";
+type OrderStatus = "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
+type OrderModifierSnapshot = {
+  groupId: string;
+  groupTitle: string;
+  itemId: string;
+  itemName: string;
+  price: number;
+  quantity: number;
+  totalPrice: number;
+};
+type AdminOrderItem = {
+  id: number;
+  productId: number;
+  productName: string;
+  basePrice: number;
+  modifiersPrice: number;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+  modifierSnapshots: OrderModifierSnapshot[];
+};
+type AdminOrder = {
+  id: string;
+  regionSlug: string;
+  deliveryType: "delivery" | "pickup";
+  customerName: string;
+  phone: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  apartment: string;
+  entrance: string;
+  floor: string;
+  intercom: string;
+  comment: string;
+  utensilsCount: number;
+  noUtensils: boolean;
+  paymentMethod: "cash" | "card" | "online";
+  subtotal: number;
+  total: number;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+  items: AdminOrderItem[];
+};
+type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number };
+type Tab = "orders" | "products" | "promotions" | "categories";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
@@ -46,6 +93,33 @@ const regions = [
   { slug: "bishkek", name: "Бишкек" },
   { slug: "osh", name: "Ош" },
 ] as const;
+const orderStatusLabels: Record<OrderStatus, string> = {
+  new: "Новый",
+  confirmed: "Подтверждён",
+  preparing: "Готовится",
+  ready: "Готов",
+  delivering: "В пути",
+  completed: "Завершён",
+  cancelled: "Отменён",
+};
+const orderStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
+  new: ["confirmed", "cancelled"],
+  confirmed: ["preparing", "cancelled"],
+  preparing: ["ready", "cancelled"],
+  ready: ["delivering", "completed", "cancelled"],
+  delivering: ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
+};
+
+const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+}).format(new Date(value));
+
+const formatOrderNumber = (id: string) => `№ ${id.slice(0, 8).toUpperCase()}`;
 
 const emptyProduct = (categoryId = ""): Editor => ({
   kind: "product",
@@ -94,8 +168,12 @@ export function AdminApp() {
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
   const [region, setRegion] = useState<"bishkek" | "osh">("bishkek");
-  const [tab, setTab] = useState<Tab>("products");
+  const [tab, setTab] = useState<Tab>("orders");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -139,6 +217,33 @@ export function AdminApp() {
     const timer = window.setTimeout(() => void loadDashboard(), 0);
     return () => window.clearTimeout(timer);
   }, [loadDashboard]);
+
+  const loadOrders = useCallback(async (silent = false) => {
+    if (!token) return;
+    if (!silent) setOrdersLoading(true);
+    try {
+      const result = await request(`/admin/orders?regionSlug=${region}&limit=100`) as OrdersResponse;
+      setOrders(result.items);
+      setOrdersTotal(result.total);
+      setSelectedOrder((current) => current
+        ? result.items.find((order) => order.id === current.id) || current
+        : null);
+    } catch (error) {
+      if (!silent) setMessage(error instanceof Error ? error.message : "Не удалось загрузить заказы");
+    } finally {
+      if (!silent) setOrdersLoading(false);
+    }
+  }, [region, request, token]);
+
+  useEffect(() => {
+    if (tab !== "orders" || !token) return;
+    const initialTimer = window.setTimeout(() => void loadOrders(), 0);
+    const refreshTimer = window.setInterval(() => void loadOrders(true), 15_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(refreshTimer);
+    };
+  }, [loadOrders, tab, token]);
 
   const products = useMemo(() => dashboard?.categories.flatMap((category) =>
     category.products.map((product) => ({ ...product, categoryId: category.id, categoryTitle: category.title }))) || [], [dashboard]);
@@ -254,6 +359,26 @@ export function AdminApp() {
     sessionStorage.removeItem("losos-admin-token");
     setToken("");
     setDashboard(null);
+    setOrders([]);
+    setSelectedOrder(null);
+  };
+
+  const updateOrderStatus = async (order: AdminOrder, status: OrderStatus) => {
+    setOrdersLoading(true);
+    setMessage("");
+    try {
+      const updated = await request(`/admin/orders/${order.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }) as AdminOrder;
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSelectedOrder(updated);
+      setMessage(`${formatOrderNumber(updated.id)}: ${orderStatusLabels[updated.status]}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось изменить статус");
+    } finally {
+      setOrdersLoading(false);
+    }
   };
 
   if (!token) {
@@ -280,6 +405,7 @@ export function AdminApp() {
         {regions.map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setEditor(null); }}>{item.name}</button>)}
       </div>
       <nav className="admin-tabs">
+        <button className={tab === "orders" ? "active" : ""} onClick={() => setTab("orders")}>Заказы{orders.filter((order) => order.status === "new").length ? <i>{orders.filter((order) => order.status === "new").length}</i> : null}</button>
         <button className={tab === "products" ? "active" : ""} onClick={() => setTab("products")}>Блюда</button>
         <button className={tab === "promotions" ? "active" : ""} onClick={() => setTab("promotions")}>Акции</button>
         <button className={tab === "categories" ? "active" : ""} onClick={() => setTab("categories")}>Категории</button>
@@ -292,11 +418,24 @@ export function AdminApp() {
     <section className="admin-content">
       <div className="admin-section-title">
         <div>
-          <h1>{tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : "Категории"}</h1>
-          <p>{dashboard?.region.name || regions.find((item) => item.slug === region)?.name}</p>
+          <h1>{tab === "orders" ? "Заказы" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : "Категории"}</h1>
+          <p>{dashboard?.region.name || regions.find((item) => item.slug === region)?.name}{tab === "orders" ? ` · ${ordersTotal}` : ""}</p>
         </div>
-        <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>+ Добавить</button>
+        {tab === "orders"
+          ? <button className="admin-refresh" disabled={ordersLoading} onClick={() => void loadOrders()}>{ordersLoading ? "Обновляем…" : "Обновить"}</button>
+          : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>+ Добавить</button>}
       </div>
+
+      {tab === "orders" ? <div className="admin-orders">
+        {orders.map((order) => <button className="admin-order-card" key={order.id} onClick={() => setSelectedOrder(order)}>
+          <span className={`admin-order-status status-${order.status}`}>{orderStatusLabels[order.status]}</span>
+          <span className="admin-order-number"><b>{formatOrderNumber(order.id)}</b><small>{formatOrderDate(order.createdAt)}</small></span>
+          <span className="admin-order-customer"><b>{order.customerName}</b><small>{order.deliveryType === "pickup" ? "Самовывоз" : order.address}</small></span>
+          <span className="admin-order-items">{order.items.reduce((sum, item) => sum + item.quantity, 0)} поз. · <b>{order.total} сом</b></span>
+          <span className="admin-order-open">›</span>
+        </button>)}
+        {!ordersLoading && orders.length === 0 ? <div className="admin-empty"><b>Заказов пока нет</b><span>Новые заказы появятся здесь автоматически.</span></div> : null}
+      </div> : null}
 
       {tab === "products" ? <div className="admin-grid">
         {products.map((product) => <button className="admin-product" key={product.id} onClick={() => openProduct(product)}>
@@ -359,6 +498,57 @@ export function AdminApp() {
         </div>
       </form>
     </div> : null}
+
+    {selectedOrder ? <div className="admin-editor-overlay" role="dialog" aria-modal="true" aria-label={`Заказ ${formatOrderNumber(selectedOrder.id)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedOrder(null); }}>
+      <section className="admin-order-detail">
+        <div className="admin-editor-head">
+          <span><small>{formatOrderDate(selectedOrder.createdAt)}</small><b>{formatOrderNumber(selectedOrder.id)}</b></span>
+          <button type="button" onClick={() => setSelectedOrder(null)} aria-label="Закрыть">×</button>
+        </div>
+
+        <div className="admin-order-detail-status">
+          <span className={`admin-order-status status-${selectedOrder.status}`}>{orderStatusLabels[selectedOrder.status]}</span>
+          <strong>{selectedOrder.total} сом</strong>
+        </div>
+
+        <div className="admin-order-contact">
+          <span><small>Клиент</small><b>{selectedOrder.customerName}</b></span>
+          <a href={`tel:${selectedOrder.phone}`}><small>Телефон</small><b>{selectedOrder.phone}</b></a>
+          <span className="wide"><small>{selectedOrder.deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}</small><b>{selectedOrder.address}</b></span>
+          {typeof selectedOrder.latitude === "number" && typeof selectedOrder.longitude === "number" ? <a className="wide" href={`https://yandex.ru/maps/?pt=${selectedOrder.longitude},${selectedOrder.latitude}&z=17&l=map`} target="_blank" rel="noreferrer"><small>Координаты</small><b>Открыть точку на Яндекс Картах ↗</b></a> : null}
+          {selectedOrder.deliveryType === "delivery" && (selectedOrder.apartment || selectedOrder.entrance || selectedOrder.floor || selectedOrder.intercom) ? <span className="wide"><small>Детали адреса</small><b>{[
+            selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
+            selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
+            selectedOrder.floor && `этаж ${selectedOrder.floor}`,
+            selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
+          ].filter(Boolean).join(" · ")}</b></span> : null}
+        </div>
+
+        <div className="admin-order-lines">
+          {selectedOrder.items.map((item) => <article key={item.id}>
+            <span className="admin-order-qty">{item.quantity}×</span>
+            <span><b>{item.productName}</b>{item.modifierSnapshots.map((modifier) => <small key={`${modifier.groupId}:${modifier.itemId}`}>{modifier.groupTitle}: {modifier.itemName}{modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}{modifier.totalPrice ? ` (+${modifier.totalPrice} сом)` : ""}</small>)}</span>
+            <strong>{item.lineTotal} сом</strong>
+          </article>)}
+        </div>
+
+        <div className="admin-order-notes">
+          <span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span>
+          <span><small>Приборы</small><b>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} компл.`}</b></span>
+          {selectedOrder.comment ? <span className="wide"><small>Комментарий</small><b>{selectedOrder.comment}</b></span> : null}
+        </div>
+
+        {orderStatusTransitions[selectedOrder.status].length ? <div className="admin-order-actions">
+          {orderStatusTransitions[selectedOrder.status].map((status) => <button
+            type="button"
+            className={status === "cancelled" ? "cancel" : ""}
+            disabled={ordersLoading}
+            key={status}
+            onClick={() => void updateOrderStatus(selectedOrder, status)}
+          >{status === "cancelled" ? "Отменить" : `→ ${orderStatusLabels[status]}`}</button>)}
+        </div> : null}
+      </section>
+    </div> : null}
   </main>;
 }
 
@@ -370,6 +560,7 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
     id: `group-${Date.now()}`,
     title: "Новая группа",
     selectionType: "single",
+    presentation: "rows",
     required: false,
     minSelections: 0,
     maxSelections: 1,
@@ -404,6 +595,7 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
       </div>
       <div className="admin-modifier-rules">
         <label>Режим<select value={group.selectionType} onChange={(event) => updateGroup(groupIndex, { selectionType: event.target.value as ModifierGroup["selectionType"], maxSelections: event.target.value === "single" ? 1 : Math.max(1, group.maxSelections || 1) })}><option value="single">Один вариант</option><option value="multiple">Несколько вариантов</option></select></label>
+        <label>Вид<select value={group.presentation || "rows"} onChange={(event) => updateGroup(groupIndex, { presentation: event.target.value as NonNullable<ModifierGroup["presentation"]> })}><option value="rows">Строки</option><option value="cards">Карточки</option></select></label>
         <label>Максимум<input type="number" min="1" disabled={group.selectionType === "single"} value={group.selectionType === "single" ? 1 : group.maxSelections || 1} onChange={(event) => updateGroup(groupIndex, { maxSelections: Number(event.target.value) })} /></label>
         <label className="admin-required"><span>Обязательно</span><input type="checkbox" checked={group.required} onChange={(event) => updateGroup(groupIndex, { required: event.target.checked, minSelections: event.target.checked ? 1 : 0 })} /></label>
       </div>

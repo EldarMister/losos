@@ -2,11 +2,19 @@
   "name": "mnogolososya-api",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "seed": "tsx src/seed.ts"
+    "seed": "npm run build && node dist/seed.js",
+    "catalog:generate": "tsx ../scripts/generate-server-catalog-seed.ts",
+    "migration:run": "npm run build && typeorm -d dist/data-source.js migration:run",
+    "migration:revert": "npm run build && typeorm -d dist/data-source.js migration:revert",
+    "test": "tsx --test test/backend.test.ts",
+    "test:integration": "npm run build && node test/postgres.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

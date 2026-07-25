@@ -5,6 +5,7 @@ export type ProductModifierGroup = {
   id: string;
   title: string;
   selectionType: "single" | "multiple";
+  presentation?: "rows" | "cards";
   required: boolean;
   minSelections?: number;
   maxSelections?: number;
@@ -38,7 +39,7 @@ export class Product {
   @Column({ type: "text", default: "" })
   composition!: string;
 
-  @Column({ type: "int", default: 0 })
+  @Column({ type: "real", default: 0 })
   weight!: number;
 
   @Column({ type: "int", default: 0 })

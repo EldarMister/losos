@@ -24,6 +24,7 @@ export type Product = {
     id: string;
     title: string;
     selectionType: "single" | "multiple";
+    presentation?: "rows" | "cards";
     required: boolean;
     minSelections?: number;
     maxSelections?: number;
@@ -161,6 +162,7 @@ const friesModifiers: Product["modifierGroups"] = [
     id: "fries-sauce",
     title: "Соус к картошке фри",
     selectionType: "single",
+    presentation: "rows",
     required: true,
     minSelections: 1,
     maxSelections: 1,
@@ -173,6 +175,7 @@ const friesModifiers: Product["modifierGroups"] = [
     id: "extra-sauce",
     title: "Дополнительный соус",
     selectionType: "multiple",
+    presentation: "rows",
     required: false,
     maxSelections: 3,
     items: [
@@ -182,6 +185,28 @@ const friesModifiers: Product["modifierGroups"] = [
     ],
   },
 ];
+
+const setRollOptions = [
+  { id: "okinawa", name: "Окинава", price: 0, image: liveProductImages["Окинава"] || images.shaurokinawa },
+  { id: "alaska", name: "Аляска", price: 120, image: liveProductImages["Аляска"] || images.bakedShrimp },
+  { id: "snow-california", name: "Снежная калифорния", price: 180, image: liveProductImages["Снежная калифорния"] || images.philadelphia },
+  { id: "shrimp-tamago", name: "Креветка с тамаго и авокадо", price: 210, image: liveProductImages["Креветка с тамаго и авокадо"] || images.rukola },
+  { id: "philadelphia-light", name: "Филадельфия лайт", price: 260, image: liveProductImages["Филадельфия лайт"] || images.philadelphia },
+  { id: "daku", name: "Даку 2.0", price: 280, image: liveProductImages["Даку 2.0"] || images.chuka },
+];
+
+const buildSetRollGroup = (position: number): NonNullable<Product["modifierGroups"]>[number] => ({
+  id: `set-roll-${position}`,
+  title: `${["Первый", "Второй", "Третий", "Четвёртый"][position - 1]} ролл`,
+  selectionType: "single",
+  presentation: "cards",
+  required: true,
+  minSelections: 1,
+  maxSelections: 1,
+  items: setRollOptions,
+});
+
+const customSetModifiers: Product["modifierGroups"] = [1, 2, 3, 4].map(buildSetRollGroup);
 
 const sauceComposition = `майонез (масло подсолнечное рафинированное дезодорированное, вода, яичный желток, соль, загуститель крахмал картофельный (Е1414), регуляторы кислотности (уксусная кислота, лимонная кислота), натуральные стабилизаторы (ксантановая камедь, гуаровая камедь), консерванты (сорбат калия, бензоат натрия), подсластитель "сладин" (сахар, Е954, Е952), ароматизатор "горчица", антиокислитель (Е385), натуральный краситель бета-каротин), молоко сгущённое (молоко нормализованное, сахар (сахароза, лактоза)), васаби (порошок горчичный, приправа сухая на основе хрена (хрен сушеный молотый, крахмал кукурузный), мука кукурузная, крахмал кукурузный, антислеживающий агент Е551, антиокислители аскорбиновая кислота и Е224, красители – Е102, Е133).
 
@@ -368,7 +393,9 @@ export const categories: Category[] = [
       p(11602, "sety-2", "Лайт сет", 2590, images.rukola),
       p(11603, "sety-2", "На двоих", 2730, images.bakedShrimp),
       p(11604, "sety-2", "Сетик", 2520, images.chuka),
-      p(11607, "sety-2", "Собери свой сет", 1460, images.tempuraSet),
+      p(11607, "sety-2", "Собери свой сет", 1460, images.tempuraSet, {
+        modifierGroups: customSetModifiers,
+      }),
       p(11605, "sety-2", "На компанию", 4950, images.philadelphia),
       p(11608, "sety-2", "Хитовый", 2990, images.bakedSet),
       p(11606, "sety-2", "Филадельфия сет", 2950, images.philadelphia),

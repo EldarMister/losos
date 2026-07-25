@@ -5,11 +5,13 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
+import { ListOrdersQueryDto, UpdateOrderStatusDto } from "./admin-orders.dto";
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -29,6 +31,24 @@ export class AdminController {
   @Get("dashboard")
   dashboard(@Query("region") region = "bishkek") {
     return this.admin.dashboard(region);
+  }
+
+  @Get("orders")
+  orders(@Query() query: ListOrdersQueryDto) {
+    return this.admin.orders(query);
+  }
+
+  @Get("orders/:id")
+  order(@Param("id", ParseUUIDPipe) id: string) {
+    return this.admin.order(id);
+  }
+
+  @Patch("orders/:id/status")
+  updateOrderStatus(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.admin.updateOrderStatus(id, dto.status);
   }
 
   @Post("categories")

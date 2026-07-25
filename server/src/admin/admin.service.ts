@@ -5,6 +5,9 @@ import { Category } from "../catalog/category.entity";
 import { Product } from "../catalog/product.entity";
 import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
+import { Order } from "../orders/order.entity";
+import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
+import { ListOrdersQueryDto } from "./admin-orders.dto";
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -21,6 +24,7 @@ export class AdminService {
     @InjectRepository(Category) private readonly categories: Repository<Category>,
     @InjectRepository(Product) private readonly products: Repository<Product>,
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
+    @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -37,6 +41,41 @@ export class AdminService {
       }),
     ]);
     return { region, categories, promotions };
+  }
+
+  async orders(query: ListOrdersQueryDto) {
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+    const [items, total] = await this.orderRepository.findAndCount({
+      where: {
+        ...(query.regionSlug ? { regionSlug: query.regionSlug } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      },
+      relations: { items: true },
+      order: { createdAt: "DESC" },
+      take: limit,
+      skip: offset,
+    });
+    return { items, total, limit, offset };
+  }
+
+  async order(id: string) {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+      relations: { items: true },
+    });
+    if (!order) throw new NotFoundException("Order not found");
+    return order;
+  }
+
+  async updateOrderStatus(id: string, nextStatus: OrderStatus) {
+    const order = await this.order(id);
+    if (!canTransitionOrderStatus(order.status, nextStatus)) {
+      throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
+    }
+    if (order.status === nextStatus) return order;
+    order.status = nextStatus;
+    return this.orderRepository.save(order);
   }
 
   async createCategory(dto: CreateCategoryDto) {
