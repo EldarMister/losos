@@ -3,7 +3,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-type Region = { id: number; slug: "bishkek" | "osh"; name: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string };
 type Product = {
   id: number;
   name: string;
@@ -94,10 +94,11 @@ type AdminOrder = {
   items: AdminOrderItem[];
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number };
-type Tab = "orders" | "products" | "promotions" | "categories";
+type Tab = "orders" | "products" | "promotions" | "categories" | "settings";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
+type RegionEditor = { id?: number; values: Record<string, string | boolean> };
 
 const apiUrl = (
   process.env.NEXT_PUBLIC_API_URL ||
@@ -105,10 +106,10 @@ const apiUrl = (
     ? "http://localhost:4000/api"
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
-const regions = [
-  { slug: "bishkek", name: "Бишкек" },
-  { slug: "osh", name: "Ош" },
-] as const;
+const defaultRegions: Region[] = [
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "" },
+];
 const orderStatusLabels: Record<OrderStatus, string> = {
   new: "Новый",
   confirmed: "Подтверждён",
@@ -183,7 +184,8 @@ function fileToOptimizedDataUrl(file: File) {
 export function AdminApp() {
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
-  const [region, setRegion] = useState<"bishkek" | "osh">("bishkek");
+  const [region, setRegion] = useState("bishkek");
+  const [availableRegions, setAvailableRegions] = useState<Region[]>(defaultRegions);
   const [tab, setTab] = useState<Tab>("orders");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -195,6 +197,7 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
+  const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => setToken(sessionStorage.getItem("losos-admin-token") || ""));
@@ -217,6 +220,22 @@ export function AdminApp() {
     }
     return response.json();
   }, [token]);
+
+  const loadSettings = useCallback(async () => {
+    if (!token) return;
+    try {
+      const nextRegions = await request("/admin/settings") as Region[];
+      if (!nextRegions.length) return;
+      setAvailableRegions(nextRegions);
+      setRegion((current) => nextRegions.some((item) => item.slug === current) ? current : nextRegions[0].slug);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось загрузить настройки");
+    }
+  }, [request, token]);
+
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
 
   const loadDashboard = useCallback(async () => {
     if (!token) return;
@@ -414,6 +433,59 @@ export function AdminApp() {
     }
   };
 
+  const openRegion = (item?: Region) => setRegionEditor(item ? {
+    id: item.id,
+    values: {
+      slug: item.slug,
+      name: item.name,
+      enabled: item.enabled,
+      sortOrder: String(item.sortOrder),
+      contactPhone: item.contactPhone || "",
+      contactEmail: item.contactEmail || "",
+      contactAddress: item.contactAddress || "",
+    },
+  } : {
+    values: {
+      slug: "",
+      name: "",
+      enabled: true,
+      sortOrder: String(availableRegions.length),
+      contactPhone: "",
+      contactEmail: "",
+      contactAddress: "",
+    },
+  });
+
+  const updateRegionValue = (name: string, value: string | boolean) => {
+    setRegionEditor((current) => current ? { ...current, values: { ...current.values, [name]: value } } : current);
+  };
+
+  const saveRegion = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!regionEditor) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const payload = {
+        ...regionEditor.values,
+        sortOrder: Number(regionEditor.values.sortOrder),
+        slug: String(regionEditor.values.slug).trim().toLowerCase().replace(/\s+/g, "-"),
+      };
+      const saved = await request(`/admin/regions${regionEditor.id ? `/${regionEditor.id}` : ""}`, {
+        method: regionEditor.id ? "PATCH" : "POST",
+        body: JSON.stringify(payload),
+      }) as Region;
+      setRegionEditor(null);
+      await loadSettings();
+      setRegion(saved.slug);
+      setMessage("Настройки города сохранены");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить город");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!token) {
     return <main className="admin-login">
       <header className="admin-login-brand">
@@ -430,8 +502,8 @@ export function AdminApp() {
     </main>;
   }
 
-  const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : "Категории";
-  const tabIcon: Record<Tab, string> = { orders: "▣", products: "♨", promotions: "✿", categories: "▦" };
+  const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
+  const tabIcon: Record<Tab, string> = { orders: "▣", products: "♨", promotions: "✿", categories: "▦", settings: "⚙" };
   const filterOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все" },
     { value: "new", label: "Новые" },
@@ -441,9 +513,6 @@ export function AdminApp() {
   ];
 
   return <main className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
-    <header className="admin-header">
-      <div><div className="admin-mark">МЛ</div><span><b>Управление меню</b><small>Блюда и акции по городам</small></span></div>
-    </header>
 
     <aside className="admin-sidebar">
       <nav>
@@ -453,8 +522,7 @@ export function AdminApp() {
           </button>)}
       </nav>
       <div>
-        <button><i>⚙</i><span>Настройки</span></button>
-        <button onClick={logout}><i>⇥</i><span>Выход</span></button>
+        <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
       </div>
     </aside>
 
@@ -463,7 +531,7 @@ export function AdminApp() {
         <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
           <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
         </button>)}
-      <button onClick={logout}><i>•••</i><span>Ещё</span></button>
+      <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
     </nav>
 
     {message ? <div className="admin-message">{message}</div> : null}
@@ -473,11 +541,11 @@ export function AdminApp() {
       <div className="admin-mobile-title">
         <div className="admin-mark">МЛ</div>
         <h1>{tabTitle}</h1>
-        <button onClick={() => setRegion(region === "bishkek" ? "osh" : "bishkek")}>{regions.find((item) => item.slug === region)?.name}⌄</button>
+        <button onClick={() => setRegion(availableRegions[(availableRegions.findIndex((item) => item.slug === region) + 1) % availableRegions.length]?.slug || region)}>{availableRegions.find((item) => item.slug === region)?.name}⌄</button>
         <span>≡⌕</span>
       </div>
       <div className="admin-regions" aria-label="Регион">
-        {regions.map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setEditor(null); }}>{item.name}</button>)}
+        {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setEditor(null); }}>{item.name}</button>)}
       </div>
       <div className="admin-section-title">
         <div>
@@ -486,27 +554,29 @@ export function AdminApp() {
         </div>
         {tab === "orders"
           ? <button className="admin-refresh" disabled={ordersLoading} onClick={() => void loadOrders()} aria-label="Обновить заказы">↻</button>
-          : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>＋ Добавить {tab === "products" ? "блюдо" : tab === "promotions" ? "акцию" : "категорию"}</button>}
+          : tab === "settings"
+            ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
+            : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>＋ Добавить {tab === "products" ? "блюдо" : tab === "promotions" ? "акцию" : "категорию"}</button>}
       </div>
 
       {tab === "orders" ? <>
         <div className="admin-order-filters">
           {filterOptions.map((option) => <button key={option.value} className={orderFilter === option.value ? "active" : ""} onClick={() => setOrderFilter(option.value)}>
-            {option.label}{option.value !== "all" ? <i>{orders.filter((order) => order.status === option.value).length}</i> : null}
+            {option.label}<i>{option.value === "all" ? orders.length : orders.filter((order) => order.status === option.value).length}</i>
           </button>)}
         </div>
         <div className="admin-list-tools">
           <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по № заказа, клиенту или адресу..." /></label>
           <button>☷&nbsp; Фильтры</button>
+          <button>▣&nbsp; Выбрать дату</button>
         </div>
         <div className="admin-orders">
-          <div className="admin-table-head"><span>№ заказа</span><span>Клиент</span><span>Адрес</span><span>Статус</span><span>Позиций</span><span>Сумма</span><span>Время</span></div>
+          <div className="admin-table-head"><span>Заказ</span><span>Клиент</span><span>Адрес</span><span>Статус</span><span>Сумма</span><span>Время</span></div>
         {visibleOrders.map((order) => <button className={`admin-order-card${selectedOrder?.id === order.id ? " selected" : ""}`} key={order.id} onClick={() => setSelectedOrder(order)}>
           <span className="admin-order-number"><b>{order.id.slice(0, 8).toUpperCase()}</b><small>{order.phone}</small></span>
           <span className="admin-order-customer"><b>{order.customerName}</b><small>{order.phone}</small></span>
           <span className="admin-order-address">{order.deliveryType === "pickup" ? "Самовывоз" : order.address}</span>
           <span className={`admin-order-status status-${order.status}`}>{orderStatusLabels[order.status]}</span>
-          <span className="admin-order-count">{order.items.reduce((sum, item) => sum + item.quantity, 0)}</span>
           <span className="admin-order-total">{order.total.toLocaleString("ru-RU")} сом</span>
           <span className="admin-order-time">{formatOrderDate(order.createdAt)}</span>
           <span className="admin-order-open">›</span>
@@ -516,7 +586,7 @@ export function AdminApp() {
         <footer><span>Показано {visibleOrders.length} из {ordersTotal}</span><b>‹</b><b className="active">1</b><b>2</b><b>›</b></footer>
       </div></> : null}
 
-      {tab !== "orders" ? <div className="admin-list-tools">
+      {tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
         <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === "products" ? "Поиск по названию блюда" : tab === "promotions" ? "Поиск по акциям" : "Поиск по категориям"} /></label>
         <button>☷&nbsp; Фильтры</button>
       </div> : null}
@@ -545,6 +615,25 @@ export function AdminApp() {
         {visibleCategories.map((category) => <button key={category.id} onClick={() => openCategory(category)}>
           <i>⁙</i><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">⌕&nbsp;&nbsp; ⋮</span>
         </button>)}
+      </div> : null}
+
+      {tab === "settings" ? <div className="admin-settings">
+        <section>
+          <div className="admin-settings-title"><span><b>Города и контакты</b><small>Города, доступные на витрине, и данные для связи с клиентами.</small></span></div>
+          <div className="admin-settings-list">
+            {availableRegions.map((item) => <button key={item.id || item.slug} onClick={() => openRegion(item)}>
+              <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug}</small></span>
+              <span><small>Телефон</small><b>{item.contactPhone || "Не указан"}</b></span>
+              <span><small>Почта</small><b>{item.contactEmail || "Не указана"}</b></span>
+              <i className={item.enabled ? "enabled" : ""}>{item.enabled ? "Активен" : "Скрыт"}</i>
+              <strong>Изменить →</strong>
+            </button>)}
+          </div>
+        </section>
+        <section className="admin-settings-exit">
+          <div><b>Сеанс администратора</b><small>Выход из панели на этом устройстве.</small></div>
+          <button onClick={logout}>Выйти</button>
+        </section>
       </div> : null}
     </section>
 
@@ -585,6 +674,29 @@ export function AdminApp() {
           {editor.id ? <button type="button" className="admin-delete" onClick={deleteEditor}>Удалить</button> : <span />}
           <button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button>
         </div>
+      </form>
+    </div> : null}
+
+    {regionEditor ? <div className="admin-editor-overlay admin-region-overlay" role="dialog" aria-modal="true" aria-label="Настройки города" onMouseDown={(event) => { if (event.target === event.currentTarget) setRegionEditor(null); }}>
+      <form className="admin-region-editor" onSubmit={saveRegion}>
+        <div className="admin-editor-head">
+          <span><small>Настройки</small><b>{regionEditor.id ? "Редактирование города" : "Новый город"}</b></span>
+          <button type="button" onClick={() => setRegionEditor(null)} aria-label="Закрыть">×</button>
+        </div>
+        <div className="admin-two-fields">
+          <label>Название города<input required value={String(regionEditor.values.name)} onChange={(event) => updateRegionValue("name", event.target.value)} placeholder="Бишкек" /></label>
+          <label>Адрес в ссылке<input required disabled={Boolean(regionEditor.id)} value={String(regionEditor.values.slug)} onChange={(event) => updateRegionValue("slug", event.target.value.toLowerCase().replace(/\s+/g, "-"))} placeholder="bishkek" /></label>
+        </div>
+        <div className="admin-two-fields">
+          <label>Телефон<input value={String(regionEditor.values.contactPhone)} onChange={(event) => updateRegionValue("contactPhone", event.target.value)} placeholder="+996 555 123 456" /></label>
+          <label>Электронная почта<input type="email" value={String(regionEditor.values.contactEmail)} onChange={(event) => updateRegionValue("contactEmail", event.target.value)} placeholder="hello@example.com" /></label>
+        </div>
+        <label>Адрес самовывоза или офиса<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Улица, дом" /></label>
+        <div className="admin-two-fields">
+          <label>Порядок<input type="number" min="0" value={String(regionEditor.values.sortOrder)} onChange={(event) => updateRegionValue("sortOrder", event.target.value)} /></label>
+          <label className="admin-switch"><span><b>Город активен</b><small>Показывается на витрине</small></span><input type="checkbox" checked={Boolean(regionEditor.values.enabled)} onChange={(event) => updateRegionValue("enabled", event.target.checked)} /></label>
+        </div>
+        <div className="admin-editor-actions"><span /><button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button></div>
       </form>
     </div> : null}
 

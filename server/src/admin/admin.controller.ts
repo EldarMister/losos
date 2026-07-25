@@ -16,9 +16,11 @@ import {
   CreateCategoryDto,
   CreateProductDto,
   CreatePromotionDto,
+  CreateRegionDto,
   UpdateCategoryDto,
   UpdateProductDto,
   UpdatePromotionDto,
+  UpdateRegionDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -31,6 +33,21 @@ export class AdminController {
   @Get("dashboard")
   dashboard(@Query("region") region = "bishkek") {
     return this.admin.dashboard(region);
+  }
+
+  @Get("settings")
+  settings() {
+    return this.admin.settings();
+  }
+
+  @Post("regions")
+  createRegion(@Body() dto: CreateRegionDto) {
+    return this.admin.createRegion(dto);
+  }
+
+  @Patch("regions/:id")
+  updateRegion(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateRegionDto) {
+    return this.admin.updateRegion(id, dto);
   }
 
   @Get("orders")

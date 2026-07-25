@@ -21,6 +21,33 @@ import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
 
+export class CreateRegionDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  slug!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name!: string;
+
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled = true;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder = 0;
+  @IsOptional() @IsString() @MaxLength(40) contactPhone = "";
+  @IsOptional() @IsString() @MaxLength(160) contactEmail = "";
+  @IsOptional() @IsString() @MaxLength(240) contactAddress = "";
+}
+
+export class UpdateRegionDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(100) name?: string;
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
+  @IsOptional() @IsString() @MaxLength(40) contactPhone?: string;
+  @IsOptional() @IsString() @MaxLength(160) contactEmail?: string;
+  @IsOptional() @IsString() @MaxLength(240) contactAddress?: string;
+}
+
 export class ProductModifierItemDto {
   @IsString()
   @IsNotEmpty()

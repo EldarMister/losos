@@ -20,6 +20,15 @@ export class Region {
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 
+  @Column({ default: "" })
+  contactPhone!: string;
+
+  @Column({ default: "" })
+  contactEmail!: string;
+
+  @Column({ default: "" })
+  contactAddress!: string;
+
   @OneToMany(() => Category, (category) => category.region)
   categories!: Category[];
 

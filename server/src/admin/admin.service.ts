@@ -16,9 +16,11 @@ import {
   CreateCategoryDto,
   CreateProductDto,
   CreatePromotionDto,
+  CreateRegionDto,
   UpdateCategoryDto,
   UpdateProductDto,
   UpdatePromotionDto,
+  UpdateRegionDto,
 } from "./admin.dto";
 
 @Injectable()
@@ -45,6 +47,24 @@ export class AdminService {
       }),
     ]);
     return { region, categories, promotions };
+  }
+
+  settings() {
+    return this.regions.find({ order: { sortOrder: "ASC", id: "ASC" } });
+  }
+
+  async createRegion(dto: CreateRegionDto) {
+    const slug = dto.slug.trim().toLowerCase();
+    const exists = await this.regions.findOne({ where: { slug } });
+    if (exists) throw new BadRequestException("Город с таким адресом уже существует");
+    return this.regions.save(this.regions.create({ ...dto, slug }));
+  }
+
+  async updateRegion(id: number, dto: UpdateRegionDto) {
+    const region = await this.regions.findOne({ where: { id } });
+    if (!region) throw new NotFoundException("Город не найден");
+    Object.assign(region, dto);
+    return this.regions.save(region);
   }
 
   async orders(query: ListOrdersQueryDto) {
