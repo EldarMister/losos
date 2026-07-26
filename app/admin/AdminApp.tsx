@@ -95,7 +95,8 @@ type AdminOrder = {
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
 type OrderPeriod = "all" | "today" | "week" | "month";
-type Tab = "orders" | "products" | "promotions" | "categories" | "settings";
+type Tab = "statistics" | "orders" | "products" | "promotions" | "categories" | "settings";
+type StatisticsPeriod = "today" | "week" | "month" | "all";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
@@ -112,6 +113,7 @@ const defaultRegions: Region[] = [
   { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "" },
 ];
 const defaultRegionByTab: Record<Tab, string> = {
+  statistics: "bishkek",
   orders: "bishkek",
   products: "bishkek",
   promotions: "bishkek",
@@ -145,6 +147,7 @@ const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
 }).format(new Date(value));
 
 const formatOrderNumber = (id: string) => `№ ${id.slice(0, 8).toUpperCase()}`;
+const formatSom = (value: number) => `${Math.round(value).toLocaleString("ru-RU")} сом`;
 const ordersPerPage = 10;
 const slugify = (value: string) => {
   const letters: Record<string, string> = { а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya" };
@@ -211,6 +214,9 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState<"all" | string>("all");
+  const [statisticsOrders, setStatisticsOrders] = useState<AdminOrder[]>([]);
+  const [statisticsPeriod, setStatisticsPeriod] = useState<StatisticsPeriod>("week");
+  const [statisticsLoading, setStatisticsLoading] = useState(false);
   const [openProductActions, setOpenProductActions] = useState<number | null>(null);
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
   const [orderPeriod, setOrderPeriod] = useState<OrderPeriod>("all");
@@ -350,6 +356,32 @@ export function AdminApp() {
     };
   }, [loadOrders, tab, token]);
 
+  const loadStatistics = useCallback(async () => {
+    if (!token) return;
+    setStatisticsLoading(true);
+    try {
+      const items: AdminOrder[] = [];
+      let offset = 0;
+      let total = 0;
+      do {
+        const result = await request(`/admin/orders?${new URLSearchParams({ regionSlug: region, limit: "100", offset: String(offset) })}`) as OrdersResponse;
+        items.push(...result.items);
+        total = result.total;
+        offset += result.items.length;
+      } while (offset < total && offset < 2_000);
+      setStatisticsOrders(items);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось загрузить статистику");
+    } finally {
+      setStatisticsLoading(false);
+    }
+  }, [region, request, token]);
+
+  useEffect(() => {
+    if (tab !== "statistics" || !token) return;
+    void loadStatistics();
+  }, [loadStatistics, tab, token]);
+
   const products = useMemo(() => dashboard?.categories.flatMap((category) =>
     category.products.map((product) => ({ ...product, categoryId: category.id, categoryTitle: category.title }))) || [], [dashboard]);
   const normalizedSearch = search.trim().toLocaleLowerCase("ru");
@@ -368,6 +400,50 @@ export function AdminApp() {
   const visibleCategories = useMemo(() => (dashboard?.categories || []).filter((category) =>
     !normalizedSearch || `${category.title} ${category.slug}`.toLocaleLowerCase("ru").includes(normalizedSearch)
   ), [dashboard?.categories, normalizedSearch]);
+  const statistics = useMemo(() => {
+    const now = new Date();
+    const from = new Date(now);
+    if (statisticsPeriod === "today") from.setHours(0, 0, 0, 0);
+    if (statisticsPeriod === "week") { from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 6); }
+    if (statisticsPeriod === "month") { from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 29); }
+    if (statisticsPeriod === "all") from.setTime(0);
+    const paidOrders = statisticsOrders.filter((order) => order.status !== "cancelled" && new Date(order.createdAt) >= from);
+    const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
+    const byProduct = new Map<string, { name: string; count: number; revenue: number }>();
+    const byPayment = new Map<string, number>();
+    const byHour = new Map<number, number>();
+    const byStatus = new Map<OrderStatus, number>();
+    for (const order of paidOrders) {
+      byPayment.set(order.paymentMethod, (byPayment.get(order.paymentMethod) || 0) + order.total);
+      const hour = new Date(order.createdAt).getHours();
+      byHour.set(hour, (byHour.get(hour) || 0) + order.total);
+      byStatus.set(order.status, (byStatus.get(order.status) || 0) + 1);
+      for (const item of order.items) {
+        const current = byProduct.get(item.productName) || { name: item.productName, count: 0, revenue: 0 };
+        current.count += item.quantity;
+        current.revenue += item.lineTotal;
+        byProduct.set(item.productName, current);
+      }
+    }
+    const productRows = [...byProduct.values()].sort((a, b) => b.revenue - a.revenue);
+    const paymentLabels: Record<string, string> = { cash: "Наличные", card: "Картой", online: "Онлайн" };
+    const payments = [...byPayment.entries()].map(([name, amount]) => ({ name: paymentLabels[name] || name, amount })).sort((a, b) => b.amount - a.amount);
+    const peaks = [...byHour.entries()].map(([hour, amount]) => ({ label: `${String(hour).padStart(2, "0")}:00 – ${String((hour + 1) % 24).padStart(2, "0")}:00`, amount })).sort((a, b) => b.amount - a.amount);
+    const statuses = [...byStatus.entries()].map(([status, count]) => ({ name: orderStatusLabels[status], count })).sort((a, b) => b.count - a.count);
+    const days = 7;
+    const chart = Array.from({ length: days }, (_, index) => {
+      const day = new Date(now);
+      if (statisticsPeriod === "today") { day.setHours(index * 4, 0, 0, 0); }
+      else { day.setHours(0, 0, 0, 0); day.setDate(day.getDate() - (days - 1 - index)); }
+      const amount = paidOrders.filter((order) => {
+        const date = new Date(order.createdAt);
+        return statisticsPeriod === "today" ? date.getHours() >= index * 4 && date.getHours() < (index + 1) * 4 : date.toDateString() === day.toDateString();
+      }).reduce((sum, order) => sum + order.total, 0);
+      return { label: statisticsPeriod === "today" ? `${String(index * 4).padStart(2, "0")}:00` : new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(day), amount };
+    });
+    const chartMax = Math.max(...chart.map((point) => point.amount), 1);
+    return { orders: paidOrders.length, revenue, average: paidOrders.length ? revenue / paidOrders.length : 0, products: productRows, payments, peaks, statuses, chart: chart.map((point) => ({ ...point, percent: Math.max(4, (point.amount / chartMax) * 100) })) };
+  }, [statisticsOrders, statisticsPeriod]);
 
   const openProduct = (product?: Product & { categoryId: number }) => {
     if (!product) {
@@ -598,8 +674,8 @@ export function AdminApp() {
     </main>;
   }
 
-  const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Меню" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
-  const tabIcon: Record<Tab, string> = { orders: "▤", products: "☰", promotions: "✦", categories: "▦", settings: "⚙" };
+  const tabTitle = tab === "statistics" ? "Статистика" : tab === "orders" ? "Заказы" : tab === "products" ? "Меню" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
+  const tabIcon: Record<Tab, string> = { statistics: "⌁", orders: "▤", products: "☰", promotions: "✦", categories: "▦", settings: "⚙" };
   const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все статусы" },
     { value: "new", label: "Новые" },
@@ -624,9 +700,9 @@ export function AdminApp() {
 
     <aside className="admin-sidebar">
       <nav>
-        {(["orders", "products", "promotions"] as Tab[]).map((item) =>
+        {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
           <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-            <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
+            <i>{tabIcon[item]}</i><span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
           </button>)}
       </nav>
       <div>
@@ -635,9 +711,9 @@ export function AdminApp() {
     </aside>
 
     <nav className="admin-mobile-nav">
-      {(["orders", "products", "promotions"] as Tab[]).map((item) =>
+      {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
         <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-          <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
+          <i>{tabIcon[item]}</i><span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
         </button>)}
       <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
     </nav>
@@ -657,11 +733,19 @@ export function AdminApp() {
           <h1>{tabTitle}</h1>
           {tab === "orders" ? <p>{ordersTotal} заказов в выбранном городе</p> : null}
         </div>
-        {tab === "orders" ? null : tab === "settings"
+        {tab === "statistics" || tab === "orders" ? null : tab === "settings"
           ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
           : tab === "products" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => openCategory()}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
           : <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>}
       </div>
+
+      {tab === "statistics" ? <section className="admin-statistics">
+        <div className="admin-stat-periods">{(["today", "week", "month", "all"] as StatisticsPeriod[]).map((period) => <button type="button" key={period} className={statisticsPeriod === period ? "active" : ""} onClick={() => setStatisticsPeriod(period)}>{{ today: "Сегодня", week: "Неделя", month: "Месяц", all: "Всё время" }[period]}</button>)}</div>
+        <div className="admin-stat-cards"><article><i>▤</i><span><small>Заказов за период</small><b>{statistics.orders}</b></span></article><article><i>◉</i><span><small>Средний чек</small><b>{formatSom(statistics.average)}</b></span></article></div>
+        <article className="admin-stat-chart"><header><b>Выручка за период</b><span>{statistics.orders} заказов&nbsp; <strong>{formatSom(statistics.revenue)}</strong></span></header><div className="admin-stat-bars">{statistics.chart.map((point) => <span key={point.label}><i style={{ height: `${point.percent}%` }} title={formatSom(point.amount)} /><small>{point.label}</small></span>)}</div></article>
+        <div className="admin-stat-grids"><StatisticsTable title="Способы оплаты" headers={["Способ", "Сумма"]} rows={statistics.payments.map((item) => [item.name, formatSom(item.amount)])} /><StatisticsTable title="Топ блюд" headers={["Блюдо", "Кол-во", "Выручка"]} rows={statistics.products.slice(0, 6).map((item) => [item.name, `${item.count} шт`, formatSom(item.revenue)])} /><StatisticsTable title="Статусы заказов" headers={["Статус", "Заказы"]} rows={statistics.statuses.map((item) => [item.name, String(item.count)])} /><StatisticsTable title="Часы пик" headers={["Время", "Выручка"]} rows={statistics.peaks.slice(0, 5).map((item) => [item.label, formatSom(item.amount)])} /></div>
+        {statisticsLoading ? <div className="admin-stat-loading">Загружаем статистику…</div> : null}
+      </section> : null}
 
       {tab === "orders" ? <>
         <div className="admin-list-tools">
@@ -984,6 +1068,10 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
       <button className="admin-add-option" type="button" onClick={() => addItem(groupIndex)}>+ Добавить вариант</button>
     </article>)}
   </section>;
+}
+
+function StatisticsTable({ title, headers, rows }: { title: string; headers: string[]; rows: string[][] }) {
+  return <article className="admin-stat-table"><h2>{title}</h2><div className="admin-stat-table-head">{headers.map((header) => <span key={header}>{header}</span>)}</div>{rows.length ? rows.map((row, index) => <div className="admin-stat-table-row" key={`${row[0]}-${index}`}>{row.map((cell, cellIndex) => <span key={`${cell}-${cellIndex}`}>{cell}</span>)}</div>) : <p>Нет данных за период</p>}</article>;
 }
 
 function ImageField({ value, onChange }: { value: string; onChange: (value: string) => void }) {

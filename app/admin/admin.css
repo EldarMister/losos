@@ -83,6 +83,36 @@ button { cursor: pointer; }
 .admin-select-options button.selected em { color: var(--admin-orange); }
 .admin-select-options b { color: var(--admin-orange); font-size: 15px; }
 
+/* Statistics */
+.admin-statistics { display: grid; gap: 18px; }
+.admin-stat-periods { display: flex; gap: 8px; }
+.admin-stat-periods button { min-height: 38px; padding: 0 15px; border: 0; border-radius: 9px; background: transparent; color: #667086; font-weight: 600; }
+.admin-stat-periods button.active { background: #fff1eb; color: var(--admin-orange); box-shadow: 0 4px 12px #1a24300d; }
+.admin-stat-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.admin-stat-cards article { min-height: 112px; display: flex; align-items: center; gap: 18px; padding: 20px 24px; border: 1px solid var(--admin-line); border-radius: 16px; background: #fff; }
+.admin-stat-cards i { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 16px; background: #fff0ea; color: var(--admin-orange); font-size: 26px; font-style: normal; }
+.admin-stat-cards span { display: flex; flex-direction: column; gap: 6px; }
+.admin-stat-cards small { color: #68738a; font-size: 14px; }
+.admin-stat-cards b { font-size: 30px; line-height: 1; }
+.admin-stat-chart { padding: 24px; border: 1px solid var(--admin-line); border-radius: 16px; background: #fff; }
+.admin-stat-chart header { display: flex; justify-content: space-between; gap: 16px; }
+.admin-stat-chart header b { font-size: 19px; }
+.admin-stat-chart header span { color: #667086; }
+.admin-stat-chart header strong { color: var(--admin-ink); font-size: 17px; }
+.admin-stat-bars { height: 230px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; align-items: end; margin-top: 24px; padding: 10px 12px 0; border-bottom: 1px solid var(--admin-line); background: repeating-linear-gradient(to bottom, transparent 0 56px, #edf0f5 57px 58px); }
+.admin-stat-bars span { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: end; gap: 9px; }
+.admin-stat-bars i { width: min(100%, 56px); min-height: 3px; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, #ff7444, var(--admin-orange)); }
+.admin-stat-bars small { color: #8993a7; font-size: 11px; white-space: nowrap; }
+.admin-stat-grids { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.admin-stat-table { min-height: 250px; padding: 20px; border: 1px solid var(--admin-line); border-radius: 15px; background: #fff; overflow: hidden; }
+.admin-stat-table h2 { margin: 0 0 16px; font-size: 18px; }
+.admin-stat-table-head, .admin-stat-table-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; }
+.admin-stat-table-head { padding: 0 0 10px; color: #738098; font-size: 12px; }
+.admin-stat-table-row { padding: 10px 0; border-top: 1px solid var(--admin-line); font-size: 13px; }
+.admin-stat-table-row span:not(:first-child), .admin-stat-table-head span:not(:first-child) { text-align: right; }
+.admin-stat-table p { color: var(--admin-muted); font-size: 13px; }
+.admin-stat-loading { color: var(--admin-muted); text-align: center; }
+
 /* Orders */
 .admin-orders, .admin-products-table, .admin-categories { overflow: hidden; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; }
 .admin-table-head { min-height: 48px; display: grid; grid-template-columns: 100px minmax(120px, 1fr) minmax(150px, 1.3fr) 104px 105px 112px 16px; gap: 12px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--admin-line); background: #fafbfc; color: var(--admin-muted); font-size: 12px; }
@@ -279,7 +309,7 @@ button { cursor: pointer; }
   .admin-mobile-title { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
   .admin-mobile-title h1 { margin: 0; font-size: 25px; }
   .admin-mobile-title > span { width: 46px; height: 46px; display: grid; place-items: center; margin-left: auto; border: 1px solid var(--admin-line); border-radius: 12px; font-size: 20px; }
-  .admin-mobile-nav { position: fixed; inset: auto 0 0; z-index: 45; min-height: 68px; display: grid; grid-template-columns: repeat(4, 1fr); padding: 7px 4px calc(5px + env(safe-area-inset-bottom)); border-top: 1px solid var(--admin-line); background: #fffdfcfa; backdrop-filter: blur(14px); }
+  .admin-mobile-nav { position: fixed; inset: auto 0 0; z-index: 45; min-height: 68px; display: grid; grid-template-columns: repeat(5, 1fr); padding: 7px 4px calc(5px + env(safe-area-inset-bottom)); border-top: 1px solid var(--admin-line); background: #fffdfcfa; backdrop-filter: blur(14px); }
   .admin-mobile-nav button { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 3px 0; border: 0; background: transparent; color: #969aa6; font-size: 10px; }
   .admin-mobile-nav i { font-size: 22px; font-style: normal; }
   .admin-mobile-nav button.active { color: var(--admin-orange); }
@@ -294,6 +324,20 @@ button { cursor: pointer; }
   .admin-mobile-menu-actions button { min-height: 38px; flex: 1; padding: 0 10px; font-size: 12px; }
   .admin-menu-categories { margin: 0 -14px 14px; padding: 0 14px 2px; }
   .admin-menu-categories button { min-height: 38px; padding: 0 13px; font-size: 13px; }
+  .admin-statistics { gap: 14px; }
+  .admin-stat-periods { overflow-x: auto; margin: 0 -14px; padding: 0 14px; }
+  .admin-stat-periods button { white-space: nowrap; }
+  .admin-stat-cards { gap: 10px; }
+  .admin-stat-cards article { min-height: 92px; gap: 10px; padding: 14px; }
+  .admin-stat-cards i { width: 38px; height: 38px; border-radius: 11px; font-size: 18px; }
+  .admin-stat-cards small { font-size: 11px; }
+  .admin-stat-cards b { font-size: 19px; }
+  .admin-stat-chart { padding: 16px 12px; }
+  .admin-stat-chart header { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .admin-stat-bars { height: 170px; gap: 5px; padding: 8px 2px 0; }
+  .admin-stat-bars small { font-size: 9px; transform: rotate(-30deg); }
+  .admin-stat-grids { grid-template-columns: 1fr; gap: 10px; }
+  .admin-stat-table { min-height: 0; padding: 16px; }
   .admin-order-selects { width: 100%; gap: 10px; }
   .admin-list-tools .admin-select-control { width: auto; min-width: 0; flex: 1; height: 46px; }
   .admin-list-tools .admin-period-control { width: 43%; min-width: 0; }
