@@ -1245,7 +1245,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <img src="/desktop-header-20260726-v3.png" alt="Накта суши" />
         </picture>
         <span className="mobile-brand-logo-fix" aria-hidden="true">
-          <img src="/mobile-brand-logo-v1.png" alt="" />
+          <i className="mobile-brand-fin mobile-brand-fin-top" />
+          <i className="mobile-brand-fin mobile-brand-fin-bottom" />
+          <i className="mobile-brand-diamond" />
         </span>
         <img className="brand-smile" src="/смайлик.webp" alt="" aria-hidden="true" />
         <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>

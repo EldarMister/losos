@@ -468,11 +468,17 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 720px) {
   .brand-hero { height: 200px; }
   .brand-hero { background: var(--orange); }
-  .brand-main { width: min(100%, 488px); max-width: none; height: auto; left: 50%; top: 16px; transform: translateX(-50%); z-index: auto; }
-  .mobile-brand-logo-fix { position: absolute; z-index: 4; left: calc(50% + min(24vw, 117px) - 42px); top: 32px; width: 84px; height: 72px; display: grid; place-items: center; background: var(--orange); }
-  .mobile-brand-logo-fix img { display: block; width: 78px; height: auto; }
+  .brand-main { width: min(100%, 488px); max-width: none; height: auto; left: 50%; top: 0; transform: translateX(-50%); z-index: auto; }
+  .mobile-brand-logo-fix { position: absolute; z-index: 4; left: calc(50% + min(24vw, 117px) - 42px); top: 16px; width: 84px; height: 72px; display: block; background: var(--orange); }
+  .mobile-brand-fin { position: absolute; z-index: 2; left: 5px; width: 22px; height: 8px; border-radius: 1px; background: #104683; transform: rotate(45deg); transform-origin: center; }
+  .mobile-brand-fin-top { top: 16px; }
+  .mobile-brand-fin-bottom { top: 42px; }
+  .mobile-brand-diamond { position: absolute; z-index: 1; right: 5px; top: 9px; width: 46px; height: 46px; border: 1px solid #111; background: #252b2d; transform: rotate(45deg); }
+  .mobile-brand-diamond::before, .mobile-brand-diamond::after { content: ""; position: absolute; }
+  .mobile-brand-diamond::before { inset: 8px; background: #fff; }
+  .mobile-brand-diamond::after { inset: 16px; background: linear-gradient(135deg, #ffb126 0%, #ff7b18 48%, #ff261e 100%); }
   .brand-wordmark { display: block; width: 82px; max-width: none; left: 19px; top: 14px; z-index: auto; }
-  .brand-smile { width: 78px; height: auto; left: calc(50% - 145px); top: 122px; z-index: 10; }
+  .brand-smile { width: 78px; height: auto; left: calc(50% - 145px); top: 106px; z-index: 10; }
   .download-app { display: none; }
   .store-shell { border-radius: 36px 36px 0 0; padding-top: 8px; margin-top: -29px; }
   .delivery-header { position: sticky; isolation: isolate; top: 20px; width: calc(100% - 16px); height: 118px; margin: 0 8px; border-radius: 30px; display: grid; grid-template-columns: 60px 108px minmax(0, 1fr); grid-template-rows: 60px 42px; column-gap: 4px; row-gap: 8px; padding: 0; background: white; box-shadow: 0 8px 0 #fff; }
