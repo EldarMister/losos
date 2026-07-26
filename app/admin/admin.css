@@ -213,6 +213,7 @@ button { cursor: pointer; }
 .admin-editor input, .admin-editor select, .admin-editor textarea { width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid #dfe2e8; border-radius: 10px; outline: 0; background: #fff; color: var(--admin-ink); font-weight: 400; }
 .admin-editor input:focus, .admin-editor select:focus, .admin-editor textarea:focus { border-color: #ff9d76; box-shadow: 0 0 0 3px #ff4b0b0d; }
 .admin-editor textarea { min-height: 82px; resize: vertical; }
+.admin-editor .admin-composition-field { min-height: 180px; }
 .admin-slug-hint { grid-column: 1 / -1; margin: -7px 0 14px; color: var(--admin-muted); font-size: 12px; }
 .admin-two-fields { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; }
 .admin-editor-product > .admin-image-field { grid-column: 2; grid-row: 2 / span 4; }
@@ -232,7 +233,11 @@ button { cursor: pointer; }
 .admin-modifier-rules { display: grid; grid-template-columns: 1fr 1fr .7fr .7fr 1.25fr .8fr; gap: 12px; margin-top: 12px; }
 .admin-modifier-rules label, .admin-modifier-item label { display: flex; flex-direction: column; gap: 5px; color: var(--admin-muted); font-size: 10px; font-weight: 700; }
 .admin-modifier-rules .admin-required { flex-direction: row; align-items: center; justify-content: space-between; }
-.admin-required input { width: 38px; min-height: 22px; accent-color: var(--admin-orange); }
+.admin-required input[type="checkbox"] { position: relative; box-sizing: border-box; width: 44px; min-width: 44px; height: 24px; min-height: 24px; margin: 0; padding: 0; appearance: none; border: 0; border-radius: 999px; outline: 0; background: #cfd5df; cursor: pointer; transition: background .18s ease; }
+.admin-required input[type="checkbox"]::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; display: block; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #2026333d; content: ""; transition: transform .18s ease; }
+.admin-required input[type="checkbox"]:checked { background: var(--admin-orange); }
+.admin-required input[type="checkbox"]:checked::after { transform: translateX(20px); }
+.admin-required input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px #0d65f633; }
 .admin-modifier-items { margin-top: 14px; border: 1px solid var(--admin-line); border-radius: 10px; }
 .admin-modifier-item { min-height: 62px; display: grid; grid-template-columns: 50px minmax(160px, 1.4fr) .7fr .7fr .7fr 34px; gap: 10px; align-items: center; padding: 8px; border-bottom: 1px solid var(--admin-line); }
 .admin-modifier-item:last-child { border-bottom: 0; }

@@ -3,9 +3,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
-import { YandexDeliveryMap, type DeliveryLocation } from "./YandexDeliveryMap";
+import type { DeliveryLocation } from "./YandexDeliveryMap";
+
+const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
 
 type SelectedModifier = {
   groupId: string;
@@ -430,7 +432,7 @@ const reconcilePromotions = (promotions: Promotion[]) => {
   return { cards, stories };
 };
 
-function ProductArt({ product, mode, loading }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" }) {
+function ProductArt({ product, mode, loading, fetchPriority }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" | "eager"; fetchPriority?: "high" | "auto" }) {
   if (mode === "detail") {
     return <img src={product.image} alt={product.name} loading="eager" fetchPriority="high" />;
   }
@@ -443,7 +445,7 @@ function ProductArt({ product, mode, loading }: { product: Product; mode: "card"
   if (product.referenceCard) {
     return <span className={`reference-card-art reference-card-${product.referenceCard}`} role="img" aria-label={product.name} />;
   }
-  return <img src={product.image} alt={product.name} loading={loading} />;
+  return <img src={product.image} alt={product.name} loading={loading} fetchPriority={fetchPriority} />;
 }
 
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
@@ -453,7 +455,6 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const searchParams = useSearchParams();
   const initialRegion = searchParams.get("region") === "osh" ? "osh" : "bishkek";
-  const usesRemoteCatalog = Boolean(STOREFRONT_API_URL);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
@@ -505,10 +506,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [modifierSelections, setModifierSelections] = useState<ModifierSelections>({});
-  const [catalogCategories, setCatalogCategories] = useState<Category[]>(() => usesRemoteCatalog ? [] : categories);
+  const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
-  const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(() => usesRemoteCatalog ? [] : null);
-  const [catalogLoading, setCatalogLoading] = useState(usesRemoteCatalog);
+  const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
   const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
@@ -661,10 +662,18 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     if (!search.trim()) return source;
     const query = search.trim().toLocaleLowerCase("ru");
     const matches = source.flatMap((category) => category.products)
-      .filter((product) => product.name.toLocaleLowerCase("ru").includes(query))
+      .filter((product) => [product.name, product.description, product.composition]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("ru")
+        .includes(query))
       .filter((product, index, products) => products.findIndex((candidate) => candidate.name === product.name) === index);
     return matches.length > 0 ? [{ slug: "search-results", title: "Нашли для вас", products: matches }] : [];
   }, [catalogCategories, categorySlug, search]);
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus({ preventScroll: true });
+  }, [searchOpen]);
 
   const currentStory = storyGroups[promoSlide] || storyGroups[0] || defaultStoryGroups[0];
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -1276,7 +1285,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         </div>
 
         <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
-          <label className={`search-pill ${searchOpen || search ? "search-open" : ""}`} onClick={() => { setSearchOpen(true); window.setTimeout(() => searchInputRef.current?.focus(), 0); }}><span>⌕</span><input ref={searchInputRef} value={search} onFocus={() => setSearchOpen(true)} onBlur={() => { if (!search) setSearchOpen(false); }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? "Что ищем?" : "Поиск"} aria-label="Поиск" /></label>
+          <div className={`search-pill ${searchOpen || search ? "search-open" : ""}`}><button className="search-toggle" type="button" onClick={() => setSearchOpen(true)} aria-label="Открыть поиск" aria-expanded={searchOpen || Boolean(search)}><span>⌕</span></button><input ref={searchInputRef} type="search" value={search} onFocus={() => setSearchOpen(true)} onBlur={() => { if (!search) setSearchOpen(false); }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? "Что ищем?" : "Поиск"} aria-label="Поиск блюд" /></div>
           {catalogCategories.map((category) => (
             <a
               key={category.slug}
@@ -1292,18 +1301,17 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в {city}</h1> : null}
           {catalogLoading ? <div className="empty-search">Загружаем меню…</div> : null}
           {!catalogLoading && visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
-          {visibleCategories.map((category) => (
+          {visibleCategories.map((category, categoryIndex) => (
             <section className="category-section" id={category.slug} key={category.slug}>
               {!categorySlug ? search.trim()
                 ? <h2 className="category-title">{category.title}</h2>
                 : <Link href={`/category/${category.slug}?region=${regionSlug}`} className="category-title">{category.title}</Link>
                 : null}
               <div className="product-grid">
-                {category.products.map((product) => (
+                {category.products.map((product, productIndex) => (
                   <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
-                      <ProductArt product={product} mode="card" loading="lazy" />
-                      {product.isNew ? <span className="product-new-badge">Новинка</span> : null}
+                      <ProductArt product={product} mode="card" loading={categoryIndex === 0 && productIndex < 6 ? "eager" : "lazy"} fetchPriority={categoryIndex === 0 && productIndex < 2 ? "high" : undefined} />
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
@@ -1363,7 +1371,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
           <div className={`product-modal product-modal-${selected.modalKind || "related"}`}>
             <button className="modal-close" onClick={closeProduct} aria-label="Закрыть">×</button>
-            <div className="modal-art"><ProductArt product={selected} mode="detail" />{selected.isNew ? <span className="modal-new-badge">Новинка</span> : null}</div>
+            <div className="modal-art"><ProductArt product={selected} mode="detail" /></div>
             <div className="modal-info">
               <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
               <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
@@ -1406,7 +1414,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   })}</div>
                 </section>;
               })}</div> : null}
-              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
+              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
               <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? `Добавить ${money(configuredModalTotal)}` : "Настройте блюдо"}</button></div>
             </div>
           </div>
@@ -1441,14 +1449,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map yandex-map-host"}`} style={deliveryType === "pickup" ? { backgroundImage: `url("${pickupMapBackground(pickupYandexUrl, regionSlug)}")` } : undefined}>
               <button className="map-back" onClick={closeAddress} aria-label="Назад">←</button>
               {deliveryType === "delivery" ? (
-                <YandexDeliveryMap
+                <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexDeliveryMap
                   inputId="delivery-address-input"
                   query={draftAddress}
                   region={regionSlug}
                   searchRequest={addressSearchRequest}
                   onQueryChange={setDraftAddress}
                   onLocationChange={setDeliveryLocation}
-                />
+                /></Suspense>
               ) : <>
                 <img className="map-marker pickup-map-marker" src="https://mnogolososya.ru/_nuxt/pickup-marker-disabled.DSAcVKbt.svg" alt="" />
                 <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
@@ -1528,7 +1536,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <h3>Вместе вкуснее</h3>
                     <div className="cart-related-grid">
                       {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
-                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew ? <span>Новинка</span> : null}</div>
+                        <div className="cart-related-art"><ProductArt product={product} mode="related" /></div>
                         <b>{product.name}</b>
                         <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => { if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div>
                       </article>)}
