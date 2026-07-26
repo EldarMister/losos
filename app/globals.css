@@ -99,7 +99,7 @@ a { color: inherit; text-decoration: none; }
 .reference-detail-card-art.reference-card-batat { background-position: -1683px -1023px; }
 .reference-detail-card-art.reference-card-cheese-sticks { background-position: -2295px -1023px; }
 .reference-detail-card-art.reference-card-crab-salmon { background-position: -2907px -1023px; }
-.product-new-badge, .modal-new-badge, .related-new-badge { position: absolute; z-index: 3; right: 12px; bottom: 12px; padding: 7px 12px; border-radius: 999px; background: var(--orange); color: white; font-size: 12px; line-height: 1; font-weight: 700; box-shadow: 0 4px 14px rgba(255,79,0,.25); }
+.product-new-badge, .modal-new-badge, .related-new-badge { position: absolute; z-index: 3; right: 9px; bottom: 8px; width: 78px; aspect-ratio: 1; display: grid; place-items: center; padding: 15px; clip-path: polygon(50% 0, 57% 18%, 68% 5%, 70% 24%, 86% 14%, 80% 31%, 100% 30%, 83% 43%, 99% 52%, 80% 58%, 91% 75%, 70% 70%, 70% 94%, 56% 78%, 48% 100%, 42% 79%, 27% 94%, 29% 72%, 7% 82%, 19% 61%, 0 54%, 18% 43%, 3% 29%, 25% 31%, 19% 12%, 38% 25%); background: radial-gradient(circle, #ff9a1f 0 38%, #ff4f00 40% 58%, #ff9200 60% 63%, #ff3d00 65%); color: #fff; font-size: 11px; line-height: .95; font-weight: 900; letter-spacing: -.3px; text-align: center; text-transform: uppercase; text-shadow: 0 1px 1px #bf2500; filter: drop-shadow(0 4px 6px rgba(255,79,0,.3)); }
 .product-card.unavailable::after { content: ""; position: absolute; inset: 0; z-index: 10; border-radius: 32px; background: rgba(255,255,255,.25); pointer-events: none; }
 .product-finished { position: absolute; z-index: 11; left: 50%; top: 70px; width: 120px; height: 40px; display: grid; place-items: center; transform: translateX(-50%); border-radius: 50px; background: rgba(255,255,255,.6); font-size: 15px; line-height: 20px; }
 .product-body { height: 133.2px; flex: 0 0 133.2px; min-height: 0; padding: 10px 12px 12px 16px; display: flex; flex-direction: column; justify-content: flex-end; }
@@ -131,7 +131,7 @@ a { color: inherit; text-decoration: none; }
 .reference-detail-art { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
 .reference-detail-popcorn { background-image: url("/reference-popcorn-detail.png"); background-size: clamp(1536px, 120vw, 1920px) clamp(862.4px, 67.375vw, 1078px); background-position: clamp(-235px, -14.6875vw, -188px) clamp(-134px, -8.375vw, -107.2px); }
 .reference-detail-wasabi { background-image: url("/reference-wasabi-detail.png"); background-size: clamp(1536px, 120vw, 1920px) clamp(862.4px, 67.375vw, 1078px); background-position: clamp(-393.75px, -24.609375vw, -315px) clamp(-134px, -8.375vw, -107px); }
-.modal-new-badge { right: 24px; bottom: 24px; padding: 9px 15px; font-size: 13px; }
+.modal-new-badge { right: 24px; bottom: 24px; width: 102px; padding: 19px; font-size: 14px; }
 .modal-info { min-width: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: none; }
 .modal-info::-webkit-scrollbar { display: none; }
 .modal-arrows { flex: 0 0 57px; height: 57px; color: #aaa; font-size: 12px; text-align: left; margin: 0; padding: 20px 20px 12px; }
@@ -156,7 +156,7 @@ a { color: inherit; text-decoration: none; }
 .related-image { position: relative; height: 145px; flex: 0 0 145px; overflow: hidden; }
 .related-image img { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
 .related-row article > span { min-height: 32px; font-size: 12px; line-height: 16px; overflow: hidden; }
-.related-new-badge { right: 0; bottom: 0; padding: 6px 9px; font-size: 10px; }
+.related-new-badge { right: 0; bottom: 0; width: 56px; padding: 11px; font-size: 8px; }
 .related-actions { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 8px; }
 .related-actions b { font-size: 12px; font-weight: 500; }
 .related-actions button { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: var(--orange); font-size: 26px; font-weight: 300; line-height: 1; }
@@ -513,7 +513,7 @@ a { color: inherit; text-decoration: none; }
   .product-name { font-size: 15px; line-height: 22px; max-height: 44px; }
   .product-actions { font-size: 15px; line-height: 22px; }
   .product-actions button { width: 37.6px; height: 37.6px; font-size: 25px; }
-  .product-new-badge { right: 8px; bottom: 8px; padding: 6px 9px; font-size: 10px; }
+  .product-new-badge { right: 7px; bottom: 7px; width: 62px; padding: 12px; font-size: 9px; }
   .footer { min-height: 430px; padding: 32px 20px 96px; grid-template-columns: 1fr; grid-template-areas: "brand" "contacts" "app" "links" "legal"; row-gap: 20px; }
   .footer-contacts { align-items: flex-start; flex-direction: column; gap: 12px; }
   .footer-legal { margin-top: 0; }

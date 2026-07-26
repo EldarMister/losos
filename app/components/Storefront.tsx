@@ -1303,7 +1303,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading="lazy" />
-                      {product.isNew && !product.referenceCard ? <span className="product-new-badge">Новинка</span> : null}
+                      {product.isNew ? <span className="product-new-badge">Новинка</span> : null}
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
@@ -1363,7 +1363,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay product-overlay" role="dialog" aria-modal="true" aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
           <div className={`product-modal product-modal-${selected.modalKind || "related"}`}>
             <button className="modal-close" onClick={closeProduct} aria-label="Закрыть">×</button>
-            <div className="modal-art"><ProductArt product={selected} mode="detail" />{selected.isNew && !selected.referenceCard ? <span className="modal-new-badge">Новинка</span> : null}</div>
+            <div className="modal-art"><ProductArt product={selected} mode="detail" />{selected.isNew ? <span className="modal-new-badge">Новинка</span> : null}</div>
             <div className="modal-info">
               <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
               <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
@@ -1406,7 +1406,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   })}</div>
                 </section>;
               })}</div> : null}
-              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew && !product.referenceCard ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
+              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" />{product.isNew ? <span className="related-new-badge">Новинка</span> : null}</div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
               <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? `Добавить ${money(configuredModalTotal)}` : "Настройте блюдо"}</button></div>
             </div>
           </div>
@@ -1528,7 +1528,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <h3>Вместе вкуснее</h3>
                     <div className="cart-related-grid">
                       {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
-                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew && !product.referenceCard ? <span>Новинка</span> : null}</div>
+                        <div className="cart-related-art"><ProductArt product={product} mode="related" />{product.isNew ? <span>Новинка</span> : null}</div>
                         <b>{product.name}</b>
                         <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => { if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div>
                       </article>)}
