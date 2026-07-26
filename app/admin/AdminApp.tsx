@@ -559,7 +559,7 @@ export function AdminApp() {
   }
 
   const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Меню" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
-  const tabIcon: Record<Tab, string> = { orders: "▣", products: "♨", promotions: "✿", categories: "▦", settings: "⚙" };
+  const tabIcon: Record<Tab, string> = { orders: "▤", products: "☰", promotions: "✦", categories: "▦", settings: "⚙" };
   const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все статусы" },
     { value: "new", label: "Новые" },

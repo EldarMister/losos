@@ -1292,7 +1292,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       <footer className="footer" id="contacts">
         <div className="footer-brand"><img className="footer-logo" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><span>© 2026 ООО «Гастрономия»</span></div>
         <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
-        <div className="footer-contacts"><a href="tel:+996503178916">0503 178 916</a><a href="mailto:musaev.janybek.kg@gmail.com">musaev.janybek.kg@gmail.com</a></div>
+        <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href="tel:+996503178916">0503 178 916</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href="mailto:musaev.janybek.kg@gmail.com">musaev.janybek.kg@gmail.com</a></span></div>
         <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
         <p className="footer-legal">ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48</p>
       </footer>
