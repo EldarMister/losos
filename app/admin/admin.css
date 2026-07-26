@@ -126,7 +126,13 @@ button { cursor: pointer; }
 .admin-product > strong { font-size: 13px; }
 .admin-product > i { width: fit-content; padding: 6px 9px; border-radius: 7px; background: #f1f2f4; color: #777b85; font-size: 11px; font-style: normal; }
 .admin-product > i.available { background: #e6f7ec; color: var(--admin-green); }
-.admin-row-actions { justify-self: end; color: #8f94a1; font-size: 18px; white-space: nowrap; }
+.admin-product-actions { position: relative; justify-self: end; }
+.admin-product-actions > button { width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: #778093; font-size: 22px; line-height: 1; }
+.admin-product-actions > button:hover, .admin-product-actions > button[aria-expanded="true"] { background: #fff0ea; color: var(--admin-orange); }
+.admin-product-action-menu { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; width: 196px; padding: 6px; border: 1px solid var(--admin-line); border-radius: 11px; background: #fff; box-shadow: 0 14px 28px #1f243524; }
+.admin-product-action-menu button { width: 100%; min-height: 36px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: #3d414b; text-align: left; }
+.admin-product-action-menu button:hover { background: #fff4ef; color: var(--admin-orange); }
+.admin-product-action-menu button.delete { color: #cf3434; }
 .admin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .admin-promotion { overflow: hidden; display: flex; flex-direction: column; padding: 0; border: 1px solid var(--admin-line); border-radius: 14px; background: #fff; color: var(--admin-ink); text-align: left; }
 .admin-promotion img { width: 100%; aspect-ratio: 1.8; object-fit: cover; background: #f3f4f6; }
@@ -210,8 +216,8 @@ button { cursor: pointer; }
 .admin-switch { grid-column: 2; flex-direction: row !important; align-items: center; justify-content: space-between; min-height: 68px; padding: 12px 16px; border: 1px solid var(--admin-line); border-radius: 10px; }
 .admin-switch span { display: flex; flex-direction: column; gap: 5px; }
 .admin-switch small { color: var(--admin-muted); font-weight: 400; }
-.admin-switch input[type="checkbox"] { width: 44px; min-width: 44px; min-height: 24px; height: 24px; margin: 0; appearance: none; border: 0; border-radius: 999px; outline: 0; background: #cfd5df; cursor: pointer; transition: background .18s ease; }
-.admin-switch input[type="checkbox"]::after { width: 18px; height: 18px; display: block; margin: 3px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #2026333d; content: ""; transition: transform .18s ease; }
+.admin-switch input[type="checkbox"] { position: relative; box-sizing: border-box; width: 44px; min-width: 44px; height: 24px; min-height: 24px; flex: 0 0 44px; margin: 0; padding: 0 !important; appearance: none; border: 0; border-radius: 999px; outline: 0; background: #cfd5df; cursor: pointer; transition: background .18s ease; }
+.admin-switch input[type="checkbox"]::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; display: block; margin: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #2026333d; content: ""; transition: transform .18s ease; }
 .admin-switch input[type="checkbox"]:checked { background: #0d65f6; }
 .admin-switch input[type="checkbox"]:checked::after { transform: translateX(20px); }
 .admin-switch input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px #0d65f633; }
@@ -261,7 +267,7 @@ button { cursor: pointer; }
   .admin-table-head, .admin-order-card { grid-template-columns: 95px minmax(120px, 1fr) minmax(140px, 1.2fr) 98px 96px 16px; }
   .admin-table-head span:nth-last-child(1), .admin-order-time { display: none; }
   .admin-products-head { grid-template-columns: 1.7fr 1fr .7fr .8fr; }
-  .admin-products-head span:last-child, .admin-row-actions { display: none; }
+  .admin-products-head span:last-child, .admin-product-actions { display: none; }
   .admin-product { grid-template-columns: 70px minmax(170px, 1.5fr) 1fr .7fr .8fr; }
 }
 

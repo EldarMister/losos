@@ -211,6 +211,7 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState<"all" | string>("all");
+  const [openProductActions, setOpenProductActions] = useState<number | null>(null);
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
   const [orderPeriod, setOrderPeriod] = useState<OrderPeriod>("all");
   const [orderPage, setOrderPage] = useState(1);
@@ -281,6 +282,16 @@ export function AdminApp() {
     document.addEventListener("pointerdown", closeMenu);
     return () => document.removeEventListener("pointerdown", closeMenu);
   }, [openOrderMenu]);
+
+  useEffect(() => {
+    if (openProductActions === null) return;
+    const closeActions = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && !target.closest(".admin-product-actions")) setOpenProductActions(null);
+    };
+    document.addEventListener("pointerdown", closeActions);
+    return () => document.removeEventListener("pointerdown", closeActions);
+  }, [openProductActions]);
 
   const loadDashboard = useCallback(async () => {
     if (!token) return;
@@ -454,6 +465,35 @@ export function AdminApp() {
       await loadDashboard();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось удалить");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProductAvailability = async (product: Product) => {
+    setOpenProductActions(null);
+    setLoading(true);
+    try {
+      await request(`/admin/products/${product.id}`, { method: "PATCH", body: JSON.stringify({ available: !product.available }) });
+      setMessage(product.available ? "Блюдо снято с продажи" : "Блюдо доступно для заказа");
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось изменить доступность блюда");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteProduct = async (product: Product) => {
+    setOpenProductActions(null);
+    if (!window.confirm(`Удалить блюдо «${product.name}» без возможности восстановления?`)) return;
+    setLoading(true);
+    try {
+      await request(`/admin/products/${product.id}`, { method: "DELETE" });
+      setMessage("Блюдо удалено");
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось удалить блюдо");
     } finally {
       setLoading(false);
     }
@@ -679,14 +719,14 @@ export function AdminApp() {
 
       {tab === "products" ? <div className="admin-products-table">
         <div className="admin-products-head"><span>Блюдо</span><span>Категория</span><span>Цена</span><span>Статус</span><span>Действия</span></div>
-        {visibleProducts.map((product) => <button className="admin-product" key={product.id} onClick={() => openProduct(product)}>
+        {visibleProducts.map((product) => <article className="admin-product" key={product.id} onClick={() => openProduct(product)}>
           <img src={product.image} alt="" />
           <span><b>{product.name}</b><small>ID: {product.id}</small></span>
           <span className="admin-product-category">{product.categoryTitle}</span>
           <strong>{product.price} сом</strong>
           <i className={product.available ? "available" : ""}>{product.available ? "В продаже" : "Недоступно"}</i>
-          <span className="admin-row-actions">⌕&nbsp;&nbsp; ⋮</span>
-        </button>)}
+          <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
+        </article>)}
       </div> : null}
 
       {tab === "promotions" ? <div className="admin-grid admin-promotions">
