@@ -96,6 +96,15 @@ function yandexErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+function organizationIdFromUri(uri?: string) {
+  if (!uri) return null;
+  try {
+    return new URL(uri).searchParams.get("oid");
+  } catch {
+    return null;
+  }
+}
+
 type YandexDeliveryMapProps = {
   inputId: string;
   query: string;
@@ -300,7 +309,29 @@ export function YandexDeliveryMap({
 
       try {
         const request = new RegExp(config.city, "i").test(trimmed) ? trimmed : `${config.city}, ${trimmed}`;
-        const result = await (window as any).ymaps.geocode(uri || request, {
+        const organizationId = organizationIdFromUri(uri);
+        if (organizationId) {
+          try {
+            const organization = await (window as any).ymaps.findOrganization(organizationId);
+            if (cancelled) return;
+            const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
+            if (organizationPoint && isInsideBounds(organizationPoint, config.bounds)) {
+              updatePoint(organizationPoint, 17);
+              suppressSuggestionsRef.current = trimmed;
+              onQueryChange(trimmed);
+              onLocationChange({ address: trimmed, coordinates: organizationPoint });
+              setMessage("Место найдено");
+              return;
+            }
+          } catch (error) {
+            // Для организаций, которые нельзя получить через JS API, используем поиск по названию.
+            console.warn("Yandex organization lookup failed", error);
+          }
+        }
+
+        // URI из Геосаджеста предназначен для HTTP Geocoder API. В JS API ищем по названию,
+        // иначе метка остаётся на прежнем месте для организаций.
+        const result = await (window as any).ymaps.geocode(request, {
           boundedBy: config.bounds,
           strictBounds: true,
           results: 5,

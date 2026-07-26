@@ -130,6 +130,7 @@ a { color: inherit; text-decoration: none; }
 .product-modal { width: min(1160px, calc(100vw - 40px)); height: min(920px, calc(100dvh - 40px)); background: var(--soft); border-radius: 40px; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(376px, 400px); }
 .product-modal-simple { width: min(905px, calc(100vw - 40px)); grid-template-columns: 64% 36%; }
 .modal-close { position: absolute; z-index: 3; right: 18px; top: 14px; background: transparent; color: #8d8d92; font-size: 34px; line-height: 1; }
+.address-panel > .modal-close { top: 8px; }
 .modal-art { position: relative; min-width: 0; display: grid; place-items: center; overflow: hidden; background: var(--soft); }
 .modal-art img { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: normal; }
 .reference-detail-art { display: block; width: 100%; height: 100%; background-repeat: no-repeat; }
