@@ -19,6 +19,7 @@ import { AddOrderCoordinates1784982000000 } from "./migrations/1784982000000-Add
 import { AddScopedModifierPricing1784983000000 } from "./migrations/1784983000000-AddScopedModifierPricing";
 import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRegionContacts";
 import { AddRegionPickupAndFooter1784985000000 } from "./migrations/1784985000000-AddRegionPickupAndFooter";
+import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { AddRegionPickupAndFooter1784985000000 } from "./migrations/178498500000
             AddScopedModifierPricing1784983000000,
             AddRegionContacts1784984000000,
             AddRegionPickupAndFooter1784985000000,
+            AddProductOldPrice1784986000000,
           ],
           migrationsRun: true,
           synchronize:
