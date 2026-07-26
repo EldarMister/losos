@@ -205,6 +205,7 @@ export function AdminApp() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState<"all" | string>("all");
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
   const [orderPeriod, setOrderPeriod] = useState<OrderPeriod>("all");
   const [orderPage, setOrderPage] = useState(1);
@@ -342,8 +343,9 @@ export function AdminApp() {
     return matchesStatus && (!normalizedSearch || haystack.includes(normalizedSearch));
   }), [normalizedSearch, orderFilter, orders]);
   const visibleProducts = useMemo(() => products.filter((product) =>
-    !normalizedSearch || `${product.name} ${product.categoryTitle} ${product.id}`.toLocaleLowerCase("ru").includes(normalizedSearch)
-  ), [normalizedSearch, products]);
+    (productCategoryFilter === "all" || String(product.categoryId) === productCategoryFilter)
+    && (!normalizedSearch || `${product.name} ${product.categoryTitle} ${product.id}`.toLocaleLowerCase("ru").includes(normalizedSearch))
+  ), [normalizedSearch, productCategoryFilter, products]);
   const visiblePromotions = useMemo(() => (dashboard?.promotions || []).filter((promotion) =>
     !normalizedSearch || promotion.title.toLocaleLowerCase("ru").includes(normalizedSearch)
   ), [dashboard?.promotions, normalizedSearch]);
@@ -353,7 +355,7 @@ export function AdminApp() {
 
   const openProduct = (product?: Product & { categoryId: number }) => {
     if (!product) {
-      setEditor(emptyProduct(String(dashboard?.categories[0]?.id || "")));
+      setEditor(emptyProduct(productCategoryFilter === "all" ? String(dashboard?.categories[0]?.id || "") : productCategoryFilter));
       return;
     }
     setEditor({
@@ -549,7 +551,7 @@ export function AdminApp() {
     </main>;
   }
 
-  const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Блюда" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
+  const tabTitle = tab === "orders" ? "Заказы" : tab === "products" ? "Меню" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
   const tabIcon: Record<Tab, string> = { orders: "▣", products: "♨", promotions: "✿", categories: "▦", settings: "⚙" };
   const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все статусы" },
@@ -575,9 +577,9 @@ export function AdminApp() {
 
     <aside className="admin-sidebar">
       <nav>
-        {(["orders", "products", "promotions", "categories"] as Tab[]).map((item) =>
+        {(["orders", "products", "promotions"] as Tab[]).map((item) =>
           <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-            <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
+            <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
           </button>)}
       </nav>
       <div>
@@ -586,9 +588,9 @@ export function AdminApp() {
     </aside>
 
     <nav className="admin-mobile-nav">
-      {(["orders", "products", "promotions", "categories"] as Tab[]).map((item) =>
+      {(["orders", "products", "promotions"] as Tab[]).map((item) =>
         <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-          <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Блюда" : item === "promotions" ? "Акции" : "Категории"}</span>
+          <i>{tabIcon[item]}</i><span>{item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
         </button>)}
       <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
     </nav>
@@ -610,7 +612,8 @@ export function AdminApp() {
         </div>
         {tab === "orders" ? null : tab === "settings"
           ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
-          : <button className="admin-add" onClick={() => tab === "products" ? openProduct() : tab === "promotions" ? openPromotion() : openCategory()}>＋ Добавить {tab === "products" ? "блюдо" : tab === "promotions" ? "акцию" : "категорию"}</button>}
+          : tab === "products" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => openCategory()}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+          : <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>}
       </div>
 
       {tab === "orders" ? <>
@@ -658,6 +661,13 @@ export function AdminApp() {
 
       {tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
         <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === "products" ? "Поиск по названию блюда" : tab === "promotions" ? "Поиск по акциям" : "Поиск по категориям"} /></label>
+      </div> : null}
+
+      {tab === "products" ? <div className="admin-mobile-menu-actions"><button type="button" className="admin-category-add" onClick={() => openCategory()}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div> : null}
+
+      {tab === "products" ? <div className="admin-menu-categories" aria-label="Категории меню">
+        <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
+        {(dashboard?.categories || []).map((category) => <button type="button" key={category.id} className={productCategoryFilter === String(category.id) ? "active" : ""} onClick={() => setProductCategoryFilter(String(category.id))}>{category.title} <span>{category.products.length}</span></button>)}
       </div> : null}
 
       {tab === "products" ? <div className="admin-products-table">
