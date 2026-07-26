@@ -330,7 +330,7 @@ button { cursor: pointer; }
   .admin-region-editor .admin-editor-head { margin: -20px -16px 20px; padding: 18px 16px; }
   .admin-region-editor .admin-two-fields { grid-template-columns: 1fr; }
   .admin-order-detail { height: 100%; padding: 22px 18px 100px; border: 0; }
-  .admin-order-detail .admin-editor-head > button { position: static; font-size: 23px; }
+  .admin-order-detail .admin-editor-head > button { position: absolute; top: 0; left: 0; font-size: 23px; }
   .admin-order-detail .admin-editor-head > button::after { content: none; }
   .admin-order-actions { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
   .admin-login { padding: 18px; }
