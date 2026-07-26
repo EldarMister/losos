@@ -146,6 +146,11 @@ const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
 
 const formatOrderNumber = (id: string) => `№ ${id.slice(0, 8).toUpperCase()}`;
 const ordersPerPage = 10;
+const slugify = (value: string) => {
+  const letters: Record<string, string> = { а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya" };
+  return value.toLowerCase().split("").map((letter) => letters[letter] ?? letter).join("")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+};
 
 const emptyProduct = (categoryId = ""): Editor => ({
   kind: "product",
@@ -415,7 +420,9 @@ export function AdminApp() {
     event.preventDefault();
     if (!editor) return;
     const numberFields = ["categoryId", "price", "sortOrder", "weight", "calories", "protein", "fat", "carbs"];
-    const payload = Object.fromEntries(Object.entries(editor.values).map(([key, value]) =>
+    const editorValues = { ...editor.values };
+    if (!editor.id && editor.kind !== "promotion") editorValues.slug = slugify(String(editorValues.title || editorValues.name || "")) || `${editor.kind}-${Date.now()}`;
+    const payload = Object.fromEntries(Object.entries(editorValues).map(([key, value]) =>
       [key, numberFields.includes(key) ? Number(value) : value]));
     if (!editor.id) payload.regionSlug = region;
     const resource = editor.kind === "product" ? "products" : editor.kind === "promotion" ? "promotions" : "categories";
@@ -716,7 +723,7 @@ export function AdminApp() {
       </div> : null}
     </section>
 
-    {editor ? <div className="admin-editor-overlay admin-editor-page" role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditor(null); }}>
+    {editor ? <div className={`admin-editor-overlay admin-editor-page${editor.kind === "category" ? " admin-category-overlay" : ""}`} role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditor(null); }}>
       <form className={`admin-editor admin-editor-${editor.kind}`} onSubmit={saveEditor}>
         <div className="admin-editor-head">
           <span><b>{editor.id ? "Редактирование" : "Добавление"} {editor.kind === "product" ? "блюда" : editor.kind === "promotion" ? "акции" : "категории"}</b></span>
@@ -724,7 +731,7 @@ export function AdminApp() {
         </div>
 
         <label>Название<input required value={String(editor.values.title || editor.values.name || "")} onChange={(event) => updateValue(editor.kind === "product" ? "name" : "title", event.target.value)} /></label>
-        {editor.kind !== "promotion" ? <label>Адрес в ссылке<input required value={String(editor.values.slug || "")} onChange={(event) => updateValue("slug", event.target.value.toLowerCase().replace(/\s+/g, "-"))} placeholder="filadelfiya" /></label> : null}
+        {editor.kind !== "promotion" ? <p className="admin-slug-hint">Адрес страницы на сайте сформируется автоматически из названия.</p> : null}
         {editor.kind === "product" ? <>
           <div className="admin-two-fields">
             <label>Категория<select value={String(editor.values.categoryId || "")} onChange={(event) => updateValue("categoryId", event.target.value)}>{dashboard?.categories.map((category) => <option value={category.id} key={category.id}>{category.title}</option>)}</select></label>
