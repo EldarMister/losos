@@ -37,6 +37,11 @@ export class CreateRegionDto {
   @IsOptional() @IsString() @MaxLength(40) contactPhone = "";
   @IsOptional() @IsString() @MaxLength(160) contactEmail = "";
   @IsOptional() @IsString() @MaxLength(240) contactAddress = "";
+  @IsOptional() @IsString() @MaxLength(240) pickupAddress = "";
+  @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl = "";
+  @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours = "";
+  @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
+  @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
 }
 
 export class UpdateRegionDto {
@@ -46,6 +51,11 @@ export class UpdateRegionDto {
   @IsOptional() @IsString() @MaxLength(40) contactPhone?: string;
   @IsOptional() @IsString() @MaxLength(160) contactEmail?: string;
   @IsOptional() @IsString() @MaxLength(240) contactAddress?: string;
+  @IsOptional() @IsString() @MaxLength(240) pickupAddress?: string;
+  @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl?: string;
+  @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours?: string;
+  @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
+  @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
 }
 
 export class ProductModifierItemDto {

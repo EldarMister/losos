@@ -262,8 +262,13 @@ button { cursor: pointer; }
 .admin-region-editor .admin-editor-head { margin: -24px -24px 22px; padding: 20px 24px; }
 .admin-region-editor > label { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; font-size: 12px; font-weight: 700; }
 .admin-region-editor input { width: 100%; min-height: 44px; padding: 10px 13px; border: 1px solid #dfe2e8; border-radius: 10px; }
+.admin-region-editor textarea { width: 100%; min-height: 78px; padding: 10px 13px; border: 1px solid #dfe2e8; border-radius: 10px; resize: vertical; }
 .admin-region-editor .admin-switch { margin: 0; }
 .admin-region-editor .admin-editor-actions { margin-top: 24px; }
+.admin-region-block { display: grid; gap: 12px; margin-top: 22px; padding: 18px; border: 1px solid var(--admin-line); border-radius: 12px; background: #fbfcfd; }
+.admin-region-block > b { font-size: 15px; }
+.admin-region-block > small { margin-top: -7px; color: var(--admin-muted); }
+.admin-region-block label { display: grid; gap: 8px; color: #31333a; font-size: 12px; font-weight: 700; }
 .admin-category-overlay { inset: 0; place-items: center; padding: 20px; background: #1b1d2180; backdrop-filter: blur(4px); }
 .admin-category-overlay .admin-editor { width: min(100%, 520px); display: grid; grid-template-columns: 1fr; padding: 24px; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 28px 80px #10141930; }
 .admin-category-overlay .admin-editor-head { margin: -24px -24px 22px; padding: 20px 24px; }

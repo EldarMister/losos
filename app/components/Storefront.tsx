@@ -30,7 +30,17 @@ type PendingCartLine = {
   modifiers: SelectedModifier[];
 };
 type DeliveryType = "delivery" | "pickup";
-type RegionOption = { slug: "bishkek" | "osh"; name: string };
+type RegionOption = {
+  slug: "bishkek" | "osh";
+  name: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  pickupAddress?: string;
+  pickupYandexUrl?: string;
+  pickupWorkingHours?: string;
+  footerCompanyName?: string;
+  footerLegalInfo?: string;
+};
 type Promotion = { id: number; title: string; image: string; cta?: string; ctaUrl?: string };
 type CheckoutForm = {
   customerName: string;
@@ -69,6 +79,17 @@ const STOREFRONT_API_URL = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
+const pickupMapBackground = (yandexUrl: string | undefined, region: "bishkek" | "osh") => {
+  const fallbackCoordinates = region === "osh" ? "72.8161,40.513" : "74.5698,42.8746";
+  let coordinates = fallbackCoordinates;
+  try {
+    const fromLink = yandexUrl ? new URL(yandexUrl).searchParams.get("ll") : null;
+    if (fromLink && /^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(fromLink)) coordinates = fromLink;
+  } catch {
+    // The map still shows the city when an incomplete link is entered.
+  }
+  return `https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=${encodeURIComponent(coordinates)}&z=16&l=map&size=650,650`;
+};
 const cartKitItems = [
   {
     name: "Соевый соус",
@@ -438,6 +459,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
   const [regionSlug, setRegionSlug] = useState<"bishkek" | "osh">(initialRegion);
   const [regionOptions, setRegionOptions] = useState<RegionOption[]>(defaultRegions);
+  const selectedRegion = regionOptions.find((option) => option.slug === regionSlug);
+  const pickupAddress = selectedRegion?.pickupAddress || (regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123");
+  const pickupHours = selectedRegion?.pickupWorkingHours || "Ежедневно, без выходных\n11:30 – 22:30";
+  const pickupYandexUrl = selectedRegion?.pickupYandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
+  const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
+  const footerEmail = selectedRegion?.contactEmail || "musaev.janybek.kg@gmail.com";
+  const footerCompanyName = selectedRegion?.footerCompanyName || "ООО «Гастрономия»";
+  const footerLegalInfo = selectedRegion?.footerLegalInfo || "ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48";
   const [cityOpen, setCityOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [compositionOpen, setCompositionOpen] = useState(false);
@@ -745,7 +774,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   const savePickup = () => {
     if (!pickupLocationSelected) return;
-    setAddress(regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123");
+    setAddress(pickupAddress);
     setAddressOpen(false);
     finishPendingCartAdd();
     if (resumeCheckoutAfterAddress) {
@@ -1290,11 +1319,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       </div>
 
       <footer className="footer" id="contacts">
-        <div className="footer-brand"><img className="footer-logo" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><span>© 2026 ООО «Гастрономия»</span></div>
+        <div className="footer-brand"><img className="footer-logo" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><span>© 2026 {footerCompanyName}</span></div>
         <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
-        <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href="tel:+996503178916">0503 178 916</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href="mailto:musaev.janybek.kg@gmail.com">musaev.janybek.kg@gmail.com</a></span></div>
+        <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
-        <p className="footer-legal">ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48</p>
+        <p className="footer-legal">{footerLegalInfo}</p>
       </footer>
 
       {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}>Корзина · {money(cartTotal)}</button> : null}
@@ -1409,7 +1438,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {addressOpen ? (
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
-            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map yandex-map-host"}`}>
+            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map yandex-map-host"}`} style={deliveryType === "pickup" ? { backgroundImage: `url("${pickupMapBackground(pickupYandexUrl, regionSlug)}")` } : undefined}>
               <button className="map-back" onClick={closeAddress} aria-label="Назад">←</button>
               {deliveryType === "delivery" ? (
                 <YandexDeliveryMap
@@ -1423,7 +1452,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               ) : <>
                 <img className="map-marker pickup-map-marker" src="https://mnogolososya.ru/_nuxt/pickup-marker-disabled.DSAcVKbt.svg" alt="" />
                 <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
-                <div className="map-attribution"><span>📍 Открыть Яндекс Карты</span><small>© Яндекс&nbsp; Условия использования</small></div>
+                <div className="map-attribution"><a href={pickupYandexUrl} target="_blank" rel="noreferrer">📍 Открыть Яндекс Карты</a><small>© Яндекс&nbsp; Условия использования</small></div>
               </>}
             </div>
             <div className="address-panel">
@@ -1438,7 +1467,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               {deliveryType === "pickup" ? <>
                 <h2>Самовывоз</h2><p>Выберите точку для самовывоза<br />из доступных в списке или на карте</p>
                 <div className="address-input muted">{city} <span>×</span></div>
-                <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>{regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123"}</b><small>Ежедневно, без выходных<br />11:30 – 22:30</small></span></button>
+                <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>{pickupAddress}</b><small>{pickupHours}</small></span></button>
                 <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
               </> : <>
                 <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером,<br />выберите подсказку или точку на карте</p>

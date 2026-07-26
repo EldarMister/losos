@@ -18,6 +18,7 @@ import { AllowFractionalWeight1784981000000 } from "./migrations/1784981000000-A
 import { AddOrderCoordinates1784982000000 } from "./migrations/1784982000000-AddOrderCoordinates";
 import { AddScopedModifierPricing1784983000000 } from "./migrations/1784983000000-AddScopedModifierPricing";
 import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRegionContacts";
+import { AddRegionPickupAndFooter1784985000000 } from "./migrations/1784985000000-AddRegionPickupAndFooter";
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRe
             AddOrderCoordinates1784982000000,
             AddScopedModifierPricing1784983000000,
             AddRegionContacts1784984000000,
+            AddRegionPickupAndFooter1784985000000,
           ],
           migrationsRun: true,
           synchronize:

@@ -3,7 +3,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -109,8 +109,8 @@ const apiUrl = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", footerCompanyName: "", footerLegalInfo: "" },
 ];
 const defaultRegionByTab: Record<Tab, string> = {
   statistics: "bishkek",
@@ -619,6 +619,11 @@ export function AdminApp() {
       contactPhone: item.contactPhone || "",
       contactEmail: item.contactEmail || "",
       contactAddress: item.contactAddress || "",
+      pickupAddress: item.pickupAddress || "",
+      pickupYandexUrl: item.pickupYandexUrl || "",
+      pickupWorkingHours: item.pickupWorkingHours || "",
+      footerCompanyName: item.footerCompanyName || "",
+      footerLegalInfo: item.footerLegalInfo || "",
     },
   } : {
     values: {
@@ -629,6 +634,11 @@ export function AdminApp() {
       contactPhone: "",
       contactEmail: "",
       contactAddress: "",
+      pickupAddress: "",
+      pickupYandexUrl: "",
+      pickupWorkingHours: "",
+      footerCompanyName: "",
+      footerLegalInfo: "",
     },
   });
 
@@ -835,6 +845,7 @@ export function AdminApp() {
               <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug}</small></span>
               <span><small>Телефон</small><b>{item.contactPhone || "Не указан"}</b></span>
               <span><small>Почта</small><b>{item.contactEmail || "Не указана"}</b></span>
+              <span><small>Самовывоз</small><b>{item.pickupAddress || "Не указан"}</b></span>
               <i className={item.enabled ? "enabled" : ""}>{item.enabled ? "Активен" : "Скрыт"}</i>
               <strong>Изменить →</strong>
             </button>)}
@@ -902,6 +913,17 @@ export function AdminApp() {
           <label>Электронная почта<input type="email" value={String(regionEditor.values.contactEmail)} onChange={(event) => updateRegionValue("contactEmail", event.target.value)} placeholder="hello@example.com" /></label>
         </div>
         <label>Адрес самовывоза или офиса<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Улица, дом" /></label>
+        <div className="admin-region-block">
+          <b>Самовывоз</b><small>Эти данные увидит клиент при выборе самовывоза.</small>
+          <label>Адрес точки самовывоза<input value={String(regionEditor.values.pickupAddress)} onChange={(event) => updateRegionValue("pickupAddress", event.target.value)} placeholder="Ош, улица Курманжан-Датка, 123" /></label>
+          <label>Ссылка на Яндекс Карты<input type="url" value={String(regionEditor.values.pickupYandexUrl)} onChange={(event) => updateRegionValue("pickupYandexUrl", event.target.value)} placeholder="https://yandex.ru/maps/..." /></label>
+          <label>Время работы<input value={String(regionEditor.values.pickupWorkingHours)} onChange={(event) => updateRegionValue("pickupWorkingHours", event.target.value)} placeholder="Ежедневно, 11:30 – 22:30" /></label>
+        </div>
+        <div className="admin-region-block">
+          <b>Футер сайта</b><small>Контакты внизу витрины для выбранного города.</small>
+          <label>Название компании<input value={String(regionEditor.values.footerCompanyName)} onChange={(event) => updateRegionValue("footerCompanyName", event.target.value)} placeholder="ООО «Гастрономия»" /></label>
+          <label>Юридическая информация<textarea value={String(regionEditor.values.footerLegalInfo)} onChange={(event) => updateRegionValue("footerLegalInfo", event.target.value)} placeholder="ОГРН, адрес и другая информация" /></label>
+        </div>
         <div className="admin-two-fields">
           <label>Порядок<input type="number" min="0" value={String(regionEditor.values.sortOrder)} onChange={(event) => updateRegionValue("sortOrder", event.target.value)} /></label>
           <label className="admin-switch"><span><b>Город активен</b><small>Показывается на витрине</small></span><input type="checkbox" checked={Boolean(regionEditor.values.enabled)} onChange={(event) => updateRegionValue("enabled", event.target.checked)} /></label>

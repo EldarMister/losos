@@ -29,6 +29,21 @@ export class Region {
   @Column({ default: "" })
   contactAddress!: string;
 
+  @Column({ default: "" })
+  pickupAddress!: string;
+
+  @Column({ default: "" })
+  pickupYandexUrl!: string;
+
+  @Column({ default: "" })
+  pickupWorkingHours!: string;
+
+  @Column({ default: "" })
+  footerCompanyName!: string;
+
+  @Column({ default: "" })
+  footerLegalInfo!: string;
+
   @OneToMany(() => Category, (category) => category.region)
   categories!: Category[];
 
