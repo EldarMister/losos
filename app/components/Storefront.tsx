@@ -8,6 +8,7 @@ import { categories, promoCards, type Category, type Product } from "../data/cat
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
+const YandexPickupMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexPickupMap: Map }) => ({ default: Map })));
 
 type SelectedModifier = {
   groupId: string;
@@ -81,22 +82,6 @@ const STOREFRONT_API_URL = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
-const yandexShortMapCoordinates: Record<string, string> = {
-  "https://yandex.com/maps/-/CTfwi-O-": "74.605106,42.857126",
-};
-
-const pickupMapBackground = (yandexUrl: string | undefined, region: "bishkek" | "osh") => {
-  const fallbackCoordinates = region === "osh" ? "72.8161,40.513" : "74.5698,42.8746";
-  const normalizedUrl = yandexUrl?.trim().replace(/\/$/, "");
-  let coordinates = normalizedUrl ? yandexShortMapCoordinates[normalizedUrl] || fallbackCoordinates : fallbackCoordinates;
-  try {
-    const fromLink = yandexUrl ? new URL(yandexUrl).searchParams.get("ll") : null;
-    if (fromLink && /^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(fromLink)) coordinates = fromLink;
-  } catch {
-    // The map still shows the city when an incomplete link is entered.
-  }
-  return `https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=${encodeURIComponent(coordinates)}&z=17&l=map&size=650,450&pt=${encodeURIComponent(`${coordinates},pm2rdl`)}`;
-};
 const cartKitItems = [
   {
     name: "Соевый соус",
@@ -739,6 +724,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     if (!address) {
       setPendingCartLine({ product, quantity, modifiers });
       setSelected(product);
+      if (deliveryType === "pickup") setPickupLocationSelected(true);
       setAddressOpen(true);
       return;
     }
@@ -802,7 +788,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const openDeliveryType = (type: DeliveryType) => {
     setDeliveryType(type);
     if (type === "pickup") {
-      setPickupLocationSelected(false);
+      // В текущей модели у города одна точка самовывоза, поэтому выбираем её сразу.
+      setPickupLocationSelected(true);
     } else {
       setDraftAddress(address);
       setDeliveryLocation(null);
@@ -838,7 +825,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setDraftAddress(address);
       setDeliveryLocation(null);
     } else {
-      setPickupLocationSelected(false);
+      setPickupLocationSelected(true);
     }
     setAddressOpen(true);
   };
@@ -1275,7 +1262,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories([]); setStoryGroups([]); setRegionalPromotions([]); setCatalogLoading(true); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setDeliveryLocation(null); setCart([]); setPendingCartLine(null); setUtensilsCount(1); setNoUtensils(false); setCheckoutOpen(false); setPlacedOrder(null); setSelected(null); }}>{option.name}</button>)}
               </div> : null}
             </div>
-            <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
+            <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
             <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз ~40 минут" : "Доставка от ~45 минут"}`}>
               <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button></div>
               <span className="delivery-connector" aria-hidden="true" />
@@ -1453,7 +1440,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {addressOpen ? (
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
-            <div className={`map-placeholder ${deliveryType === "pickup" ? `pickup-map${pickupLocationSelected ? " pickup-map-selected" : ""}` : "delivery-map yandex-map-host"}`} style={deliveryType === "pickup" ? { backgroundImage: `url("${pickupMapBackground(pickupYandexUrl, regionSlug)}")` } : undefined}>
+            <div className={`map-placeholder ${deliveryType === "pickup" ? "pickup-map yandex-map-host" : "delivery-map yandex-map-host"}`}>
               <button className="map-back" onClick={closeAddress} aria-label="Назад">←</button>
               {deliveryType === "delivery" ? (
                 <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexDeliveryMap
@@ -1464,10 +1451,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   onQueryChange={setDraftAddress}
                   onLocationChange={setDeliveryLocation}
                 /></Suspense>
-              ) : <>
-                <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
-                <div className="map-attribution"><a href={pickupYandexUrl} target="_blank" rel="noreferrer">📍 Открыть Яндекс Карты</a><small>© Яндекс&nbsp; Условия использования</small></div>
-              </>}
+              ) : <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexPickupMap
+                region={regionSlug}
+                yandexUrl={pickupYandexUrl}
+                selected={pickupLocationSelected}
+              /></Suspense>}
             </div>
             <div className="address-panel">
               <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>

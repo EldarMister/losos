@@ -110,6 +110,33 @@ type MapCredentials = {
   suggestApiKey: string;
 };
 
+type YandexPickupMapProps = {
+  region: RegionSlug;
+  yandexUrl?: string;
+  selected: boolean;
+};
+
+const pickupShortLinkCoordinates: Record<string, [number, number]> = {
+  "https://yandex.com/maps/-/CTfwi-O-": [42.857126, 74.605106],
+};
+
+function pickupCoordinates(yandexUrl: string | undefined, region: RegionSlug): [number, number] {
+  const fallback = regionMapConfig[region].center;
+  const normalizedUrl = yandexUrl?.trim().replace(/\/$/, "");
+  if (normalizedUrl && pickupShortLinkCoordinates[normalizedUrl]) return pickupShortLinkCoordinates[normalizedUrl];
+
+  try {
+    const value = yandexUrl ? new URL(yandexUrl).searchParams.get("ll") : null;
+    if (value) {
+      const [longitude, latitude] = value.split(",").map(Number);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) return [latitude, longitude];
+    }
+  } catch {
+    // Неполная ссылка не мешает показать карту города.
+  }
+  return fallback;
+}
+
 type AddressSuggestion = {
   value: string;
   subtitle?: string;
@@ -413,6 +440,103 @@ export function YandexDeliveryMap({
         </div>
       ) : null}
       {status === "ready" ? <div className="map-status" aria-live="polite">{message}</div> : null}
+    </>
+  );
+}
+
+export function YandexPickupMap({ region, yandexUrl, selected }: YandexPickupMapProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [credentials, setCredentials] = useState<MapCredentials | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [message, setMessage] = useState("Настраиваем карту…");
+  const config = regionMapConfig[region];
+  const point = pickupCoordinates(yandexUrl, region);
+  const mapsApiKey = credentials?.mapsApiKey || "";
+  const suggestApiKey = credentials?.suggestApiKey || mapsApiKey;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/maps-config", { signal: controller.signal, cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Настройки карты недоступны")))
+      .then((data: MapCredentials) => {
+        const nextCredentials = {
+          mapsApiKey: data.mapsApiKey || "",
+          suggestApiKey: data.suggestApiKey || data.mapsApiKey || "",
+        };
+        setCredentials(nextCredentials);
+        if (!nextCredentials.mapsApiKey || !nextCredentials.suggestApiKey) {
+          setStatus("error");
+          setMessage("Нужен бесплатный ключ Яндекс Карт");
+        }
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setStatus("error");
+        setMessage(error instanceof Error ? error.message : "Настройки карты недоступны");
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!credentials || !mapsApiKey || !suggestApiKey) return;
+    let cancelled = false;
+    let map: any;
+    let fitMapToPanel: (() => void) | null = null;
+    let fitTimers: number[] = [];
+
+    loadYandexMaps(mapsApiKey, suggestApiKey)
+      .then((ymaps) => {
+        if (cancelled || !mapContainerRef.current) return;
+        map = new ymaps.Map(mapContainerRef.current, {
+          center: point,
+          zoom: 17,
+          controls: ["zoomControl"],
+          type: "yandex#map",
+        }, {
+          restrictMapArea: config.bounds,
+          suppressMapOpenBlock: false,
+          yandexMapDisablePoiInteractivity: true,
+        });
+        if (selected) {
+          const markerLayout = ymaps.templateLayoutFactory.createClass(
+            '<div class="delivery-map-marker" aria-hidden="true"><img src="/delivery.png" alt=""></div>',
+          );
+          const placemark = new ymaps.Placemark(point, {}, {
+            iconLayout: markerLayout,
+            iconShape: { type: "Rectangle", coordinates: [[-30, -68], [30, 0]] },
+            iconOffset: [-30, -68],
+          });
+          map.geoObjects.add(placemark);
+        }
+        fitMapToPanel = () => map?.container.fitToViewport();
+        window.addEventListener("resize", fitMapToPanel);
+        fitTimers = [window.setTimeout(fitMapToPanel, 0), window.setTimeout(fitMapToPanel, 250)];
+        setStatus("ready");
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Yandex pickup map loading failed", error);
+        setStatus("error");
+        setMessage(yandexErrorMessage(error, "Карта временно недоступна"));
+      });
+
+    return () => {
+      cancelled = true;
+      fitTimers.forEach((timer) => window.clearTimeout(timer));
+      if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
+      map?.destroy();
+    };
+  }, [config.bounds, credentials, mapsApiKey, point, selected, suggestApiKey]);
+
+  return (
+    <>
+      <div ref={mapContainerRef} className="yandex-map-canvas" aria-label={`Интерактивная карта самовывоза в городе ${config.city}`} />
+      {status !== "ready" ? (
+        <div className={`map-state map-state-${status}`} role={status === "error" ? "alert" : "status"}>
+          {status === "loading" ? <span className="map-spinner" aria-hidden="true" /> : null}
+          <span>{message}</span>
+        </div>
+      ) : null}
     </>
   );
 }
