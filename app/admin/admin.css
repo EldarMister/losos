@@ -34,14 +34,14 @@ button { cursor: pointer; }
 .admin-sidebar button.active::before { position: absolute; left: -12px; width: 3px; height: 100%; border-radius: 0 3px 3px 0; background: var(--admin-orange); content: ""; }
 .admin-sidebar button.active i { color: var(--admin-orange); }
 .admin-mobile-nav, .admin-mobile-title { display: none; }
-.admin-content { margin-left: 204px; padding: 36px 38px 80px; transition: margin-right .2s ease; }
+.admin-content { margin-left: 204px; padding: 20px 38px 80px; transition: margin-right .2s ease; }
 .admin-content > * { width: min(100%, 1260px); margin-right: auto; margin-left: auto; }
 .has-order .admin-content { margin-right: 404px; }
 .has-order .admin-content > * { max-width: 1040px; }
-.admin-regions { height: 46px; display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--admin-line); }
+.admin-regions { height: 46px; display: flex; gap: 12px; margin-bottom: 18px; border-bottom: 1px solid var(--admin-line); }
 .admin-regions button { min-width: 94px; height: 46px; padding: 0 15px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--admin-muted); font-weight: 700; }
 .admin-regions button.active { border-bottom-color: var(--admin-orange); color: var(--admin-ink); }
-.admin-section-title { min-height: 58px; display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+.admin-section-title { min-height: 52px; display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 16px; }
 .admin-section-title h1 { margin: 0; font-size: 32px; line-height: 1; font-weight: 500; }
 .admin-section-title p { margin: 8px 0 0; color: var(--admin-muted); font-size: 13px; }
 .admin-add, .admin-refresh { min-height: 46px; padding: 0 20px; border: 0; border-radius: 10px; font-weight: 800; }

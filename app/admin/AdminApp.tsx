@@ -111,6 +111,13 @@ const defaultRegions: Region[] = [
   { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "" },
   { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "" },
 ];
+const defaultRegionByTab: Record<Tab, string> = {
+  orders: "bishkek",
+  products: "bishkek",
+  promotions: "bishkek",
+  categories: "bishkek",
+  settings: "bishkek",
+};
 const orderStatusLabels: Record<OrderStatus, string> = {
   new: "Новый",
   confirmed: "Подтверждён",
@@ -186,7 +193,7 @@ function fileToOptimizedDataUrl(file: File) {
 export function AdminApp() {
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
-  const [region, setRegion] = useState("bishkek");
+  const [regionByTab, setRegionByTab] = useState<Record<Tab, string>>(defaultRegionByTab);
   const [availableRegions, setAvailableRegions] = useState<Region[]>(defaultRegions);
   const [tab, setTab] = useState<Tab>("orders");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -205,6 +212,13 @@ export function AdminApp() {
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
   const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
   const orderControlsRef = useRef<HTMLDivElement>(null);
+  const region = regionByTab[tab];
+
+  const selectRegion = (slug: string) => {
+    setRegionByTab((current) => ({ ...current, [tab]: slug }));
+    setOrderPage(1);
+    setEditor(null);
+  };
 
   useEffect(() => {
     queueMicrotask(() => setToken(sessionStorage.getItem("losos-admin-token") || ""));
@@ -234,7 +248,10 @@ export function AdminApp() {
       const nextRegions = await request("/admin/settings") as Region[];
       if (!nextRegions.length) return;
       setAvailableRegions(nextRegions);
-      setRegion((current) => nextRegions.some((item) => item.slug === current) ? current : nextRegions[0].slug);
+      setRegionByTab((current) => (Object.keys(current) as Tab[]).reduce((next, item) => ({
+        ...next,
+        [item]: nextRegions.some((region) => region.slug === current[item]) ? current[item] : nextRegions[0].slug,
+      }), {} as Record<Tab, string>));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось загрузить настройки");
     }
@@ -511,7 +528,7 @@ export function AdminApp() {
       }) as Region;
       setRegionEditor(null);
       await loadSettings();
-      setRegion(saved.slug);
+      setRegionByTab((current) => ({ ...current, [tab]: saved.slug }));
       setMessage("Настройки города сохранены");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось сохранить город");
@@ -584,7 +601,7 @@ export function AdminApp() {
         <h1>{tabTitle}</h1>
       </div>
       <div className="admin-regions" aria-label="Регион">
-        {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setOrderPage(1); setEditor(null); }}>{item.name}</button>)}
+        {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => selectRegion(item.slug)}>{item.name}</button>)}
       </div>
       <div className="admin-section-title">
         <div>
