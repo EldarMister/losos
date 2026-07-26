@@ -1241,7 +1241,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
         <picture className="brand-main">
-          <source media="(min-width: 721px)" srcSet="/шапка для пк.png" />
+          <source media="(min-width: 721px)" srcSet="/шапка для пк.png?v=20260726-2" />
           <img src="/hero.webp" alt="Накта суши" />
         </picture>
         <img className="brand-smile" src="/смайлик.webp" alt="" aria-hidden="true" />
