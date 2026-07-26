@@ -1241,8 +1241,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
         <picture className="brand-main">
-          <source media="(min-width: 721px)" srcSet="/desktop-header-20260726-v3.png" />
-          <img src="/hero.webp" alt="Накта суши" />
+          <img src="/desktop-header-20260726-v3.png" alt="Накта суши" />
         </picture>
         <img className="brand-smile" src="/смайлик.webp" alt="" aria-hidden="true" />
         <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
