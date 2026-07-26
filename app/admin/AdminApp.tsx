@@ -719,7 +719,7 @@ export function AdminApp() {
     {editor ? <div className="admin-editor-overlay admin-editor-page" role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditor(null); }}>
       <form className={`admin-editor admin-editor-${editor.kind}`} onSubmit={saveEditor}>
         <div className="admin-editor-head">
-          <span><small>‹ &nbsp; Управление меню</small><b>{editor.id ? "Редактирование" : "Добавление"} {editor.kind === "product" ? "блюда" : editor.kind === "promotion" ? "акции" : "категории"}</b></span>
+          <span><b>{editor.id ? "Редактирование" : "Добавление"} {editor.kind === "product" ? "блюда" : editor.kind === "promotion" ? "акции" : "категории"}</b></span>
           <button type="button" onClick={() => setEditor(null)} aria-label="Закрыть">×</button>
         </div>
 
