@@ -22,10 +22,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 button { border: 0; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 .site { min-height: 100vh; overflow: clip; }
-.brand-hero { height: 358px; position: relative; background: var(--orange); overflow: hidden; }
-.brand-main { position: absolute; width: 812px; max-width: none; height: auto; left: calc(50% - 406px); top: 0; }
+.brand-hero { height: 358px; position: relative; background: #050505; overflow: hidden; }
+.brand-main { position: absolute; width: min(1280px, 100%); max-width: none; height: auto; left: 50%; top: 0; transform: translateX(-50%); }
+.brand-main img { display: block; width: 100%; height: auto; }
 .brand-wordmark { position: absolute; z-index: 2; width: 104px; max-width: none; left: calc(50% - 640px); top: 27px; border-radius: 18px; }
-.brand-smile { position: absolute; z-index: 2; width: 180px; max-width: none; height: auto; left: calc(50% - 445px); top: 146.7875px; }
+.brand-smile { position: absolute; z-index: 2; width: 116px; max-width: none; height: auto; left: calc(50% - 628px); top: 172px; }
 .download-app { position: absolute; z-index: 2; width: 160px; max-width: none; right: calc(50% - 640px); top: 48px; }
 .store-shell { width: min(1280px, 100%); max-width: none; min-height: 900px; background: white; border-radius: 60px; padding-top: 27px; margin: -29px auto 0; position: relative; z-index: 3; }
 .delivery-header { width: calc(100% - 54px); height: 60px; margin: 0 27px; border-radius: 32px; background: #fff; display: flex; align-items: center; gap: 16px; padding: 0; position: sticky; top: 12px; z-index: 25; }
@@ -465,6 +466,7 @@ a { color: inherit; text-decoration: none; }
 
 @media (max-width: 720px) {
   .brand-hero { height: 180px; }
+  .brand-hero { background: var(--orange); }
   .brand-main { width: 100%; max-width: none; height: auto; left: 0; top: 0; transform: none; z-index: auto; }
   .brand-wordmark { display: block; width: 82px; max-width: none; left: 19px; top: 14px; z-index: auto; }
   .brand-smile { width: 68px; height: 67px; left: 0; top: 115px; z-index: 10; }
