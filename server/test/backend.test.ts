@@ -6,6 +6,7 @@ import { validateSync } from "class-validator";
 import {
   CreateProductDto,
   CreatePromotionDto,
+  UpdateProductDto,
 } from "../src/admin/admin.dto";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { seedCategories } from "../src/catalog/seed-data";
@@ -390,6 +391,14 @@ test("admin modifier DTO validates nested catalog data", () => {
     }],
   });
   assert.ok(validateSync(invalid).some((error) => error.property === "modifierGroups"));
+});
+
+test("admin product DTO accepts clearing a discount and validates old price bounds", () => {
+  const clearDiscount = plainToInstance(UpdateProductDto, { oldPrice: null });
+  assert.deepEqual(validateSync(clearDiscount), []);
+
+  const invalidOldPrice = plainToInstance(UpdateProductDto, { oldPrice: -1 });
+  assert.ok(validateSync(invalidOldPrice).some((error) => error.property === "oldPrice"));
 });
 
 test("admin catalog semantics reject inconsistent modifier groups", () => {

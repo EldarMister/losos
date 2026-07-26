@@ -144,6 +144,7 @@ export class AdminService {
 
   async createProduct(dto: CreateProductDto) {
     this.validateModifierGroups(dto.modifierGroups);
+    this.validateOldPrice(dto.price, dto.oldPrice);
     const region = await this.requireRegion(dto.regionSlug);
     const category = await this.requireCategory(dto.categoryId);
     if (category.region.id !== region.id) throw new BadRequestException("Category belongs to another region");
@@ -159,6 +160,10 @@ export class AdminService {
     if (dto.modifierGroups !== undefined) this.validateModifierGroups(dto.modifierGroups);
     const product = await this.requireProduct(id);
     const { categoryId, ...data } = dto;
+    this.validateOldPrice(
+      data.price ?? product.price,
+      Object.prototype.hasOwnProperty.call(data, "oldPrice") ? data.oldPrice : product.oldPrice,
+    );
     if (categoryId !== undefined) {
       const category = await this.requireCategory(categoryId);
       if (category.region.id !== product.category.region.id) {
@@ -229,6 +234,12 @@ export class AdminService {
         throw new BadRequestException(error.message);
       }
       throw error;
+    }
+  }
+
+  private validateOldPrice(price: number, oldPrice: number | null | undefined) {
+    if (oldPrice !== null && oldPrice !== undefined && oldPrice <= price) {
+      throw new BadRequestException("Старая цена должна быть больше текущей цены");
     }
   }
 }

@@ -1314,7 +1314,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     </div>
                     <div className="product-body">
                       <div className="product-name">{product.name}</div>
-                      <div className="product-actions"><span>{money(product.price)}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</div>
+                      <div className="product-actions"><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</div>
                     </div>
                   </article>
                 ))}

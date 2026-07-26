@@ -10,6 +10,7 @@ import { AddProductionOrders1784980000000 } from "./migrations/1784980000000-Add
 import { AllowFractionalWeight1784981000000 } from "./migrations/1784981000000-AllowFractionalWeight";
 import { AddOrderCoordinates1784982000000 } from "./migrations/1784982000000-AddOrderCoordinates";
 import { AddScopedModifierPricing1784983000000 } from "./migrations/1784983000000-AddScopedModifierPricing";
+import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
 
@@ -32,6 +33,7 @@ export default new DataSource({
     AllowFractionalWeight1784981000000,
     AddOrderCoordinates1784982000000,
     AddScopedModifierPricing1784983000000,
+    AddProductOldPrice1784986000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

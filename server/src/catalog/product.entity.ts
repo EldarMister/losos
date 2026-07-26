@@ -42,6 +42,9 @@ export class Product {
   @Column({ type: "int" })
   price!: number;
 
+  @Column({ type: "int", nullable: true })
+  oldPrice!: number | null;
+
   @Column({ type: "text" })
   image!: string;
 

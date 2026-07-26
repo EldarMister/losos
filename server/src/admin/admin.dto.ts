@@ -206,6 +206,13 @@ export class CreateProductDto {
   @Max(POSTGRES_INTEGER_MAX)
   price!: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(POSTGRES_INTEGER_MAX)
+  oldPrice?: number | null;
+
   @IsString()
   @IsNotEmpty()
   image!: string;
@@ -274,6 +281,7 @@ export class UpdateProductDto {
   @Min(0)
   @Max(POSTGRES_INTEGER_MAX)
   price?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) oldPrice?: number | null;
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() composition?: string;

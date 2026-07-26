@@ -9,6 +9,7 @@ type Product = {
   name: string;
   slug: string;
   price: number;
+  oldPrice: number | null;
   image: string;
   description: string;
   composition: string;
@@ -162,6 +163,7 @@ const emptyProduct = (categoryId = ""): Editor => ({
     slug: "",
     categoryId,
     price: "0",
+    oldPrice: "",
     image: "",
     description: "",
     composition: "",
@@ -464,6 +466,7 @@ export function AdminApp() {
         modifierGroups: product.modifierGroups || [],
         categoryId: String(product.categoryId),
         price: String(product.price),
+        oldPrice: product.oldPrice ? String(product.oldPrice) : "",
         sortOrder: String(product.sortOrder),
         weight: String(product.weight),
         calories: String(product.calories),
@@ -510,7 +513,7 @@ export function AdminApp() {
     const editorValues = { ...editor.values };
     if (!editor.id && editor.kind !== "promotion") editorValues.slug = slugify(String(editorValues.title || editorValues.name || "")) || `${editor.kind}-${Date.now()}`;
     const payload = Object.fromEntries(Object.entries(editorValues).map(([key, value]) =>
-      [key, numberFields.includes(key) ? Number(value) : value]));
+      [key, key === "oldPrice" ? (value === "" ? null : Number(value)) : numberFields.includes(key) ? Number(value) : value]));
     if (!editor.id) payload.regionSlug = region;
     const resource = editor.kind === "product" ? "products" : editor.kind === "promotion" ? "promotions" : "categories";
     setLoading(true);
@@ -817,7 +820,7 @@ export function AdminApp() {
           <img src={product.image} alt="" />
           <span><b>{product.name}</b><small>ID: {product.id}</small></span>
           <span className="admin-product-category">{product.categoryTitle}</span>
-          <strong>{product.price} сом</strong>
+          <strong>{product.price} сом{product.oldPrice && product.oldPrice > product.price ? <small> {product.oldPrice} сом</small> : null}</strong>
           <i className={product.available ? "available" : ""}>{product.available ? "В продаже" : "Недоступно"}</i>
           <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
         </article>)}
@@ -871,6 +874,7 @@ export function AdminApp() {
           <div className="admin-two-fields">
             <label>Категория<select value={String(editor.values.categoryId || "")} onChange={(event) => updateValue("categoryId", event.target.value)}>{dashboard?.categories.map((category) => <option value={category.id} key={category.id}>{category.title}</option>)}</select></label>
             <label>Цена, сом<input required type="number" min="0" value={String(editor.values.price)} onChange={(event) => updateValue("price", event.target.value)} /></label>
+            <label>Старая цена, сом<input type="number" min="0" value={String(editor.values.oldPrice || "")} onChange={(event) => updateValue("oldPrice", event.target.value)} placeholder="Без скидки" /></label>
           </div>
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
           <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
