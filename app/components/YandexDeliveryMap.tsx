@@ -112,6 +112,8 @@ type MapCredentials = {
 
 type AddressSuggestion = {
   value: string;
+  subtitle?: string;
+  uri?: string;
 };
 
 export function YandexDeliveryMap({
@@ -123,7 +125,7 @@ export function YandexDeliveryMap({
   onLocationChange,
 }: YandexDeliveryMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const geocodeAddressRef = useRef<(value: string) => Promise<void>>(async () => undefined);
+  const geocodeAddressRef = useRef<(value: string, uri?: string) => Promise<void>>(async () => undefined);
   const reverseGeocodeRef = useRef<(point: [number, number]) => Promise<void>>(async () => undefined);
   const suppressSuggestionsRef = useRef(query.trim());
   const handledSearchRequestRef = useRef(searchRequest);
@@ -183,7 +185,9 @@ export function YandexDeliveryMap({
         highlight: "0",
         bbox: `${minLon},${minLat}~${maxLon},${maxLat}`,
         strict_bounds: "1",
-        types: "geo",
+        types: "geo,biz",
+        attrs: "uri",
+        org_address_kind: "house",
         print_address: "1",
       });
 
@@ -193,14 +197,14 @@ export function YandexDeliveryMap({
         });
         if (!response.ok) throw new Error(`Геосаджест: ${response.status}`);
         const data = await response.json() as {
-          results?: Array<{ title?: { text?: string }; subtitle?: { text?: string } }>;
+          results?: Array<{ title?: { text?: string }; subtitle?: { text?: string }; uri?: string }>;
         };
         const nextSuggestions = (data.results || []).flatMap((item) => {
           const value = addressWithoutCity(item.title?.text?.trim() || "", config.city);
           if (!value) return [];
-          return [{ value }];
+          return [{ value, subtitle: item.subtitle?.text?.trim(), uri: item.uri }];
         }).filter((suggestion, index, items) => (
-          items.findIndex((candidate) => candidate.value === suggestion.value) === index
+          items.findIndex((candidate) => candidate.value === suggestion.value && candidate.subtitle === suggestion.subtitle) === index
         ));
         setSuggestionResult({ query: trimmed, items: nextSuggestions });
       } catch (error) {
@@ -261,7 +265,7 @@ export function YandexDeliveryMap({
       }
     };
 
-    const geocodeAddress = async (value: string) => {
+    const geocodeAddress = async (value: string, uri?: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
       setMessage("Ищем адрес…");
@@ -269,13 +273,21 @@ export function YandexDeliveryMap({
 
       try {
         const request = new RegExp(config.city, "i").test(trimmed) ? trimmed : `${config.city}, ${trimmed}`;
-        const result = await (window as any).ymaps.geocode(request, {
+        const result = await (window as any).ymaps.geocode(uri || request, {
           boundedBy: config.bounds,
           strictBounds: true,
-          results: 1,
+          results: 5,
         });
         if (cancelled) return;
-        const geoObject = result.geoObjects.get(0);
+        let geoObject: any;
+        for (let index = 0; index < result.geoObjects.getLength(); index += 1) {
+          const candidate = result.geoObjects.get(index);
+          const candidatePoint = candidate?.geometry.getCoordinates() as [number, number] | undefined;
+          if (candidatePoint && isInsideBounds(candidatePoint, config.bounds)) {
+            geoObject = candidate;
+            break;
+          }
+        }
         if (!geoObject) throw new Error(`Адрес в городе ${config.city} не найден`);
         const point = geoObject.geometry.getCoordinates() as [number, number];
         if (!isInsideBounds(point, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
@@ -365,11 +377,11 @@ export function YandexDeliveryMap({
     );
   };
 
-  const selectSuggestion = (value: string) => {
-    suppressSuggestionsRef.current = value;
+  const selectSuggestion = (suggestion: AddressSuggestion) => {
+    suppressSuggestionsRef.current = suggestion.value;
     setSuggestionResult({ query: "", items: [] });
-    onQueryChange(value);
-    void geocodeAddressRef.current(value);
+    onQueryChange(suggestion.value);
+    void geocodeAddressRef.current(suggestion.value, suggestion.uri);
   };
 
   return (
@@ -379,14 +391,15 @@ export function YandexDeliveryMap({
         <div className="custom-address-suggestions" role="listbox" aria-label="Подсказки адресов">
           {suggestions.map((suggestion, index) => (
             <button
-              key={`${suggestion.value}-${index}`}
+              key={`${suggestion.value}-${suggestion.subtitle || ""}-${index}`}
               type="button"
               role="option"
               aria-selected="false"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => selectSuggestion(suggestion.value)}
+              onClick={() => selectSuggestion(suggestion)}
             >
               <strong>{suggestion.value}</strong>
+              {suggestion.subtitle ? <small>{suggestion.subtitle}</small> : null}
             </button>
           ))}
         </div>,
