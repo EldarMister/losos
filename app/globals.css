@@ -467,9 +467,9 @@ a { color: inherit; text-decoration: none; }
 @media (max-width: 720px) {
   .brand-hero { height: 200px; }
   .brand-hero { background: var(--orange); }
-  .brand-main { width: min(100%, 488px); max-width: none; height: auto; left: 50%; top: 0; transform: translateX(-50%); z-index: auto; }
+  .brand-main { width: min(100%, 488px); max-width: none; height: auto; left: 50%; top: 8px; transform: translateX(-50%); z-index: auto; }
   .brand-wordmark { display: block; width: 82px; max-width: none; left: 19px; top: 14px; z-index: auto; }
-  .brand-smile { width: 78px; height: auto; left: calc(50% - 145px); top: 106px; z-index: 10; }
+  .brand-smile { width: 78px; height: auto; left: calc(50% - 125px); top: 106px; z-index: 10; }
   .download-app { display: none; }
   .store-shell { border-radius: 36px 36px 0 0; padding-top: 8px; margin-top: -29px; }
   .delivery-header { position: sticky; isolation: isolate; top: 20px; width: calc(100% - 16px); height: 118px; margin: 0 8px; border-radius: 30px; display: grid; grid-template-columns: 60px 108px minmax(0, 1fr); grid-template-rows: 60px 42px; column-gap: 4px; row-gap: 8px; padding: 0; background: white; box-shadow: 0 8px 0 #fff; }
