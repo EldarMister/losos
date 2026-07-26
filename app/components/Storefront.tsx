@@ -1245,12 +1245,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   return (
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
-        <img className="brand-wordmark" src="/логотип.jpeg" alt="Накта суши" />
-        <picture>
-          <source media="(max-width: 720px)" srcSet="https://mnogolososya.ru/_nuxt/main-pic-bg-mobile.BduSm_pt.webp" />
-          <img className="brand-main" src="https://mnogolososya.ru/_nuxt/main-pic-bg.CBG-DW8k.webp" alt="Salmon Lovers Club" />
-        </picture>
-        <img className="brand-smile" src="https://mnogolososya.ru/_nuxt/main-pic-face.DkOigqua.webp" alt="" />
+        <img className="brand-main" src="/шапка.png" alt="Накта суши" />
         <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
       </section>
 
