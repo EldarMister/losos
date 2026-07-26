@@ -322,7 +322,7 @@ button { cursor: pointer; }
   .admin-modifier-rules .admin-required { grid-column: 1 / -1; }
   .admin-modifier-item { grid-template-columns: 42px minmax(0, 1fr) 65px 32px; }
   .admin-modifier-item label:nth-of-type(2), .admin-modifier-enabled { display: none; }
-  .admin-editor-actions { position: sticky; bottom: 0; z-index: 2; margin: 14px -16px -24px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom)); background: #fff; }
+  .admin-editor-actions { position: static; margin: 24px 0 0; padding: 0 0 calc(14px + env(safe-area-inset-bottom)); background: transparent; }
   .admin-editor-actions button { flex: 1; min-width: 0; }
   .admin-order-overlay { inset: 0; z-index: 60; width: 100%; background: #0005; }
   .admin-region-overlay { z-index: 70; align-items: end; padding: 0; }
@@ -330,7 +330,8 @@ button { cursor: pointer; }
   .admin-region-editor .admin-editor-head { margin: -20px -16px 20px; padding: 18px 16px; }
   .admin-region-editor .admin-two-fields { grid-template-columns: 1fr; }
   .admin-order-detail { height: 100%; padding: 22px 18px 100px; border: 0; }
-  .admin-order-detail .admin-editor-head > button { position: absolute; top: 0; left: 0; font-size: 23px; }
+  .admin-order-detail .admin-editor-head { position: relative; }
+  .admin-order-detail .admin-editor-head > button { position: absolute; top: 6px; left: 6px; font-size: 23px; }
   .admin-order-detail .admin-editor-head > button::after { content: none; }
   .admin-order-actions { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
   .admin-login { padding: 18px; }
