@@ -582,7 +582,6 @@ export function AdminApp() {
     <section className="admin-content">
       <div className="admin-mobile-title">
         <h1>{tabTitle}</h1>
-        <span>≡⌕</span>
       </div>
       <div className="admin-regions" aria-label="Регион">
         {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => { setRegion(item.slug); setOrderPage(1); setEditor(null); }}>{item.name}</button>)}
