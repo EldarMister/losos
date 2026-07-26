@@ -43,7 +43,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /className="cart-drawer"/);
   assert.match(storefront, /aria-label="Самовывоз"/);
   assert.match(storefront, /pickup-location/);
-  assert.match(storefront, /pickup-marker-disabled\.DSAcVKbt\.svg/);
+  assert.match(storefront, /pm2rdl/);
   assert.match(storefront, /<YandexDeliveryMap/);
   assert.match(storefront, /deliveryLocation/);
   assert.match(storefront, /Заказать сюда/);

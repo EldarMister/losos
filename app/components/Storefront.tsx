@@ -81,16 +81,21 @@ const STOREFRONT_API_URL = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
+const yandexShortMapCoordinates: Record<string, string> = {
+  "https://yandex.com/maps/-/CTfwi-O-": "74.605106,42.857126",
+};
+
 const pickupMapBackground = (yandexUrl: string | undefined, region: "bishkek" | "osh") => {
   const fallbackCoordinates = region === "osh" ? "72.8161,40.513" : "74.5698,42.8746";
-  let coordinates = fallbackCoordinates;
+  const normalizedUrl = yandexUrl?.trim().replace(/\/$/, "");
+  let coordinates = normalizedUrl ? yandexShortMapCoordinates[normalizedUrl] || fallbackCoordinates : fallbackCoordinates;
   try {
     const fromLink = yandexUrl ? new URL(yandexUrl).searchParams.get("ll") : null;
     if (fromLink && /^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(fromLink)) coordinates = fromLink;
   } catch {
     // The map still shows the city when an incomplete link is entered.
   }
-  return `https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=${encodeURIComponent(coordinates)}&z=16&l=map&size=650,650`;
+  return `https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=${encodeURIComponent(coordinates)}&z=17&l=map&size=650,450&pt=${encodeURIComponent(`${coordinates},pm2rdl`)}`;
 };
 const cartKitItems = [
   {
@@ -1460,7 +1465,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   onLocationChange={setDeliveryLocation}
                 /></Suspense>
               ) : <>
-                <img className="map-marker pickup-map-marker" src="https://mnogolososya.ru/_nuxt/pickup-marker-disabled.DSAcVKbt.svg" alt="" />
                 <div className="map-controls"><button aria-label="Увеличить карту">+</button><button aria-label="Уменьшить карту">−</button></div>
                 <div className="map-attribution"><a href={pickupYandexUrl} target="_blank" rel="noreferrer">📍 Открыть Яндекс Карты</a><small>© Яндекс&nbsp; Условия использования</small></div>
               </>}
