@@ -689,6 +689,15 @@ export function AdminApp() {
 
   const tabTitle = tab === "statistics" ? "Статистика" : tab === "orders" ? "Заказы" : tab === "products" ? "Меню" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
   const tabIcon: Record<Tab, string> = { statistics: "⌁", orders: "▤", products: "☰", promotions: "✦", categories: "▦", settings: "⚙" };
+  const tabIconAsset: Partial<Record<Tab, string>> = {
+    statistics: "/statistics.svg",
+    orders: "/orders.svg",
+    products: "/menu.svg",
+    settings: "/settings.svg",
+  };
+  const renderTabIcon = (item: Tab) => <i aria-hidden="true">
+    {tabIconAsset[item] ? <img src={tabIconAsset[item]} alt="" /> : tabIcon[item]}
+  </i>;
   const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все статусы" },
     { value: "new", label: "Новые" },
@@ -715,20 +724,20 @@ export function AdminApp() {
       <nav>
         {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
           <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-            <i>{tabIcon[item]}</i><span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
+            {renderTabIcon(item)}<span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
           </button>)}
       </nav>
       <div>
-        <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
+        <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}>{renderTabIcon("settings")}<span>Настройки</span></button>
       </div>
     </aside>
 
     <nav className="admin-mobile-nav">
       {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
         <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
-          <i>{tabIcon[item]}</i><span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
+          {renderTabIcon(item)}<span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
         </button>)}
-      <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}><i>⚙</i><span>Настройки</span></button>
+      <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}>{renderTabIcon("settings")}<span>Настройки</span></button>
     </nav>
 
     {message ? <div className="admin-message">{message}</div> : null}

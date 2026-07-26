@@ -30,9 +30,11 @@ button { cursor: pointer; }
 .admin-sidebar nav, .admin-sidebar > div { display: grid; gap: 7px; }
 .admin-sidebar button { position: relative; width: 100%; height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 20px; border: 0; border-radius: 10px; background: transparent; color: #34363e; text-align: left; }
 .admin-sidebar button i { width: 24px; color: #979ca9; font-size: 22px; font-style: normal; text-align: center; }
+.admin-sidebar button i img { display: block; width: 24px; height: 24px; opacity: .56; }
 .admin-sidebar button.active { background: linear-gradient(90deg, #fff7f3, #fff1eb); color: var(--admin-orange); font-weight: 800; }
 .admin-sidebar button.active::before { position: absolute; left: -12px; width: 3px; height: 100%; border-radius: 0 3px 3px 0; background: var(--admin-orange); content: ""; }
 .admin-sidebar button.active i { color: var(--admin-orange); }
+.admin-sidebar button.active i img, .admin-mobile-nav button.active i img { opacity: 1; filter: invert(43%) sepia(97%) saturate(4224%) hue-rotate(359deg) brightness(101%) contrast(102%); }
 .admin-mobile-nav, .admin-mobile-title { display: none; }
 .admin-content { margin-left: 204px; padding: 20px 38px 80px; transition: margin-right .2s ease; }
 .admin-content > * { width: min(100%, 1260px); margin-right: auto; margin-left: auto; }
@@ -341,6 +343,7 @@ button { cursor: pointer; }
   .admin-mobile-nav { position: fixed; inset: auto 0 0; z-index: 45; min-height: 68px; display: grid; grid-template-columns: repeat(5, 1fr); padding: 7px 4px calc(5px + env(safe-area-inset-bottom)); border-top: 1px solid var(--admin-line); background: #fffdfcfa; backdrop-filter: blur(14px); }
   .admin-mobile-nav button { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 3px 0; border: 0; background: transparent; color: #969aa6; font-size: 10px; }
   .admin-mobile-nav i { font-size: 22px; font-style: normal; }
+  .admin-mobile-nav i img { display: block; width: 22px; height: 22px; opacity: .56; }
   .admin-mobile-nav button.active { color: var(--admin-orange); }
   .admin-regions { height: 43px; display: flex; gap: 8px; margin: 0 -14px 18px; padding: 0 14px; overflow-x: auto; border-bottom: 1px solid var(--admin-line); scrollbar-width: none; }
   .admin-regions button { min-width: auto; height: 43px; padding: 0 14px; font-size: 14px; }
