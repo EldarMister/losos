@@ -483,8 +483,12 @@ a { color: inherit; text-decoration: none; }
   .pickup-shortcut img { width: 34px; height: 38px; }
   .pickup-shortcut.active img { filter: none; opacity: 1; }
   .city-button, .cart-button { display: none; }
-  .mobile-cart-button { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; display: grid; place-items: end center; width: 100%; height: 127px; padding: 0 24px 34px; border-radius: 28px 28px 0 0; background: linear-gradient(var(--orange), var(--orange)) left 15px bottom 14px / calc(100% - 30px) 60px no-repeat, #fff; color: #fff; font-weight: 600; box-shadow: 0 -10px 28px rgba(0,0,0,.08); }
-  .mobile-cart-button::before { content: "Минимальная сумма собрана!"; position: absolute; left: 24px; top: 17px; color: var(--ink); text-align: left; font-size: 13px; line-height: 18px; font-weight: 500; }
+  .mobile-cart-button { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr auto; align-items: end; width: 100%; height: 116px; padding: 0 34px 26px; border-radius: 28px 28px 0 0; background: #fff; color: #fff; font-weight: 600; box-shadow: 0 -10px 28px rgba(0,0,0,.08); }
+  .mobile-cart-button::before { content: "Минимальная сумма собрана!"; position: absolute; z-index: 1; left: 24px; top: 15px; color: var(--ink); text-align: left; font-size: 12px; line-height: 18px; font-weight: 500; }
+  .mobile-cart-button::after { content: ""; position: absolute; z-index: 0; left: 14px; right: 14px; bottom: 26px; height: 50px; border-radius: 26px; background: var(--orange); }
+  .mobile-cart-button span, .mobile-cart-button b { position: relative; z-index: 1; height: 50px; display: flex; align-items: center; }
+  .mobile-cart-button span { justify-content: flex-start; }
+  .mobile-cart-button b { justify-content: flex-end; }
   .delivery-mode { grid-column: 3; grid-row: 1; height: 60px; min-width: 0; justify-content: center; overflow: hidden; border-radius: 30px; background: white; box-shadow: 0 0 0 3px #f1f1f3; }
   .desktop-mode-icons { display: none; }
   .delivery-connector { display: none; }
@@ -492,11 +496,11 @@ a { color: inherit; text-decoration: none; }
   .address-button { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 42px; border-radius: 20px; background: var(--soft); text-align: center; }
   .promo-row { padding: 8px 8px 19.725px; gap: 12px; }
   .promo-card { flex-basis: 120px; width: 120px; height: 130.275px; padding: 2px; border-radius: 12px; }
-  .category-nav { top: 146px; height: 36px; padding: 0 0 0 8px; gap: 10px; background: #fff; box-shadow: 0 -8px 0 #fff; }
+  .category-nav { top: 146px; height: 44px; padding: 0 0 8px 8px; align-items: flex-start; gap: 10px; background: #fff; box-shadow: 0 -8px 0 #fff; }
   .category-nav a { height: 36px; padding: 0 32px; font-size: 12px; }
   .category-nav a.active { background: var(--nav-active); color: #fff; font-weight: 600; }
   .search-pill { width: 36px; height: 36px; padding: 0; justify-content: center; }
-  .search-pill { position: sticky; left: 0; z-index: 3; box-shadow: -8px 0 0 #fff, 8px 0 0 #fff; }
+  .search-pill { position: sticky; left: 0; z-index: 3; }
   .search-pill input { width: 0; min-width: 0; padding: 0; opacity: 0; pointer-events: none; }
   .search-pill.search-open { width: 145px; padding: 0 16px; justify-content: flex-start; gap: 8px; }
   .search-pill.search-open input { width: 100%; opacity: 1; pointer-events: auto; }

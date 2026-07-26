@@ -1326,7 +1326,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <p className="footer-legal">{footerLegalInfo}</p>
       </footer>
 
-      {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}>Корзина · {money(cartTotal)}</button> : null}
+      {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}><span>Далее</span><b>{money(cartTotal)}</b></button> : null}
 
       {menuOpen ? (
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
