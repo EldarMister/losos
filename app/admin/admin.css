@@ -218,7 +218,7 @@ button { cursor: pointer; }
 .admin-switch small { color: var(--admin-muted); font-weight: 400; }
 .admin-switch input[type="checkbox"] { position: relative; box-sizing: border-box; width: 44px; min-width: 44px; height: 24px; min-height: 24px; flex: 0 0 44px; margin: 0; padding: 0 !important; appearance: none; border: 0; border-radius: 999px; outline: 0; background: #cfd5df; cursor: pointer; transition: background .18s ease; }
 .admin-switch input[type="checkbox"]::after { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; display: block; margin: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #2026333d; content: ""; transition: transform .18s ease; }
-.admin-switch input[type="checkbox"]:checked { background: #0d65f6; }
+.admin-switch input[type="checkbox"]:checked { background: var(--admin-orange); }
 .admin-switch input[type="checkbox"]:checked::after { transform: translateX(20px); }
 .admin-switch input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px #0d65f633; }
 .admin-editor-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 14px; margin-top: 10px; padding-top: 20px; border-top: 1px solid var(--admin-line); }
