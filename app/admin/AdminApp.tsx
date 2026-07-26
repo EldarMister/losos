@@ -937,27 +937,32 @@ export function AdminApp() {
 
     {selectedOrder ? <div className="admin-editor-overlay admin-order-overlay" role="dialog" aria-modal="true" aria-label={`Заказ ${formatOrderNumber(selectedOrder.id)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedOrder(null); }}>
       <section className="admin-order-detail">
-        <div className="admin-editor-head">
-          <span><small>{formatOrderDate(selectedOrder.createdAt)}</small><b>{formatOrderNumber(selectedOrder.id)}</b></span>
+        <header className="admin-order-detail-head">
+          <small>{formatOrderDate(selectedOrder.createdAt)}</small>
+          <div><b>{formatOrderNumber(selectedOrder.id)}</b><span className={`admin-order-status status-${selectedOrder.status}`}>{orderStatusLabels[selectedOrder.status]}</span></div>
+          <strong>{formatSom(selectedOrder.total)}</strong>
           <button type="button" onClick={() => setSelectedOrder(null)} aria-label="Закрыть">×</button>
-        </div>
-
-        <div className="admin-order-detail-status">
-          <span className={`admin-order-status status-${selectedOrder.status}`}>{orderStatusLabels[selectedOrder.status]}</span>
-          <strong>{selectedOrder.total} сом</strong>
-        </div>
+        </header>
 
         <div className="admin-order-contact">
           <span><small>Клиент</small><b>{selectedOrder.customerName}</b></span>
-          <a href={`tel:${selectedOrder.phone}`}><small>Телефон</small><b>{selectedOrder.phone}</b></a>
-          <span className="wide"><small>{selectedOrder.deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}</small><b>{selectedOrder.address}</b></span>
-          {typeof selectedOrder.latitude === "number" && typeof selectedOrder.longitude === "number" ? <a className="wide" href={`https://yandex.ru/maps/?pt=${selectedOrder.longitude},${selectedOrder.latitude}&z=17&l=map`} target="_blank" rel="noreferrer"><small>Координаты</small><b>Открыть точку на Яндекс Картах ↗</b></a> : null}
+          <a className="admin-order-phone" href={`tel:${selectedOrder.phone}`}><small>Телефон</small><b>{selectedOrder.phone}</b><i aria-hidden="true">☎</i></a>
+          <div className="admin-order-address-row">
+            <span><small>{selectedOrder.deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}</small><b>{selectedOrder.address}</b></span>
+            {typeof selectedOrder.latitude === "number" && typeof selectedOrder.longitude === "number" ? <a href={`https://yandex.ru/maps/?pt=${selectedOrder.longitude},${selectedOrder.latitude}&z=17&l=map`} target="_blank" rel="noreferrer">Открыть на Яндекс Картах ↗</a> : null}
+          </div>
           {selectedOrder.deliveryType === "delivery" && (selectedOrder.apartment || selectedOrder.entrance || selectedOrder.floor || selectedOrder.intercom) ? <span className="wide"><small>Детали адреса</small><b>{[
             selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
             selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
             selectedOrder.floor && `этаж ${selectedOrder.floor}`,
             selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
           ].filter(Boolean).join(" · ")}</b></span> : null}
+        </div>
+
+        <div className="admin-order-notes">
+          <span><i aria-hidden="true">▣</i><span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span></span>
+          <span><i aria-hidden="true">∥</i><span><small>Приборы</small><b>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} компл.`}</b></span></span>
+          {selectedOrder.comment ? <span className="wide admin-order-comment"><span><small>Комментарий</small><b>{selectedOrder.comment}</b></span></span> : null}
         </div>
 
         <div className="admin-order-lines">
@@ -975,14 +980,9 @@ export function AdminApp() {
                 {contribution ? ` (+${contribution} сом ${scopeLabel})` : ""}
               </small>;
             })}</span>
-            <strong>{item.lineTotal} сом</strong>
+            <strong>{formatSom(item.lineTotal)}</strong>
           </article>)}
-        </div>
-
-        <div className="admin-order-notes">
-          <span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span>
-          <span><small>Приборы</small><b>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} компл.`}</b></span>
-          {selectedOrder.comment ? <span className="wide"><small>Комментарий</small><b>{selectedOrder.comment}</b></span> : null}
+          <div className="admin-order-summary"><span>Итого</span><strong>{formatSom(selectedOrder.total)}</strong></div>
         </div>
 
         {orderStatusTransitions[selectedOrder.status].length ? <div className="admin-order-actions">
@@ -992,7 +992,7 @@ export function AdminApp() {
             disabled={ordersLoading}
             key={status}
             onClick={() => void updateOrderStatus(selectedOrder, status)}
-          >{status === "cancelled" ? "Отменить" : `→ ${orderStatusLabels[status]}`}</button>)}
+          >{status === "cancelled" ? "Отменить заказ" : selectedOrder.status === "new" && status === "confirmed" ? "→ Подтвердить заказ" : `→ ${orderStatusLabels[status]}`}</button>)}
         </div> : null}
       </section>
     </div> : null}
