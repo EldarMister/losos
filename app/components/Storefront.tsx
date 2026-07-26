@@ -1248,7 +1248,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   return (
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
-        <img className="brand-main" src="/прозрачный.png" alt="Накта суши" />
+        <img className="brand-main" src="/hero.webp" alt="Накта суши" />
         <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
       </section>
 
@@ -1256,8 +1256,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <header className="delivery-header">
           <button className="cat-avatar" aria-label="Открыть меню" onClick={() => setMenuOpen(true)}><span className="cat-reference" aria-hidden="true" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
-            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
-            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
+            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button>
+            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button>
           </div>
           <div className="order-location-bar">
             <div className="city-select" ref={citySelectRef}>
@@ -1268,7 +1268,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
             <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз ~40 минут" : "Доставка от ~45 минут"}`}>
-              <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button></div>
+              <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button></div>
               <span className="delivery-connector" aria-hidden="true" />
               <div className="delivery-status"><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~40 минут" : "от ~45 минут"}</small></div>
             </div>
@@ -1325,7 +1325,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       </div>
 
       <footer className="footer" id="contacts">
-        <div className="footer-brand"><img className="footer-logo" src="/логотип.png" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
+        <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
         <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
@@ -1465,8 +1465,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>
               <div className="modal-mode-switch" aria-label="Способ получения заказа">
                 <div className="modal-mode-icons">
-                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
-                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
+                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button>
+                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button>
                 </div>
                 <div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~45 минут" : "от ~45 минут"}</small></div>
               </div>
@@ -1548,7 +1548,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.name}><img src={item.image} alt="" /><span><b>{item.name}</b><small>1 шт.</small></span></div>)}</div>
                   </div>
                   <div className="cart-benefit"><h2>Выгода</h2><div><span><b>Промокод или акция</b><small>Нужно будет авторизоваться</small></span><button>Выбрать</button></div></div>
-                  <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout" onClick={beginCheckout}><span>Оформить заказ</span><b>{money(cartTotal)}</b></button></div>
+                  <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout" onClick={beginCheckout}><span>Оформить заказ</span><b>{money(cartTotal)}</b></button></div>
                 </section>
               </div>
             </>}

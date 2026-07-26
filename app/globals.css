@@ -30,7 +30,7 @@ a { color: inherit; text-decoration: none; }
 .store-shell { width: min(1280px, 100%); max-width: none; min-height: 900px; background: white; border-radius: 60px; padding-top: 27px; margin: -29px auto 0; position: relative; z-index: 3; }
 .delivery-header { width: calc(100% - 54px); height: 60px; margin: 0 27px; border-radius: 32px; background: #fff; display: flex; align-items: center; gap: 16px; padding: 0; position: sticky; top: 12px; z-index: 25; }
 .cat-avatar { width: 60px; height: 60px; flex: 0 0 60px; border-radius: 50%; background: #efeff1; overflow: hidden; }
-.cat-reference { display: block; width: 60px; height: 60px; background: url("/reference-main.png") -153px -325px / 1536px 774px no-repeat; }
+.cat-reference { display: block; width: 60px; height: 60px; background: url("/reference-main.webp") -153px -325px / 1536px 774px no-repeat; }
 .brand-shortcuts { display: none; }
 .order-location-bar { height: 100%; min-width: 0; flex: 1 1 auto; border-radius: 32px; background: var(--soft); display: flex; align-items: center; overflow: hidden; }
 .city-select { position: relative; z-index: 32; height: 52px; flex: 0 0 auto; }
@@ -65,7 +65,7 @@ a { color: inherit; text-decoration: none; }
 .promo-card img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; transition: transform .25s ease; }
 .promo-card:hover img { transform: scale(1.025); }
 .promo-reference, .story-reference { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; }
-.promo-reference::before, .story-reference::before { content: ""; position: absolute; width: 841.333333%; height: 394.285714%; top: -208.571429%; background: url("/reference-main.png") 0 0 / 100% 100% no-repeat; }
+.promo-reference::before, .story-reference::before { content: ""; position: absolute; width: 841.333333%; height: 394.285714%; top: -208.571429%; background: url("/reference-main.webp") 0 0 / 100% 100% no-repeat; }
 .promo-reference-kids::before, .story-reference-kids::before { left: -347.555556%; }
 .promo-reference-sticks::before, .story-reference-sticks::before { left: -556%; }
 .category-nav { height: 57.2px; padding: 0 32px 10px; display: flex; align-items: center; gap: 10px; overflow-x: auto; scrollbar-width: none; position: sticky; top: 82px; background: rgba(255,255,255,.96); z-index: 20; }
@@ -89,7 +89,7 @@ a { color: inherit; text-decoration: none; }
 .product-image-wrap { height: 166.8px; flex: 0 0 166.8px; min-height: 0; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border-radius: 32px 32px 0 0; background: var(--image-soft); }
 .product-image-wrap::after { content: none; }
 .product-image-wrap img { display: block; width: 100%; height: 100%; max-width: 100%; object-fit: contain; object-position: center; mix-blend-mode: normal; }
-.reference-card-art { display: block; width: 100%; height: 100%; background-image: url("/reference-main-scroll.png"); background-size: 1536px 864px; background-repeat: no-repeat; }
+.reference-card-art { display: block; width: 100%; height: 100%; background-image: url("/reference-main-scroll.webp"); background-size: 1536px 864px; background-repeat: no-repeat; }
 .reference-card-wasabi { background-position: -153px -341px; }
 .reference-card-popcorn { background-position: -357px -341px; }
 .reference-card-batat { background-position: -561px -341px; }
