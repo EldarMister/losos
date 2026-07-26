@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 
-const title = "Много лосося | Суши, пиццы, роллы";
+const title = "Накта суши | Суши, пиццы, роллы";
 const description = "Доставка свежих роллов, суши, поке и горячих блюд.";
 
 export async function generateMetadata(): Promise<Metadata> {

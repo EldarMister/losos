@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./admin.css";
 
 export const metadata: Metadata = {
-  title: "Управление меню | Много лосося",
+  title: "Управление меню | Накта суши",
   robots: { index: false, follow: false },
 };
 

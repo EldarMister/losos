@@ -1236,7 +1236,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   return (
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
-        <img className="brand-wordmark" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" />
+        <img className="brand-wordmark" src="/логотип.png" alt="Накта суши" />
         <picture>
           <source media="(max-width: 720px)" srcSet="https://mnogolososya.ru/_nuxt/main-pic-bg-mobile.BduSm_pt.webp" />
           <img className="brand-main" src="https://mnogolososya.ru/_nuxt/main-pic-bg.CBG-DW8k.webp" alt="Salmon Lovers Club" />
@@ -1319,7 +1319,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       </div>
 
       <footer className="footer" id="contacts">
-        <div className="footer-brand"><img className="footer-logo" src="https://mnogolososya.ru/_nuxt/brand-name-logo.BwYmwvxd.svg" alt="Много лосося" /><span>© 2026 {footerCompanyName}</span></div>
+        <div className="footer-brand"><img className="footer-logo" src="/логотип.png" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
         <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
