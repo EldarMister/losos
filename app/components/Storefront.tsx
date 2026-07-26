@@ -442,9 +442,6 @@ function ProductArt({ product, mode, loading, fetchPriority }: { product: Produc
   if (mode === "cart") {
     return <img src={product.image} alt={product.name} loading="lazy" />;
   }
-  if (product.referenceCard) {
-    return <span className={`reference-card-art reference-card-${product.referenceCard}`} role="img" aria-label={product.name} />;
-  }
   return <img src={product.image} alt={product.name} loading={loading} fetchPriority={fetchPriority} />;
 }
 
@@ -517,6 +514,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const promoRowRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const citySelectRef = useRef<HTMLDivElement>(null);
+  const openSearch = () => {
+    const nav = categoryNavRef.current;
+    if (nav) nav.scrollLeft = 0;
+    setSearchOpen(true);
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1214,6 +1216,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [categorySlug]);
 
   useEffect(() => {
+    if (searchOpen) return;
     const nav = categoryNavRef.current;
     const item = nav?.querySelector<HTMLElement>(`[data-category-slug="${highlightedCategory}"]`);
     if (!nav || !item) return;
@@ -1224,7 +1227,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       left: item.offsetLeft - targetLeft,
       behavior: "smooth",
     });
-  }, [highlightedCategory]);
+  }, [highlightedCategory, searchOpen]);
 
   useEffect(() => {
     const row = promoRowRef.current;
@@ -1245,7 +1248,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   return (
     <div className="site">
       <section className="brand-hero" aria-label="Salmon Lovers Club">
-        <img className="brand-main" src="/шапка.png" alt="Накта суши" />
+        <img className="brand-main" src="/прозрачный.png" alt="Накта суши" />
         <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
       </section>
 
@@ -1280,7 +1283,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         </div>
 
         <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
-          <div className={`search-pill ${searchOpen || search ? "search-open" : ""}`}><button className="search-toggle" type="button" onClick={() => setSearchOpen(true)} aria-label="Открыть поиск" aria-expanded={searchOpen || Boolean(search)}><span>⌕</span></button><input ref={searchInputRef} type="search" value={search} onFocus={() => setSearchOpen(true)} onBlur={() => { if (!search) setSearchOpen(false); }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? "Что ищем?" : "Поиск"} aria-label="Поиск блюд" /></div>
+          <div className={`search-pill ${searchOpen || search ? "search-open" : ""}`}><button className="search-toggle" type="button" onPointerDown={openSearch} onClick={openSearch} aria-label="Открыть поиск" aria-expanded={searchOpen || Boolean(search)}><span>⌕</span></button><input ref={searchInputRef} type="search" value={search} onFocus={openSearch} onBlur={() => { if (!search) setSearchOpen(false); }} onKeyDown={(event) => { if (event.key === "Escape") { setSearch(""); setSearchOpen(false); event.currentTarget.blur(); } }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? "Что ищем?" : "Поиск"} aria-label="Поиск блюд" /></div>
           {catalogCategories.map((category) => (
             <a
               key={category.slug}
@@ -1322,7 +1325,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       </div>
 
       <footer className="footer" id="contacts">
-        <div className="footer-brand"><img className="footer-logo" src="/логотип.jpeg" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
+        <div className="footer-brand"><img className="footer-logo" src="/логотип.png" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
         <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
