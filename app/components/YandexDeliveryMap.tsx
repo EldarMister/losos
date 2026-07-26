@@ -99,9 +99,11 @@ function yandexErrorMessage(error: unknown, fallback: string) {
 function organizationIdFromUri(uri?: string) {
   if (!uri) return null;
   try {
-    return new URL(uri).searchParams.get("oid");
+    const params = new URL(uri).searchParams;
+    return params.get("oid") || params.get("id");
   } catch {
-    return null;
+    const match = uri.match(/[?&](?:oid|id)=([^&]+)/i);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
   }
 }
 
@@ -161,7 +163,7 @@ export function YandexDeliveryMap({
   onLocationChange,
 }: YandexDeliveryMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const geocodeAddressRef = useRef<(value: string, uri?: string) => Promise<void>>(async () => undefined);
+  const geocodeAddressRef = useRef<(value: string, uri?: string, subtitle?: string) => Promise<void>>(async () => undefined);
   const reverseGeocodeRef = useRef<(point: [number, number]) => Promise<void>>(async () => undefined);
   const suppressSuggestionsRef = useRef(query.trim());
   const handledSearchRequestRef = useRef(searchRequest);
@@ -301,7 +303,7 @@ export function YandexDeliveryMap({
       }
     };
 
-    const geocodeAddress = async (value: string, uri?: string) => {
+    const geocodeAddress = async (value: string, uri?: string, subtitle?: string) => {
       const trimmed = value.trim();
       if (!trimmed) return;
       setMessage("Ищем адрес…");
@@ -310,27 +312,61 @@ export function YandexDeliveryMap({
       try {
         const request = new RegExp(config.city, "i").test(trimmed) ? trimmed : `${config.city}, ${trimmed}`;
         const organizationId = organizationIdFromUri(uri);
+        const isOrganization = Boolean(organizationId || uri?.toLowerCase().includes("://org"));
         if (organizationId) {
           try {
             const organization = await (window as any).ymaps.findOrganization(organizationId);
             if (cancelled) return;
             const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
             if (organizationPoint && isInsideBounds(organizationPoint, config.bounds)) {
+              const addressLine = typeof organization.getAddressLine === "function" ? organization.getAddressLine() : "";
+              const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
               updatePoint(organizationPoint, 17);
               suppressSuggestionsRef.current = trimmed;
               onQueryChange(trimmed);
-              onLocationChange({ address: trimmed, coordinates: organizationPoint });
+              onLocationChange({ address: resolvedAddress, coordinates: organizationPoint });
               setMessage("Место найдено");
               return;
             }
           } catch (error) {
-            // Для организаций, которые нельзя получить через JS API, используем поиск по названию.
+            // Некоторые организации из Геосаджеста недоступны через findOrganization.
             console.warn("Yandex organization lookup failed", error);
           }
         }
 
-        // URI из Геосаджеста предназначен для HTTP Geocoder API. В JS API ищем по названию,
-        // иначе метка остаётся на прежнем месте для организаций.
+        if (isOrganization) {
+          const searchControl = new (window as any).ymaps.control.SearchControl({
+            options: {
+              provider: "yandex#search",
+              boundedBy: config.bounds,
+              strictBounds: true,
+              results: 8,
+              noPlacemark: true,
+              noCentering: true,
+              suppressYandexSearch: true,
+            },
+          });
+          const businessRequest = [trimmed, subtitle].filter(Boolean).join(", ");
+          await searchControl.search(businessRequest);
+          if (cancelled) return;
+          const businessResults = searchControl.getResultsArray() as any[];
+          const organization = businessResults.find((candidate) => {
+            const candidatePoint = candidate?.geometry?.getCoordinates() as [number, number] | undefined;
+            return candidatePoint && isInsideBounds(candidatePoint, config.bounds);
+          });
+          const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
+          if (!organizationPoint) throw new Error(`Организация в городе ${config.city} не найдена`);
+          const addressLine = typeof organization.getAddressLine === "function" ? organization.getAddressLine() : "";
+          const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
+          updatePoint(organizationPoint, 17);
+          suppressSuggestionsRef.current = trimmed;
+          onQueryChange(trimmed);
+          onLocationChange({ address: resolvedAddress, coordinates: organizationPoint });
+          setMessage("Место найдено");
+          return;
+        }
+
+        // URI Геосаджеста используется HTTP Геокодером; JS API надёжнее ищет обычный адрес по тексту.
         const result = await (window as any).ymaps.geocode(request, {
           boundedBy: config.bounds,
           strictBounds: true,
@@ -439,7 +475,7 @@ export function YandexDeliveryMap({
     suppressSuggestionsRef.current = suggestion.value;
     setSuggestionResult({ query: "", items: [] });
     onQueryChange(suggestion.value);
-    void geocodeAddressRef.current(suggestion.value, suggestion.uri);
+    void geocodeAddressRef.current(suggestion.value, suggestion.uri, suggestion.subtitle);
   };
 
   return (
