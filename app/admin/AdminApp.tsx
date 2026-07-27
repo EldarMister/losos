@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
 type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
@@ -97,7 +98,6 @@ type AdminOrder = {
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
 type OrderPeriod = "all" | "today" | "week" | "month";
 type Tab = "statistics" | "orders" | "products" | "promotions" | "categories" | "settings";
-type StatisticsPeriod = "today" | "week" | "month" | "all";
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
@@ -273,7 +273,8 @@ export function AdminApp() {
   }, [request, token]);
 
   useEffect(() => {
-    void loadSettings();
+    const timer = window.setTimeout(() => void loadSettings(), 0);
+    return () => window.clearTimeout(timer);
   }, [loadSettings]);
 
   useEffect(() => {
@@ -381,7 +382,8 @@ export function AdminApp() {
 
   useEffect(() => {
     if (tab !== "statistics" || !token) return;
-    void loadStatistics();
+    const timer = window.setTimeout(() => void loadStatistics(), 0);
+    return () => window.clearTimeout(timer);
   }, [loadStatistics, tab, token]);
 
   const products = useMemo(() => dashboard?.categories.flatMap((category) =>
@@ -761,13 +763,7 @@ export function AdminApp() {
           : <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>}
       </div>
 
-      {tab === "statistics" ? <section className="admin-statistics">
-        <div className="admin-stat-periods">{(["today", "week", "month", "all"] as StatisticsPeriod[]).map((period) => <button type="button" key={period} className={statisticsPeriod === period ? "active" : ""} onClick={() => setStatisticsPeriod(period)}>{{ today: "Сегодня", week: "Неделя", month: "Месяц", all: "Всё время" }[period]}</button>)}</div>
-        <div className="admin-stat-cards"><article><i>▤</i><span><small>Заказов за период</small><b>{statistics.orders}</b></span></article><article><i>◉</i><span><small>Средний чек</small><b>{formatSom(statistics.average)}</b></span></article></div>
-        <article className="admin-stat-chart"><header><b>Выручка за период</b><span>{statistics.orders} заказов&nbsp; <strong>{formatSom(statistics.revenue)}</strong></span></header><div className="admin-stat-bars">{statistics.chart.map((point) => <span key={point.label}><i style={{ height: `${point.percent}%` }} title={formatSom(point.amount)} /><small>{point.label}</small></span>)}</div></article>
-        <div className="admin-stat-grids"><StatisticsTable title="Способы оплаты" headers={["Способ", "Сумма"]} rows={statistics.payments.map((item) => [item.name, formatSom(item.amount)])} /><StatisticsTable title="Топ блюд" headers={["Блюдо", "Кол-во", "Выручка"]} rows={statistics.products.slice(0, 6).map((item) => [item.name, `${item.count} шт`, formatSom(item.revenue)])} /><StatisticsTable title="Статусы заказов" headers={["Статус", "Заказы"]} rows={statistics.statuses.map((item) => [item.name, String(item.count)])} /><StatisticsTable title="Часы пик" headers={["Время", "Выручка"]} rows={statistics.peaks.slice(0, 5).map((item) => [item.label, formatSom(item.amount)])} /></div>
-        {statisticsLoading ? <div className="admin-stat-loading">Загружаем статистику…</div> : null}
-      </section> : null}
+      {tab === "statistics" ? <StatisticsDashboard data={statistics} period={statisticsPeriod} loading={statisticsLoading} onPeriodChange={setStatisticsPeriod} /> : null}
 
       {tab === "orders" ? <>
         <div className="admin-list-tools">
@@ -1102,10 +1098,6 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
       <button className="admin-add-option" type="button" onClick={() => addItem(groupIndex)}>+ Добавить вариант</button>
     </article>)}
   </section>;
-}
-
-function StatisticsTable({ title, headers, rows }: { title: string; headers: string[]; rows: string[][] }) {
-  return <article className="admin-stat-table"><h2>{title}</h2><div className="admin-stat-table-head">{headers.map((header) => <span key={header}>{header}</span>)}</div>{rows.length ? rows.map((row, index) => <div className="admin-stat-table-row" key={`${row[0]}-${index}`}>{row.map((cell, cellIndex) => <span key={`${cell}-${cellIndex}`}>{cell}</span>)}</div>) : <p>Нет данных за период</p>}</article>;
 }
 
 function ImageField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
