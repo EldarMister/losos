@@ -239,7 +239,10 @@ export function YandexDeliveryMap({
         highlight: "0",
         bbox: `${minLon},${minLat}~${maxLon},${maxLat}`,
         strict_bounds: "1",
-        types: "geo,biz",
+        // Для доставки подходят только географические объекты: улицы, дома и
+        // адреса. Организации (biz) могут иметь неточную точку или вообще не
+        // геокодироваться как адрес, из-за чего метка оказывалась не там.
+        types: "geo",
         attrs: "uri",
         org_address_kind: "house",
         print_address: "1",
