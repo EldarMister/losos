@@ -497,7 +497,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
+  const [activeCategory, setActiveCategory] = useState(categorySlug || "");
   const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -1186,7 +1186,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         const isDesktop = window.innerWidth > 720;
         setHeaderPinned(isDesktop && window.scrollY >= 315);
         const anchor = isDesktop ? 190 : 208;
-        let nextCategory = visibleCategories[0]?.slug || "novinki";
+        let nextCategory = "";
 
         for (const category of visibleCategories) {
           const section = document.getElementById(category.slug);
