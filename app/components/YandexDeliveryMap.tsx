@@ -165,6 +165,31 @@ type AddressSuggestion = {
   formattedAddress?: string;
 };
 
+type GeocodedLocation = {
+  address: string;
+  coordinates: [number, number];
+  kind: string;
+  precision: string;
+  name: string;
+  description: string;
+};
+
+async function geocodeViaApi(options: {
+  region: RegionSlug;
+  text?: string;
+  uri?: string;
+  kind?: string;
+}): Promise<GeocodedLocation[]> {
+  const params = new URLSearchParams({ region: options.region });
+  if (options.text) params.set("text", options.text);
+  if (options.uri) params.set("uri", options.uri);
+  if (options.kind) params.set("kind", options.kind);
+  const response = await fetch(`/api/geocode?${params}`, { cache: "no-store" });
+  const data = await response.json() as { items?: GeocodedLocation[]; error?: string };
+  if (!response.ok) throw new Error(data.error || "Не удалось определить адрес");
+  return data.items || [];
+}
+
 export function YandexDeliveryMap({
   inputId,
   query,
@@ -314,13 +339,17 @@ export function YandexDeliveryMap({
 
       setMessage("Определяем адрес…");
       try {
-        const result = await (window as any).ymaps.geocode(point, { results: 1, kind: "house" });
+        const result = await geocodeViaApi({
+          region,
+          text: `${point[1]},${point[0]}`,
+          kind: "house",
+        });
         if (cancelled) return;
-        const geoObject = result.geoObjects.get(0);
+        const geoObject = result[0];
         if (!geoObject) throw new Error("Адрес не найден");
-        const resolvedPoint = geoObject.geometry.getCoordinates() as [number, number];
+        const resolvedPoint = geoObject.coordinates;
         if (!isInsideBounds(resolvedPoint, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
-        const resolvedAddress = addressWithoutCity(geoObject.getAddressLine(), config.city);
+        const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
         updatePoint(resolvedPoint);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
@@ -355,14 +384,13 @@ export function YandexDeliveryMap({
         // организацию, а не в одноимённое место.
         if (uri) {
           try {
-            const uriResult = await (window as any).ymaps.geocode(uri, { results: 1 });
+            const uriResult = await geocodeViaApi({ region, uri });
             if (cancelled) return;
-            const uriObject = uriResult.geoObjects.get(0);
-            const uriPoint = uriObject?.geometry?.getCoordinates() as [number, number] | undefined;
+            const uriObject = uriResult[0];
+            const uriPoint = uriObject?.coordinates;
             if (uriPoint && isInsideBounds(uriPoint, config.bounds)) {
-              const addressLine = typeof uriObject.getAddressLine === "function" ? uriObject.getAddressLine() : "";
               const resolvedAddress = addressWithoutCity(
-                addressLine || formattedAddress || subtitle || trimmed,
+                uriObject.address || formattedAddress || subtitle || trimmed,
                 config.city,
               ) || trimmed;
               updatePoint(uriPoint, isOrganization ? 17 : 16);
@@ -408,18 +436,12 @@ export function YandexDeliveryMap({
               const addressRequest = new RegExp(config.city, "i").test(suggestedAddress)
                 ? suggestedAddress
                 : `${config.city}, ${suggestedAddress}`;
-              const addressResult = await (window as any).ymaps.geocode(addressRequest, {
-                boundedBy: config.bounds,
-                strictBounds: true,
-                results: 3,
-              });
+              const addressResult = await geocodeViaApi({ region, text: addressRequest });
               if (cancelled) return;
-              for (let index = 0; index < addressResult.geoObjects.getLength(); index += 1) {
-                const candidate = addressResult.geoObjects.get(index);
-                const candidatePoint = candidate?.geometry?.getCoordinates() as [number, number] | undefined;
+              for (const candidate of addressResult) {
+                const candidatePoint = candidate.coordinates;
                 if (!candidatePoint || !isInsideBounds(candidatePoint, config.bounds)) continue;
-                const addressLine = typeof candidate.getAddressLine === "function" ? candidate.getAddressLine() : suggestedAddress;
-                const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
+                const resolvedAddress = addressWithoutCity(candidate.address || suggestedAddress, config.city) || trimmed;
                 updatePoint(candidatePoint, 17);
                 suppressSuggestionsRef.current = trimmed;
                 onQueryChange(trimmed);
@@ -433,26 +455,20 @@ export function YandexDeliveryMap({
           }
         }
 
-        // URI Геосаджеста используется HTTP Геокодером; JS API надёжнее ищет обычный адрес по тексту.
-        const result = await (window as any).ymaps.geocode(request, {
-          boundedBy: config.bounds,
-          strictBounds: true,
-          results: 5,
-        });
+        const result = await geocodeViaApi({ region, text: request });
         if (cancelled) return;
-        let geoObject: any;
-        for (let index = 0; index < result.geoObjects.getLength(); index += 1) {
-          const candidate = result.geoObjects.get(index);
-          const candidatePoint = candidate?.geometry.getCoordinates() as [number, number] | undefined;
+        let geoObject: GeocodedLocation | undefined;
+        for (const candidate of result) {
+          const candidatePoint = candidate.coordinates;
           if (candidatePoint && isInsideBounds(candidatePoint, config.bounds)) {
             geoObject = candidate;
             break;
           }
         }
         if (!geoObject) throw new Error(`Адрес в городе ${config.city} не найден`);
-        const point = geoObject.geometry.getCoordinates() as [number, number];
+        const point = geoObject.coordinates;
         if (!isInsideBounds(point, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
-        const resolvedAddress = addressWithoutCity(geoObject.getAddressLine(), config.city);
+        const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
         updatePoint(point);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
@@ -516,7 +532,7 @@ export function YandexDeliveryMap({
       if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
     };
-  }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, suggestApiKey]);
+  }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, region, suggestApiKey]);
 
   useEffect(() => {
     if (status !== "ready" || searchRequest <= handledSearchRequestRef.current) return;
