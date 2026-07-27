@@ -337,29 +337,41 @@ export function YandexDeliveryMap({
         return;
       }
 
+      // Ручной выбор должен быть виден сразу. Координаты метки сохраняем
+      // ровно в месте клика, а не переносим её к центру найденного здания.
+      updatePoint(point);
+      onLocationChange({
+        address: `${config.city}, выбранная точка на карте`,
+        coordinates: point,
+      });
       setMessage("Определяем адрес…");
       try {
-        const result = await geocodeViaApi({
+        let result = await geocodeViaApi({
           region,
           text: `${point[1]},${point[0]}`,
           kind: "house",
         });
+        // На дороге, во дворе или внутри большого объекта ближайшего дома
+        // может не быть. Тогда получаем улицу, район или другой топоним.
+        if (result.length === 0) {
+          result = await geocodeViaApi({
+            region,
+            text: `${point[1]},${point[0]}`,
+          });
+        }
         if (cancelled) return;
         const geoObject = result[0];
         if (!geoObject) throw new Error("Адрес не найден");
-        const resolvedPoint = geoObject.coordinates;
-        if (!isInsideBounds(resolvedPoint, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!isInsideBounds(geoObject.coordinates, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
         const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
-        updatePoint(resolvedPoint);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
-        onLocationChange({ address: resolvedAddress, coordinates: resolvedPoint });
+        onLocationChange({ address: resolvedAddress, coordinates: point });
         setMessage("Адрес найден");
       } catch (error) {
         if (cancelled) return;
         console.error("Yandex reverse geocoding failed", error);
-        setMessage(yandexErrorMessage(error, "Не удалось определить адрес"));
-        onLocationChange(null);
+        setMessage("Точка выбрана — при необходимости уточните адрес");
       }
     };
 
