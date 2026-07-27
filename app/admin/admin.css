@@ -23,6 +23,10 @@ button { cursor: pointer; }
 .admin-login label { display: grid; gap: 10px; font-size: 14px; font-weight: 700; }
 .admin-login-input { height: 56px; display: flex; align-items: center; border: 1px solid #dfe2e8; border-radius: 13px; color: #9499a6; }
 .admin-login-input input { min-width: 0; flex: 1; height: 100%; padding: 0 16px; border: 0; outline: 0; background: transparent; }
+.admin-login-input input:-webkit-autofill,
+.admin-login-input input:-webkit-autofill:hover,
+.admin-login-input input:-webkit-autofill:focus,
+.admin-login-input input:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 1000px #fff inset; box-shadow: 0 0 0 1000px #fff inset; -webkit-text-fill-color: var(--admin-ink); caret-color: var(--admin-ink); }
 .admin-login form > button { width: 100%; height: 56px; margin-top: 30px; border: 0; border-radius: 13px; background: linear-gradient(100deg, #ff4708, #ff5b13); color: #fff; font-size: 16px; font-weight: 800; box-shadow: 0 9px 22px #ff4b0b26; }
 
 /* App frame */
@@ -171,13 +175,14 @@ button { cursor: pointer; }
 .admin-promotion > span { display: flex; flex-direction: column; gap: 7px; padding: 18px; }
 .admin-promotion small { color: var(--admin-muted); }
 .admin-promotion strong { margin-top: 8px; color: var(--admin-orange); font-size: 13px; }
-.admin-categories-head { height: 50px; display: grid; grid-template-columns: 32px 1.4fr .5fr 1fr .5fr .75fr .55fr; gap: 12px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--admin-line); background: #fafbfc; color: var(--admin-muted); font-size: 12px; }
+.admin-categories-head { height: 50px; display: grid; grid-template-columns: 32px 64px 1.4fr .5fr 1fr .5fr .75fr .55fr; gap: 12px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--admin-line); background: #fafbfc; color: var(--admin-muted); font-size: 12px; }
 .admin-categories-head::before { content: ""; }
-.admin-categories-head span:nth-child(1) { grid-column: 2; }
-.admin-categories button { width: 100%; min-height: 68px; display: grid; grid-template-columns: 32px 1.4fr .5fr 1fr .5fr .75fr .55fr; gap: 12px; align-items: center; padding: 0 18px; border: 0; border-bottom: 1px solid var(--admin-line); background: #fff; color: var(--admin-ink); text-align: left; }
+.admin-categories button { width: 100%; min-height: 68px; display: grid; grid-template-columns: 32px 64px 1.4fr .5fr 1fr .5fr .75fr .55fr; gap: 12px; align-items: center; padding: 0 18px; border: 0; border-bottom: 1px solid var(--admin-line); background: #fff; color: var(--admin-ink); text-align: left; }
 .admin-categories button:last-child { border-bottom: 0; }
 .admin-categories button:hover { background: #fffaf7; }
 .admin-categories button > i { color: #a5aab5; font-style: normal; }
+.admin-category-thumb { width: 52px; height: 42px; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: #f3f4f6; color: var(--admin-muted); }
+.admin-category-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .admin-categories button > em { font-style: normal; }
 .admin-categories button > small { color: #4c4f57; }
 .admin-categories button > strong { width: fit-content; padding: 6px 10px; border-radius: 7px; background: #e7f8ed; color: var(--admin-green); font-size: 11px; }
@@ -404,7 +409,8 @@ button { cursor: pointer; }
   .admin-settings-exit { align-items: flex-start; gap: 14px; }
   .admin-categories { border-radius: 12px; }
   .admin-categories-head { display: none; }
-  .admin-categories button { grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; padding: 12px 14px; }
+  .admin-categories button { grid-template-columns: 22px 44px minmax(0, 1fr) auto; gap: 10px; padding: 12px 14px; }
+  .admin-category-thumb { width: 44px; height: 38px; }
   .admin-categories button > small, .admin-categories button > em:nth-of-type(2), .admin-categories button > strong { display: none; }
   .admin-categories button > em:first-of-type::after { content: " блюд"; }
   .admin-editor-page { inset: 0; z-index: 60; padding: 0 0 calc(82px + env(safe-area-inset-bottom)); background: #f7f8fa; }

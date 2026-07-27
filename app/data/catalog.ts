@@ -47,6 +47,7 @@ const productMetaByName = liveProductMeta as Record<string, Partial<Product>>;
 export type Category = {
   slug: string;
   title: string;
+  image?: string;
   products: Product[];
 };
 

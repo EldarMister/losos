@@ -42,7 +42,7 @@ type ModifierGroup = {
   priceScope?: "per-product" | "per-line";
   items: ModifierItem[];
 };
-type Category = { id: number; title: string; slug: string; sortOrder: number; products: Product[] };
+type Category = { id: number; title: string; slug: string; image: string; sortOrder: number; products: Product[] };
 type Promotion = { id: number; title: string; image: string; cta: string; ctaUrl: string; enabled: boolean; sortOrder: number };
 type Dashboard = { region: Region; categories: Category[]; promotions: Promotion[] };
 type OrderStatus = "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
@@ -496,10 +496,10 @@ export function AdminApp() {
   const openCategory = (category?: Category) => setEditor(category ? {
     kind: "category",
     id: category.id,
-    values: { title: category.title, slug: category.slug, sortOrder: String(category.sortOrder) },
+    values: { title: category.title, slug: category.slug, image: category.image || "", sortOrder: String(category.sortOrder) },
   } : {
     kind: "category",
-    values: { title: "", slug: "", sortOrder: "0" },
+    values: { title: "", slug: "", image: "", sortOrder: "0" },
   });
 
   const updateValue = (name: string, value: EditorValue) => {
@@ -680,7 +680,7 @@ export function AdminApp() {
       <form onSubmit={authorize}>
         <h1>Вход в систему</h1>
         <label>Код администратора
-          <span className="admin-login-input"><input type="password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Введите код" autoFocus /></span>
+          <span className="admin-login-input"><input type="password" name="admin-code" autoComplete="current-password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Введите код" autoFocus /></span>
         </label>
         <button type="submit">Войти</button>
       </form>
@@ -843,9 +843,9 @@ export function AdminApp() {
       </div> : null}
 
       {tab === "categories" ? <div className="admin-categories">
-        <div className="admin-categories-head"><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
+        <div className="admin-categories-head"><span>Фото</span><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
         {visibleCategories.map((category) => <button key={category.id} onClick={() => openCategory(category)}>
-          <i>⁙</i><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">⌕&nbsp;&nbsp; ⋮</span>
+          <i>⁙</i><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">⌕&nbsp;&nbsp; ⋮</span>
         </button>)}
       </div> : null}
 
@@ -901,7 +901,7 @@ export function AdminApp() {
           <div className="admin-two-fields"><label>Текст кнопки<input value={String(editor.values.cta || "")} onChange={(event) => updateValue("cta", event.target.value)} placeholder="Подробнее" /></label><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
           <label className="admin-switch"><span><b>Показывать акцию</b><small>В ленте выбранного города</small></span><input type="checkbox" checked={Boolean(editor.values.enabled)} onChange={(event) => updateValue("enabled", event.target.checked)} /></label>
         </> : null}
-        {editor.kind === "category" ? <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label> : null}
+        {editor.kind === "category" ? <><ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} /><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></> : null}
 
         <div className="admin-editor-actions">
           {editor.id ? <button type="button" className="admin-delete" onClick={deleteEditor}>Удалить</button> : <span />}

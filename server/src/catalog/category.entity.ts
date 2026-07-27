@@ -14,6 +14,9 @@ export class Category {
   @Column()
   title!: string;
 
+  @Column({ type: "text", default: "" })
+  image!: string;
+
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 

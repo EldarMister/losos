@@ -155,6 +155,11 @@ export class CreateCategoryDto {
   @MaxLength(100)
   slug!: string;
 
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2_000_000)
+  image!: string;
+
   @Type(() => Number)
   @IsInt()
   @Min(0)
@@ -173,6 +178,12 @@ export class UpdateCategoryDto {
   @IsNotEmpty()
   @MaxLength(100)
   slug?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2_000_000)
+  image?: string;
 
   @IsOptional()
   @Type(() => Number)

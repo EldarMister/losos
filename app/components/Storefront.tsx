@@ -526,6 +526,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         setCatalogCategories(data.map((category) => ({
           slug: category.slug,
           title: category.title,
+          image: typeof category.image === "string" ? category.image : "",
           products: category.products.map((product) => {
             const localProduct = categories.flatMap((entry) => entry.products)
               .find((entry) => entry.name === product.name);
@@ -1317,6 +1318,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 {catalogCategories.map((category, index) => {
                   const previewProduct = category.products.find((product) => product.available !== false)
                     || category.products[0];
+                  const categoryImage = category.image?.trim();
                   const activeCategoryCard = activeCategory === category.slug;
                   return (
                     <button
@@ -1326,7 +1328,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                       onClick={() => scrollToCatalogCategory(category.slug)}
                     >
                       <span className="category-showcase-art">
-                        {previewProduct ? (
+                        {categoryImage ? <img src={categoryImage} alt="" loading={index < 6 ? "eager" : "lazy"} fetchPriority={index < 3 ? "high" : undefined} /> : previewProduct ? (
                           <ProductArt
                             product={previewProduct}
                             mode="card"
