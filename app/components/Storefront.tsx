@@ -498,6 +498,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -650,7 +651,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [cityOpen]);
 
   const visibleCategories = useMemo(() => {
-    const source = categorySlug ? catalogCategories.filter((category) => category.slug === categorySlug) : catalogCategories;
+    const source = categorySlug
+      ? catalogCategories.filter((category) => category.slug === categorySlug)
+      : selectedCategorySlug
+        ? catalogCategories.filter((category) => category.slug === selectedCategorySlug)
+        : catalogCategories;
     if (!search.trim()) return source;
     const query = search.trim().toLocaleLowerCase("ru");
     const matches = source.flatMap((category) => category.products)
@@ -661,7 +666,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         .includes(query))
       .filter((product, index, products) => products.findIndex((candidate) => candidate.name === product.name) === index);
     return matches.length > 0 ? [{ slug: "search-results", title: "Нашли для вас", products: matches }] : [];
-  }, [catalogCategories, categorySlug, search]);
+  }, [catalogCategories, categorySlug, search, selectedCategorySlug]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus({ preventScroll: true });
@@ -675,7 +680,24 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ? address.trim()
       : `${city}, ${address.trim()}`)
     : city;
-  const highlightedCategory = categorySlug || activeCategory;
+  const highlightedCategory = categorySlug || selectedCategorySlug || activeCategory;
+
+  const selectCatalogCategory = (slug: string | null) => {
+    if (categorySlug) return;
+    setSearch("");
+    setSearchOpen(false);
+    setSelectedCategorySlug(slug);
+    if (slug) setActiveCategory(slug);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById(slug || "catalog-categories")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
+  };
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
     if (product.available === false) return;
@@ -1286,12 +1308,59 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               href={categorySlug ? `/category/${category.slug}?region=${regionSlug}` : `#${category.slug}`}
               data-category-slug={category.slug}
               className={category.slug === highlightedCategory ? "active" : ""}
-              onClick={() => setActiveCategory(category.slug)}
+              onClick={(event) => {
+                if (categorySlug) return;
+                event.preventDefault();
+                selectCatalogCategory(category.slug);
+              }}
             >{category.title}</a>
           ))}
         </nav>
 
         <main className="catalog">
+          {!categorySlug && catalogCategories.length > 0 ? (
+            <section className="category-showcase" id="catalog-categories" aria-labelledby="category-showcase-title">
+              <div className="category-showcase-heading">
+                <h1 id="category-showcase-title">Категории</h1>
+                <button
+                  type="button"
+                  className={!selectedCategorySlug ? "active" : ""}
+                  aria-pressed={!selectedCategorySlug}
+                  onClick={() => selectCatalogCategory(null)}
+                >
+                  Все меню
+                </button>
+              </div>
+              <div className="category-showcase-grid">
+                {catalogCategories.map((category, index) => {
+                  const previewProduct = category.products.find((product) => product.available !== false)
+                    || category.products[0];
+                  const selectedCategory = selectedCategorySlug === category.slug;
+                  return (
+                    <button
+                      type="button"
+                      className={`category-showcase-card${selectedCategory ? " active" : ""}`}
+                      key={category.slug}
+                      aria-pressed={selectedCategory}
+                      onClick={() => selectCatalogCategory(category.slug)}
+                    >
+                      <span className="category-showcase-art">
+                        {previewProduct ? (
+                          <ProductArt
+                            product={previewProduct}
+                            mode="card"
+                            loading={index < 6 ? "eager" : "lazy"}
+                            fetchPriority={index < 3 ? "high" : undefined}
+                          />
+                        ) : <span className="category-showcase-placeholder" aria-hidden="true">🍣</span>}
+                      </span>
+                      <span className="category-showcase-name">{category.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
           {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в {city}</h1> : null}
           {catalogLoading ? <div className="empty-search">Загружаем меню…</div> : null}
           {!catalogLoading && visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
