@@ -498,7 +498,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "novinki");
-  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
   const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -651,11 +650,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [cityOpen]);
 
   const visibleCategories = useMemo(() => {
-    const source = categorySlug
-      ? catalogCategories.filter((category) => category.slug === categorySlug)
-      : selectedCategorySlug
-        ? catalogCategories.filter((category) => category.slug === selectedCategorySlug)
-        : catalogCategories;
+    const source = categorySlug ? catalogCategories.filter((category) => category.slug === categorySlug) : catalogCategories;
     if (!search.trim()) return source;
     const query = search.trim().toLocaleLowerCase("ru");
     const matches = source.flatMap((category) => category.products)
@@ -666,7 +661,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         .includes(query))
       .filter((product, index, products) => products.findIndex((candidate) => candidate.name === product.name) === index);
     return matches.length > 0 ? [{ slug: "search-results", title: "Нашли для вас", products: matches }] : [];
-  }, [catalogCategories, categorySlug, search, selectedCategorySlug]);
+  }, [catalogCategories, categorySlug, search]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus({ preventScroll: true });
@@ -680,18 +675,17 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ? address.trim()
       : `${city}, ${address.trim()}`)
     : city;
-  const highlightedCategory = categorySlug || selectedCategorySlug || activeCategory;
+  const highlightedCategory = categorySlug || activeCategory;
 
-  const selectCatalogCategory = (slug: string | null) => {
+  const scrollToCatalogCategory = (slug: string) => {
     if (categorySlug) return;
     setSearch("");
     setSearchOpen(false);
-    setSelectedCategorySlug(slug);
-    if (slug) setActiveCategory(slug);
+    setActiveCategory(slug);
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        document.getElementById(slug || "catalog-categories")?.scrollIntoView({
+        document.getElementById(slug)?.scrollIntoView({
           behavior: "smooth",
           block: "start",
         });
@@ -1308,11 +1302,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               href={categorySlug ? `/category/${category.slug}?region=${regionSlug}` : `#${category.slug}`}
               data-category-slug={category.slug}
               className={category.slug === highlightedCategory ? "active" : ""}
-              onClick={(event) => {
-                if (categorySlug) return;
-                event.preventDefault();
-                selectCatalogCategory(category.slug);
-              }}
+              onClick={() => setActiveCategory(category.slug)}
             >{category.title}</a>
           ))}
         </nav>
@@ -1322,27 +1312,18 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <section className="category-showcase" id="catalog-categories" aria-labelledby="category-showcase-title">
               <div className="category-showcase-heading">
                 <h1 id="category-showcase-title">Категории</h1>
-                <button
-                  type="button"
-                  className={!selectedCategorySlug ? "active" : ""}
-                  aria-pressed={!selectedCategorySlug}
-                  onClick={() => selectCatalogCategory(null)}
-                >
-                  Все меню
-                </button>
               </div>
               <div className="category-showcase-grid">
                 {catalogCategories.map((category, index) => {
                   const previewProduct = category.products.find((product) => product.available !== false)
                     || category.products[0];
-                  const selectedCategory = selectedCategorySlug === category.slug;
+                  const activeCategoryCard = activeCategory === category.slug;
                   return (
                     <button
                       type="button"
-                      className={`category-showcase-card${selectedCategory ? " active" : ""}`}
+                      className={`category-showcase-card${activeCategoryCard ? " active" : ""}`}
                       key={category.slug}
-                      aria-pressed={selectedCategory}
-                      onClick={() => selectCatalogCategory(category.slug)}
+                      onClick={() => scrollToCatalogCategory(category.slug)}
                     >
                       <span className="category-showcase-art">
                         {previewProduct ? (
