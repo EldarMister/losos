@@ -19,15 +19,20 @@ test("server-renders the storefront", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Много лосося \| Суши, пиццы, роллы<\/title>/i);
+  assert.match(
+    html,
+    /<title>Доставка суши и роллов в Бишкеке и Оше \| Накта суши<\/title>/i,
+  );
+  assert.match(html, /<link rel="canonical" href="http:\/\/localhost:3000\/"/i);
+  assert.match(html, /application\/ld\+json/i);
   assert.match(html, /Salmon Lovers Club/);
-  assert.match(html, /Загружаем меню/);
+  assert.match(html, /Соус сладкий васаби/);
   assert.match(html, /Корзина/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 
 test("includes the product, cart and address flows", async () => {
-  const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson] = await Promise.all([
+  const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson, robots, sitemap, seo] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/YandexDeliveryMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/maps-config/route.ts", import.meta.url), "utf8"),
@@ -36,6 +41,9 @@ test("includes the product, cart and address flows", async () => {
     readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../app/robots.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/sitemap.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/seo.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(storefront, /product-modal-\$\{selected\.modalKind/);
@@ -43,7 +51,6 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /className="cart-drawer"/);
   assert.match(storefront, /aria-label="Самовывоз"/);
   assert.match(storefront, /pickup-location/);
-  assert.match(storefront, /pm2rdl/);
   assert.match(storefront, /<YandexDeliveryMap/);
   assert.match(storefront, /deliveryLocation/);
   assert.match(storefront, /Заказать сюда/);
@@ -67,11 +74,11 @@ test("includes the product, cart and address flows", async () => {
   assert.match(mapsConfigRoute, /Cache-Control/);
   assert.match(envExample, /YANDEX_MAPS_API_KEY=/);
   assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
+  assert.match(envExample, /SITE_URL=http:\/\/localhost:3000/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
   assert.match(storefront, /modifier-groups/);
   assert.match(storefront, /Настройте блюдо/);
-  assert.match(storefront, /product-new-badge/);
   assert.match(storefront, /story-progress/);
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
@@ -173,6 +180,13 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /if \(mode === "detail"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(storefront, /if \(mode === "related"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);
+  assert.match(categoryPage, /generateMetadata/);
+  assert.match(categoryPage, /BreadcrumbList/);
+  assert.match(robots, /disallow:\s*\["\/admin", "\/api\/"\]/);
+  assert.match(robots, /sitemap:\s*absoluteUrl\("\/sitemap\.xml"\)/);
+  assert.match(sitemap, /getSeoCategories/);
+  assert.match(sitemap, /priority:\s*0\.8/);
+  assert.match(seo, /process\.env\.SITE_URL/);
   assert.match(globals, /\.product-modal\s*\{[^}]*width:\s*min\(1160px[^}]*height:\s*min\(920px/);
   assert.match(globals, /\.modal-info\s*\{[^}]*scrollbar-width:\s*none/);
   assert.match(globals, /\.related-row\s*\{[^}]*gap:\s*16px/);

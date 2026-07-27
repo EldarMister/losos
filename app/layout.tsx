@@ -1,38 +1,75 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { getSiteUrl } from "./lib/seo";
 import "./globals.css";
 
-const title = "Накта суши | Суши, пиццы, роллы";
-const description = "Доставка свежих роллов, суши, поке и горячих блюд.";
+const siteName = "Накта суши";
+const title = "Доставка суши и роллов в Бишкеке и Оше | Накта суши";
+const description =
+  "Закажите свежие суши, роллы, сеты, поке и горячие блюда с доставкой в Бишкеке и Оше. Актуальное меню, удобный заказ онлайн и самовывоз.";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const host =
-    requestHeaders.get("x-forwarded-host") ??
-    requestHeaders.get("host") ??
-    "localhost:3000";
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") ? "http" : "https");
-  const metadataBase = new URL(`${protocol}://${host}`);
-  const previewImage = new URL("/og-social-v2.png", metadataBase).toString();
+  const metadataBase = getSiteUrl();
 
   return {
-    title,
-    description,
     metadataBase,
-    icons: { icon: "/favicon.jpeg", type: "image/jpeg" },
+    title: {
+      default: title,
+      template: `%s | ${siteName}`,
+    },
+    description,
+    applicationName: siteName,
+    keywords: [
+      "доставка суши",
+      "суши Бишкек",
+      "суши Ош",
+      "роллы Бишкек",
+      "роллы Ош",
+      "заказать суши",
+      "доставка роллов",
+      "сеты",
+      "поке",
+    ],
+    authors: [{ name: siteName }],
+    creator: siteName,
+    publisher: siteName,
+    alternates: {
+      canonical: "/",
+      languages: { "ru-KG": "/" },
+    },
+    icons: {
+      icon: [{ url: "/favicon.jpeg", type: "image/jpeg" }],
+      shortcut: "/favicon.jpeg",
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
     openGraph: {
       title,
       description,
       type: "website",
-      images: [{ url: previewImage, width: 1200, height: 630 }],
+      url: "/",
+      siteName,
+      locale: "ru_KG",
+      images: [{
+        url: "/og-social-v2.png",
+        width: 1200,
+        height: 630,
+        alt: "Накта суши — доставка суши и роллов",
+      }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [previewImage],
+      images: ["/og-social-v2.png"],
     },
   };
 }

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import "./admin.css";
 
 export const metadata: Metadata = {
-  title: "Управление меню | Накта суши",
+  title: "Управление меню",
+  alternates: { canonical: "/admin" },
   robots: { index: false, follow: false },
 };
 
