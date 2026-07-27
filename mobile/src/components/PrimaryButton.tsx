@@ -1,0 +1,78 @@
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { colors, radii } from "../theme";
+
+type Props = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  tone?: "orange" | "black" | "soft" | "white";
+  style?: StyleProp<ViewStyle>;
+};
+
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+  loading,
+  tone = "orange",
+  style,
+}: Props) {
+  const background = {
+    orange: colors.orange,
+    black: colors.ink,
+    soft: colors.surface,
+    white: colors.white,
+  }[tone];
+  const foreground = tone === "soft" || tone === "white" ? colors.ink : colors.white;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={disabled || loading}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.button,
+        { backgroundColor: background },
+        (disabled || loading) && styles.disabled,
+        pressed && styles.pressed,
+        style,
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator color={foreground} />
+      ) : (
+        <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: {
+    minHeight: 52,
+    borderRadius: radii.medium,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  disabled: {
+    opacity: 0.48,
+  },
+  pressed: {
+    transform: [{ scale: 0.985 }],
+    opacity: 0.9,
+  },
+});
