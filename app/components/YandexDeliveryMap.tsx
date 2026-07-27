@@ -100,9 +100,9 @@ function organizationIdFromUri(uri?: string) {
   if (!uri) return null;
   try {
     const params = new URL(uri).searchParams;
-    return params.get("oid") || params.get("id");
+    return params.get("oid");
   } catch {
-    const match = uri.match(/[?&](?:oid|id)=([^&]+)/i);
+    const match = uri.match(/[?&]oid=([^&]+)/i);
     return match?.[1] ? decodeURIComponent(match[1]) : null;
   }
 }
@@ -239,10 +239,7 @@ export function YandexDeliveryMap({
         highlight: "0",
         bbox: `${minLon},${minLat}~${maxLon},${maxLat}`,
         strict_bounds: "1",
-        // Для доставки подходят только географические объекты: улицы, дома и
-        // адреса. Организации (biz) могут иметь неточную точку или вообще не
-        // геокодироваться как адрес, из-за чего метка оказывалась не там.
-        types: "geo",
+        types: "geo,biz",
         attrs: "uri",
         org_address_kind: "house",
         print_address: "1",
@@ -353,8 +350,9 @@ export function YandexDeliveryMap({
         const organizationId = organizationIdFromUri(uri);
         const isOrganization = Boolean(organizationId || uri?.toLowerCase().includes("://org"));
 
-        // URI из Геосаджеста однозначно указывает на выбранный объект. Текстовый
-        // повторный поиск может выбрать одноимённое место или не найти организацию.
+        // URI из Геосаджеста однозначно указывает на выбранный объект. Его
+        // используем раньше текстового поиска, чтобы метка попадала в выбранную
+        // организацию, а не в одноимённое место.
         if (uri) {
           try {
             const uriResult = await (window as any).ymaps.geocode(uri, { results: 1 });
@@ -401,39 +399,9 @@ export function YandexDeliveryMap({
         }
 
         if (isOrganization) {
-          try {
-            const searchControl = new (window as any).ymaps.control.SearchControl({
-              options: {
-                provider: "yandex#search",
-                boundedBy: config.bounds,
-                strictBounds: true,
-                results: 8,
-                noPlacemark: true,
-                noCentering: true,
-              },
-            });
-            await searchControl.search(`${config.city}, ${trimmed}`);
-            if (cancelled) return;
-            const businessResults = searchControl.getResultsArray() as any[];
-            const organization = businessResults.find((candidate) => {
-              const candidatePoint = candidate?.geometry?.getCoordinates() as [number, number] | undefined;
-              return candidatePoint && isInsideBounds(candidatePoint, config.bounds);
-            });
-            const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
-            if (organizationPoint) {
-              const addressLine = typeof organization.getAddressLine === "function" ? organization.getAddressLine() : "";
-              const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
-              updatePoint(organizationPoint, 17);
-              suppressSuggestionsRef.current = trimmed;
-              onQueryChange(trimmed);
-              onLocationChange({ address: resolvedAddress, coordinates: organizationPoint });
-              setMessage("Место найдено");
-              return;
-            }
-          } catch (error) {
-            console.warn("Yandex business search failed", error);
-          }
-
+          // Если Яндекс не вернул точку самой организации, используем её
+          // отображаемый адрес. Не запускаем повторный поиск по названию:
+          // он мог выбрать другую организацию с тем же именем.
           const suggestedAddress = formattedAddress || addressFromSuggestionSubtitle(subtitle, config.city);
           if (suggestedAddress) {
             try {
