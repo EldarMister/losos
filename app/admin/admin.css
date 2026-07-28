@@ -294,6 +294,12 @@ button { cursor: pointer; }
 .admin-region-block > b { font-size: 15px; }
 .admin-region-block > small { margin-top: -7px; color: var(--admin-muted); }
 .admin-region-block label { display: grid; gap: 8px; color: #31333a; font-size: 12px; font-weight: 700; }
+.admin-region-block .admin-switch { grid-column: 1 / -1; }
+.admin-working-days { display: grid; gap: 8px; color: #31333a; font-size: 12px; font-weight: 700; }
+.admin-working-days > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.admin-working-days button { width: 42px; min-height: 36px; padding: 7px; border: 1px solid #dfe2e8; border-radius: 8px; background: #fff; color: #596070; font: inherit; font-weight: 700; }
+.admin-working-days button.selected { border-color: var(--admin-orange); background: var(--admin-orange); color: #fff; }
+.admin-working-days button:focus-visible { outline: 3px solid #0d65f633; outline-offset: 1px; }
 .admin-category-overlay { inset: 0; place-items: center; padding: 20px; background: #1b1d2180; backdrop-filter: blur(4px); }
 .admin-category-overlay .admin-editor { width: min(100%, 520px); display: grid; grid-template-columns: 1fr; padding: 24px; border: 0; border-radius: 16px; background: #fff; box-shadow: 0 28px 80px #10141930; }
 .admin-category-overlay .admin-editor-head { margin: -24px -24px 22px; padding: 20px 24px; }

@@ -44,6 +44,8 @@ export class CreateRegionDto {
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours = "";
   @IsOptional() @IsString() @Matches(timePattern) deliveryOpenTime = "11:30";
   @IsOptional() @IsString() @Matches(timePattern) deliveryCloseTime = "22:30";
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() deliveryIs24Hours = false;
+  @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn([0, 1, 2, 3, 4, 5, 6], { each: true }) deliveryWorkingDays: number[] = [0, 1, 2, 3, 4, 5, 6];
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold = 4900;
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
@@ -61,6 +63,8 @@ export class UpdateRegionDto {
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours?: string;
   @IsOptional() @IsString() @Matches(timePattern) deliveryOpenTime?: string;
   @IsOptional() @IsString() @Matches(timePattern) deliveryCloseTime?: string;
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() deliveryIs24Hours?: boolean;
+  @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn([0, 1, 2, 3, 4, 5, 6], { each: true }) deliveryWorkingDays?: number[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold?: number;
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;

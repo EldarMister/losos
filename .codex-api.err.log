@@ -1,0 +1,399 @@
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:24 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (1)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:27 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (2)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:30 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (3)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:33 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (4)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:36 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (5)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:39 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (6)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:42 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (7)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:46 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (8)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:49 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (9)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 44084  - [39m29.07.2026, 00:15:49 [31m  ERROR[39m [38;5;3m[ExceptionHandler] [39mDataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31[90m)[39m
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18[90m)[39m
+    at <anonymous> [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18[90m)[39m
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25[90m)[39m
+    at DataSource.buildMetadatas [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\data-source\src\data-source\DataSource.ts:753:33[90m)[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at async DataSource.initialize [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\data-source\src\data-source\DataSource.ts:264:13[90m)[39m
+[31m[Nest] 155724  - [39m29.07.2026, 00:16:42 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (1)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:16:45 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (2)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:16:48 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (3)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:16:52 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (4)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:16:55 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (5)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:16:58 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (6)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:17:01 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (7)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:17:04 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (8)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:17:07 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (9)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 155724  - [39m29.07.2026, 00:17:07 [31m  ERROR[39m [38;5;3m[ExceptionHandler] [39mDataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31[90m)[39m
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18[90m)[39m
+    at <anonymous> [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18[90m)[39m
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25[90m)[39m
+    at DataSource.buildMetadatas [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\data-source\src\data-source\DataSource.ts:753:33[90m)[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at async DataSource.initialize [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\data-source\src\data-source\DataSource.ts:264:13[90m)[39m
+[31m[Nest] 158608  - [39m29.07.2026, 00:24:12 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (1)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 158608  - [39m29.07.2026, 00:24:15 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (2)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 156556  - [39m29.07.2026, 00:24:20 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (1)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:25 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (1)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:28 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (2)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:32 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (3)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:35 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (4)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:38 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (5)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:41 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (6)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:44 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (7)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:47 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (8)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:50 [31m  ERROR[39m [38;5;3m[TypeOrmModule] [39m[31mUnable to connect to the database. Retrying (9)...[39m
+DataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18)
+    at <anonymous> (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18)
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany (C:\Users\User\Desktop\losos\server\node_modules\typeorm\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25)
+    at DataSource.buildMetadatas (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:753:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async DataSource.initialize (C:\Users\User\Desktop\losos\server\node_modules\typeorm\data-source\src\data-source\DataSource.ts:264:13)
+[31m[Nest] 159364  - [39m29.07.2026, 00:24:50 [31m  ERROR[39m [38;5;3m[ExceptionHandler] [39mDataTypeNotSupportedError: Data type "Object" in "PhoneAuthChallenge.verificationTokenHash" is not supported by "postgres" database.
+    at <anonymous> [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:133:31[90m)[39m
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validate [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:128:18[90m)[39m
+    at <anonymous> [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:43:18[90m)[39m
+    at Array.forEach (<anonymous>)
+    at EntityMetadataValidator.validateMany [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\metadata-builder\src\metadata-builder\EntityMetadataValidator.ts:42:25[90m)[39m
+    at DataSource.buildMetadatas [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\data-source\src\data-source\DataSource.ts:753:33[90m)[39m
+[90m    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)[39m
+    at async DataSource.initialize [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4mtypeorm[24m\data-source\src\data-source\DataSource.ts:264:13[90m)[39m
+[31m[Nest] 186376  - [39m29.07.2026, 01:14:59 [31m  ERROR[39m [38;5;3m[ExceptionHandler] [39mUnknownDependenciesException [Error]: Nest can't resolve dependencies of the PhoneAuthService (PhoneAuthChallengeRepository, ConfigService, NikitaOtpService, ?). Please make sure that the argument WhatsappCloudService at index [3] is available in the PhoneAuthModule module.
+
+Potential solutions:
+- Is PhoneAuthModule a valid NestJS module?
+- If WhatsappCloudService is a provider, is it part of the current PhoneAuthModule?
+- If WhatsappCloudService is exported from a separate @Module, is that module imported within PhoneAuthModule?
+  @Module({
+    imports: [ /* the Module containing WhatsappCloudService */ ]
+  })
+
+For more common dependency resolution issues, see: https://docs.nestjs.com/faq/common-errors
+    at Injector.lookupComponentInParentModules [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\injector.js:300:19[90m)[39m
+    at async resolveParam [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\injector.js:150:38[90m)[39m
+    at async Promise.all (index 3)
+    at async Injector.resolveConstructorParams [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\injector.js:179:27[90m)[39m
+    at async Injector.loadInstance [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\injector.js:77:13[90m)[39m
+    at async Injector.loadProvider [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\injector.js:111:9[90m)[39m
+    at async [90mC:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\instance-loader.js:56:13
+    at async Promise.all (index 3)
+    at async InstanceLoader.createInstancesOfProviders [90m(C:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\instance-loader.js:55:9[90m)[39m
+    at async [90mC:\Users\User\Desktop\losos\server\[39mnode_modules\[4m@nestjs\core[24m\injector\instance-loader.js:40:13 {
+  type: [32m'PhoneAuthService'[39m,
+  context: {
+    index: [33m3[39m,
+    dependencies: [
+      [32m'PhoneAuthChallengeRepository'[39m,
+      [36m[class ConfigService][39m,
+      [36m[class NikitaOtpService][39m,
+      [36m[class WhatsappCloudService][39m
+    ],
+    name: [36m[class WhatsappCloudService][39m
+  },
+  metadata: {
+    id: [32m'ecf64ced5560547c4b7e0'[39m
+  },
+  moduleRef: {
+    id: [32m'e22ade19f334182edfc21'[39m
+  }
+}

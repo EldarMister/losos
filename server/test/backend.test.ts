@@ -79,12 +79,14 @@ test("phone auth DTO normalizes supported numbers and requires a six-digit code"
   assert.equal(validateSync(invalidPollToken).length, 2);
 });
 
-test("region delivery settings validate time and free-delivery threshold", () => {
+test("region delivery settings validate time, days, and free-delivery threshold", () => {
   const valid = plainToInstance(CreateRegionDto, {
     slug: "test",
     name: "Тест",
     deliveryOpenTime: "11:45",
     deliveryCloseTime: "22:30",
+    deliveryIs24Hours: true,
+    deliveryWorkingDays: [1, 2, 3, 4, 5],
     freeDeliveryThreshold: 4900,
   });
   assert.deepEqual(validateSync(valid), []);
@@ -94,9 +96,10 @@ test("region delivery settings validate time and free-delivery threshold", () =>
     name: "Тест",
     deliveryOpenTime: "25:00",
     deliveryCloseTime: "22:70",
+    deliveryWorkingDays: [7],
     freeDeliveryThreshold: -1,
   });
-  assert.ok(validateSync(invalid).length >= 3);
+  assert.ok(validateSync(invalid).length >= 4);
 });
 
 test("delivery working hours use Bishkek time and support overnight schedules", () => {
@@ -107,6 +110,13 @@ test("delivery working hours use Bishkek time and support overnight schedules", 
   const overnight = { deliveryOpenTime: "20:00", deliveryCloseTime: "02:00" };
   assert.equal(isDeliveryOpenAt(overnight, new Date("2026-07-29T18:00:00.000Z")), true);
   assert.equal(isDeliveryOpenAt(overnight, new Date("2026-07-29T06:00:00.000Z")), false);
+
+  const weekdaysOnly = { deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryWorkingDays: [1] };
+  assert.equal(isDeliveryOpenAt(weekdaysOnly, new Date("2026-07-29T06:00:00.000Z")), false);
+
+  const aroundTheClock = { deliveryIs24Hours: true, deliveryWorkingDays: [3] };
+  assert.equal(isDeliveryOpenAt(aroundTheClock, new Date("2026-07-29T06:00:00.000Z")), true);
+  assert.equal(isDeliveryOpenAt(aroundTheClock, new Date("2026-07-30T06:00:00.000Z")), false);
 });
 
 test("WhatsApp auth creates a prefilled bot link and verifies Meta signatures", () => {

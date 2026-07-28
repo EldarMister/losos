@@ -4,7 +4,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; deliveryOpenTime: string; deliveryCloseTime: string; freeDeliveryThreshold: number; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -101,7 +101,7 @@ type Tab = "statistics" | "orders" | "products" | "promotions" | "categories" | 
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
-type RegionEditor = { id?: number; values: Record<string, string | boolean> };
+type RegionEditor = { id?: number; values: Record<string, string | boolean | number[]> };
 
 const apiUrl = (
   process.env.NEXT_PUBLIC_API_URL ||
@@ -110,8 +110,12 @@ const apiUrl = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+];
+const deliveryWeekdays = [
+  { value: 1, label: "Пн" }, { value: 2, label: "Вт" }, { value: 3, label: "Ср" },
+  { value: 4, label: "Чт" }, { value: 5, label: "Пт" }, { value: 6, label: "Сб" }, { value: 0, label: "Вс" },
 ];
 const defaultRegionByTab: Record<Tab, string> = {
   statistics: "bishkek",
@@ -629,6 +633,8 @@ export function AdminApp() {
       pickupWorkingHours: item.pickupWorkingHours || "",
       deliveryOpenTime: item.deliveryOpenTime || "11:30",
       deliveryCloseTime: item.deliveryCloseTime || "22:30",
+      deliveryIs24Hours: item.deliveryIs24Hours === true,
+      deliveryWorkingDays: Array.isArray(item.deliveryWorkingDays) ? item.deliveryWorkingDays : [0, 1, 2, 3, 4, 5, 6],
       freeDeliveryThreshold: String(item.freeDeliveryThreshold ?? 4900),
       footerCompanyName: item.footerCompanyName || "",
       footerLegalInfo: item.footerLegalInfo || "",
@@ -647,13 +653,15 @@ export function AdminApp() {
       pickupWorkingHours: "",
       deliveryOpenTime: "11:30",
       deliveryCloseTime: "22:30",
+      deliveryIs24Hours: false,
+      deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6],
       freeDeliveryThreshold: "4900",
       footerCompanyName: "",
       footerLegalInfo: "",
     },
   });
 
-  const updateRegionValue = (name: string, value: string | boolean) => {
+  const updateRegionValue = (name: string, value: string | boolean | number[]) => {
     setRegionEditor((current) => current ? { ...current, values: { ...current.values, [name]: value } } : current);
   };
 
@@ -943,12 +951,20 @@ export function AdminApp() {
           <label>Телефон<input value={String(regionEditor.values.contactPhone)} onChange={(event) => updateRegionValue("contactPhone", event.target.value)} placeholder="+996 555 123 456" /></label>
           <label>Электронная почта<input type="email" value={String(regionEditor.values.contactEmail)} onChange={(event) => updateRegionValue("contactEmail", event.target.value)} placeholder="hello@example.com" /></label>
         </div>
-        <label>Адрес самовывоза или офиса<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Улица, дом" /></label>
         <div className="admin-region-block">
-          <b>Доставка</b><small>График действует ежедневно по времени Бишкека. После закрытия новые заказы на доставку не принимаются.</small>
+          <b>Доставка</b><small>График действует по времени Бишкека. В нерабочие дни и после закрытия новые заказы не принимаются.</small>
+          <label className="admin-switch"><span><b>Круглосуточно</b><small>Доставка доступна 24 часа в выбранные дни</small></span><input type="checkbox" checked={Boolean(regionEditor.values.deliveryIs24Hours)} onChange={(event) => updateRegionValue("deliveryIs24Hours", event.target.checked)} /></label>
+          <div className="admin-working-days" role="group" aria-label="Рабочие дни доставки">
+            <span>Рабочие дни</span>
+            <div>{deliveryWeekdays.map((day) => {
+              const days = Array.isArray(regionEditor.values.deliveryWorkingDays) ? regionEditor.values.deliveryWorkingDays : [];
+              const selected = days.includes(day.value);
+              return <button type="button" className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => updateRegionValue("deliveryWorkingDays", selected ? days.filter((value) => value !== day.value) : [...days, day.value].sort((left, right) => left - right))} key={day.value}>{day.label}</button>;
+            })}</div>
+          </div>
           <div className="admin-two-fields">
-            <label>Начало рабочего дня<input required type="time" value={String(regionEditor.values.deliveryOpenTime)} onChange={(event) => updateRegionValue("deliveryOpenTime", event.target.value)} /></label>
-            <label>Конец рабочего дня<input required type="time" value={String(regionEditor.values.deliveryCloseTime)} onChange={(event) => updateRegionValue("deliveryCloseTime", event.target.value)} /></label>
+            <label>Начало рабочего дня<input required={!Boolean(regionEditor.values.deliveryIs24Hours)} disabled={Boolean(regionEditor.values.deliveryIs24Hours)} type="time" value={String(regionEditor.values.deliveryOpenTime)} onChange={(event) => updateRegionValue("deliveryOpenTime", event.target.value)} /></label>
+            <label>Конец рабочего дня<input required={!Boolean(regionEditor.values.deliveryIs24Hours)} disabled={Boolean(regionEditor.values.deliveryIs24Hours)} type="time" value={String(regionEditor.values.deliveryCloseTime)} onChange={(event) => updateRegionValue("deliveryCloseTime", event.target.value)} /></label>
           </div>
           <label>Бесплатная доставка от, сом<input required type="number" min="0" step="1" value={String(regionEditor.values.freeDeliveryThreshold)} onChange={(event) => updateRegionValue("freeDeliveryThreshold", event.target.value)} /></label>
         </div>

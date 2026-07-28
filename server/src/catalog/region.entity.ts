@@ -44,6 +44,12 @@ export class Region {
   @Column({ type: "varchar", length: 5, default: "22:30" })
   deliveryCloseTime!: string;
 
+  @Column({ default: false })
+  deliveryIs24Hours!: boolean;
+
+  @Column({ type: "jsonb", default: () => "'[0,1,2,3,4,5,6]'::jsonb" })
+  deliveryWorkingDays!: number[];
+
   @Column({ type: "int", default: 4900 })
   freeDeliveryThreshold!: number;
 

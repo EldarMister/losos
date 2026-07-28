@@ -11,6 +11,7 @@ import { OrderItem } from "./order-item.entity";
 import { Order } from "./order.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
 import { OrderPricingError, priceOrderLine } from "./order-pricing";
+import { EduPosIntegrationService } from "./edu-pos-integration.service";
 
 function fingerprintRequest(dto: CreateOrderDto) {
   const items = (dto.items ?? []).map((item) => ({
@@ -57,6 +58,7 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     private readonly phoneAuth: PhoneAuthService,
+    private readonly eduPos: EduPosIntegrationService,
   ) {}
 
   async create(dto: CreateOrderDto) {
@@ -65,10 +67,14 @@ export class OrdersService {
     const requestFingerprint = fingerprintRequest(dto);
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
-    if (existing) return this.ensureMatchingIdempotency(existing, requestFingerprint);
+    if (existing) {
+      const matched = this.ensureMatchingIdempotency(existing, requestFingerprint);
+      await this.eduPos.forward(matched);
+      return matched;
+    }
 
     try {
-      return await this.orders.manager.transaction(async (manager) => {
+      const created = await this.orders.manager.transaction(async (manager) => {
         const orders = manager.getRepository(Order);
         const items = manager.getRepository(OrderItem);
         const productRepository = manager.getRepository(Product);
@@ -150,11 +156,15 @@ export class OrdersService {
         });
         return orders.save(order);
       });
+      await this.eduPos.forward(created);
+      return created;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
-      return this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
+      const matched = this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
+      await this.eduPos.forward(matched);
+      return matched;
     }
   }
 

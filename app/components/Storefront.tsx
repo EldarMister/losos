@@ -43,6 +43,8 @@ type RegionOption = {
   pickupWorkingHours?: string;
   deliveryOpenTime?: string;
   deliveryCloseTime?: string;
+  deliveryIs24Hours?: boolean;
+  deliveryWorkingDays?: number[];
   freeDeliveryThreshold?: number;
   footerCompanyName?: string;
   footerLegalInfo?: string;
@@ -376,9 +378,24 @@ const deliveryTimeMinutes = (value: string, fallback: string) => {
   const [hours, minutes] = source.split(":").map(Number);
   return hours * 60 + minutes;
 };
+const allDeliveryWeekdays = [0, 1, 2, 3, 4, 5, 6];
+const deliveryWeekdayLabels = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const normalizedDeliveryDays = (value: number[] | undefined) => {
+  if (!Array.isArray(value)) return allDeliveryWeekdays;
+  return [...new Set(value.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
+};
+const deliveryDaysLabel = (days: number[]) => days.length === 7
+  ? "Ежедневно, без выходных"
+  : days.length ? days.map((day) => deliveryWeekdayLabels[day]).join(", ") : "Нет рабочих дней";
+const bishkekWeekday = (timestamp: number) => {
+  const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bishkek", weekday: "short" }).format(new Date(timestamp));
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
+};
 const getDeliveryAvailability = (
   openTime: string,
   closeTime: string,
+  is24Hours: boolean,
+  workingDays: number[],
   timestamp: number,
 ) => {
   if (!timestamp) return { isOpen: true, opensLabel: `Откроемся в ${openTime}` };
@@ -394,11 +411,17 @@ const getDeliveryAvailability = (
   );
   const opensAt = deliveryTimeMinutes(openTime, "11:30");
   const closesAt = deliveryTimeMinutes(closeTime, "22:30");
-  const isOpen = opensAt === closesAt
-    || (opensAt < closesAt
-      ? currentMinutes >= opensAt && currentMinutes < closesAt
-      : currentMinutes >= opensAt || currentMinutes < closesAt);
-  return { isOpen, opensLabel: `Откроемся в ${openTime}` };
+  const days = new Set(workingDays);
+  const today = bishkekWeekday(timestamp);
+  const yesterday = (today + 6) % 7;
+  const isOpen = is24Hours
+    ? days.has(today)
+    : opensAt === closesAt
+      ? days.has(today)
+      : opensAt < closesAt
+        ? days.has(today) && currentMinutes >= opensAt && currentMinutes < closesAt
+        : currentMinutes >= opensAt ? days.has(today) : currentMinutes < closesAt && days.has(yesterday);
+  return { isOpen, opensLabel: is24Hours ? "Откроемся в следующий рабочий день" : `Откроемся в ${openTime}` };
 };
 
 const writeOverlayQuery = (name: "product" | "storyInspect", value: string | null, mode: "push" | "replace") => {
@@ -543,6 +566,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const pickupHours = selectedRegion?.pickupWorkingHours || "Ежедневно, без выходных\n11:30 – 22:30";
   const deliveryOpenTime = selectedRegion?.deliveryOpenTime || "11:30";
   const deliveryCloseTime = selectedRegion?.deliveryCloseTime || "22:30";
+  const deliveryIs24Hours = selectedRegion?.deliveryIs24Hours === true;
+  const deliveryWorkingDays = normalizedDeliveryDays(selectedRegion?.deliveryWorkingDays);
+  const deliveryScheduleLabel = deliveryDaysLabel(deliveryWorkingDays);
+  const deliveryHoursLabel = deliveryIs24Hours ? "Круглосуточно" : `${deliveryOpenTime} – ${deliveryCloseTime}`;
   const freeDeliveryThreshold = Math.max(0, selectedRegion?.freeDeliveryThreshold ?? 4900);
   const pickupYandexUrl = selectedRegion?.pickupYandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
   const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
@@ -618,6 +645,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const deliveryAvailability = getDeliveryAvailability(
     deliveryOpenTime,
     deliveryCloseTime,
+    deliveryIs24Hours,
+    deliveryWorkingDays,
     scheduleTimestamp,
   );
   const deliveryClosed = deliveryType === "delivery" && !deliveryAvailability.isOpen;
@@ -2156,11 +2185,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <>
                 <small>{freeDeliveryThreshold > 0 ? `Бесплатная доставка от ${money(freeDeliveryThreshold)}` : "Бесплатная доставка"}</small>
                 <h2>{address || `Доставка в город ${city}`}</h2>
-                <p className={`delivery-info-hours${deliveryClosed ? " closed" : ""}`}>{deliveryClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : "Ежедневно, без выходных"}<br />{deliveryOpenTime} – {deliveryCloseTime}</p>
+                <p className={`delivery-info-hours${deliveryClosed ? " closed" : ""}`}>{deliveryClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
                 <div className="delivery-info-details">
                   <h3>Детали</h3>
                   <div><span>Время доставки</span><b>~45 мин</b></div>
-                  <div><span>Рабочее время</span><b>{deliveryOpenTime} – {deliveryCloseTime}</b></div>
+                  <div><span>Рабочее время</span><b>{deliveryHoursLabel}</b></div>
                   <div><span>При заказе от {money(freeDeliveryThreshold)}</span><b>Бесплатно</b></div>
                   {cartTotal < freeDeliveryThreshold ? <div><span>До бесплатной доставки</span><b>{money(freeDeliveryThreshold - cartTotal)}</b></div> : null}
                 </div>
