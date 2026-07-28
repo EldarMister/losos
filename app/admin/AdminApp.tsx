@@ -700,6 +700,20 @@ export function AdminApp() {
   const renderTabIcon = (item: Tab) => <i aria-hidden="true">
     {tabIconAsset[item] ? <img src={tabIconAsset[item]} alt="" /> : tabIcon[item]}
   </i>;
+  const switchTab = (item: Tab) => {
+    if (item === "products" && tab === "categories") {
+      setRegionByTab((current) => ({ ...current, products: current.categories }));
+    }
+    setTab(item);
+    setSearch("");
+    setEditor(null);
+  };
+  const openCategoryManager = () => {
+    setRegionByTab((current) => ({ ...current, categories: region }));
+    setTab("categories");
+    setSearch("");
+    setEditor(null);
+  };
   const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
     { value: "all", label: "Все статусы" },
     { value: "new", label: "Новые" },
@@ -725,21 +739,21 @@ export function AdminApp() {
     <aside className="admin-sidebar">
       <nav>
         {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
-          <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
+          <button key={item} className={tab === item || (item === "products" && tab === "categories") ? "active" : ""} onClick={() => switchTab(item)}>
             {renderTabIcon(item)}<span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
           </button>)}
       </nav>
       <div>
-        <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}>{renderTabIcon("settings")}<span>Настройки</span></button>
+        <button className={tab === "settings" ? "active" : ""} onClick={() => switchTab("settings")}>{renderTabIcon("settings")}<span>Настройки</span></button>
       </div>
     </aside>
 
     <nav className="admin-mobile-nav">
       {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
-        <button key={item} className={tab === item ? "active" : ""} onClick={() => { setTab(item); setSearch(""); setEditor(null); }}>
+        <button key={item} className={tab === item || (item === "products" && tab === "categories") ? "active" : ""} onClick={() => switchTab(item)}>
           {renderTabIcon(item)}<span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
         </button>)}
-      <button className={tab === "settings" ? "active" : ""} onClick={() => { setTab("settings"); setSearch(""); setEditor(null); }}>{renderTabIcon("settings")}<span>Настройки</span></button>
+      <button className={tab === "settings" ? "active" : ""} onClick={() => switchTab("settings")}>{renderTabIcon("settings")}<span>Настройки</span></button>
     </nav>
 
     {message ? <div className="admin-message">{message}</div> : null}
@@ -759,7 +773,8 @@ export function AdminApp() {
         </div>
         {tab === "statistics" || tab === "orders" ? null : tab === "settings"
           ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
-          : tab === "products" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => openCategory()}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+          : tab === "products" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={openCategoryManager}>Категории</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+          : tab === "categories" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("products")}>← К меню</button><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
           : <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>}
       </div>
 
@@ -808,11 +823,12 @@ export function AdminApp() {
         </> : null}</footer>
       </div></> : null}
 
-      {tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
+      {tab !== "statistics" && tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
         <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === "products" ? "Поиск по названию блюда" : tab === "promotions" ? "Поиск по акциям" : "Поиск по категориям"} /></label>
       </div> : null}
 
-      {tab === "products" ? <div className="admin-mobile-menu-actions"><button type="button" className="admin-category-add" onClick={() => openCategory()}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div> : null}
+      {tab === "products" ? <div className="admin-mobile-menu-actions"><button type="button" className="admin-category-add" onClick={openCategoryManager}>Категории</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div> : null}
+      {tab === "categories" ? <div className="admin-mobile-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("products")}>← К меню</button><button className="admin-add" onClick={() => openCategory()}>＋ Категория</button></div> : null}
 
       {tab === "products" ? <div className="admin-menu-categories" aria-label="Категории меню">
         <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
@@ -841,7 +857,7 @@ export function AdminApp() {
       {tab === "categories" ? <div className="admin-categories">
         <div className="admin-categories-head"><span>Фото</span><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
         {visibleCategories.map((category) => <button key={category.id} onClick={() => openCategory(category)}>
-          <i>⁙</i><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">⌕&nbsp;&nbsp; ⋮</span>
+          <i>⁙</i><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">Изменить →</span>
         </button>)}
       </div> : null}
 

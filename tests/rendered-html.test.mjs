@@ -214,6 +214,14 @@ test("includes the product, cart and address flows", async () => {
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
+test("admin menu exposes category management without a statistics search", async () => {
+  const admin = await readFile(new URL("../app/admin/AdminApp.tsx", import.meta.url), "utf8");
+  assert.match(admin, /onClick=\{openCategoryManager\}>Категории/);
+  assert.match(admin, /tab === "categories"[\s\S]*?＋ Добавить категорию/);
+  assert.match(admin, /openCategory\(category\)/);
+  assert.match(admin, /tab !== "statistics" && tab !== "orders" && tab !== "settings"/);
+});
+
 test("NestJS and PostgreSQL project files are present", async () => {
   const [moduleSource, compose, orderSource] = await Promise.all([
     readFile(new URL("../server/src/app.module.ts", import.meta.url), "utf8"),
