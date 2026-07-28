@@ -20,12 +20,14 @@ import {
 } from "typeorm";
 import { NikitaOtpService } from "./nikita-otp.service";
 import { AuthorizedPhone } from "./authorized-phone.entity";
+import { PhoneAccount } from "./phone-account.entity";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
 
 const CODE_TTL_MS = 5 * 60_000;
 const WHATSAPP_CODE_TTL_MS = 10 * 60_000;
 const TOKEN_TTL_MS = 30 * 60_000;
+const ACCOUNT_SESSION_TTL_MS = 30 * 24 * 60 * 60_000;
 const RESEND_DELAY_MS = 60_000;
 const WHATSAPP_RESEND_DELAY_MS = 20_000;
 const MAX_ATTEMPTS = 5;
@@ -62,6 +64,8 @@ export class PhoneAuthService {
     private readonly whatsapp: WhatsappCloudService,
     @InjectRepository(AuthorizedPhone)
     private readonly authorizedPhones: Repository<AuthorizedPhone>,
+    @InjectRepository(PhoneAccount)
+    private readonly accounts: Repository<PhoneAccount>,
   ) {}
 
   async requestCode(phone: string) {
@@ -152,22 +156,15 @@ export class PhoneAuthService {
         expiresAt: challenge.expiresAt.toISOString(),
       };
     }
-    if (
-      !challenge.verificationTokenExpiresAt
-      || challenge.verificationTokenExpiresAt <= now
-      || challenge.consumedAt
-    ) {
+    if (challenge.expiresAt <= now || challenge.consumedAt) {
       return { status: "expired" as const };
     }
 
+    const session = await this.issueAccountSession(challenge.phone);
     return {
       status: "verified" as const,
       phone: challenge.phone,
-      verificationToken: this.whatsappVerificationToken(challenge),
-      expiresInSeconds: Math.max(
-        1,
-        Math.floor((challenge.verificationTokenExpiresAt.getTime() - now.getTime()) / 1_000),
-      ),
+      ...session,
     };
   }
 
@@ -235,20 +232,26 @@ export class PhoneAuthService {
       );
     }
 
-    const verificationToken = randomBytes(32).toString("hex");
     challenge.verifiedAt = now;
-    challenge.verificationTokenHash = this.hash(verificationToken);
-    challenge.verificationTokenExpiresAt = new Date(now.getTime() + TOKEN_TTL_MS);
     await this.challenges.save(challenge);
 
     return {
-      verificationToken,
       phone,
-      expiresInSeconds: TOKEN_TTL_MS / 1_000,
+      ...(await this.issueAccountSession(phone)),
     };
   }
 
   async consumeVerification(phone: string, verificationToken: string, manager: EntityManager) {
+    const accounts = manager.getRepository(PhoneAccount);
+    const account = await accounts.findOne({
+      where: {
+        phone,
+        sessionTokenHash: this.hash(verificationToken),
+        sessionExpiresAt: MoreThan(new Date()),
+      },
+    });
+    if (account) return;
+
     const repository = manager.getRepository(PhoneAuthChallenge);
     const challenge = await repository.findOne({
       where: {
@@ -291,17 +294,13 @@ export class PhoneAuthService {
     }
 
     const now = new Date();
-    const verificationToken = this.whatsappVerificationToken(challenge);
     challenge.verifiedAt = now;
-    challenge.verificationTokenHash = this.hash(verificationToken);
-    challenge.verificationTokenExpiresAt = new Date(now.getTime() + TOKEN_TTL_MS);
     await this.challenges.save(challenge);
     return "✅ Ваш номер подтверждён. Вернитесь на сайт — вход завершится автоматически.";
   }
 
   private async issueTrustedVerification(phone: string) {
     const now = new Date();
-    const verificationToken = randomBytes(32).toString("hex");
     await this.challenges.save(this.challenges.create({
       id: randomUUID(),
       phone,
@@ -312,15 +311,27 @@ export class PhoneAuthService {
       expiresAt: new Date(now.getTime() + TOKEN_TTL_MS),
       nextSendAt: now,
       verifiedAt: now,
-      verificationTokenHash: this.hash(verificationToken),
-      verificationTokenExpiresAt: new Date(now.getTime() + TOKEN_TTL_MS),
+      verificationTokenHash: null,
+      verificationTokenExpiresAt: null,
       consumedAt: null,
     }));
     return {
       verified: true as const,
-      verificationToken,
       phone,
-      expiresInSeconds: TOKEN_TTL_MS / 1_000,
+      ...(await this.issueAccountSession(phone)),
+    };
+  }
+
+  private async issueAccountSession(phone: string) {
+    const now = new Date();
+    const verificationToken = randomBytes(32).toString("hex");
+    const account = await this.accounts.findOneBy({ phone }) ?? this.accounts.create({ phone });
+    account.sessionTokenHash = this.hash(verificationToken);
+    account.sessionExpiresAt = new Date(now.getTime() + ACCOUNT_SESSION_TTL_MS);
+    await this.accounts.save(account);
+    return {
+      verificationToken,
+      expiresInSeconds: ACCOUNT_SESSION_TTL_MS / 1_000,
     };
   }
 
@@ -354,10 +365,6 @@ export class PhoneAuthService {
         429,
       );
     }
-  }
-
-  private whatsappVerificationToken(challenge: PhoneAuthChallenge) {
-    return this.hash(`whatsapp-verification:${challenge.id}:${challenge.phone}`);
   }
 
   private hash(value: string) {

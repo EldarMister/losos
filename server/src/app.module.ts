@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { AdminModule } from "./admin/admin.module";
 import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
 import { AuthorizedPhone } from "./auth/authorized-phone.entity";
+import { PhoneAccount } from "./auth/phone-account.entity";
 import { PhoneAuthModule } from "./auth/phone-auth.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { Category } from "./catalog/category.entity";
@@ -24,6 +25,7 @@ import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRe
 import { AddRegionPickupAndFooter1784985000000 } from "./migrations/1784985000000-AddRegionPickupAndFooter";
 import { AddRegionDeliverySchedule1784991000000 } from "./migrations/1784991000000-AddRegionDeliverySchedule";
 import { AddAuthorizedPhones1784992000000 } from "./migrations/1784992000000-AddAuthorizedPhones";
+import { AddPhoneAccounts1784993000000 } from "./migrations/1784993000000-AddPhoneAccounts";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
@@ -41,7 +43,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
         return {
           type: "postgres" as const,
           url: databaseUrl,
-          entities: [Region, Category, Product, Promotion, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone],
+          entities: [Region, Category, Product, Promotion, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount],
           migrations: [
             BootstrapSchema1784978000000,
             AddProductCustomization1784979000000,
@@ -58,6 +60,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
             AddRegionDeliverySettings1784990000000,
             AddRegionDeliverySchedule1784991000000,
             AddAuthorizedPhones1784992000000,
+            AddPhoneAccounts1784993000000,
           ],
           migrationsRun: true,
           synchronize:

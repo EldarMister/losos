@@ -593,6 +593,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [cartKitOpen, setCartKitOpen] = useState(false);
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [phoneAuthOpen, setPhoneAuthOpen] = useState(false);
+  const [phoneAuthPurpose, setPhoneAuthPurpose] = useState<"checkout" | "profile">("checkout");
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
@@ -1107,6 +1108,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       return;
     }
     setPhoneAuthMethod(whatsappAuthRequest ? "whatsapp" : "choose");
+    setPhoneAuthPurpose("checkout");
     setPhoneAuthOpen(true);
   };
 
@@ -1270,6 +1272,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       } satisfies StoredPhoneAuthSession));
     } catch {
       // The verified token remains available for the current visit.
+    }
+    if (phoneAuthPurpose === "profile") {
+      setMenuOpen(true);
+      return;
     }
     continueToCheckout();
   };
@@ -1945,10 +1951,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
           <section className="profile-modal">
             <button className="profile-close" onClick={() => setMenuOpen(false)} aria-label="Закрыть">×</button>
-            <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>Привет!</span><strong>Войдите в профиль</strong></div></div>
-            <img className="profile-award" src="https://mnogolososya.ru/_nuxt/auth-roskachestvo-banner.CHXK7t8d.png" alt="Официально лучшее приложение 2025 года для доставки готовой еды по итогам проверки Роскачества. Проверьте сами!" />
-            <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a><a href="https://mnogolososya.ru/page/o-nas"><img src="https://mnogolososya.ru/_nuxt/About.TR1tfEtn.png" alt="" />О нас</a></nav>
-            <button className="profile-login">Войти</button>
+            <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>{verifiedPhone || "Привет!"}</span><strong>{verifiedPhone ? "Вы авторизованы" : "Войдите в профиль"}</strong></div></div>
+            <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a></nav>
+            <button className="profile-login" onClick={() => { if (verifiedPhone) { setMenuOpen(false); return; } setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setPhoneAuthOpen(true); }}>{verifiedPhone ? "Готово" : "Войти"}</button>
           </section>
         </div>
       ) : null}

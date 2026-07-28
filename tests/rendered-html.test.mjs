@@ -83,7 +83,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
   assert.match(storefront, /className="profile-modal"/);
-  assert.match(storefront, /auth-roskachestvo-banner/);
+  assert.doesNotMatch(storefront, /auth-roskachestvo-banner|О нас/);
   assert.match(storefront, /searchOpen/);
   assert.match(storefront, /Что ищем\?/);
   assert.match(storefront, /b92972a55683d636714fea75d11469ce/);

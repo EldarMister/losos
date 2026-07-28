@@ -198,6 +198,17 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
     count: async () => 0,
   };
   const replies: Array<{ to: string; body: string }> = [];
+  const accounts: Array<{ phone: string; sessionTokenHash: string | null; sessionExpiresAt: Date | null }> = [];
+  const accountRepository = {
+    findOneBy: async ({ phone }: { phone: string }) => accounts.find((account) => account.phone === phone) ?? null,
+    create: (value: { phone: string }) => ({ ...value, sessionTokenHash: null, sessionExpiresAt: null }),
+    save: async (value: { phone: string; sessionTokenHash: string | null; sessionExpiresAt: Date | null }) => {
+      const index = accounts.findIndex((account) => account.phone === value.phone);
+      if (index >= 0) accounts[index] = value;
+      else accounts.push(value);
+      return value;
+    },
+  };
   const whatsapp = {
     createAuthUrl: (code: string) =>
       `https://wa.me/996555123456?text=${encodeURIComponent(`Код: ${code}`)}`,
@@ -213,6 +224,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
     {} as never,
     whatsapp as never,
     { existsBy: async () => false } as never,
+    accountRepository as never,
   );
 
   const requested = await auth.requestWhatsapp("+996555123456");
@@ -242,6 +254,15 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
   assert.equal(status.status, "verified");
   assert.equal(status.phone, "+996555123456");
   assert.equal(status.verificationToken?.length, 64);
+  if (status.status !== "verified") throw new Error("Expected a verified WhatsApp session");
+  const sessionManager = {
+    getRepository: () => ({
+      findOne: async ({ where }: { where: { phone: string; sessionTokenHash: string; sessionExpiresAt: { _type: string; _value: Date } } }) =>
+        accounts.find((account) => account.phone === where.phone && account.sessionTokenHash === where.sessionTokenHash && account.sessionExpiresAt! > where.sessionExpiresAt._value) ?? null,
+    }),
+  };
+  await auth.consumeVerification(status.phone, status.verificationToken, sessionManager as never);
+  await auth.consumeVerification(status.phone, status.verificationToken, sessionManager as never);
 });
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {
