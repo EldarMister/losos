@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable } from "@nestjs/comm
 import { InjectRepository } from "@nestjs/typeorm";
 import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
+import { PhoneAuthService } from "../auth/phone-auth.service";
 import { Product } from "../catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 import { CreateOrderDto } from "./create-order.dto";
@@ -54,6 +55,7 @@ function isUniqueViolation(error: unknown) {
 export class OrdersService {
   constructor(
     @InjectRepository(Order) private readonly orders: Repository<Order>,
+    private readonly phoneAuth: PhoneAuthService,
   ) {}
 
   async create(dto: CreateOrderDto) {
@@ -77,6 +79,8 @@ export class OrdersService {
         if (concurrentExisting) {
           return this.ensureMatchingIdempotency(concurrentExisting, requestFingerprint);
         }
+
+        await this.phoneAuth.consumeVerification(dto.phone, dto.verificationToken, manager);
 
         const ids = [...new Set(dto.items.map((item) => item.productId))];
         const products = await productRepository.find({

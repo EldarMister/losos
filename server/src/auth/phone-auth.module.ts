@@ -1,0 +1,14 @@
+import { Module } from "@nestjs/common";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { NikitaOtpService } from "./nikita-otp.service";
+import { PhoneAuthController } from "./phone-auth.controller";
+import { PhoneAuthChallenge } from "./phone-auth.entity";
+import { PhoneAuthService } from "./phone-auth.service";
+
+@Module({
+  imports: [TypeOrmModule.forFeature([PhoneAuthChallenge])],
+  controllers: [PhoneAuthController],
+  providers: [PhoneAuthService, NikitaOtpService],
+  exports: [PhoneAuthService],
+})
+export class PhoneAuthModule {}

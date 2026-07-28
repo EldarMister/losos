@@ -422,6 +422,16 @@ a { color: inherit; text-decoration: none; }
 .checkout-section h3 { margin: 0 0 16px; font-size: 20px; line-height: 26px; font-weight: 600; }
 .checkout-contact { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .checkout-contact h3 { grid-column: 1 / -1; margin-bottom: 2px; }
+.checkout-phone-auth { grid-column: 1 / -1; display: grid; gap: 9px; }
+.checkout-code-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; }
+.checkout-code-row input { letter-spacing: 4px; font-size: 18px; font-weight: 600; }
+.checkout-code-row button, .checkout-send-code { min-height: 48px; padding: 0 18px; border-radius: 18px; background: #19191d; color: #fff; font-size: 13px; font-weight: 600; }
+.checkout-code-row button:disabled, .checkout-send-code:disabled { cursor: default; opacity: .42; }
+.checkout-send-code { width: 100%; background: var(--soft); color: #36363b; }
+.checkout-phone-auth > small { color: #a53a08; font-size: 12px; line-height: 16px; }
+.checkout-phone-auth > small.success { color: #23864a; }
+.checkout-phone-verified { min-height: 48px; display: flex; align-items: center; gap: 9px; padding: 0 15px; border-radius: 18px; background: #e9f8ee; color: #18743b; font-weight: 600; }
+.checkout-phone-verified span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: #27a85a; color: #fff; }
 .checkout-section label { min-width: 0; }
 .checkout-section label > span { display: block; margin: 0 0 7px 3px; color: #8c8c92; font-size: 12px; line-height: 15px; }
 .checkout-section input, .checkout-section textarea { width: 100%; border: 0; outline: 0; border-radius: 18px; background: var(--soft); color: #111; }

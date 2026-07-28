@@ -8,6 +8,7 @@ import {
   CreatePromotionDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
+import { RequestPhoneCodeDto, VerifyPhoneCodeDto } from "../src/auth/phone-auth.dto";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
@@ -22,6 +23,7 @@ import { priceOrderLine } from "../src/orders/order-pricing";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
+  verificationToken: "a".repeat(64),
   regionSlug: "bishkek",
   deliveryType: "delivery",
   customerName: "Тест",
@@ -32,6 +34,24 @@ const baseOrder = {
   paymentMethod: "cash",
   items: [{ productId: 1, quantity: 1, modifiers: [] }],
 };
+
+test("phone auth DTO normalizes supported numbers and requires a six-digit code", () => {
+  const request = plainToInstance(RequestPhoneCodeDto, { phone: "+996 (555) 123-456" });
+  assert.deepEqual(validateSync(request), []);
+  assert.equal(request.phone, "+996555123456");
+
+  const verified = plainToInstance(VerifyPhoneCodeDto, {
+    phone: "+996 555 123 456",
+    code: "012345",
+  });
+  assert.deepEqual(validateSync(verified), []);
+
+  const invalid = plainToInstance(VerifyPhoneCodeDto, {
+    phone: "+996 555 123 456",
+    code: "1234",
+  });
+  assert.ok(validateSync(invalid).some((error) => error.property === "code"));
+});
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {
   for (const phone of ["+996555123456", "+79991234567", "+996 (555) 123-456"]) {

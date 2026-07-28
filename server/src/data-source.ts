@@ -4,6 +4,7 @@ import { Category } from "./catalog/category.entity";
 import { Product } from "./catalog/product.entity";
 import { Promotion } from "./catalog/promotion.entity";
 import { Region } from "./catalog/region.entity";
+import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
 import { BootstrapSchema1784978000000 } from "./migrations/1784978000000-BootstrapSchema";
 import { AddProductCustomization1784979000000 } from "./migrations/1784979000000-AddProductCustomization";
 import { AddProductionOrders1784980000000 } from "./migrations/1784980000000-AddProductionOrders";
@@ -14,6 +15,7 @@ import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRe
 import { AddRegionPickupAndFooter1784985000000 } from "./migrations/1784985000000-AddRegionPickupAndFooter";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
+import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
 import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
 
@@ -28,7 +30,7 @@ const databaseUrl = process.env.DATABASE_URL ?? "postgresql://losos:losos@localh
 export default new DataSource({
   type: "postgres",
   url: databaseUrl,
-  entities: [Region, Category, Product, Promotion, Order, OrderItem],
+  entities: [Region, Category, Product, Promotion, Order, OrderItem, PhoneAuthChallenge],
   migrations: [
     BootstrapSchema1784978000000,
     AddProductCustomization1784979000000,
@@ -40,6 +42,7 @@ export default new DataSource({
     AddRegionPickupAndFooter1784985000000,
     AddProductOldPrice1784986000000,
     AddCategoryImage1784987000000,
+    AddPhoneAuth1784988000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

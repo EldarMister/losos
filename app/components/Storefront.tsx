@@ -492,6 +492,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
   const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState("");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [phoneCodeRequested, setPhoneCodeRequested] = useState(false);
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [phoneAuthBusy, setPhoneAuthBusy] = useState(false);
+  const [phoneAuthMessage, setPhoneAuthMessage] = useState("");
+  const [phoneCodeRetryAfter, setPhoneCodeRetryAfter] = useState(0);
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
@@ -709,6 +716,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     });
   };
 
+  useEffect(() => {
+    if (phoneCodeRetryAfter <= 0) return;
+    const timer = window.setInterval(() => {
+      setPhoneCodeRetryAfter((current) => Math.max(0, current - 1));
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [phoneCodeRetryAfter]);
+
   const chooseCity = (option: RegionOption) => {
     const url = new URL(window.location.href);
     url.searchParams.set("region", option.slug);
@@ -895,6 +910,79 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCheckoutForm((current) => ({ ...current, [key]: value }));
   };
 
+  const updateCheckoutPhone = (value: string) => {
+    const normalized = normalizePhone(value);
+    if (normalized !== verifiedPhone) {
+      setPhoneVerificationToken("");
+      setVerifiedPhone("");
+    }
+    setPhoneCodeRequested(false);
+    setPhoneCode("");
+    setPhoneAuthMessage("");
+    setPhoneCodeRetryAfter(0);
+    updateCheckoutField("phone", value);
+  };
+
+  const requestPhoneCode = async () => {
+    const phone = normalizePhone(checkoutForm.phone);
+    if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {
+      setPhoneAuthMessage("Введите телефон в формате +996 XXX XXX XXX.");
+      return;
+    }
+    setPhoneAuthBusy(true);
+    setPhoneAuthMessage("");
+    try {
+      const response = await fetch(`${STOREFRONT_API_URL}/auth/request-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        if (Number.isInteger(body?.retryAfterSeconds)) setPhoneCodeRetryAfter(body.retryAfterSeconds);
+        throw new Error(message || "Не удалось отправить код");
+      }
+      setPhoneCodeRequested(true);
+      setPhoneCode("");
+      setPhoneCodeRetryAfter(Number(body?.retryAfterSeconds) || 60);
+      setPhoneAuthMessage("Код отправлен по SMS");
+    } catch (error) {
+      setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось отправить код");
+    } finally {
+      setPhoneAuthBusy(false);
+    }
+  };
+
+  const verifyPhoneCode = async () => {
+    const phone = normalizePhone(checkoutForm.phone);
+    if (!/^\d{6}$/.test(phoneCode)) {
+      setPhoneAuthMessage("Введите шестизначный код");
+      return;
+    }
+    setPhoneAuthBusy(true);
+    setPhoneAuthMessage("");
+    try {
+      const response = await fetch(`${STOREFRONT_API_URL}/auth/verify-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, code: phoneCode }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        throw new Error(message || "Не удалось подтвердить номер");
+      }
+      setPhoneVerificationToken(body.verificationToken);
+      setVerifiedPhone(phone);
+      setPhoneAuthMessage("Телефон подтверждён");
+    } catch (error) {
+      setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось подтвердить номер");
+    } finally {
+      setPhoneAuthBusy(false);
+    }
+  };
+
   const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!cart.length || checkoutSubmitting) return;
@@ -903,6 +991,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     const phone = normalizePhone(checkoutForm.phone);
     if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {
       setCheckoutError("Введите телефон в формате +996 XXX XXX XXX или +7 XXX XXX-XX-XX.");
+      return;
+    }
+    if (!phoneVerificationToken || verifiedPhone !== phone) {
+      setCheckoutError("Сначала подтвердите номер телефона кодом из SMS.");
       return;
     }
 
@@ -914,6 +1006,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idempotencyKey: checkoutIdempotencyKey,
+          verificationToken: phoneVerificationToken,
           regionSlug,
           deliveryType,
           customerName: checkoutForm.customerName.trim(),
@@ -950,6 +1043,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         throw new Error(message || "Не удалось отправить заказ. Попробуйте ещё раз.");
       }
       setPlacedOrder(body as PlacedOrder);
+      setPhoneVerificationToken("");
+      setVerifiedPhone("");
+      setPhoneCode("");
+      setPhoneCodeRequested(false);
       setCart([]);
       setPendingCartLine(null);
     } catch (error) {
@@ -1699,7 +1796,39 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="checkout-section checkout-contact">
                   <h3>Контакты</h3>
                   <label><span>Имя</span><input required autoComplete="name" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Как к вам обращаться" /></label>
-                  <label><span>Телефон</span><input required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutField("phone", event.target.value)} placeholder="+996 555 123 456" /></label>
+                  <label><span>Телефон</span><input required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutPhone(event.target.value)} placeholder="+996 555 123 456" /></label>
+                  <div className={`checkout-phone-auth${phoneVerificationToken ? " verified" : ""}`}>
+                    {phoneVerificationToken ? (
+                      <div className="checkout-phone-verified" role="status"><span aria-hidden="true">✓</span> Телефон подтверждён</div>
+                    ) : (
+                      <>
+                        {phoneCodeRequested ? (
+                          <div className="checkout-code-row">
+                            <input
+                              aria-label="Код из SMS"
+                              autoComplete="one-time-code"
+                              inputMode="numeric"
+                              maxLength={6}
+                              value={phoneCode}
+                              onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                              placeholder="Код из SMS"
+                            />
+                            <button type="button" disabled={phoneAuthBusy || phoneCode.length !== 6} onClick={verifyPhoneCode}>Подтвердить</button>
+                          </div>
+                        ) : null}
+                        <button className="checkout-send-code" type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={requestPhoneCode}>
+                          {phoneAuthBusy
+                            ? "Подождите…"
+                            : phoneCodeRetryAfter > 0
+                              ? `Отправить повторно через ${phoneCodeRetryAfter} сек.`
+                              : phoneCodeRequested
+                                ? "Отправить код повторно"
+                                : "Получить код по SMS"}
+                        </button>
+                      </>
+                    )}
+                    {phoneAuthMessage ? <small className={phoneVerificationToken ? "success" : ""} role="status">{phoneAuthMessage}</small> : null}
+                  </div>
                 </section>
 
                 <section className="checkout-section checkout-destination">
@@ -1738,8 +1867,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
               <footer className="checkout-footer">
                 {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
-                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || !checkoutForm.customerName.trim() || !checkoutForm.phone.trim()}>
-                  <span>{checkoutSubmitting ? "Отправляем заказ…" : "Заказать"}</span>
+                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || !checkoutForm.customerName.trim() || !checkoutForm.phone.trim() || !phoneVerificationToken}>
+                  <span>{checkoutSubmitting ? "Отправляем заказ…" : phoneVerificationToken ? "Заказать" : "Подтвердите телефон"}</span>
                   <b>{money(cartTotal)}</b>
                 </button>
                 <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>

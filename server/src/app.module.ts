@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AdminModule } from "./admin/admin.module";
+import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
+import { PhoneAuthModule } from "./auth/phone-auth.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { Category } from "./catalog/category.entity";
 import { Product } from "./catalog/product.entity";
@@ -21,6 +23,7 @@ import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRe
 import { AddRegionPickupAndFooter1784985000000 } from "./migrations/1784985000000-AddRegionPickupAndFooter";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
+import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
 
 @Module({
   imports: [
@@ -33,7 +36,7 @@ import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCat
         return {
           type: "postgres" as const,
           url: databaseUrl,
-          entities: [Region, Category, Product, Promotion, Order, OrderItem],
+          entities: [Region, Category, Product, Promotion, Order, OrderItem, PhoneAuthChallenge],
           migrations: [
             BootstrapSchema1784978000000,
             AddProductCustomization1784979000000,
@@ -45,6 +48,7 @@ import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCat
             AddRegionPickupAndFooter1784985000000,
             AddProductOldPrice1784986000000,
             AddCategoryImage1784987000000,
+            AddPhoneAuth1784988000000,
           ],
           migrationsRun: true,
           synchronize:
@@ -55,6 +59,7 @@ import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCat
       },
     }),
     CatalogModule,
+    PhoneAuthModule,
     AdminModule,
     OrdersModule,
   ],
