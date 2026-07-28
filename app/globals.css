@@ -140,6 +140,30 @@ a { color: inherit; text-decoration: none; }
 .footer-links span { opacity: .65; }
 .footer-legal { grid-area: legal; margin: -5px 0 0; color: rgba(255,255,255,.52); font-size: 13px; line-height: 20px; }
 .overlay, .drawer-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.55); backdrop-filter: blur(8px); display: grid; place-items: center; padding: 20px; }
+.city-picker-overlay { position: fixed; z-index: 200; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(11, 16, 29, .58); backdrop-filter: blur(8px); }
+.city-picker-modal { position: relative; width: min(640px, 100%); padding: 52px 54px 50px; border-radius: 40px; background: #fff; box-shadow: 0 24px 80px rgba(0,0,0,.25); text-align: center; }
+.city-picker-close { position: absolute; top: 22px; right: 27px; width: 38px; height: 38px; padding: 0; background: transparent; color: #737889; font-size: 42px; font-weight: 300; line-height: 30px; }
+.city-picker-icon { position: relative; width: 82px; height: 82px; margin: 0 auto 26px; border: 1px solid #e6e8ee; border-radius: 50%; box-shadow: inset 0 0 0 10px #fff4f0, inset 0 0 0 22px #ffebe4; font-size: 0; }
+.city-picker-icon::after { content: ""; position: absolute; left: 29px; top: 20px; width: 25px; height: 25px; border-radius: 50% 50% 50% 0; background: var(--orange); transform: rotate(-45deg); }
+.city-picker-icon::before { content: ""; position: absolute; z-index: 1; left: 37px; top: 28px; width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+.city-picker-modal h2 { margin: 0; color: #10182a; font-size: 42px; line-height: 1.1; letter-spacing: -.8px; }
+.city-picker-modal p { margin: 22px 0 36px; color: #69738a; font-size: 23px; line-height: 1.42; }
+.city-picker-options { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.city-picker-options button { height: 130px; border: 2px solid #e1e3e9; border-radius: 28px; background: #fff; color: #10182a; font-size: 28px; font-weight: 600; transition: border-color .18s, background .18s, transform .18s; }
+.city-picker-options button:hover, .city-picker-options button:focus-visible { border-color: var(--orange); background: #fff8f5; outline: 0; }
+.city-picker-options button:active { transform: scale(.98); }
+@media (max-width: 720px) {
+  .city-picker-overlay { padding: 16px; }
+  .city-picker-modal { padding: 48px 22px 30px; border-radius: 36px; }
+  .city-picker-close { top: 20px; right: 17px; }
+  .city-picker-icon { width: 72px; height: 72px; margin-bottom: 24px; }
+  .city-picker-icon::after { left: 25px; top: 17px; }
+  .city-picker-icon::before { left: 33px; top: 25px; }
+  .city-picker-modal h2 { font-size: 32px; }
+  .city-picker-modal p { margin: 15px 0 28px; font-size: 18px; }
+  .city-picker-options { gap: 12px; }
+  .city-picker-options button { height: 100px; border-radius: 22px; font-size: 24px; }
+}
 .product-modal { width: min(1160px, calc(100vw - 40px)); height: min(920px, calc(100dvh - 40px)); background: var(--soft); border-radius: 40px; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(376px, 400px); }
 .product-modal-simple { width: min(905px, calc(100vw - 40px)); grid-template-columns: 64% 36%; }
 .modal-close { position: absolute; z-index: 3; right: 18px; top: 14px; background: transparent; color: #8d8d92; font-size: 34px; line-height: 1; }

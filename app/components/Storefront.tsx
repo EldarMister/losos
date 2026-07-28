@@ -72,6 +72,7 @@ const defaultRegions: RegionOption[] = [
 ];
 
 const STOREFRONT_STORAGE_KEY = "losos.storefront.v1";
+const CITY_SELECTION_STORAGE_KEY = "losos.city-selection.v1";
 const STOREFRONT_STORAGE_VERSION = 1;
 const MAX_MODIFIER_ITEM_QUANTITY = 99;
 const MAX_MODIFIER_UNITS = 500;
@@ -456,6 +457,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const footerCompanyName = selectedRegion?.footerCompanyName || "ООО «Гастрономия»";
   const footerLegalInfo = selectedRegion?.footerLegalInfo || "ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48";
   const [cityOpen, setCityOpen] = useState(false);
+  const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [compositionOpen, setCompositionOpen] = useState(false);
   const [compositionView, setCompositionView] = useState<"composition" | "equipment">("composition");
@@ -587,6 +589,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [initialRegion]);
 
   useEffect(() => {
+    try {
+      const selectedCity = window.localStorage.getItem(CITY_SELECTION_STORAGE_KEY);
+      setCityPickerOpen(selectedCity !== "bishkek" && selectedCity !== "osh");
+    } catch {
+      setCityPickerOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!storageHydrated) return;
     try {
       window.localStorage.setItem(STOREFRONT_STORAGE_KEY, JSON.stringify({
@@ -692,6 +703,34 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         });
       });
     });
+  };
+
+  const chooseCity = (option: RegionOption) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("region", option.slug);
+    window.history.replaceState(window.history.state, "", url);
+    try {
+      window.localStorage.setItem(CITY_SELECTION_STORAGE_KEY, option.slug);
+    } catch {
+      // The city choice will still apply for the current visit.
+    }
+    setCity(option.name);
+    setCatalogCategories([]);
+    setStoryGroups([]);
+    setRegionalPromotions([]);
+    setCatalogLoading(true);
+    setRegionSlug(option.slug);
+    setCityOpen(false);
+    setCityPickerOpen(false);
+    setAddress("");
+    setDeliveryLocation(null);
+    setCart([]);
+    setPendingCartLine(null);
+    setUtensilsCount(1);
+    setNoUtensils(false);
+    setCheckoutOpen(false);
+    setPlacedOrder(null);
+    setSelected(null);
   };
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
@@ -1169,12 +1208,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories, storyGroups]);
 
   useEffect(() => {
-    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || checkoutOpen || promoOpen || menuOpen);
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen);
     if (!locked) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [selected, compositionOpen, addressOpen, cartOpen, checkoutOpen, promoOpen, menuOpen]);
+  }, [selected, compositionOpen, addressOpen, cartOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -1256,6 +1295,27 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   return (
     <div className="site">
+      {cityPickerOpen ? (
+        <div className="city-picker-overlay" role="dialog" aria-modal="true" aria-labelledby="city-picker-title">
+          <section className="city-picker-modal">
+            <button
+              className="city-picker-close"
+              type="button"
+              aria-label="Закрыть и выбрать Бишкек"
+              onClick={() => chooseCity(regionOptions.find((option) => option.slug === "bishkek") || defaultRegions[0])}
+            >×</button>
+            <div className="city-picker-icon" aria-hidden="true">●</div>
+            <h2 id="city-picker-title">Выберите город</h2>
+            <p>Чтобы показать доступное меню<br />и время доставки</p>
+            <div className="city-picker-options">
+              {["osh", "bishkek"].map((slug) => {
+                const option = regionOptions.find((region) => region.slug === slug) || defaultRegions.find((region) => region.slug === slug)!;
+                return <button key={option.slug} type="button" onClick={() => chooseCity(option)}>{option.name}</button>;
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
       <section className="brand-hero" aria-label="Salmon Lovers Club">
         <picture className="brand-main">
           <source media="(max-width: 720px)" srcSet="/mobile-header-1600-transparent-v2.png" />
@@ -1276,7 +1336,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className="city-select" ref={citySelectRef}>
               <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{city} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
               {cityOpen ? <div className="city-dropdown" role="listbox" aria-label="Город">
-                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => { const url = new URL(window.location.href); url.searchParams.set("region", option.slug); window.history.replaceState(window.history.state, "", url); setCity(option.name); setCatalogCategories([]); setStoryGroups([]); setRegionalPromotions([]); setCatalogLoading(true); setRegionSlug(option.slug); setCityOpen(false); setAddress(""); setDeliveryLocation(null); setCart([]); setPendingCartLine(null); setUtensilsCount(1); setNoUtensils(false); setCheckoutOpen(false); setPlacedOrder(null); setSelected(null); }}>{option.name}</button>)}
+                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => chooseCity(option)}>{option.name}</button>)}
               </div> : null}
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
