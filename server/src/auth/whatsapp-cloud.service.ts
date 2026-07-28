@@ -10,6 +10,21 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export class WhatsappCloudService {
   constructor(private readonly config: ConfigService) {}
 
+  isConfigured() {
+    const botPhone = this.config
+      .get<string>("WHATSAPP_BOT_PHONE")
+      ?.replace(/\D/g, "");
+    return Boolean(
+      botPhone
+      && botPhone.length >= 10
+      && botPhone.length <= 15
+      && this.config.get<string>("WHATSAPP_PHONE_NUMBER_ID")?.trim()
+      && this.config.get<string>("WHATSAPP_ACCESS_TOKEN")?.trim()
+      && this.config.get<string>("WHATSAPP_APP_SECRET")?.trim()
+      && this.config.get<string>("WHATSAPP_WEBHOOK_VERIFY_TOKEN")?.trim()
+    );
+  }
+
   createAuthUrl(code: string) {
     const botPhone = this.config
       .get<string>("WHATSAPP_BOT_PHONE")

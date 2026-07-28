@@ -558,6 +558,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [phoneAuthMessage, setPhoneAuthMessage] = useState("");
   const [phoneCodeRetryAfter, setPhoneCodeRetryAfter] = useState(0);
   const [phoneAuthMethod, setPhoneAuthMethod] = useState<PhoneAuthMethod>("choose");
+  const [whatsappAvailable, setWhatsappAvailable] = useState(false);
   const [whatsappAuthRequest, setWhatsappAuthRequest] = useState<PendingWhatsappAuth | null>(null);
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -815,6 +816,24 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }, 1_000);
     return () => window.clearInterval(timer);
   }, [phoneCodeRetryAfter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`${STOREFRONT_API_URL}/auth/methods`)
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((body) => {
+        if (!cancelled) setWhatsappAvailable(body?.whatsapp === true);
+      })
+      .catch(() => {
+        if (!cancelled) setWhatsappAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const chooseCity = (option: RegionOption) => {
     const regionChanged = option.slug !== regionSlug;
@@ -1105,6 +1124,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       const body = await response.json().catch(() => null);
       if (!response.ok) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        if (response.status === 503) setWhatsappAvailable(false);
         throw new Error(message || "Не удалось открыть WhatsApp");
       }
       const pending = readPendingWhatsappAuth(JSON.stringify({
@@ -2086,7 +2106,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             ) : (
               <>
                 <h2>{phoneCodeRequested ? "Введите код из SMS" : "Подтвердите номер телефона"}</h2>
-                <p>{phoneCodeRequested ? `Мы отправили шестизначный код на ${checkoutForm.phone}` : "Основной способ — подтверждение сообщением в WhatsApp. SMS останется запасным вариантом."}</p>
+                <p>{phoneCodeRequested
+                  ? `Мы отправили шестизначный код на ${checkoutForm.phone}`
+                  : whatsappAvailable
+                    ? "Основной способ — подтверждение сообщением в WhatsApp. SMS останется запасным вариантом."
+                    : "Подтвердите номер кодом из SMS. WhatsApp станет доступен после настройки бота."}</p>
                 <form onSubmit={(event) => { event.preventDefault(); if (phoneCodeRequested) void verifyPhoneCode(); }}>
                   {!phoneCodeRequested ? (
                     <label><span>Номер телефона</span><input autoFocus required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutPhone(event.target.value)} placeholder="+996 555 123 456" /></label>
@@ -2101,8 +2125,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     </>
                   ) : (
                     <>
-                      <button className="phone-auth-whatsapp" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestWhatsappAuth()}><span className="whatsapp-icon" aria-hidden="true">◔</span>{phoneAuthBusy && phoneAuthMethod === "whatsapp" ? "Открываем WhatsApp…" : "Подтвердить через WhatsApp"}</button>
-                      <button className="phone-auth-secondary" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код по SMS"}</button>
+                      {whatsappAvailable ? (
+                        <>
+                          <button className="phone-auth-whatsapp" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestWhatsappAuth()}><span className="whatsapp-icon" aria-hidden="true">◔</span>{phoneAuthBusy && phoneAuthMethod === "whatsapp" ? "Открываем WhatsApp…" : "Подтвердить через WhatsApp"}</button>
+                          <button className="phone-auth-secondary" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код по SMS"}</button>
+                        </>
+                      ) : (
+                        <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestPhoneCode()}>{phoneAuthBusy ? "Отправляем SMS…" : "Получить код по SMS"}</button>
+                      )}
                     </>
                   )}
                 </form>

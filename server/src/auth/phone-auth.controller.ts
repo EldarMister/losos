@@ -27,6 +27,14 @@ export class PhoneAuthController {
     private readonly whatsapp: WhatsappCloudService,
   ) {}
 
+  @Get("methods")
+  methods() {
+    return {
+      whatsapp: this.whatsapp.isConfigured(),
+      sms: true,
+    };
+  }
+
   @Post("request-code")
   @HttpCode(200)
   requestCode(@Body() dto: RequestPhoneCodeDto) {

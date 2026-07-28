@@ -84,6 +84,7 @@ test("WhatsApp auth creates a prefilled bot link and verifies Meta signatures", 
     WHATSAPP_WEBHOOK_VERIFY_TOKEN: "verify-token",
   });
   const whatsapp = new WhatsappCloudService(config);
+  assert.equal(whatsapp.isConfigured(), false);
   const code = `NAKTA-${"A1".repeat(24)}`;
   const url = new URL(whatsapp.createAuthUrl(code));
   assert.equal(url.hostname, "wa.me");
@@ -108,6 +109,7 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
     [
       "checkWhatsapp",
       "constructor",
+      "methods",
       "receiveWhatsappWebhook",
       "requestCode",
       "requestWhatsapp",
