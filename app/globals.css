@@ -616,13 +616,13 @@ a { color: inherit; text-decoration: none; }
   .modal-buy { position: fixed; z-index: 95; left: 20px; right: 20px; bottom: 12px; width: auto; height: 56px; flex-basis: 56px; grid-template-columns: 132px minmax(0, 1fr); gap: 8px; margin: 0; padding: 4px; border-radius: 40px; background: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.9); }
   .modal-buy .quantity, .modal-buy .buy-button { height: 48px; }
   .overlay.address-overlay { padding: 0; place-items: stretch; overflow: hidden; }
-  .overlay.address-overlay > .address-modal { width: 100vw; height: 100vh; display: flex; flex-direction: column; border-radius: 0; overflow: hidden; }
+  .overlay.address-overlay > .address-modal { width: 100vw; height: 100dvh; display: flex; flex-direction: column; border-radius: 0; overflow: hidden; }
   .address-modal .map-placeholder { flex: 1 1 0; min-height: 0; max-height: 100dvh; margin-bottom: -40px; }
   .address-modal .map-back { left: 12px; top: 12px; width: 40px; height: 40px; font-size: 24px; }
   .address-modal .map-locate { right: 12px; top: 12px; }
   .address-modal .map-status { left: 60px; right: 60px; top: 50px; max-width: none; text-align: center; }
   .address-modal .map-attribution { display: none; }
-  .address-panel { z-index: 2; flex: 0 0 408px; height: 408px; margin: 0; padding: 16px; border-radius: 36px 36px 0 0; background: #fff; box-shadow: 0 -5px 30px rgba(0,0,0,.1); }
+  .address-panel { z-index: 2; flex: 0 1 min(408px, 55dvh); min-height: 260px; height: min(408px, 55dvh); margin: 0; padding: 16px 16px 80px; overflow-y: auto; overscroll-behavior: contain; border-radius: 36px 36px 0 0; background: #fff; box-shadow: 0 -5px 30px rgba(0,0,0,.1); }
   .address-panel > .modal-close { display: none; }
   .address-panel .modal-mode-switch { height: 60px; margin: 0 0 12px; }
   .address-panel h2 { margin: 0 0 8px; font-size: 24px; line-height: 30px; }
@@ -636,6 +636,7 @@ a { color: inherit; text-decoration: none; }
   .address-panel .address-search > button { top: 26px; }
   .address-panel .resolved-address { margin-top: -4px; padding-top: 4px; }
   .address-panel .save-address { width: 100%; height: 52px; margin-top: 0; }
+  .address-panel .delivery-save { position: absolute; z-index: 3; left: 16px; bottom: 16px; width: calc(100% - 32px); margin: 0; box-shadow: 0 -10px 18px rgba(255,255,255,.92); }
   .address-panel .pickup-location { padding-top: 29px; }
   .address-panel .save-pickup { position: absolute; left: 16px; bottom: 16px; width: calc(100% - 32px); height: 52px; margin: 0; visibility: visible; }
   .drawer-overlay { place-items: end stretch; padding: 0; }
