@@ -470,6 +470,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("delivery");
   const [pickupLocationSelected, setPickupLocationSelected] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartKitOpen, setCartKitOpen] = useState(false);
+  const [phoneAuthOpen, setPhoneAuthOpen] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
@@ -725,6 +727,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [phoneCodeRetryAfter]);
 
   const chooseCity = (option: RegionOption) => {
+    const regionChanged = option.slug !== regionSlug;
     const url = new URL(window.location.href);
     url.searchParams.set("region", option.slug);
     window.history.replaceState(window.history.state, "", url);
@@ -734,21 +737,25 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       // The city choice will still apply for the current visit.
     }
     setCity(option.name);
-    setCatalogCategories([]);
-    setStoryGroups([]);
-    setRegionalPromotions([]);
-    setCatalogLoading(true);
+    if (regionChanged) {
+      setCatalogCategories([]);
+      setStoryGroups([]);
+      setRegionalPromotions([]);
+      setCatalogLoading(true);
+      setAddress("");
+      setDeliveryLocation(null);
+      setCart([]);
+      setPendingCartLine(null);
+      setUtensilsCount(1);
+      setNoUtensils(false);
+    }
     setRegionSlug(option.slug);
     setCityOpen(false);
     setCityPickerOpen(false);
     setAddressCityOpen(false);
-    setAddress("");
-    setDeliveryLocation(null);
-    setCart([]);
-    setPendingCartLine(null);
-    setUtensilsCount(1);
-    setNoUtensils(false);
     setCheckoutOpen(false);
+    setPhoneAuthOpen(false);
+    setCartKitOpen(false);
     setPlacedOrder(null);
     setSelected(null);
   };
@@ -832,7 +839,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setPendingCartLine(null);
     if (resumeCheckoutAfterAddress) {
       setResumeCheckoutAfterAddress(false);
-      setCheckoutOpen(true);
+      if (address) createCheckoutAttempt();
+      else setCartOpen(true);
     }
   };
 
@@ -881,17 +889,29 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCheckoutError("");
     setPlacedOrder(null);
     setCartOpen(false);
+    setPhoneAuthOpen(false);
     setCheckoutOpen(true);
   };
 
-  const beginCheckout = () => {
+  const continueToCheckout = () => {
     if (!address) {
       setResumeCheckoutAfterAddress(true);
-      setCartOpen(false);
       openDeliveryType(deliveryType);
       return;
     }
     createCheckoutAttempt();
+  };
+
+  const beginCheckout = () => {
+    setCartOpen(false);
+    setCheckoutError("");
+    setPhoneAuthMessage("");
+    const phone = normalizePhone(checkoutForm.phone);
+    if (phoneVerificationToken && verifiedPhone === phone) {
+      continueToCheckout();
+      return;
+    }
+    setPhoneAuthOpen(true);
   };
 
   const editCheckoutAddress = () => {
@@ -976,6 +996,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setPhoneVerificationToken(body.verificationToken);
       setVerifiedPhone(phone);
       setPhoneAuthMessage("Телефон подтверждён");
+      continueToCheckout();
     } catch (error) {
       setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось подтвердить номер");
     } finally {
@@ -1310,12 +1331,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories, storyGroups]);
 
   useEffect(() => {
-    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen);
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || cartKitOpen || phoneAuthOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen);
     if (!locked) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [selected, compositionOpen, addressOpen, cartOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen]);
+  }, [selected, compositionOpen, addressOpen, cartOpen, cartKitOpen, phoneAuthOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -1736,19 +1757,21 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : <>
               <div className="cart-address">{cartLocation}</div>
               <div className="cart-layout">
-                <section className="cart-products">
-                  <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}><svg className="trash-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.9 12h9.2l.9-12" /><path d="M10 11v5" /><path d="M14 11v5" /></svg></button></div>
-                  {cart.map((line) => (
-                    <div className="cart-line" key={line.key}>
-                      <div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div>
-                      <div className="cart-line-copy">
-                        <b>{line.product.name}</b>
-                        {line.product.description ? <p>{line.product.description}</p> : null}
-                        {line.modifiers.length ? <div className="cart-line-modifiers">{line.modifiers.map((modifier) => <span key={`${modifier.groupId}-${modifier.itemId}`}>{modifier.itemName} ×{modifier.quantity}{modifier.price ? ` +${money(modifier.price * modifier.quantity)}` : ""}</span>)}</div> : null}
-                        <div className="cart-line-footer"><span>{money(cartLineTotal(line))}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
+                <div className="cart-products-column">
+                  <section className="cart-products">
+                    <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => setCart([])}><svg className="trash-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.9 12h9.2l.9-12" /><path d="M10 11v5" /><path d="M14 11v5" /></svg><span>Очистить</span></button></div>
+                    {cart.map((line) => (
+                      <div className="cart-line" key={line.key}>
+                        <div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div>
+                        <div className="cart-line-copy">
+                          <b>{line.product.name}</b>
+                          {line.product.description ? <p>{line.product.description}</p> : null}
+                          {line.modifiers.length ? <div className="cart-line-modifiers">{line.modifiers.map((modifier) => <span key={`${modifier.groupId}-${modifier.itemId}`}>{modifier.itemName} ×{modifier.quantity}{modifier.price ? ` +${money(modifier.price * modifier.quantity)}` : ""}</span>)}</div> : null}
+                          <div className="cart-line-footer"><span>{money(cartLineTotal(line))}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </section>
                   {cartRecommendations.length > 0 ? <div className="cart-related">
                     <h3>Вместе вкуснее</h3>
                     <div className="cart-related-grid">
@@ -1759,18 +1782,51 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                       </article>)}
                     </div>
                   </div> : null}
-                </section>
+                </div>
                 <section className="cart-options">
                   <div className="cart-kit">
-                    <h2>Комплектация</h2>
-                    <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без<br />приборов</b><small>Если не<br />используете –<br />это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
-                    <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.name}><img src={item.image} alt="" /><span><b>{item.name}</b><small>1 шт.</small></span></div>)}</div>
+                    <span><b>Комплектация</b><small>приборы и соусы</small></span>
+                    <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
                   </div>
-                  <div className="cart-benefit"><h2>Выгода</h2><div><span><b>Промокод или акция</b><small>Нужно будет авторизоваться</small></span><button>Выбрать</button></div></div>
-                  <div className="cart-summary"><div className="cart-delivery-summary"><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></div><button className="checkout" onClick={beginCheckout}><span>Оформить заказ</span><b>{money(cartTotal)}</b></button></div>
+                  <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => { setCartOpen(false); openDeliveryType(deliveryType); }}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></button><button className="checkout" onClick={beginCheckout}><span>Далее</span><b>{money(cartTotal)}</b></button></div>
                 </section>
               </div>
             </>}
+          </aside>
+        </div>
+      ) : null}
+
+      {cartKitOpen ? (
+        <div className="drawer-overlay cart-kit-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartKitOpen(false); }}>
+          <aside className="cart-kit-modal" aria-label="Комплектация заказа">
+            <header><h2>Комплектация</h2><button type="button" onClick={() => setCartKitOpen(false)} aria-label="Закрыть">×</button></header>
+            <h3>Приборы</h3>
+            <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без приборов</b><small>Если не используете — это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+            <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.name}><img src={item.image} alt="" /><span><b>{item.name}</b><small>1 шт.</small></span></div>)}</div>
+            <button className="cart-kit-save" type="button" onClick={() => setCartKitOpen(false)}>Готово</button>
+          </aside>
+        </div>
+      ) : null}
+
+      {phoneAuthOpen ? (
+        <div className="drawer-overlay phone-auth-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !phoneAuthBusy) setPhoneAuthOpen(false); }}>
+          <aside className="phone-auth-modal" aria-label="Авторизация по номеру телефона">
+            <button className="phone-auth-close" type="button" onClick={() => setPhoneAuthOpen(false)} aria-label="Закрыть">×</button>
+            <div className="phone-auth-brand"><img src="/logo.webp" alt="Накта суши" /></div>
+            <h2>{phoneCodeRequested ? "Введите код из SMS" : "Войти по номеру телефона"}</h2>
+            <p>{phoneCodeRequested ? `Мы отправили шестизначный код на ${checkoutForm.phone}` : "Номер нужен для подтверждения заказа и связи с вами"}</p>
+            <form onSubmit={(event) => { event.preventDefault(); if (phoneCodeRequested) void verifyPhoneCode(); else void requestPhoneCode(); }}>
+              {!phoneCodeRequested ? (
+                <label><span>Номер телефона</span><input autoFocus required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutPhone(event.target.value)} placeholder="+996 555 123 456" /></label>
+              ) : (
+                <label><span>Код подтверждения</span><input autoFocus required aria-label="Код из SMS" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
+              )}
+              {phoneAuthMessage ? <div className="phone-auth-message" role="status">{phoneAuthMessage}</div> : null}
+              <button className="phone-auth-submit" type="submit" disabled={phoneAuthBusy || (phoneCodeRequested ? phoneCode.length !== 6 : !checkoutForm.phone.trim())}>{phoneAuthBusy ? "Подождите…" : phoneCodeRequested ? "Подтвердить" : "Получить код"}</button>
+              {phoneCodeRequested ? <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); }}>Изменить номер</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => void requestPhoneCode()}>{phoneCodeRetryAfter > 0 ? `Повторно через ${phoneCodeRetryAfter} сек.` : "Отправить код повторно"}</button></div> : null}
+            </form>
+            <button className="phone-auth-back" type="button" onClick={() => { setPhoneAuthOpen(false); setCartOpen(true); }}>Вернуться в корзину</button>
           </aside>
         </div>
       ) : null}
@@ -1796,39 +1852,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="checkout-section checkout-contact">
                   <h3>Контакты</h3>
                   <label><span>Имя</span><input required autoComplete="name" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Как к вам обращаться" /></label>
-                  <label><span>Телефон</span><input required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutPhone(event.target.value)} placeholder="+996 555 123 456" /></label>
-                  <div className={`checkout-phone-auth${phoneVerificationToken ? " verified" : ""}`}>
-                    {phoneVerificationToken ? (
-                      <div className="checkout-phone-verified" role="status"><span aria-hidden="true">✓</span> Телефон подтверждён</div>
-                    ) : (
-                      <>
-                        {phoneCodeRequested ? (
-                          <div className="checkout-code-row">
-                            <input
-                              aria-label="Код из SMS"
-                              autoComplete="one-time-code"
-                              inputMode="numeric"
-                              maxLength={6}
-                              value={phoneCode}
-                              onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                              placeholder="Код из SMS"
-                            />
-                            <button type="button" disabled={phoneAuthBusy || phoneCode.length !== 6} onClick={verifyPhoneCode}>Подтвердить</button>
-                          </div>
-                        ) : null}
-                        <button className="checkout-send-code" type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={requestPhoneCode}>
-                          {phoneAuthBusy
-                            ? "Подождите…"
-                            : phoneCodeRetryAfter > 0
-                              ? `Отправить повторно через ${phoneCodeRetryAfter} сек.`
-                              : phoneCodeRequested
-                                ? "Отправить код повторно"
-                                : "Получить код по SMS"}
-                        </button>
-                      </>
-                    )}
-                    {phoneAuthMessage ? <small className={phoneVerificationToken ? "success" : ""} role="status">{phoneAuthMessage}</small> : null}
-                  </div>
+                  <div className="checkout-confirmed-phone"><span>Телефон</span><div><b>{checkoutForm.phone}</b><button type="button" onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthOpen(true); }}>Изменить</button></div><small>Номер подтверждён</small></div>
                 </section>
 
                 <section className="checkout-section checkout-destination">
@@ -1867,8 +1891,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
               <footer className="checkout-footer">
                 {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
-                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || !checkoutForm.customerName.trim() || !checkoutForm.phone.trim() || !phoneVerificationToken}>
-                  <span>{checkoutSubmitting ? "Отправляем заказ…" : phoneVerificationToken ? "Заказать" : "Подтвердите телефон"}</span>
+                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
+                  <span>{checkoutSubmitting ? "Отправляем заказ…" : "Заказать"}</span>
                   <b>{money(cartTotal)}</b>
                 </button>
                 <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>

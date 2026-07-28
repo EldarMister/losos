@@ -58,8 +58,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(yandexMap, /api-maps\.yandex\.ru\/2\.1/);
   assert.match(yandexMap, /suggest-maps\.yandex\.ru\/v1\/suggest/);
   assert.match(yandexMap, /createPortal/);
-  assert.match(yandexMap, /ymaps\.geocode/);
-  assert.match(yandexMap, /strictBounds:\s*true/);
+  assert.match(yandexMap, /geocodeViaApi/);
+  assert.match(yandexMap, /restrictMapArea:\s*config\.bounds/);
   assert.match(yandexMap, /map\.events\.add\("click"/);
   assert.match(yandexMap, /placemark\.events\.add\("dragend"/);
   assert.match(yandexMap, /addressWithoutCity/);
@@ -103,6 +103,18 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /selectedModifiersForCart/);
   assert.match(storefront, /line\.modifiers/);
   assert.match(storefront, /className="checkout-drawer"/);
+  assert.match(storefront, /className="phone-auth-modal"/);
+  assert.match(storefront, /className="cart-kit-modal"/);
+  assert.match(storefront, /<span>Далее<\/span>/);
+  assert.ok(
+    storefront.indexOf('<span>Далее</span>') < storefront.indexOf('className="phone-auth-modal"'),
+    "SMS authorization must follow the cart",
+  );
+  assert.ok(
+    storefront.indexOf('className="phone-auth-modal"') < storefront.indexOf('className="checkout-drawer"'),
+    "checkout must open after SMS authorization",
+  );
+  assert.doesNotMatch(storefront, /className=\{`checkout-phone-auth/);
   assert.match(storefront, /submitOrder/);
   assert.match(storefront, /idempotencyKey/);
   assert.match(storefront, /fetch\(`\$\{orderApiUrl\}\/orders`/);
