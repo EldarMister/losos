@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import test from "node:test";
+import { ConfigService } from "@nestjs/config";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import {
@@ -8,7 +10,18 @@ import {
   CreatePromotionDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
-import { RequestPhoneCodeDto, VerifyPhoneCodeDto } from "../src/auth/phone-auth.dto";
+import {
+  CheckWhatsappAuthDto,
+  RequestPhoneCodeDto,
+  VerifyPhoneCodeDto,
+} from "../src/auth/phone-auth.dto";
+import { PhoneAuthController } from "../src/auth/phone-auth.controller";
+import {
+  extractWhatsappAuthCode,
+  PhoneAuthService,
+} from "../src/auth/phone-auth.service";
+import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
+import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
@@ -51,6 +64,139 @@ test("phone auth DTO normalizes supported numbers and requires a six-digit code"
     code: "1234",
   });
   assert.ok(validateSync(invalid).some((error) => error.property === "code"));
+
+  const whatsappStatus = plainToInstance(CheckWhatsappAuthDto, {
+    challengeId: "61db5908-a072-4d2e-8685-a726c5f3278a",
+    pollToken: "a".repeat(64),
+  });
+  assert.deepEqual(validateSync(whatsappStatus), []);
+  const invalidPollToken = plainToInstance(CheckWhatsappAuthDto, {
+    challengeId: "not-a-uuid",
+    pollToken: "short",
+  });
+  assert.equal(validateSync(invalidPollToken).length, 2);
+});
+
+test("WhatsApp auth creates a prefilled bot link and verifies Meta signatures", () => {
+  const config = new ConfigService({
+    WHATSAPP_BOT_PHONE: "+996 555 123 456",
+    WHATSAPP_APP_SECRET: "meta-app-secret",
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: "verify-token",
+  });
+  const whatsapp = new WhatsappCloudService(config);
+  const code = `NAKTA-${"A1".repeat(24)}`;
+  const url = new URL(whatsapp.createAuthUrl(code));
+  assert.equal(url.hostname, "wa.me");
+  assert.equal(url.pathname, "/996555123456");
+  assert.match(url.searchParams.get("text") || "", new RegExp(code));
+  assert.equal(extractWhatsappAuthCode(`Код: ${code}`), code);
+  assert.equal(extractWhatsappAuthCode("обычное сообщение"), null);
+
+  const rawBody = Buffer.from('{"object":"whatsapp_business_account"}');
+  const signature = `sha256=${createHmac("sha256", "meta-app-secret").update(rawBody).digest("hex")}`;
+  assert.doesNotThrow(() => whatsapp.assertWebhookSignature(rawBody, signature));
+  assert.throws(() => whatsapp.assertWebhookSignature(rawBody, "sha256=wrong"));
+  assert.doesNotThrow(() =>
+    whatsapp.assertWebhookVerification("subscribe", "verify-token"));
+  assert.throws(() =>
+    whatsapp.assertWebhookVerification("subscribe", "wrong-token"));
+});
+
+test("phone auth controller exposes WhatsApp request, status and webhook handlers", () => {
+  assert.deepEqual(
+    Object.getOwnPropertyNames(PhoneAuthController.prototype).sort(),
+    [
+      "checkWhatsapp",
+      "constructor",
+      "receiveWhatsappWebhook",
+      "requestCode",
+      "requestWhatsapp",
+      "verifyCode",
+      "verifyWhatsappWebhook",
+    ],
+  );
+});
+
+test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
+  const records: PhoneAuthChallenge[] = [];
+  const matches = (record: PhoneAuthChallenge, where: Record<string, unknown>) =>
+    Object.entries(where).every(([key, expected]) => {
+      const actual = record[key as keyof PhoneAuthChallenge];
+      if (
+        expected
+        && typeof expected === "object"
+        && "_type" in expected
+      ) {
+        const operator = expected as { _type: string; _value: unknown };
+        if (operator._type === "moreThan") {
+          return actual instanceof Date
+            && operator._value instanceof Date
+            && actual > operator._value;
+        }
+        if (operator._type === "isNull") return actual === null;
+      }
+      return actual === expected;
+    });
+  const repository = {
+    create: (value: PhoneAuthChallenge) => ({
+      ...value,
+      createdAt: value.createdAt ?? new Date(),
+    }),
+    save: async (value: PhoneAuthChallenge) => {
+      const index = records.findIndex((record) => record.id === value.id);
+      if (index >= 0) records[index] = value;
+      else records.push(value);
+      return value;
+    },
+    findOne: async ({ where }: { where: Record<string, unknown> }) =>
+      records.filter((record) => matches(record, where))
+        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null,
+    count: async () => 0,
+  };
+  const replies: Array<{ to: string; body: string }> = [];
+  const whatsapp = {
+    createAuthUrl: (code: string) =>
+      `https://wa.me/996555123456?text=${encodeURIComponent(`Код: ${code}`)}`,
+    acceptsPhoneNumberId: (id: string) => id === "phone-id",
+    sendText: async (to: string, body: string) => {
+      replies.push({ to, body });
+      return true;
+    },
+  };
+  const auth = new PhoneAuthService(
+    repository as never,
+    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
+    {} as never,
+    whatsapp as never,
+  );
+
+  const requested = await auth.requestWhatsapp("+996555123456");
+  const code = extractWhatsappAuthCode(
+    new URL(requested.whatsappUrl).searchParams.get("text") || "",
+  );
+  assert.ok(code);
+  await auth.handleWhatsappWebhook({
+    object: "whatsapp_business_account",
+    entry: [{
+      changes: [{
+        field: "messages",
+        value: {
+          metadata: { phone_number_id: "phone-id" },
+          messages: [{
+            from: "996555123456",
+            type: "text",
+            text: { body: `Код: ${code}` },
+          }],
+        },
+      }],
+    }],
+  });
+
+  assert.match(replies[0]?.body || "", /номер подтверждён/i);
+  const status = await auth.checkWhatsapp(requested.challengeId, requested.pollToken);
+  assert.equal(status.status, "verified");
+  assert.equal(status.phone, "+996555123456");
+  assert.equal(status.verificationToken?.length, 64);
 });
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {

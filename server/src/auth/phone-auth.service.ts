@@ -13,19 +13,43 @@ import {
 } from "node:crypto";
 import {
   EntityManager,
-  IsNull,
   MoreThan,
   Not,
+  IsNull,
   Repository,
 } from "typeorm";
 import { NikitaOtpService } from "./nikita-otp.service";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
+import { WhatsappCloudService } from "./whatsapp-cloud.service";
 
 const CODE_TTL_MS = 5 * 60_000;
+const WHATSAPP_CODE_TTL_MS = 10 * 60_000;
 const TOKEN_TTL_MS = 30 * 60_000;
 const RESEND_DELAY_MS = 60_000;
+const WHATSAPP_RESEND_DELAY_MS = 20_000;
 const MAX_ATTEMPTS = 5;
 const MAX_SENDS_PER_HOUR = 5;
+const WHATSAPP_CODE_PATTERN = /NAKTA-[A-F0-9]{48}/i;
+
+export type WhatsappWebhookPayload = {
+  object?: string;
+  entry?: Array<{
+    changes?: Array<{
+      field?: string;
+      value?: {
+        metadata?: { phone_number_id?: string };
+        messages?: Array<{
+          from?: string;
+          type?: string;
+          text?: { body?: string };
+        }>;
+      };
+    }>;
+  }>;
+};
+
+export const extractWhatsappAuthCode = (message: string) =>
+  message.match(WHATSAPP_CODE_PATTERN)?.[0].toUpperCase() ?? null;
 
 @Injectable()
 export class PhoneAuthService {
@@ -34,36 +58,13 @@ export class PhoneAuthService {
     private readonly challenges: Repository<PhoneAuthChallenge>,
     private readonly config: ConfigService,
     private readonly otp: NikitaOtpService,
+    private readonly whatsapp: WhatsappCloudService,
   ) {}
 
   async requestCode(phone: string) {
     this.hash("configuration-check");
     const now = new Date();
-    const latest = await this.challenges.findOne({
-      where: { phone },
-      order: { createdAt: "DESC" },
-    });
-    if (latest && latest.nextSendAt > now) {
-      const retryAfterSeconds = Math.max(
-        1,
-        Math.ceil((latest.nextSendAt.getTime() - now.getTime()) / 1_000),
-      );
-      throw new HttpException(
-        { message: `Повторный код можно запросить через ${retryAfterSeconds} сек.`, retryAfterSeconds },
-        429,
-      );
-    }
-
-    const hourAgo = new Date(now.getTime() - 60 * 60_000);
-    const recentCount = await this.challenges.count({
-      where: { phone, createdAt: MoreThan(hourAgo) },
-    });
-    if (recentCount >= MAX_SENDS_PER_HOUR) {
-      throw new HttpException(
-        { message: "Слишком много запросов. Попробуйте через час" },
-        429,
-      );
-    }
+    await this.assertRequestAllowed(phone, "sms", now);
 
     const id = randomUUID();
     const transactionId = randomBytes(16).toString("hex");
@@ -72,7 +73,9 @@ export class PhoneAuthService {
     await this.challenges.save(this.challenges.create({
       id,
       phone,
+      channel: "sms",
       providerToken,
+      pollTokenHash: null,
       attemptCount: 0,
       expiresAt: new Date(now.getTime() + CODE_TTL_MS),
       nextSendAt: new Date(now.getTime() + RESEND_DELAY_MS),
@@ -85,11 +88,112 @@ export class PhoneAuthService {
     return { expiresInSeconds: CODE_TTL_MS / 1_000, retryAfterSeconds: RESEND_DELAY_MS / 1_000 };
   }
 
+  async requestWhatsapp(phone: string) {
+    this.hash("configuration-check");
+    const now = new Date();
+    await this.assertRequestAllowed(phone, "whatsapp", now);
+
+    const id = randomUUID();
+    const code = `NAKTA-${randomBytes(24).toString("hex").toUpperCase()}`;
+    const pollToken = randomBytes(32).toString("hex");
+    const whatsappUrl = this.whatsapp.createAuthUrl(code);
+    const expiresAt = new Date(now.getTime() + WHATSAPP_CODE_TTL_MS);
+    await this.challenges.save(this.challenges.create({
+      id,
+      phone,
+      channel: "whatsapp",
+      providerToken: this.hash(`whatsapp-code:${code}`),
+      pollTokenHash: this.hash(`whatsapp-poll:${pollToken}`),
+      attemptCount: 0,
+      expiresAt,
+      nextSendAt: new Date(now.getTime() + WHATSAPP_RESEND_DELAY_MS),
+      verifiedAt: null,
+      verificationTokenHash: null,
+      verificationTokenExpiresAt: null,
+      consumedAt: null,
+    }));
+
+    return {
+      challengeId: id,
+      pollToken,
+      phone,
+      whatsappUrl,
+      expiresAt: expiresAt.toISOString(),
+      expiresInSeconds: WHATSAPP_CODE_TTL_MS / 1_000,
+      retryAfterSeconds: WHATSAPP_RESEND_DELAY_MS / 1_000,
+    };
+  }
+
+  async checkWhatsapp(challengeId: string, pollToken: string) {
+    const challenge = await this.challenges.findOne({
+      where: {
+        id: challengeId,
+        channel: "whatsapp",
+        pollTokenHash: this.hash(`whatsapp-poll:${pollToken}`),
+      },
+    });
+    if (!challenge) {
+      throw new UnauthorizedException("Запрос подтверждения не найден");
+    }
+
+    const now = new Date();
+    if (!challenge.verifiedAt) {
+      if (challenge.expiresAt <= now) {
+        return { status: "expired" as const };
+      }
+      return {
+        status: "pending" as const,
+        expiresAt: challenge.expiresAt.toISOString(),
+      };
+    }
+    if (
+      !challenge.verificationTokenExpiresAt
+      || challenge.verificationTokenExpiresAt <= now
+      || challenge.consumedAt
+    ) {
+      return { status: "expired" as const };
+    }
+
+    return {
+      status: "verified" as const,
+      phone: challenge.phone,
+      verificationToken: this.whatsappVerificationToken(challenge),
+      expiresInSeconds: Math.max(
+        1,
+        Math.floor((challenge.verificationTokenExpiresAt.getTime() - now.getTime()) / 1_000),
+      ),
+    };
+  }
+
+  async handleWhatsappWebhook(payload: WhatsappWebhookPayload) {
+    if (payload.object !== "whatsapp_business_account") return;
+
+    for (const entry of payload.entry ?? []) {
+      for (const change of entry.changes ?? []) {
+        const value = change.value;
+        if (
+          change.field !== "messages"
+          || !this.whatsapp.acceptsPhoneNumberId(value?.metadata?.phone_number_id)
+        ) {
+          continue;
+        }
+        for (const message of value?.messages ?? []) {
+          const from = message.from?.replace(/\D/g, "");
+          const body = message.type === "text" ? message.text?.body?.trim() : "";
+          if (!from || !body) continue;
+          const reply = await this.confirmWhatsappMessage(`+${from}`, body);
+          await this.whatsapp.sendText(from, reply);
+        }
+      }
+    }
+  }
+
   async verifyCode(phone: string, code: string) {
     const now = new Date();
     const challenge = await this.challenges.findOne({
       where: {
         phone,
+        channel: "sms",
         verifiedAt: IsNull(),
         consumedAt: IsNull(),
         expiresAt: MoreThan(now),
@@ -154,6 +258,75 @@ export class PhoneAuthService {
     }
     challenge.consumedAt = new Date();
     await repository.save(challenge);
+  }
+
+  private async confirmWhatsappMessage(senderPhone: string, message: string) {
+    const code = extractWhatsappAuthCode(message);
+    if (!code) {
+      return "Чтобы подтвердить номер, вернитесь на сайт NAKTA SUSHI и нажмите «Подтвердить через WhatsApp».";
+    }
+    const challenge = await this.challenges.findOne({
+      where: {
+        channel: "whatsapp",
+        providerToken: this.hash(`whatsapp-code:${code}`),
+        consumedAt: IsNull(),
+        expiresAt: MoreThan(new Date()),
+      },
+      order: { createdAt: "DESC" },
+    });
+    if (!challenge) {
+      return "Код не найден или уже истёк. Вернитесь на сайт и запросите новый код.";
+    }
+    if (challenge.phone !== senderPhone) {
+      return "Этот код создан для другого номера телефона. Введите на сайте номер, с которого вы пишете в WhatsApp.";
+    }
+    if (challenge.verifiedAt) {
+      return "✅ Ваш номер уже подтверждён. Вернитесь на сайт — вход завершится автоматически.";
+    }
+
+    const now = new Date();
+    const verificationToken = this.whatsappVerificationToken(challenge);
+    challenge.verifiedAt = now;
+    challenge.verificationTokenHash = this.hash(verificationToken);
+    challenge.verificationTokenExpiresAt = new Date(now.getTime() + TOKEN_TTL_MS);
+    await this.challenges.save(challenge);
+    return "✅ Ваш номер подтверждён. Вернитесь на сайт — вход завершится автоматически.";
+  }
+
+  private async assertRequestAllowed(
+    phone: string,
+    channel: "sms" | "whatsapp",
+    now: Date,
+  ) {
+    const latest = await this.challenges.findOne({
+      where: { phone, channel },
+      order: { createdAt: "DESC" },
+    });
+    if (latest && latest.nextSendAt > now) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((latest.nextSendAt.getTime() - now.getTime()) / 1_000),
+      );
+      throw new HttpException(
+        { message: `Повторный код можно запросить через ${retryAfterSeconds} сек.`, retryAfterSeconds },
+        429,
+      );
+    }
+
+    const hourAgo = new Date(now.getTime() - 60 * 60_000);
+    const recentCount = await this.challenges.count({
+      where: { phone, channel, createdAt: MoreThan(hourAgo) },
+    });
+    if (recentCount >= MAX_SENDS_PER_HOUR) {
+      throw new HttpException(
+        { message: "Слишком много запросов. Попробуйте через час" },
+        429,
+      );
+    }
+  }
+
+  private whatsappVerificationToken(challenge: PhoneAuthChallenge) {
+    return this.hash(`whatsapp-verification:${challenge.id}:${challenge.phone}`);
   }
 
   private hash(value: string) {

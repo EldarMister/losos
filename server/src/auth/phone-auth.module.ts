@@ -4,11 +4,12 @@ import { NikitaOtpService } from "./nikita-otp.service";
 import { PhoneAuthController } from "./phone-auth.controller";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { PhoneAuthService } from "./phone-auth.service";
+import { WhatsappCloudService } from "./whatsapp-cloud.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([PhoneAuthChallenge])],
   controllers: [PhoneAuthController],
-  providers: [PhoneAuthService, NikitaOtpService],
+  providers: [PhoneAuthService, NikitaOtpService, WhatsappCloudService],
   exports: [PhoneAuthService],
 })
 export class PhoneAuthModule {}

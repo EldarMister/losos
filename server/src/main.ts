@@ -8,12 +8,16 @@ import { AppModule } from "./app.module";
 const trustedFrontendOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "https://naktasushi.com",
+  "https://www.naktasushi.com",
   "https://losos-omega.vercel.app",
   "https://mnogolososya-react-copy.azizbek1996.chatgpt.site",
 ];
 
 async function createApplication(): Promise<INestApplication> {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   app.useBodyParser("json", { limit: "8mb" });
   app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

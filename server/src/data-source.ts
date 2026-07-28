@@ -16,6 +16,7 @@ import { AddRegionPickupAndFooter1784985000000 } from "./migrations/178498500000
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
+import { AddWhatsappAuth1784989000000 } from "./migrations/1784989000000-AddWhatsappAuth";
 import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
 
@@ -43,6 +44,7 @@ export default new DataSource({
     AddProductOldPrice1784986000000,
     AddCategoryImage1784987000000,
     AddPhoneAuth1784988000000,
+    AddWhatsappAuth1784989000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

@@ -61,6 +61,10 @@ npm run dev
 - `GET /api/categories?region=bishkek` — категории вместе с товарами;
 - `GET /api/products?search=лосось&category=rolly-2&region=bishkek` — поиск и фильтрация;
 - `GET /api/products/:id` — карточка товара;
+- `POST /api/auth/whatsapp/request` — одноразовая ссылка на WhatsApp-бота;
+- `POST /api/auth/whatsapp/status` — защищённая проверка статуса подтверждения;
+- `GET|POST /api/auth/whatsapp/webhook` — проверка и события Meta WhatsApp Cloud API;
+- `POST /api/auth/request-code` и `POST /api/auth/verify-code` — резервное подтверждение по SMS;
 - `POST /api/orders` — создание заказа;
 - `GET /api/admin/dashboard?region=bishkek` — каталог и акции для админки;
 - `GET /api/admin/orders?regionSlug=bishkek` — очередь заказов;
@@ -97,6 +101,29 @@ npm run dev
 ```
 
 Клиентская цена не считается доверенной: API заново проверяет регион, доступность, required/min/max, single/multiple, количество и доплаты по актуальному каталогу.
+
+## WhatsApp-авторизация
+
+Основной способ подтверждения номера работает через официальный WhatsApp Cloud API. Пользователь вводит номер, сайт создаёт длинный одноразовый код и открывает чат с готовым сообщением. Webhook сверяет код и реальный номер отправителя, после чего сайт автоматически получает короткоживущий токен подтверждения. SMS через Nikita остаётся fallback.
+
+Переменные backend:
+
+```text
+WHATSAPP_BOT_PHONE=996555123456
+WHATSAPP_PHONE_NUMBER_ID=...
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_APP_SECRET=...
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=...
+WHATSAPP_GRAPH_API_VERSION=v23.0
+```
+
+В Meta for Developers укажите callback:
+
+```text
+https://losos-production.up.railway.app/api/auth/whatsapp/webhook
+```
+
+Verify token должен совпадать с `WHATSAPP_WEBHOOK_VERIFY_TOKEN`; для WhatsApp Business Account нужно подписаться на поле `messages`. Секреты Meta должны храниться только в backend-переменных окружения.
 
 ## Каталог и миграции
 

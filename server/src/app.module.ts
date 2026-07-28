@@ -24,6 +24,7 @@ import { AddRegionPickupAndFooter1784985000000 } from "./migrations/178498500000
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
+import { AddWhatsappAuth1784989000000 } from "./migrations/1784989000000-AddWhatsappAuth";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAu
             AddProductOldPrice1784986000000,
             AddCategoryImage1784987000000,
             AddPhoneAuth1784988000000,
+            AddWhatsappAuth1784989000000,
           ],
           migrationsRun: true,
           synchronize:

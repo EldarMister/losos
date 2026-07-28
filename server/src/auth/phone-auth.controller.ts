@@ -1,10 +1,31 @@
-import { Body, Controller, HttpCode, Post } from "@nestjs/common";
-import { RequestPhoneCodeDto, VerifyPhoneCodeDto } from "./phone-auth.dto";
-import { PhoneAuthService } from "./phone-auth.service";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Post,
+  Query,
+  RawBody,
+} from "@nestjs/common";
+import {
+  CheckWhatsappAuthDto,
+  RequestPhoneCodeDto,
+  RequestWhatsappAuthDto,
+  VerifyPhoneCodeDto,
+} from "./phone-auth.dto";
+import {
+  PhoneAuthService,
+  type WhatsappWebhookPayload,
+} from "./phone-auth.service";
+import { WhatsappCloudService } from "./whatsapp-cloud.service";
 
 @Controller("auth")
 export class PhoneAuthController {
-  constructor(private readonly auth: PhoneAuthService) {}
+  constructor(
+    private readonly auth: PhoneAuthService,
+    private readonly whatsapp: WhatsappCloudService,
+  ) {}
 
   @Post("request-code")
   @HttpCode(200)
@@ -16,5 +37,39 @@ export class PhoneAuthController {
   @HttpCode(200)
   verifyCode(@Body() dto: VerifyPhoneCodeDto) {
     return this.auth.verifyCode(dto.phone, dto.code);
+  }
+
+  @Post("whatsapp/request")
+  @HttpCode(200)
+  requestWhatsapp(@Body() dto: RequestWhatsappAuthDto) {
+    return this.auth.requestWhatsapp(dto.phone);
+  }
+
+  @Post("whatsapp/status")
+  @HttpCode(200)
+  checkWhatsapp(@Body() dto: CheckWhatsappAuthDto) {
+    return this.auth.checkWhatsapp(dto.challengeId, dto.pollToken);
+  }
+
+  @Get("whatsapp/webhook")
+  verifyWhatsappWebhook(
+    @Query("hub.mode") mode: string | undefined,
+    @Query("hub.verify_token") token: string | undefined,
+    @Query("hub.challenge") challenge: string | undefined,
+  ) {
+    this.whatsapp.assertWebhookVerification(mode, token);
+    return challenge ?? "";
+  }
+
+  @Post("whatsapp/webhook")
+  @HttpCode(200)
+  async receiveWhatsappWebhook(
+    @RawBody() rawBody: Buffer | undefined,
+    @Headers("x-hub-signature-256") signature: string | undefined,
+    @Body() payload: WhatsappWebhookPayload,
+  ) {
+    this.whatsapp.assertWebhookSignature(rawBody, signature);
+    await this.auth.handleWhatsappWebhook(payload);
+    return { received: true };
   }
 }

@@ -13,11 +13,19 @@ export class PhoneAuthChallenge {
   id!: string;
 
   @Index()
-  @Column({ length: 20 })
+  @Column({ type: "varchar", length: 20 })
   phone!: string;
 
-  @Column({ length: 255 })
+  @Index()
+  @Column({ type: "varchar", length: 16, default: "sms" })
+  channel!: "sms" | "whatsapp";
+
+  @Column({ type: "varchar", length: 255 })
   providerToken!: string;
+
+  @Index()
+  @Column({ type: "varchar", length: 64, nullable: true })
+  pollTokenHash!: string | null;
 
   @Column({ type: "int", default: 0 })
   attemptCount!: number;
