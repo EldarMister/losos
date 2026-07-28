@@ -1,4 +1,5 @@
-const FALLBACK_SITE_URL = "http://localhost:3000";
+const FALLBACK_SITE_URL = "https://naktasushi.com";
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export type SeoCategory = {
   slug: string;
@@ -39,6 +40,9 @@ export const getSiteUrl = () => {
 
   try {
     const url = new URL(withProtocol(configuredUrl.trim()));
+    if (!LOCAL_HOSTNAMES.has(url.hostname) && url.protocol === "http:") {
+      url.protocol = "https:";
+    }
     url.pathname = "/";
     url.search = "";
     url.hash = "";

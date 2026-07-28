@@ -23,7 +23,7 @@ test("server-renders the storefront", async () => {
     html,
     /<title>Доставка суши и роллов в Бишкеке и Оше \| Накта суши<\/title>/i,
   );
-  assert.match(html, /<link rel="canonical" href="http:\/\/localhost:3000\/"/i);
+  assert.match(html, /<link rel="canonical" href="https:\/\/naktasushi\.com\/"/i);
   assert.match(html, /application\/ld\+json/i);
   assert.match(html, /Salmon Lovers Club/);
   assert.match(html, /Соус сладкий васаби/);
@@ -74,7 +74,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(mapsConfigRoute, /Cache-Control/);
   assert.match(envExample, /YANDEX_MAPS_API_KEY=/);
   assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
-  assert.match(envExample, /SITE_URL=http:\/\/localhost:3000/);
+  assert.match(envExample, /SITE_URL=https:\/\/naktasushi\.com/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
   assert.match(storefront, /modifier-groups/);
