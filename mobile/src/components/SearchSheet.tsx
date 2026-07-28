@@ -10,32 +10,31 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi, resolveImageUrl } from "../api";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
-import type { Product } from "../types";
+import type { Category, Product } from "../types";
 import { Sheet } from "./Sheet";
 
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
-const suggestions = [
-  "Роллы",
-  "Сеты",
-  "Поке",
-  "Супы",
-  "Закуски",
-  "Напитки",
-  "Для котика",
-  "Новинки",
-];
 
 type Props = {
   visible: boolean;
   onClose: () => void;
+  onOpenCart: () => void;
   onOpenProduct: (product: Product) => void;
 };
 
-export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
+export function SearchSheet({
+  visible,
+  onClose,
+  onOpenCart,
+  onOpenProduct,
+}: Props) {
+  const insets = useSafeAreaInsets();
   const store = useStore();
+  const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,10 +49,30 @@ export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
   }, [visible]);
 
   useEffect(() => {
+    if (!visible) return undefined;
+    let ignore = false;
+    catalogApi.categories(store.regionSlug)
+      .then((nextCategories) => {
+        if (!ignore) setCategories(nextCategories);
+      })
+      .catch(() => undefined);
+    return () => {
+      ignore = true;
+    };
+  }, [store.regionSlug, visible]);
+
+  useEffect(() => {
     const normalized = query.trim();
     if (normalized.length < 2) {
       setResults([]);
       setLoading(false);
+      return;
+    }
+    const matchedCategory = categories.find((category) => category.title === normalized);
+    if (matchedCategory) {
+      setResults(matchedCategory.products.filter((product) => product.available !== false));
+      setLoading(false);
+      setError("");
       return;
     }
     setLoading(true);
@@ -68,7 +87,7 @@ export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
         .finally(() => setLoading(false));
     }, 320);
     return () => clearTimeout(timer);
-  }, [query, store.regionSlug]);
+  }, [categories, query, store.regionSlug]);
 
   const add = (product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {
@@ -79,8 +98,36 @@ export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
   };
 
   return (
-    <Sheet fullScreen visible={visible} onClose={onClose}>
-      <View style={styles.header}>
+    <Sheet
+      edgeToEdge
+      fullScreen
+      visible={visible}
+      onClose={onClose}
+      footer={store.cartCount ? (
+        <View>
+          <Text style={styles.deliveryHint}>
+            Доставка 99 сом · До бесплатной 2 633 сом
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
+            onPress={() => {
+              onClose();
+              onOpenCart();
+            }}
+            style={({ pressed }) => [styles.cartBar, pressed && styles.pressed]}
+          >
+            <Text style={styles.cartPrice}>{money(store.cartTotal)}</Text>
+            <Text style={styles.cartTime}>~70 мин</Text>
+            <View style={styles.cartPreview}>
+              <MaterialCommunityIcons name="shopping-outline" size={21} color={colors.orange} />
+              <Text style={styles.cartCount}>{store.cartCount}</Text>
+            </View>
+          </Pressable>
+        </View>
+      ) : undefined}
+    >
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable accessibilityLabel="Назад" hitSlop={8} onPress={onClose}>
           <MaterialCommunityIcons name="arrow-left" size={26} color={colors.ink} />
         </Pressable>
@@ -112,13 +159,13 @@ export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
           <>
             <Text style={styles.heading}>Что найдём?</Text>
             <View style={styles.suggestions}>
-              {suggestions.map((suggestion) => (
+              {categories.map((category) => (
                 <Pressable
-                  key={suggestion}
-                  onPress={() => setQuery(suggestion)}
+                  key={category.slug}
+                  onPress={() => setQuery(category.title)}
                   style={styles.suggestion}
                 >
-                  <Text style={styles.suggestionText}>{suggestion}</Text>
+                  <Text style={styles.suggestionText}>{category.title}</Text>
                 </Pressable>
               ))}
             </View>
@@ -155,6 +202,7 @@ export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
                     </View>
                   </Pressable>
                   <Pressable
+                    accessibilityRole="button"
                     accessibilityLabel={`Добавить ${product.name}`}
                     hitSlop={7}
                     onPress={(event) => {
@@ -184,7 +232,7 @@ export function SearchSheet({ visible, onClose, onOpenProduct }: Props) {
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 11,
@@ -299,5 +347,49 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
+  },
+  deliveryHint: {
+    marginBottom: 9,
+    color: "#777777",
+    fontSize: 12,
+  },
+  cartBar: {
+    minHeight: 64,
+    paddingHorizontal: 18,
+    borderRadius: 19,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.orange,
+  },
+  cartPrice: {
+    flex: 1,
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  cartTime: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  cartPreview: {
+    minWidth: 48,
+    height: 42,
+    marginLeft: 18,
+    paddingHorizontal: 8,
+    borderRadius: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    backgroundColor: colors.white,
+  },
+  cartCount: {
+    color: colors.orange,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  pressed: {
+    opacity: 0.82,
   },
 });

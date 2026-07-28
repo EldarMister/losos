@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { resolveImageUrl } from "../api";
@@ -17,7 +18,6 @@ import type {
   Product,
   SelectedModifier,
 } from "../types";
-import { PrimaryButton } from "./PrimaryButton";
 import { QuantityControl } from "./QuantityControl";
 import { Sheet } from "./Sheet";
 
@@ -33,14 +33,6 @@ function initialSelections(product: Product): ModifierSelection {
   const selected: ModifierSelection = {};
   for (const group of product.modifierGroups ?? []) {
     selected[group.id] = {};
-    const available = group.items.filter((item) => item.enabled !== false);
-    const minimum = group.required ? Math.max(1, group.minSelections ?? 1) : 0;
-    if (minimum && available[0]) {
-      selected[group.id][available[0].id] = Math.min(
-        minimum,
-        available[0].maxQuantity ?? minimum,
-      );
-    }
   }
   return selected;
 }
@@ -51,13 +43,16 @@ function selectionCount(group: ModifierGroup, selection: ModifierSelection) {
 
 export function ProductSheet({ product, onClose, onAdded }: Props) {
   const store = useStore();
+  const { height, width } = useWindowDimensions();
   const [quantity, setQuantity] = useState(1);
   const [selection, setSelection] = useState<ModifierSelection>({});
+  const [compositionExpanded, setCompositionExpanded] = useState(false);
 
   useEffect(() => {
     if (!product) return;
     setQuantity(1);
     setSelection(initialSelections(product));
+    setCompositionExpanded(false);
   }, [product]);
 
   const modifiers = useMemo<SelectedModifier[]>(() => {
@@ -121,6 +116,7 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
     onClose();
     onAdded?.();
   };
+  const heroHeight = Math.min(width * 1.04, height * 0.58);
 
   return (
     <Sheet
@@ -130,12 +126,22 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
       footer={(
         <View style={styles.footerRow}>
           <QuantityControl minimum={1} onChange={setQuantity} value={quantity} />
-          <PrimaryButton
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={valid ? `Добавить, ${money(total)}` : "Выберите модификации"}
             disabled={!valid}
-            label={`Добавить · ${money(total)}`}
             onPress={add}
-            style={styles.addButton}
-          />
+            style={({ pressed }) => [
+              styles.addButton,
+              !valid && styles.addButtonDisabled,
+              pressed && styles.addButtonPressed,
+            ]}
+          >
+            <Text style={styles.addButtonLabel}>
+              {valid ? "Добавить" : "Выберите модификации"}
+            </Text>
+            {valid ? <Text style={styles.addButtonPrice}>{money(total)}</Text> : null}
+          </Pressable>
         </View>
       )}
     >
@@ -143,13 +149,14 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.hero}>
+        <View style={[styles.hero, { height: heroHeight }]}>
           <Image
             resizeMode="cover"
             source={{ uri: resolveImageUrl(product.image) }}
             style={styles.heroImage}
           />
           <Pressable
+            accessibilityRole="button"
             accessibilityLabel="Закрыть карточку"
             hitSlop={8}
             onPress={onClose}
@@ -186,39 +193,71 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
               </View>
             ))}
             {product.composition ? (
-              <View style={styles.composition}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setCompositionExpanded((current) => !current)}
+                style={styles.composition}
+              >
                 <Text style={styles.compositionTitle}>Состав</Text>
-                <Text style={styles.compositionText}>{product.composition}</Text>
-              </View>
+                {compositionExpanded ? (
+                  <Text style={styles.compositionText}>{product.composition}</Text>
+                ) : null}
+              </Pressable>
             ) : null}
           </View>
         ) : null}
 
         {(product.modifierGroups ?? []).map((group) => {
           const groupCount = selectionCount(group, selection);
-          const minimum = group.required ? Math.max(1, group.minSelections ?? 1) : (group.minSelections ?? 0);
           return (
             <View key={group.id} style={styles.modifierSection}>
               <View style={styles.modifierHeader}>
                 <Text style={styles.modifierTitle}>{group.title}</Text>
-                <Text style={[
-                  styles.modifierRule,
-                  groupCount < minimum && styles.modifierRuleError,
-                ]}>
-                  {group.required ? `Обязательно · ${minimum}` : "По желанию"}
-                </Text>
               </View>
-              {group.presentation === "cards" ? (
+              {group.presentation === "cards" || group.selectionType === "single" ? (
                 <ScrollView
                   contentContainerStyle={styles.modifierCards}
                   horizontal
                   showsHorizontalScrollIndicator={false}
                 >
+                  {!group.required ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Не выбирать: ${group.title}`}
+                      onPress={() => setSelection((current) => ({
+                        ...current,
+                        [group.id]: {},
+                      }))}
+                      style={[
+                        styles.modifierCard,
+                        groupCount === 0 && styles.modifierCardActive,
+                      ]}
+                    >
+                      <View style={[styles.modifierImage, styles.emptyModifierImage]}>
+                        <MaterialCommunityIcons
+                          name="cancel"
+                          size={55}
+                          color="#D5D5D5"
+                        />
+                      </View>
+                      <Text numberOfLines={2} style={styles.modifierCardName}>Не выбран</Text>
+                      <Text
+                        style={[
+                          styles.modifierPrice,
+                          groupCount === 0 && styles.modifierPriceActive,
+                        ]}
+                      >
+                        0 сом
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   {group.items.filter((item) => item.enabled !== false).map((item) => {
                     const current = selection[group.id]?.[item.id] ?? 0;
                     const active = current > 0;
                     return (
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${active ? "Убрать" : "Выбрать"} ${item.name}`}
                         key={item.id}
                         onPress={() => setModifier(group, item.id, active ? 0 : 1)}
                         style={[styles.modifierCard, active && styles.modifierCardActive]}
@@ -248,6 +287,8 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
                     );
                     return (
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${current ? "Убрать" : "Выбрать"} ${item.name}`}
                         key={item.id}
                         onPress={() => setModifier(group, item.id, current ? 0 : 1)}
                         style={styles.modifierRow}
@@ -298,9 +339,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   hero: {
-    height: 330,
-    marginTop: 8,
-    marginHorizontal: 10,
+    marginTop: 0,
     borderRadius: radii.large,
     overflow: "hidden",
     backgroundColor: colors.white,
@@ -335,9 +374,9 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   infoCard: {
-    margin: 10,
+    margin: 16,
     marginBottom: 0,
-    padding: 18,
+    padding: 16,
     borderRadius: radii.medium,
     backgroundColor: colors.white,
   },
@@ -355,7 +394,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   nutritionCard: {
-    margin: 10,
+    margin: 16,
     padding: 15,
     borderRadius: radii.medium,
     flexDirection: "row",
@@ -396,29 +435,19 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   modifierSection: {
-    paddingVertical: 14,
-    backgroundColor: colors.white,
+    paddingVertical: 16,
+    backgroundColor: colors.surface,
   },
   modifierHeader: {
     paddingHorizontal: 18,
     marginBottom: 11,
     flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: 12,
   },
   modifierTitle: {
     flex: 1,
     color: colors.ink,
     fontSize: 18,
     fontWeight: "800",
-  },
-  modifierRule: {
-    color: colors.muted,
-    fontSize: 11,
-  },
-  modifierRuleError: {
-    color: colors.orange,
   },
   modifierCards: {
     paddingHorizontal: 18,
@@ -442,6 +471,10 @@ const styles = StyleSheet.create({
     height: 102,
     borderRadius: 12,
     backgroundColor: colors.white,
+  },
+  emptyModifierImage: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   modifierCardName: {
     marginTop: 7,
@@ -520,5 +553,30 @@ const styles = StyleSheet.create({
   },
   addButton: {
     flex: 1,
+    minHeight: 56,
+    paddingHorizontal: 18,
+    borderRadius: radii.medium,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.orange,
+  },
+  addButtonDisabled: {
+    backgroundColor: "#FF8B5B",
+  },
+  addButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.988 }],
+  },
+  addButtonLabel: {
+    flex: 1,
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  addButtonPrice: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "800",
   },
 });

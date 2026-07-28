@@ -1,19 +1,24 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
-import { colors, radii } from "../theme";
-import type { DeliveryType, Region } from "../types";
 import { useStore } from "../store";
+import { colors, radii, shadow } from "../theme";
+import type { DeliveryType, Region } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
-import { Sheet } from "./Sheet";
+import { YandexMap } from "./YandexMap";
+import type { MapPoint } from "./yandexMapShared";
 
 type Props = {
   visible: boolean;
@@ -39,9 +44,12 @@ const fallbackRegions: Region[] = [
 ];
 
 export function LocationSheet({ visible, required, onClose }: Props) {
+  const insets = useSafeAreaInsets();
   const store = useStore();
   const [type, setType] = useState<DeliveryType>(store.deliveryType);
   const [address, setAddress] = useState(store.location?.address ?? "");
+  const [latitude, setLatitude] = useState(store.location?.latitude);
+  const [longitude, setLongitude] = useState(store.location?.longitude);
   const [regions, setRegions] = useState<Region[]>(fallbackRegions);
   const [selectedRegion, setSelectedRegion] = useState(store.regionSlug);
 
@@ -49,9 +57,18 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     if (!visible) return;
     setType(store.deliveryType);
     setAddress(store.location?.address ?? "");
+    setLatitude(store.location?.latitude);
+    setLongitude(store.location?.longitude);
     setSelectedRegion(store.regionSlug);
     catalogApi.regions().then(setRegions).catch(() => undefined);
-  }, [store.deliveryType, store.location?.address, store.regionSlug, visible]);
+  }, [
+    store.deliveryType,
+    store.location?.address,
+    store.location?.latitude,
+    store.location?.longitude,
+    store.regionSlug,
+    visible,
+  ]);
 
   const region = useMemo(
     () => regions.find((item) => item.slug === selectedRegion) ?? regions[0],
@@ -61,179 +78,215 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     `г. ${region?.name ?? "Бишкек"}, центральная кухня`;
   const canSubmit = type === "pickup" || address.trim().length >= 5;
 
+  const handleMapLocation = (point: MapPoint) => {
+    setAddress(point.address);
+    setLatitude(point.latitude);
+    setLongitude(point.longitude);
+  };
+
   const save = () => {
     store.setDeliveryType(type);
     store.setRegionSlug(selectedRegion);
     store.setLocation({
       address: type === "pickup" ? pickupAddress : address.trim(),
+      latitude: type === "delivery" ? latitude : undefined,
+      longitude: type === "delivery" ? longitude : undefined,
     });
     onClose();
   };
 
+  const close = () => {
+    if (!required) onClose();
+  };
+
   return (
-    <Sheet
-      fullScreen
+    <Modal
+      animationType="slide"
+      onRequestClose={close}
+      statusBarTranslucent
       visible={visible}
-      onClose={() => {
-        if (!required) onClose();
-      }}
-      footer={(
-        <PrimaryButton
-          disabled={!canSubmit}
-          label="Перейти к каталогу"
-          onPress={save}
-          tone="black"
-        />
-      )}
     >
-      <View style={styles.header}>
-        <Text style={styles.title}>Куда привезти?</Text>
-        {!required ? (
-          <Pressable accessibilityLabel="Закрыть" hitSlop={10} onPress={onClose}>
-            <MaterialCommunityIcons name="close" size={26} color={colors.ink} />
-          </Pressable>
-        ) : null}
-      </View>
-
-      <View style={styles.switcher}>
-        {(["delivery", "pickup"] as DeliveryType[]).map((item) => {
-          const active = type === item;
-          return (
-            <Pressable
-              key={item}
-              onPress={() => setType(item)}
-              style={[styles.switchItem, active && styles.switchItemActive]}
-            >
-              <Text style={[styles.switchText, active && styles.switchTextActive]}>
-                {item === "delivery" ? "Доставка" : "Самовывоз"}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.body}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      <StatusBar style="dark" translucent />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.root}
       >
-        <Text style={styles.label}>Город</Text>
-        <View style={styles.regionRow}>
-          {regions.map((item) => (
-            <Pressable
-              key={item.slug}
-              onPress={() => setSelectedRegion(item.slug)}
-              style={[
-                styles.regionChip,
-                selectedRegion === item.slug && styles.regionChipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.regionText,
-                  selectedRegion === item.slug && styles.regionTextActive,
-                ]}
-              >
-                {item.name}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={styles.map}>
+          <YandexMap
+            initialLatitude={latitude}
+            initialLongitude={longitude}
+            onLocationChange={handleMapLocation}
+            regionSlug={selectedRegion}
+          />
         </View>
 
-        {type === "delivery" ? (
-          <>
-            <View style={styles.mapPreview}>
-              <View style={styles.gridHorizontal} />
-              <View style={styles.gridVertical} />
-              <View style={styles.mapPin}>
+        <View style={[styles.topControls, { top: Math.max(insets.top, 12) }]}>
+          {!required ? (
+            <Pressable
+              accessibilityLabel="Закрыть"
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.closeButton}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={28} color={colors.ink} />
+            </Pressable>
+          ) : null}
+          <View style={styles.switcher}>
+            {(["delivery", "pickup"] as DeliveryType[]).map((item) => {
+              const active = type === item;
+              return (
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                  key={item}
+                  onPress={() => setType(item)}
+                  style={[styles.switchItem, active && styles.switchItemActive]}
+                >
+                  <Text style={[styles.switchText, active && styles.switchTextActive]}>
+                    {item === "delivery" ? "Доставка" : "Самовывоз"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View style={styles.handle} />
+          <Text style={styles.title}>
+            {type === "delivery" ? "Адрес доставки" : "Где забрать заказ"}
+          </Text>
+
+          <View style={styles.regionRow}>
+            {regions.map((item) => (
+              <Pressable
+                key={item.slug}
+                onPress={() => {
+                  setSelectedRegion(item.slug);
+                  setAddress("");
+                  setLatitude(undefined);
+                  setLongitude(undefined);
+                }}
+                style={[
+                  styles.regionChip,
+                  selectedRegion === item.slug && styles.regionChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.regionText,
+                    selectedRegion === item.slug && styles.regionTextActive,
+                  ]}
+                >
+                  {item.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {type === "delivery" ? (
+            <>
+              <View style={styles.addressField}>
                 <MaterialCommunityIcons
-                  name="shopping-outline"
-                  size={27}
+                  name="map-marker"
+                  size={22}
                   color={colors.orange}
                 />
+                <TextInput
+                  autoCapitalize="sentences"
+                  onChangeText={setAddress}
+                  placeholder="Передвиньте карту или введите адрес"
+                  placeholderTextColor="#9B9B9B"
+                  returnKeyType="done"
+                  style={styles.addressInput}
+                  value={address}
+                />
+                {address ? (
+                  <Pressable
+                    accessibilityLabel="Очистить адрес"
+                    onPress={() => setAddress("")}
+                  >
+                    <MaterialCommunityIcons name="close" size={21} color={colors.muted} />
+                  </Pressable>
+                ) : null}
               </View>
-              <Text style={styles.mapCaption}>Зона доставки</Text>
-            </View>
-            <Text style={styles.label}>Адрес доставки</Text>
-            <View style={styles.inputWrap}>
-              <MaterialCommunityIcons
-                name="map-marker-outline"
-                size={22}
-                color={colors.muted}
+              <Text style={styles.hint}>
+                Двигайте карту и при необходимости уточните адрес вручную.
+                Подъезд и квартиру укажете при оформлении.
+              </Text>
+              <PrimaryButton
+                disabled={!canSubmit}
+                label={address ? "Далее" : "Уточнить адрес"}
+                onPress={save}
+                tone="black"
+                style={styles.primary}
               />
-              <TextInput
-                autoCapitalize="sentences"
-                onChangeText={setAddress}
-                placeholder="Улица, дом"
-                placeholderTextColor="#A0A0A0"
-                returnKeyType="done"
-                style={styles.input}
-                value={address}
-              />
-              {address ? (
-                <Pressable accessibilityLabel="Очистить адрес" onPress={() => setAddress("")}>
-                  <MaterialCommunityIcons name="close" size={21} color={colors.muted} />
-                </Pressable>
-              ) : null}
-            </View>
-            <Text style={styles.hint}>
-              Точный подъезд и квартиру можно указать при оформлении.
-            </Text>
-          </>
-        ) : (
-          <>
-            <View style={[styles.mapPreview, styles.pickupPreview]}>
-              <MaterialCommunityIcons
-                name="store-marker-outline"
-                size={48}
-                color={colors.orange}
-              />
-              <Text style={styles.mapCaption}>Кухня для самовывоза</Text>
-            </View>
-            <Text style={styles.label}>Заберу здесь</Text>
-            <View style={styles.pickupCard}>
-              <View style={styles.radio}>
-                <View style={styles.radioInner} />
+            </>
+          ) : (
+            <>
+              <View style={styles.pickupCard}>
+                <View style={styles.pickupIcon}>
+                  <MaterialCommunityIcons name="store-marker" size={25} color={colors.orange} />
+                </View>
+                <View style={styles.pickupCopy}>
+                  <Text style={styles.pickupAddress}>{pickupAddress}</Text>
+                  <Text style={styles.pickupHours}>
+                    {region?.pickupWorkingHours || "Ежедневно, без выходных"}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.pickupCopy}>
-                <Text style={styles.pickupAddress}>{pickupAddress}</Text>
-                <Text style={styles.pickupHours}>
-                  {region?.pickupWorkingHours || "Ежедневно, без выходных"}
-                </Text>
-              </View>
-            </View>
-          </>
-        )}
-      </ScrollView>
-    </Sheet>
+              <PrimaryButton
+                label="Заберу здесь"
+                onPress={save}
+                tone="black"
+                style={styles.primary}
+              />
+            </>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 14,
+  root: {
+    flex: 1,
+    backgroundColor: "#ECEBE7",
+  },
+  map: {
+    flex: 1,
+    minHeight: 300,
+  },
+  topControls: {
+    position: "absolute",
+    zIndex: 4,
+    left: 18,
+    right: 18,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
   },
-  title: {
-    color: colors.ink,
-    fontSize: 27,
-    fontWeight: "800",
-    letterSpacing: -0.45,
+  closeButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.94)",
+    ...shadow,
   },
   switcher: {
-    marginHorizontal: 18,
+    flex: 1,
+    minHeight: 50,
     padding: 4,
     borderRadius: radii.medium,
-    backgroundColor: colors.surface,
     flexDirection: "row",
+    backgroundColor: "rgba(245,245,243,0.95)",
+    ...shadow,
   },
   switchItem: {
     flex: 1,
-    minHeight: 44,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 14,
@@ -244,32 +297,48 @@ const styles = StyleSheet.create({
   switchText: {
     color: "#999999",
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   switchTextActive: {
     color: colors.ink,
-  },
-  body: {
-    padding: 18,
-    paddingBottom: 30,
-  },
-  label: {
-    marginBottom: 9,
-    color: colors.ink,
-    fontSize: 15,
     fontWeight: "700",
   },
+  panel: {
+    marginTop: -28,
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: colors.white,
+    ...shadow,
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    marginBottom: 14,
+    borderRadius: 99,
+    alignSelf: "center",
+    backgroundColor: "#D7D7D7",
+  },
+  title: {
+    color: colors.ink,
+    fontSize: 29,
+    fontWeight: "800",
+    letterSpacing: -0.55,
+  },
   regionRow: {
-    marginBottom: 18,
+    marginTop: 14,
+    marginBottom: 14,
     flexDirection: "row",
     gap: 8,
   },
   regionChip: {
-    paddingVertical: 9,
+    paddingVertical: 8,
     paddingHorizontal: 15,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.pill,
+    backgroundColor: colors.white,
   },
   regionChipActive: {
     borderColor: colors.orange,
@@ -283,94 +352,51 @@ const styles = StyleSheet.create({
   regionTextActive: {
     color: colors.orangeDark,
   },
-  mapPreview: {
-    height: 190,
-    marginBottom: 20,
-    borderRadius: radii.large,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E8E4D6",
-  },
-  gridHorizontal: {
-    position: "absolute",
-    left: -20,
-    right: -20,
-    top: "52%",
-    height: 18,
-    backgroundColor: "rgba(255,255,255,0.72)",
-    transform: [{ rotate: "-8deg" }],
-  },
-  gridVertical: {
-    position: "absolute",
-    top: -20,
-    bottom: -20,
-    left: "30%",
-    width: 15,
-    backgroundColor: "rgba(255,255,255,0.7)",
-    transform: [{ rotate: "8deg" }],
-  },
-  mapPin: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-  },
-  mapCaption: {
-    marginTop: 8,
-    color: colors.ink,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  pickupPreview: {
-    backgroundColor: "#EFF4E9",
-  },
-  inputWrap: {
-    height: 54,
-    paddingHorizontal: 14,
+  addressField: {
+    minHeight: 58,
+    paddingHorizontal: 15,
     borderRadius: radii.medium,
     flexDirection: "row",
     alignItems: "center",
     gap: 9,
     backgroundColor: colors.surface,
   },
-  input: {
+  addressInput: {
     flex: 1,
+    minWidth: 0,
     color: colors.ink,
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 20,
   },
   hint: {
-    marginTop: 8,
+    marginTop: 9,
     color: colors.muted,
     fontSize: 12,
     lineHeight: 17,
   },
+  primary: {
+    minHeight: 58,
+    marginTop: 14,
+    borderRadius: 18,
+  },
   pickupCard: {
-    padding: 15,
+    minHeight: 78,
+    padding: 14,
     borderWidth: 1,
-    borderColor: colors.orange,
+    borderColor: colors.border,
     borderRadius: radii.medium,
     flexDirection: "row",
+    alignItems: "center",
     gap: 12,
-    backgroundColor: colors.orangeSoft,
+    backgroundColor: colors.surface,
   },
-  radio: {
-    width: 20,
-    height: 20,
-    marginTop: 2,
-    borderWidth: 2,
-    borderColor: colors.orange,
-    borderRadius: 10,
+  pickupIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
-  },
-  radioInner: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: colors.orange,
+    backgroundColor: colors.white,
   },
   pickupCopy: {
     flex: 1,
@@ -382,7 +408,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   pickupHours: {
-    marginTop: 5,
+    marginTop: 4,
     color: colors.muted,
     fontSize: 13,
   },

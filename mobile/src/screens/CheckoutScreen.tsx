@@ -72,8 +72,6 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
   const [intercom, setIntercom] = useState("");
   const [comment, setComment] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
-  const [utensilsCount, setUtensilsCount] = useState(1);
-  const [noUtensils, setNoUtensils] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -108,8 +106,8 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
       intercom: intercom.trim(),
       comment: comment.trim(),
       paymentMethod,
-      utensilsCount: noUtensils ? 0 : utensilsCount,
-      noUtensils,
+      utensilsCount: store.noUtensils ? 0 : store.utensilsCount,
+      noUtensils: store.noUtensils,
       latitude: store.location?.latitude,
       longitude: store.location?.longitude,
       items: store.cart.map((line) => ({
@@ -245,26 +243,26 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
               <View style={styles.utensilsCopy}>
                 <Text style={styles.choiceLabel}>Палочки и салфетки</Text>
                 <Text style={styles.sectionSubtitle}>
-                  {noUtensils ? "Без приборов" : `${utensilsCount} комплект`}
+                  {store.noUtensils ? "Без приборов" : `${store.utensilsCount} комплект`}
                 </Text>
               </View>
-              {!noUtensils ? (
+              {!store.noUtensils ? (
                 <QuantityControl
                   compact
                   maximum={10}
                   minimum={1}
-                  onChange={setUtensilsCount}
-                  value={utensilsCount}
+                  onChange={store.setUtensilsCount}
+                  value={store.utensilsCount}
                 />
               ) : null}
             </View>
             <View style={styles.utensilsRow}>
               <Text style={styles.choiceLabel}>Не класть приборы</Text>
               <Switch
-                onValueChange={setNoUtensils}
+                onValueChange={store.setNoUtensils}
                 thumbColor={colors.white}
                 trackColor={{ false: "#DADADA", true: colors.orange }}
-                value={noUtensils}
+                value={store.noUtensils}
               />
             </View>
           </View>

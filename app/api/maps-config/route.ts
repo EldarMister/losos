@@ -12,6 +12,11 @@ export async function GET() {
 
   return Response.json(
     { mapsApiKey, suggestApiKey },
-    { headers: { "Cache-Control": "no-store, max-age=0" } },
+    {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-store, max-age=0",
+      },
+    },
   );
 }

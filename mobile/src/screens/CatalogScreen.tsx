@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -44,6 +46,9 @@ export function CatalogScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
+  const [showCategoryNav, setShowCategoryNav] = useState(false);
+  const sectionOffsets = useRef<Record<string, number>>({});
+  const sectionsOffset = useRef(0);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -82,10 +87,8 @@ export function CatalogScreen({
     store.addCartLine(product, 1, []);
   };
 
-  return (
-    <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
+  const header = (
+    <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
         <View style={styles.topRow}>
           <Pressable
             accessibilityLabel="Открыть выбор адреса"
@@ -105,6 +108,10 @@ export function CatalogScreen({
               {store.deliveryType === "delivery" ? "Самовывоз" : "Доставка"}
             </Text>
           </Pressable>
+          <View style={styles.cashbackChip}>
+            <Text style={styles.cashbackText}>Кешбэк</Text>
+            <MaterialCommunityIcons name="butterfly" size={17} color={colors.orange} />
+          </View>
         </View>
 
         <Pressable onPress={onOpenLocation} style={styles.locationRow}>
@@ -125,22 +132,52 @@ export function CatalogScreen({
             <MaterialCommunityIcons name="chevron-down" size={18} color={colors.muted} />
           </View>
         </Pressable>
-      </View>
+    </View>
+  );
 
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = event.nativeEvent.contentOffset.y;
+    const next = y > 150;
+    if (next !== showCategoryNav) setShowCategoryNav(next);
+    if (next) {
+      const currentCategory = visibleCategories
+        .filter((category) => (
+          sectionsOffset.current
+            + (sectionOffsets.current[category.slug] ?? Number.POSITIVE_INFINITY)
+          <= y + 150
+        ))
+        .at(-1);
+      if (currentCategory) {
+        setActiveCategory((current) => (
+          current === currentCategory.slug ? current : currentCategory.slug
+        ));
+      }
+    }
+  };
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="dark" />
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.orange} size="large" />
-          <Text style={styles.centerText}>Загружаем вкусное…</Text>
-        </View>
+        <>
+          {header}
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.orange} size="large" />
+            <Text style={styles.centerText}>Загружаем вкусное…</Text>
+          </View>
+        </>
       ) : error ? (
-        <View style={styles.center}>
-          <MaterialCommunityIcons name="wifi-alert" size={42} color={colors.muted} />
-          <Text style={styles.errorTitle}>Каталог пока не загрузился</Text>
-          <Text style={styles.centerText}>{error}</Text>
-          <Pressable onPress={() => void load()} style={styles.retry}>
-            <Text style={styles.retryText}>Попробовать снова</Text>
-          </Pressable>
-        </View>
+        <>
+          {header}
+          <View style={styles.center}>
+            <MaterialCommunityIcons name="wifi-alert" size={42} color={colors.muted} />
+            <Text style={styles.errorTitle}>Каталог пока не загрузился</Text>
+            <Text style={styles.centerText}>{error}</Text>
+            <Pressable onPress={() => void load()} style={styles.retry}>
+              <Text style={styles.retryText}>Попробовать снова</Text>
+            </Pressable>
+          </View>
+        </>
       ) : (
         <ScrollView
           ref={scrollRef}
@@ -148,6 +185,7 @@ export function CatalogScreen({
             styles.content,
             { paddingBottom: Math.max(insets.bottom, 12) + (store.cartCount ? 100 : 24) },
           ]}
+          onScroll={handleScroll}
           refreshControl={(
             <RefreshControl
               colors={[colors.orange]}
@@ -156,101 +194,131 @@ export function CatalogScreen({
               tintColor={colors.orange}
             />
           )}
+          scrollEventThrottle={32}
           showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={[2]}
         >
-          {promotions.length ? (
-            <ScrollView
-              contentContainerStyle={styles.promoRow}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-            >
-              {promotions.slice(0, 6).map((promotion, index) => (
-                <Pressable
-                  key={promotion.id}
-                  onPress={() => onOpenPromotion(promotion, index, promotions)}
-                  style={({ pressed }) => [styles.promoCard, pressed && styles.pressed]}
-                >
-                  <Image
-                    resizeMode="cover"
-                    source={{ uri: resolveImageUrl(promotion.image) }}
-                    style={styles.promoImage}
-                  />
-                  <View style={styles.promoShade} />
-                  <Text numberOfLines={3} style={styles.promoTitle}>
-                    {promotion.title}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
+          {header}
 
-          <Pressable onPress={onOpenSearch} style={styles.searchButton}>
-            <MaterialCommunityIcons name="magnify" size={22} color={colors.muted} />
-            <Text style={styles.searchText}>Поиск по блюдам</Text>
-          </Pressable>
-
-          <ScrollView
-            contentContainerStyle={styles.categoryChips}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          >
-            {visibleCategories.map((category) => (
-              <Pressable
-                key={category.slug}
-                onPress={() => {
-                  setActiveCategory(category.slug);
-                  const index = visibleCategories.findIndex((item) => item.slug === category.slug);
-                  scrollRef.current?.scrollTo({
-                    y: Math.max(0, 300 + index * 315),
-                    animated: true,
-                  });
-                }}
-                style={[
-                  styles.categoryChip,
-                  activeCategory === category.slug && styles.categoryChipActive,
-                ]}
+          <View style={styles.promotionsBlock}>
+            {promotions.length ? (
+              <ScrollView
+                contentContainerStyle={styles.promoRow}
+                horizontal
+                showsHorizontalScrollIndicator={false}
               >
-                <Text
+                {promotions.slice(0, 6).map((promotion, index) => (
+                  <Pressable
+                    key={promotion.id}
+                    onPress={() => onOpenPromotion(promotion, index, promotions)}
+                    style={({ pressed }) => [styles.promoCard, pressed && styles.pressed]}
+                  >
+                    <Image
+                      resizeMode="cover"
+                      source={{ uri: resolveImageUrl(promotion.image) }}
+                      style={styles.promoImage}
+                    />
+                    <View style={styles.promoShade} />
+                    <Text numberOfLines={3} style={styles.promoTitle}>
+                      {promotion.title}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
+          </View>
+
+          <View style={[styles.catalogNav, showCategoryNav && styles.catalogNavSticky]}>
+            <Pressable onPress={onOpenSearch} style={styles.searchButton}>
+              <MaterialCommunityIcons name="magnify" size={22} color={colors.muted} />
+              <Text style={styles.searchText}>Поиск</Text>
+            </Pressable>
+
+            {showCategoryNav ? (
+              <ScrollView
+                contentContainerStyle={styles.categoryChips}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+              >
+                {visibleCategories.map((category) => (
+                  <Pressable
+                    key={category.slug}
+                    onPress={() => {
+                      setActiveCategory(category.slug);
+                      scrollRef.current?.scrollTo({
+                        y: Math.max(
+                          0,
+                          sectionsOffset.current
+                            + (sectionOffsets.current[category.slug] ?? 0)
+                            - 116,
+                        ),
+                        animated: true,
+                      });
+                    }}
+                    style={[
+                      styles.categoryChip,
+                      activeCategory === category.slug && styles.categoryChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryChipText,
+                        activeCategory === category.slug && styles.categoryChipTextActive,
+                      ]}
+                    >
+                      {category.title}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
+          </View>
+
+          <View
+            onLayout={(event) => {
+              sectionsOffset.current = event.nativeEvent.layout.y;
+            }}
+            style={styles.sections}
+          >
+            {visibleCategories.map((category) => {
+              const products = category.products.filter((product) => product.available !== false);
+              return (
+                <View
+                  key={category.slug}
+                  onLayout={(event) => {
+                    sectionOffsets.current[category.slug] = event.nativeEvent.layout.y;
+                  }}
                   style={[
-                    styles.categoryChipText,
-                    activeCategory === category.slug && styles.categoryChipTextActive,
+                    styles.section,
+                    category.slug === visibleCategories[0]?.slug && styles.firstSection,
                   ]}
                 >
-                  {category.title}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {visibleCategories.map((category) => {
-            const products = category.products.filter((product) => product.available !== false);
-            return (
-              <View key={category.slug} style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>{category.title}</Text>
-                  <MaterialCommunityIcons
-                    name="arrow-right"
-                    size={24}
-                    color="#B5B5B5"
-                  />
-                </View>
-                <ScrollView
-                  contentContainerStyle={styles.productsRow}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                >
-                  {products.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      onAdd={() => addProduct(product)}
-                      onPress={() => onOpenProduct(product)}
-                      product={product}
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>{category.title}</Text>
+                    <MaterialCommunityIcons
+                      name="arrow-right"
+                      size={27}
+                      color="#B5B5B5"
                     />
-                  ))}
-                </ScrollView>
-              </View>
-            );
-          })}
+                  </View>
+                  <ScrollView
+                    contentContainerStyle={styles.productsRow}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                  >
+                    {products.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        onAdd={() => addProduct(product)}
+                        onPress={() => onOpenProduct(product)}
+                        product={product}
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              );
+            })}
+          </View>
         </ScrollView>
       )}
 
@@ -287,11 +355,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   header: {
-    zIndex: 2,
     paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    paddingBottom: 12,
     backgroundColor: colors.white,
   },
   topRow: {
@@ -313,6 +378,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
+  },
+  cashbackChip: {
+    height: 50,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: "#FFF0E8",
+  },
+  cashbackText: {
+    color: colors.orange,
+    fontSize: 14,
+    fontWeight: "800",
   },
   deliverySwitchActive: {
     flex: 1,
@@ -399,6 +479,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   content: {
+    backgroundColor: colors.white,
+  },
+  promotionsBlock: {
+    minHeight: 156,
     paddingTop: 14,
   },
   promoRow: {
@@ -436,7 +520,6 @@ const styles = StyleSheet.create({
   searchButton: {
     height: 50,
     marginHorizontal: 16,
-    marginTop: 14,
     borderRadius: radii.medium,
     flexDirection: "row",
     alignItems: "center",
@@ -449,9 +532,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
   },
+  catalogNav: {
+    paddingTop: 12,
+    paddingBottom: 12,
+    backgroundColor: colors.white,
+  },
+  catalogNavSticky: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
   categoryChips: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 8,
     gap: 8,
   },
   categoryChip: {
@@ -471,7 +563,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   section: {
-    marginTop: 10,
+    marginTop: 20,
+  },
+  firstSection: {
+    marginTop: 4,
+  },
+  sections: {
+    backgroundColor: colors.white,
   },
   sectionHeader: {
     paddingHorizontal: 16,

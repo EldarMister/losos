@@ -6,13 +6,20 @@ import type {
   Promotion,
   Region,
 } from "./types";
+import { Platform } from "react-native";
+
+const developmentApiUrl = Platform.OS === "web" && __DEV__ && typeof window !== "undefined"
+  ? `${window.location.protocol}//${window.location.hostname}:4000/api`
+  : Platform.OS === "android" && __DEV__
+    ? "http://10.0.2.2:4000/api"
+    : "https://losos-production.up.railway.app/api";
 
 export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL ||
-  "https://losos-production.up.railway.app/api"
+  developmentApiUrl
 ).replace(/\/$/, "");
 
-const WEB_URL = (
+export const WEB_URL = (
   process.env.EXPO_PUBLIC_WEB_URL ||
   "https://losos-omega.vercel.app"
 ).replace(/\/$/, "");
@@ -71,6 +78,33 @@ export const catalogApi = {
   },
   regions() {
     return request<Region[]>("/regions");
+  },
+};
+
+export type MapsConfig = {
+  mapsApiKey: string;
+  suggestApiKey: string;
+};
+
+export const mapsApi = {
+  async config() {
+    const mapsHost = Platform.OS === "web" && __DEV__ && typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.hostname}:3000`
+      : WEB_URL;
+    try {
+      const response = await fetch(`${mapsHost}/api/maps-config`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) {
+        return { mapsApiKey: "", suggestApiKey: "" };
+      }
+      const body = await response.json() as Partial<MapsConfig>;
+      const mapsApiKey = body.mapsApiKey?.trim() || "";
+      const suggestApiKey = body.suggestApiKey?.trim() || mapsApiKey;
+      return { mapsApiKey, suggestApiKey };
+    } catch {
+      return { mapsApiKey: "", suggestApiKey: "" };
+    }
   },
 };
 

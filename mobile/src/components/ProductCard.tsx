@@ -67,9 +67,9 @@ export function ProductCard({ product, onPress, onAdd }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 162,
-    minHeight: 260,
-    padding: 10,
+    width: 150,
+    minHeight: 278,
+    padding: 11,
     borderRadius: radii.medium,
     backgroundColor: colors.surface,
   },
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
   imageWrap: {
-    height: 154,
+    height: 150,
     borderRadius: 14,
     overflow: "hidden",
     backgroundColor: colors.white,
@@ -101,11 +101,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   name: {
-    minHeight: 42,
-    marginTop: 10,
+    minHeight: 44,
+    marginTop: 12,
     color: colors.ink,
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: "500",
   },
   bottom: {
@@ -122,13 +122,13 @@ const styles = StyleSheet.create({
   price: {
     marginTop: 2,
     color: colors.ink,
-    fontSize: 15,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "500",
   },
   add: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,

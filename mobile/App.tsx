@@ -99,6 +99,7 @@ function MobileApp() {
       />
       <SearchSheet
         onClose={() => setSearchVisible(false)}
+        onOpenCart={() => setCartVisible(true)}
         onOpenProduct={(product) => {
           setSearchVisible(false);
           setSelectedProduct(product);

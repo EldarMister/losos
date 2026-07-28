@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Image,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -20,25 +21,32 @@ type Props = {
 
 const pages = [
   {
-    colors: ["#FF5B06", "#FF3F00"] as const,
+    colors: ["#FF5207", "#FF4B00"] as const,
     title: "Качественно\nи вкусно",
-    copy: "Выбираем лучшие продукты и готовим только после вашего заказа.",
-    image: require("../../assets/smile.webp"),
-    imageStyle: "smile" as const,
+    copy: "Делаем выбор в пользу лучших продуктов, технологичных процессов и заботы о клиентах. В Бишкеке и Оше.",
+    image: null,
+    imageStyle: "brand" as const,
   },
   {
-    colors: ["#D698FF", "#B968F1"] as const,
-    title: "Заказ всегда\nпод контролем",
-    copy: "Покажем статус заказа и вовремя сообщим, когда курьер уже рядом.",
+    colors: ["#FF6D0A", "#FF4C00"] as const,
+    title: "Много вкусного\nв одном месте",
+    copy: "Собрали роллы, поке, супы и горячие блюда. Готовим после оформления заказа.",
+    image: require("../../assets/pickup.png"),
+    imageStyle: "basket" as const,
+  },
+  {
+    colors: ["#D59AF5", "#C47BEF"] as const,
+    title: "Пришлём пуш\nо статусе заказа",
+    copy: "Сами доставляем заказы и следим за скоростью. Покажем статус заказа в режиме реального времени.",
     image: require("../../assets/delivery.png"),
     imageStyle: "bag" as const,
   },
   {
-    colors: ["#FFC86D", "#FF8A24"] as const,
-    title: "Доставка\nили самовывоз",
-    copy: "Выберите удобный вариант, адрес и сразу переходите к каталогу.",
-    image: require("../../assets/pickup.png"),
-    imageStyle: "pickup" as const,
+    colors: ["#FF5907", "#FF4B00"] as const,
+    title: "Приятного вам аппетита!",
+    copy: "",
+    image: null,
+    imageStyle: "heart" as const,
   },
 ];
 
@@ -48,14 +56,8 @@ export function OnboardingScreen({ onComplete }: Props) {
   const [page, setPage] = useState(0);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const current = pages[page];
-  const buttonLabel = page === pages.length - 1 ? "Выбрать адрес" : "Далее";
-  const isNotificationPage = page === 1;
-
-  const imageStyle = useMemo(() => {
-    if (current.imageStyle === "smile") return styles.smileImage;
-    if (current.imageStyle === "bag") return styles.bagImage;
-    return styles.pickupImage;
-  }, [current.imageStyle]);
+  const buttonLabel = page === pages.length - 1 ? "Выбрать адрес доставки" : "Далее";
+  const isNotificationPage = current.imageStyle === "bag";
 
   const complete = () => {
     setOnboarded(true);
@@ -103,28 +105,33 @@ export function OnboardingScreen({ onComplete }: Props) {
         </View>
 
         <View style={styles.visual}>
-          <View style={styles.visualGlow} />
-          {page === 0 ? (
+          {current.imageStyle === "brand" ? (
             <View style={styles.brandTile}>
               <View style={styles.brandPattern}>
-                <Text style={styles.brandPatternText}>много</Text>
-                <Text style={styles.brandPatternText}>лосося</Text>
+                <Text style={styles.brandPatternText}>ЛОСОСЬ</Text>
+                <Text style={styles.brandPatternText}>ЛОСОСЬ</Text>
+                <Text style={styles.brandPatternText}>ЛОСОСЬ</Text>
               </View>
-              <Image resizeMode="contain" source={current.image} style={imageStyle} />
+            </View>
+          ) : current.imageStyle === "heart" ? (
+            <View style={styles.heartWrap}>
+              <MaterialCommunityIcons name="heart" size={230} color="#FF9A21" />
+              <View style={[styles.heartStripe, styles.heartStripeOne]} />
+              <View style={[styles.heartStripe, styles.heartStripeTwo]} />
+              <View style={[styles.heartStripe, styles.heartStripeThree]} />
             </View>
           ) : (
-            <Image resizeMode="contain" source={current.image} style={imageStyle} />
+            <Image
+              resizeMode="contain"
+              source={current.image}
+              style={current.imageStyle === "bag" ? styles.bagImage : styles.basketImage}
+            />
           )}
-          {isNotificationPage ? (
-            <View style={styles.notificationBadge}>
-              <MaterialCommunityIcons name="bell" size={20} color={colors.orange} />
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.copyBlock}>
           <Text style={styles.title}>{current.title}</Text>
-          <Text style={styles.copy}>{current.copy}</Text>
+          {current.copy ? <Text style={styles.copy}>{current.copy}</Text> : null}
         </View>
 
         <View style={styles.actions}>
@@ -143,6 +150,15 @@ export function OnboardingScreen({ onComplete }: Props) {
             style={styles.translucentButton}
             tone="white"
           />
+          {page === pages.length - 1 ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={complete}
+              style={styles.loginButton}
+            >
+              <Text style={styles.loginText}>Войти</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </LinearGradient>
@@ -171,65 +187,70 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   visual: {
-    flex: 1.12,
+    flex: 1.18,
     alignItems: "center",
     justifyContent: "center",
   },
-  visualGlow: {
-    position: "absolute",
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
   brandTile: {
-    width: 180,
-    height: 180,
-    borderRadius: 48,
+    width: 230,
+    height: 230,
+    borderRadius: 62,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    backgroundColor: "#FF6D00",
-    transform: [{ rotate: "-4deg" }],
+    backgroundColor: "#FF7800",
   },
   brandPattern: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
-    justifyContent: "space-around",
+    justifyContent: "center",
+    gap: 2,
     opacity: 0.92,
-    transform: [{ rotate: "15deg" }, { scale: 1.25 }],
+    transform: [{ rotate: "-4deg" }, { scale: 1.25 }],
   },
   brandPatternText: {
     color: colors.white,
-    fontSize: 47,
-    lineHeight: 52,
+    fontSize: 48,
+    lineHeight: 45,
     fontWeight: "900",
   },
-  smileImage: {
-    width: 90,
-    height: 90,
-  },
   bagImage: {
-    width: 240,
-    height: 240,
+    width: 285,
+    height: 285,
   },
-  pickupImage: {
-    width: 250,
-    height: 250,
+  basketImage: {
+    width: 300,
+    height: 300,
   },
-  notificationBadge: {
-    position: "absolute",
-    right: "22%",
-    top: "26%",
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  heartWrap: {
+    width: 260,
+    height: 245,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.white,
+    overflow: "hidden",
+  },
+  heartStripe: {
+    position: "absolute",
+    width: 170,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: "rgba(255,255,255,0.74)",
+    transform: [{ rotate: "32deg" }],
+  },
+  heartStripeOne: {
+    top: 84,
+    left: 48,
+  },
+  heartStripeTwo: {
+    top: 121,
+    left: 41,
+  },
+  heartStripeThree: {
+    top: 157,
+    left: 52,
   },
   copyBlock: {
-    minHeight: 170,
+    minHeight: 188,
   },
   title: {
     color: colors.white,
@@ -251,5 +272,15 @@ const styles = StyleSheet.create({
   translucentButton: {
     borderRadius: radii.large,
     backgroundColor: "rgba(255,255,255,0.82)",
+  },
+  loginButton: {
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loginText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: "800",
   },
 });

@@ -25,6 +25,8 @@ type PersistedState = {
   deliveryType: DeliveryType;
   location: DeliveryLocation | null;
   notificationsAsked: boolean;
+  utensilsCount: number;
+  noUtensils: boolean;
 };
 
 type StoreValue = PersistedState & {
@@ -36,6 +38,8 @@ type StoreValue = PersistedState & {
   setRegionSlug: (value: string) => void;
   setDeliveryType: (value: DeliveryType) => void;
   setLocation: (value: DeliveryLocation | null) => void;
+  setUtensilsCount: (value: number) => void;
+  setNoUtensils: (value: boolean) => void;
   addCartLine: (
     product: Product,
     quantity: number,
@@ -52,6 +56,8 @@ const initialState: PersistedState = {
   deliveryType: "delivery",
   location: null,
   notificationsAsked: false,
+  utensilsCount: 1,
+  noUtensils: false,
 };
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -153,6 +159,10 @@ export function StoreProvider({ children }: PropsWithChildren) {
       setRegionSlug: (regionSlug) => patch({ regionSlug }),
       setDeliveryType: (deliveryType) => patch({ deliveryType }),
       setLocation: (location) => patch({ location }),
+      setUtensilsCount: (utensilsCount) => patch({
+        utensilsCount: Math.min(10, Math.max(1, utensilsCount)),
+      }),
+      setNoUtensils: (noUtensils) => patch({ noUtensils }),
       addCartLine,
       setCartQuantity,
       clearCart: () => patch({ cart: [] }),

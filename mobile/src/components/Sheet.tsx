@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   View,
+  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radii, shadow } from "../theme";
@@ -14,14 +15,18 @@ type Props = PropsWithChildren<{
   visible: boolean;
   onClose: () => void;
   fullScreen?: boolean;
+  edgeToEdge?: boolean;
   footer?: ReactNode;
+  height?: ViewStyle["height"];
 }>;
 
 export function Sheet({
   visible,
   onClose,
   fullScreen,
+  edgeToEdge,
   footer,
+  height,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -46,10 +51,11 @@ export function Sheet({
           style={[
             styles.sheet,
             fullScreen && styles.fullScreen,
+            edgeToEdge && styles.edgeToEdge,
+            height !== undefined && { height },
             { paddingBottom: Math.max(insets.bottom, 12) },
           ]}
         >
-          <View style={styles.handle} />
           <View style={styles.content}>{children}</View>
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </View>
@@ -79,16 +85,14 @@ const styles = StyleSheet.create({
     ...shadow,
   },
   fullScreen: {
-    maxHeight: "97%",
-    height: "97%",
+    maxHeight: "92%",
+    height: "92%",
   },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 999,
-    alignSelf: "center",
-    marginTop: 9,
-    backgroundColor: "#D8D8D8",
+  edgeToEdge: {
+    maxHeight: "100%",
+    height: "100%",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   content: {
     flex: 1,
