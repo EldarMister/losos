@@ -4,7 +4,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; deliveryOpenTime: string; deliveryCloseTime: string; freeDeliveryThreshold: number; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -110,8 +110,8 @@ const apiUrl = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
 ];
 const defaultRegionByTab: Record<Tab, string> = {
   statistics: "bishkek",
@@ -627,6 +627,9 @@ export function AdminApp() {
       pickupAddress: item.pickupAddress || "",
       pickupYandexUrl: item.pickupYandexUrl || "",
       pickupWorkingHours: item.pickupWorkingHours || "",
+      deliveryOpenTime: item.deliveryOpenTime || "11:30",
+      deliveryCloseTime: item.deliveryCloseTime || "22:30",
+      freeDeliveryThreshold: String(item.freeDeliveryThreshold ?? 4900),
       footerCompanyName: item.footerCompanyName || "",
       footerLegalInfo: item.footerLegalInfo || "",
     },
@@ -642,6 +645,9 @@ export function AdminApp() {
       pickupAddress: "",
       pickupYandexUrl: "",
       pickupWorkingHours: "",
+      deliveryOpenTime: "11:30",
+      deliveryCloseTime: "22:30",
+      freeDeliveryThreshold: "4900",
       footerCompanyName: "",
       footerLegalInfo: "",
     },
@@ -660,6 +666,7 @@ export function AdminApp() {
       const payload = {
         ...regionEditor.values,
         sortOrder: Number(regionEditor.values.sortOrder),
+        freeDeliveryThreshold: Number(regionEditor.values.freeDeliveryThreshold),
         slug: String(regionEditor.values.slug).trim().toLowerCase().replace(/\s+/g, "-"),
       };
       const saved = await request(`/admin/regions${regionEditor.id ? `/${regionEditor.id}` : ""}`, {
@@ -869,7 +876,7 @@ export function AdminApp() {
               <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug}</small></span>
               <span><small>Телефон</small><b>{item.contactPhone || "Не указан"}</b></span>
               <span><small>Почта</small><b>{item.contactEmail || "Не указана"}</b></span>
-              <span><small>Самовывоз</small><b>{item.pickupAddress || "Не указан"}</b></span>
+              <span><small>Доставка</small><b>{item.deliveryOpenTime || "11:30"}–{item.deliveryCloseTime || "22:30"} · бесплатно от {formatSom(item.freeDeliveryThreshold ?? 4900)}</b></span>
               <i className={item.enabled ? "enabled" : ""}>{item.enabled ? "Активен" : "Скрыт"}</i>
               <strong>Изменить →</strong>
             </button>)}
@@ -937,6 +944,14 @@ export function AdminApp() {
           <label>Электронная почта<input type="email" value={String(regionEditor.values.contactEmail)} onChange={(event) => updateRegionValue("contactEmail", event.target.value)} placeholder="hello@example.com" /></label>
         </div>
         <label>Адрес самовывоза или офиса<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Улица, дом" /></label>
+        <div className="admin-region-block">
+          <b>Доставка</b><small>График действует ежедневно по времени Бишкека. После закрытия новые заказы на доставку не принимаются.</small>
+          <div className="admin-two-fields">
+            <label>Начало рабочего дня<input required type="time" value={String(regionEditor.values.deliveryOpenTime)} onChange={(event) => updateRegionValue("deliveryOpenTime", event.target.value)} /></label>
+            <label>Конец рабочего дня<input required type="time" value={String(regionEditor.values.deliveryCloseTime)} onChange={(event) => updateRegionValue("deliveryCloseTime", event.target.value)} /></label>
+          </div>
+          <label>Бесплатная доставка от, сом<input required type="number" min="0" step="1" value={String(regionEditor.values.freeDeliveryThreshold)} onChange={(event) => updateRegionValue("freeDeliveryThreshold", event.target.value)} /></label>
+        </div>
         <div className="admin-region-block">
           <b>Самовывоз</b><small>Эти данные увидит клиент при выборе самовывоза.</small>
           <label>Адрес точки самовывоза<input value={String(regionEditor.values.pickupAddress)} onChange={(event) => updateRegionValue("pickupAddress", event.target.value)} placeholder="Ош, улица Курманжан-Датка, 123" /></label>

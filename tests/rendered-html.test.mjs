@@ -111,9 +111,13 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /WHATSAPP_AUTH_STORAGE_KEY/);
   assert.match(storefront, /PHONE_AUTH_SESSION_STORAGE_KEY/);
   assert.match(storefront, /className="cart-kit-modal"/);
-  assert.match(storefront, /<span>Далее<\/span>/);
+  assert.match(storefront, /deliveryClosed \? "Закрыто" : "Далее"/);
+  assert.match(storefront, /className="delivery-info-sheet"/);
+  assert.match(storefront, /setDeliveryInfoOpen\(true\)/);
+  assert.match(storefront, /freeDeliveryThreshold/);
+  assert.match(storefront, /address-panel-expanded/);
   assert.ok(
-    storefront.indexOf('<span>Далее</span>') < storefront.indexOf('className="phone-auth-modal"'),
+    storefront.indexOf('deliveryClosed ? "Закрыто" : "Далее"') < storefront.indexOf('className="phone-auth-modal"'),
     "SMS authorization must follow the cart",
   );
   assert.ok(
@@ -221,6 +225,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /className="trash-icon"/);
   assert.match(globals, /\.checkout-drawer\s*\{/);
   assert.match(globals, /\.checkout-submit\s*\{/);
+  assert.match(globals, /\.delivery-info-sheet\s*\{/);
+  assert.match(globals, /\.address-panel\.address-panel-expanded\s*\{/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);
   assert.match(globals, /\.store-shell\s*\{[^}]*width:\s*min\(1280px/);
   assert.match(globals, /\.store-shell\.header-pinned::after\s*\{[^}]*z-index:\s*24[^}]*height:\s*70px/);
@@ -238,6 +244,8 @@ test("admin menu exposes category management without a statistics search", async
   assert.match(admin, /tab === "categories"[\s\S]*?＋ Добавить категорию/);
   assert.match(admin, /openCategory\(category\)/);
   assert.match(admin, /tab !== "statistics" && tab !== "orders" && tab !== "settings"/);
+  assert.match(admin, /Начало рабочего дня/);
+  assert.match(admin, /Бесплатная доставка от, сом/);
 });
 
 test("NestJS and PostgreSQL project files are present", async () => {

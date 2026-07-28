@@ -6,6 +6,7 @@ import { ConfigService } from "@nestjs/config";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import {
+  CreateRegionDto,
   CreateProductDto,
   CreatePromotionDto,
   UpdateProductDto,
@@ -23,6 +24,7 @@ import {
 import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
+import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
@@ -75,6 +77,36 @@ test("phone auth DTO normalizes supported numbers and requires a six-digit code"
     pollToken: "short",
   });
   assert.equal(validateSync(invalidPollToken).length, 2);
+});
+
+test("region delivery settings validate time and free-delivery threshold", () => {
+  const valid = plainToInstance(CreateRegionDto, {
+    slug: "test",
+    name: "Тест",
+    deliveryOpenTime: "11:45",
+    deliveryCloseTime: "22:30",
+    freeDeliveryThreshold: 4900,
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const invalid = plainToInstance(CreateRegionDto, {
+    slug: "test",
+    name: "Тест",
+    deliveryOpenTime: "25:00",
+    deliveryCloseTime: "22:70",
+    freeDeliveryThreshold: -1,
+  });
+  assert.ok(validateSync(invalid).length >= 3);
+});
+
+test("delivery working hours use Bishkek time and support overnight schedules", () => {
+  const daytime = { deliveryOpenTime: "11:30", deliveryCloseTime: "22:30" };
+  assert.equal(isDeliveryOpenAt(daytime, new Date("2026-07-29T06:00:00.000Z")), true);
+  assert.equal(isDeliveryOpenAt(daytime, new Date("2026-07-29T17:00:00.000Z")), false);
+
+  const overnight = { deliveryOpenTime: "20:00", deliveryCloseTime: "02:00" };
+  assert.equal(isDeliveryOpenAt(overnight, new Date("2026-07-29T18:00:00.000Z")), true);
+  assert.equal(isDeliveryOpenAt(overnight, new Date("2026-07-29T06:00:00.000Z")), false);
 });
 
 test("WhatsApp auth creates a prefilled bot link and verifies Meta signatures", () => {

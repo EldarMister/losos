@@ -11,6 +11,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -20,6 +21,7 @@ import {
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
+const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 export class CreateRegionDto {
   @IsString()
@@ -40,6 +42,9 @@ export class CreateRegionDto {
   @IsOptional() @IsString() @MaxLength(240) pickupAddress = "";
   @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl = "";
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours = "";
+  @IsOptional() @IsString() @Matches(timePattern) deliveryOpenTime = "11:30";
+  @IsOptional() @IsString() @Matches(timePattern) deliveryCloseTime = "22:30";
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold = 4900;
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
 }
@@ -54,6 +59,9 @@ export class UpdateRegionDto {
   @IsOptional() @IsString() @MaxLength(240) pickupAddress?: string;
   @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl?: string;
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours?: string;
+  @IsOptional() @IsString() @Matches(timePattern) deliveryOpenTime?: string;
+  @IsOptional() @IsString() @Matches(timePattern) deliveryCloseTime?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold?: number;
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
 }

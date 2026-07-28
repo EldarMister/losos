@@ -41,6 +41,9 @@ type RegionOption = {
   pickupAddress?: string;
   pickupYandexUrl?: string;
   pickupWorkingHours?: string;
+  deliveryOpenTime?: string;
+  deliveryCloseTime?: string;
+  freeDeliveryThreshold?: number;
   footerCompanyName?: string;
   footerLegalInfo?: string;
 };
@@ -367,6 +370,37 @@ const normalizePhone = (value: string) => {
   return trimmed;
 };
 
+const deliveryTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const deliveryTimeMinutes = (value: string, fallback: string) => {
+  const source = deliveryTimePattern.test(value) ? value : fallback;
+  const [hours, minutes] = source.split(":").map(Number);
+  return hours * 60 + minutes;
+};
+const getDeliveryAvailability = (
+  openTime: string,
+  closeTime: string,
+  timestamp: number,
+) => {
+  if (!timestamp) return { isOpen: true, opensLabel: `Откроемся в ${openTime}` };
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bishkek",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const currentMinutes = (
+    Number(parts.find((part) => part.type === "hour")?.value ?? 0) * 60
+    + Number(parts.find((part) => part.type === "minute")?.value ?? 0)
+  );
+  const opensAt = deliveryTimeMinutes(openTime, "11:30");
+  const closesAt = deliveryTimeMinutes(closeTime, "22:30");
+  const isOpen = opensAt === closesAt
+    || (opensAt < closesAt
+      ? currentMinutes >= opensAt && currentMinutes < closesAt
+      : currentMinutes >= opensAt || currentMinutes < closesAt);
+  return { isOpen, opensLabel: `Откроемся в ${openTime}` };
+};
+
 const writeOverlayQuery = (name: "product" | "storyInspect", value: string | null, mode: "push" | "replace") => {
   const url = new URL(window.location.href);
   const other = name === "product" ? "storyInspect" : "product";
@@ -507,6 +541,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const selectedRegion = regionOptions.find((option) => option.slug === regionSlug);
   const pickupAddress = selectedRegion?.pickupAddress || (regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123");
   const pickupHours = selectedRegion?.pickupWorkingHours || "Ежедневно, без выходных\n11:30 – 22:30";
+  const deliveryOpenTime = selectedRegion?.deliveryOpenTime || "11:30";
+  const deliveryCloseTime = selectedRegion?.deliveryCloseTime || "22:30";
+  const freeDeliveryThreshold = Math.max(0, selectedRegion?.freeDeliveryThreshold ?? 4900);
   const pickupYandexUrl = selectedRegion?.pickupYandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
   const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
   const footerEmail = selectedRegion?.contactEmail || "musaev.janybek.kg@gmail.com";
@@ -527,6 +564,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [pickupLocationSelected, setPickupLocationSelected] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartKitOpen, setCartKitOpen] = useState(false);
+  const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [phoneAuthOpen, setPhoneAuthOpen] = useState(false);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
@@ -571,11 +609,18 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [activeCategory, setActiveCategory] = useState(categorySlug || "");
   const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
+  const [scheduleTimestamp, setScheduleTimestamp] = useState(0);
   const categoryNavRef = useRef<HTMLElement>(null);
   const promoRowRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const citySelectRef = useRef<HTMLDivElement>(null);
   const checkWhatsappStatusRef = useRef<() => Promise<void>>(async () => {});
+  const deliveryAvailability = getDeliveryAvailability(
+    deliveryOpenTime,
+    deliveryCloseTime,
+    scheduleTimestamp,
+  );
+  const deliveryClosed = deliveryType === "delivery" && !deliveryAvailability.isOpen;
   const openSearch = () => {
     const nav = categoryNavRef.current;
     if (nav) nav.scrollLeft = 0;
@@ -629,6 +674,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
     return () => controller.abort();
   }, [regionSlug]);
+
+  useEffect(() => {
+    const updateSchedule = () => setScheduleTimestamp(Date.now());
+    updateSchedule();
+    const timer = window.setInterval(updateSchedule, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -865,6 +917,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCheckoutOpen(false);
     setPhoneAuthOpen(false);
     setCartKitOpen(false);
+    setDeliveryInfoOpen(false);
     setPlacedOrder(null);
     setSelected(null);
   };
@@ -1012,6 +1065,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   };
 
   const beginCheckout = () => {
+    if (deliveryClosed) {
+      setDeliveryInfoOpen(true);
+      return;
+    }
     setCartOpen(false);
     setCheckoutError("");
     setPhoneAuthMessage("");
@@ -1279,6 +1336,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!cart.length || checkoutSubmitting) return;
+    if (deliveryClosed) {
+      setCheckoutError(`Доставка сейчас закрыта. ${deliveryAvailability.opensLabel}.`);
+      return;
+    }
     const orderApiUrl = STOREFRONT_API_URL;
 
     const phone = normalizePhone(checkoutForm.phone);
@@ -1610,12 +1671,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories, storyGroups]);
 
   useEffect(() => {
-    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || cartKitOpen || phoneAuthOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen);
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || cartKitOpen || deliveryInfoOpen || phoneAuthOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen);
     if (!locked) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [selected, compositionOpen, addressOpen, cartOpen, cartKitOpen, phoneAuthOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen]);
+  }, [selected, compositionOpen, addressOpen, cartOpen, cartKitOpen, deliveryInfoOpen, phoneAuthOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -1741,10 +1802,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </div> : null}
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
-            <div className="delivery-mode" aria-label={`${deliveryType === "pickup" ? "Самовывоз ~40 минут" : "Доставка от ~45 минут"}`}>
+            <div className="delivery-mode" aria-label={deliveryType === "pickup" ? "Самовывоз примерно 40 минут" : deliveryClosed ? `Доставка закрыта. ${deliveryAvailability.opensLabel}` : "Доставка примерно 45 минут"}>
               <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button></div>
               <span className="delivery-connector" aria-hidden="true" />
-              <div className="delivery-status"><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~40 минут" : "от ~45 минут"}</small></div>
+              <div className={`delivery-status${deliveryClosed ? " closed" : ""}`}><strong>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Закрыто" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "от ~45 минут"}</small></div>
             </div>
           </div>
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` ${money(cartTotal)}` : ""}</button>
@@ -1970,7 +2031,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 selected={pickupLocationSelected}
               /></Suspense>}
             </div>
-            <div className="address-panel">
+            <div className={`address-panel${deliveryType === "delivery" && (draftAddress.trim() || deliveryLocation) ? " address-panel-expanded" : ""}`}>
               <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>
               <div className="modal-mode-switch" aria-label="Способ получения заказа">
                 <div className="modal-mode-icons">
@@ -2068,11 +2129,45 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
                   </div>
                   <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
-                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => { setCartOpen(false); openDeliveryType(deliveryType); }}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span></button><button className="checkout" onClick={beginCheckout}><span>Далее</span><b>{money(cartTotal)}</b></button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "Примерно через 45 минут"}</small></span></button><button className={`checkout${deliveryClosed ? " closed" : ""}`} disabled={deliveryClosed} onClick={beginCheckout}><span>{deliveryClosed ? "Закрыто" : "Далее"}</span><b>{money(cartTotal)}</b></button></div>
                 </section>
               </div>
             </>}
           </aside>
+        </div>
+      ) : null}
+
+      {deliveryInfoOpen ? (
+        <div className="drawer-overlay delivery-info-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeliveryInfoOpen(false); }}>
+          <section className="delivery-info-sheet" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Информация о самовывозе" : "Информация о доставке"}>
+            <button className="delivery-info-close" type="button" onClick={() => setDeliveryInfoOpen(false)} aria-label="Закрыть">×</button>
+            {deliveryType === "pickup" ? (
+              <>
+                <small>Самовывоз</small>
+                <h2>{pickupAddress}</h2>
+                <p className="delivery-info-hours">{pickupHours}</p>
+                <div className="delivery-info-details">
+                  <h3>Детали</h3>
+                  <div><span>Время приготовления</span><b>~40 мин</b></div>
+                  <div><span>Стоимость самовывоза</span><b>Бесплатно</b></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <small>{freeDeliveryThreshold > 0 ? `Бесплатная доставка от ${money(freeDeliveryThreshold)}` : "Бесплатная доставка"}</small>
+                <h2>{address || `Доставка в город ${city}`}</h2>
+                <p className={`delivery-info-hours${deliveryClosed ? " closed" : ""}`}>{deliveryClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : "Ежедневно, без выходных"}<br />{deliveryOpenTime} – {deliveryCloseTime}</p>
+                <div className="delivery-info-details">
+                  <h3>Детали</h3>
+                  <div><span>Время доставки</span><b>~45 мин</b></div>
+                  <div><span>Рабочее время</span><b>{deliveryOpenTime} – {deliveryCloseTime}</b></div>
+                  <div><span>При заказе от {money(freeDeliveryThreshold)}</span><b>Бесплатно</b></div>
+                  {cartTotal < freeDeliveryThreshold ? <div><span>До бесплатной доставки</span><b>{money(freeDeliveryThreshold - cartTotal)}</b></div> : null}
+                </div>
+              </>
+            )}
+            <button className="delivery-info-confirm" type="button" onClick={() => setDeliveryInfoOpen(false)}>Понятно</button>
+          </section>
         </div>
       ) : null}
 
@@ -2203,8 +2298,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
               <footer className="checkout-footer">
                 {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
-                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
-                  <span>{checkoutSubmitting ? "Отправляем заказ…" : "Заказать"}</span>
+                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || deliveryClosed || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
+                  <span>{checkoutSubmitting ? "Отправляем заказ…" : deliveryClosed ? "Доставка закрыта" : "Заказать"}</span>
                   <b>{money(cartTotal)}</b>
                 </button>
                 <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>

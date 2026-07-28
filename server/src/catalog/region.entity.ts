@@ -38,6 +38,15 @@ export class Region {
   @Column({ default: "" })
   pickupWorkingHours!: string;
 
+  @Column({ type: "varchar", length: 5, default: "11:30" })
+  deliveryOpenTime!: string;
+
+  @Column({ type: "varchar", length: 5, default: "22:30" })
+  deliveryCloseTime!: string;
+
+  @Column({ type: "int", default: 4900 })
+  freeDeliveryThreshold!: number;
+
   @Column({ default: "" })
   footerCompanyName!: string;
 

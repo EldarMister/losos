@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
 import { PhoneAuthService } from "../auth/phone-auth.service";
 import { Product } from "../catalog/product.entity";
+import { isDeliveryOpenAt } from "../catalog/delivery-hours";
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 import { CreateOrderDto } from "./create-order.dto";
 import { OrderItem } from "./order-item.entity";
@@ -80,8 +81,6 @@ export class OrdersService {
           return this.ensureMatchingIdempotency(concurrentExisting, requestFingerprint);
         }
 
-        await this.phoneAuth.consumeVerification(dto.phone, dto.verificationToken, manager);
-
         const ids = [...new Set(dto.items.map((item) => item.productId))];
         const products = await productRepository.find({
           where: { id: In(ids) },
@@ -116,9 +115,19 @@ export class OrdersService {
           throw new BadRequestException("Order total is too large");
         }
 
+        const deliveryType = dto.deliveryType || DeliveryType.DELIVERY;
+        if (
+          deliveryType === DeliveryType.DELIVERY
+          && !isDeliveryOpenAt(products[0].category.region)
+        ) {
+          throw new BadRequestException("Доставка сейчас закрыта. Оформить заказ можно в рабочее время.");
+        }
+
+        await this.phoneAuth.consumeVerification(dto.phone, dto.verificationToken, manager);
+
         const order = orders.create({
           regionSlug,
-          deliveryType: dto.deliveryType || DeliveryType.DELIVERY,
+          deliveryType,
           customerName: dto.customerName,
           phone: dto.phone,
           address: dto.address,
