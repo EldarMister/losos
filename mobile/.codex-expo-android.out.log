@@ -1,0 +1,49 @@
+Starting project at C:\Users\User\Desktop\losos\mobile
+Starting Metro Bundler
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+Android .\index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Android .\index.ts ░░░░░░░░░░░░░░░░  1.0% (1/1)
+Android .\index.ts ▓▓▓▓░░░░░░░░░░░░ 26.0% ( 25/132)
+Android .\index.ts ▓▓▓▓░░░░░░░░░░░░ 26.0% ( 55/179)
+Android .\index.ts ▓▓▓▓░░░░░░░░░░░░ 26.0% ( 90/237)
+Android .\index.ts ▓▓▓▓▓░░░░░░░░░░░ 34.7% (188/319)
+Android .\index.ts ▓▓▓▓▓▓░░░░░░░░░░ 41.7% (295/457)
+Android .\index.ts ▓▓▓▓▓▓▓▓▓░░░░░░░ 58.5% (436/570)
+Android .\index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 87.4% (618/661)
+Android .\index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.5% (732/734)
+Android .\index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.8% (807/808)
+Android Bundled 44516ms index.ts (808 modules)
+Android .\index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (808/808)
+Unable to resolve "./src/components/CartSheet" from "App.tsx"
+[0m [90m 3 |[39m [36mimport[39m { [33mActivityIndicator[39m[33m,[39m [33mStyleSheet[39m[33m,[39m [33mText[39m[33m,[39m [33mView[39m } [36mfrom[39m [32m"react-native"[39m[33m;[39m
+ [90m 4 |[39m [36mimport[39m { [33mSafeAreaProvider[39m } [36mfrom[39m [32m"react-native-safe-area-context"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mCartSheet[39m } [36mfrom[39m [32m"./src/components/CartSheet"[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLocationSheet[39m } [36mfrom[39m [32m"./src/components/LocationSheet"[39m[33m;[39m
+ [90m 7 |[39m [36mimport[39m { [33mProductSheet[39m } [36mfrom[39m [32m"./src/components/ProductSheet"[39m[33m;[39m
+ [90m 8 |[39m [36mimport[39m { [33mPromotionViewer[39m } [36mfrom[39m [32m"./src/components/PromotionViewer"[39m[33m;[39m[0m
+
+Import stack:
+
+ App.tsx
+ | import "./src/components/CartSheet"
+
+ index.ts
+ | import "./App"
+
+ 
+ | import "./index.ts"
+
+ ERROR  [Error: UnableToResolveError Unable to resolve module ./src/components/CartSheet from C:\Users\User\Desktop\losos\mobile\App.tsx: 
+
+None of these files exist:
+  * src\components\CartSheet(.android.ts|.native.ts|.ts|.android.tsx|.native.tsx|.tsx|.android.mjs|.native.mjs|.mjs|.android.js|.native.js|.js|.android.jsx|.native.jsx|.jsx|.android.json|.native.json|.json|.android.cjs|.native.cjs|.cjs|.android.scss|.native.scss|.scss|.android.sass|.native.sass|.sass|.android.css|.native.css|.css)
+  * src\components\CartSheet
+[0m [90m 3 |[39m [36mimport[39m { [33mActivityIndicator[39m[33m,[39m [33mStyleSheet[39m[33m,[39m [33mText[39m[33m,[39m [33mView[39m } [36mfrom[39m [32m"react-native"[39m[33m;[39m
+ [90m 4 |[39m [36mimport[39m { [33mSafeAreaProvider[39m } [36mfrom[39m [32m"react-native-safe-area-context"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mCartSheet[39m } [36mfrom[39m [32m"./src/components/CartSheet"[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLocationSheet[39m } [36mfrom[39m [32m"./src/components/LocationSheet"[39m[33m;[39m
+ [90m 7 |[39m [36mimport[39m { [33mProductSheet[39m } [36mfrom[39m [32m"./src/components/ProductSheet"[39m[33m;[39m
+ [90m 8 |[39m [36mimport[39m { [33mPromotionViewer[39m } [36mfrom[39m [32m"./src/components/PromotionViewer"[39m[33m;[39m[0m]

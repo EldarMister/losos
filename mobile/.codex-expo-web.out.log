@@ -1,0 +1,47 @@
+
+> mnogo-lososya-mobile@1.0.0 web
+> expo start --web
+
+Starting project at C:\Users\User\Desktop\losos\mobile
+Starting Metro Bundler
+Waiting on http://localhost:8081
+Logs for your project will appear below.
+Web .\index.ts ▓▓▓▓▓▓▓▓░░░░░░░░ 53.9% (47/64)
+Web .\index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (364/364)
+Web Bundled 6162ms index.ts (364 modules)
+ LOG  [web] Logs will appear in the browser console
+Web .\index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 36ms index.ts (1 module)
+Web Bundled 50ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 44ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web Bundled 37ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web .\index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 88ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console
+Web .\index.ts ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web Bundled 78ms index.ts (1 module)
+ LOG  [web] Logs will appear in the browser console
+Unable to resolve "./src/components/CartSheet" from "App.tsx"
+[0m [90m 3 |[39m [36mimport[39m { [33mActivityIndicator[39m[33m,[39m [33mStyleSheet[39m[33m,[39m [33mText[39m[33m,[39m [33mView[39m } [36mfrom[39m [32m"react-native"[39m[33m;[39m
+ [90m 4 |[39m [36mimport[39m { [33mSafeAreaProvider[39m } [36mfrom[39m [32m"react-native-safe-area-context"[39m[33m;[39m
+[31m[1m>[22m[39m[90m 5 |[39m [36mimport[39m { [33mCartSheet[39m } [36mfrom[39m [32m"./src/components/CartSheet"[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 6 |[39m [36mimport[39m { [33mLocationSheet[39m } [36mfrom[39m [32m"./src/components/LocationSheet"[39m[33m;[39m
+ [90m 7 |[39m [36mimport[39m { [33mProductSheet[39m } [36mfrom[39m [32m"./src/components/ProductSheet"[39m[33m;[39m
+ [90m 8 |[39m [36mimport[39m { [33mPromotionViewer[39m } [36mfrom[39m [32m"./src/components/PromotionViewer"[39m[33m;[39m[0m
+
+Import stack:
+
+ App.tsx
+ | import "./src/components/CartSheet"
+
+ index.ts
+ | import "./App"
+
+ 
+ | import "./index.ts"
+

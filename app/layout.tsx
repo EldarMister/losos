@@ -6,6 +6,7 @@ const siteName = "Накта суши";
 const title = "Доставка суши и роллов в Бишкеке и Оше | Накта суши";
 const description =
   "Закажите свежие суши, роллы, сеты, поке и горячие блюда с доставкой в Бишкеке и Оше. Актуальное меню, удобный заказ онлайн и самовывоз.";
+const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 export async function generateMetadata(): Promise<Metadata> {
   const metadataBase = getSiteUrl();
@@ -75,5 +76,21 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ru"><body>{children}</body></html>;
+  return (
+    <html lang="ru">
+      <head>
+        {googleAnalyticsId ? (
+          <>
+            <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`} />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '${googleAnalyticsId}');`,
+              }}
+            />
+          </>
+        ) : null}
+      </head>
+      <body>{children}</body>
+    </html>
+  );
 }
