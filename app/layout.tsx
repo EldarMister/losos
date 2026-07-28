@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GoogleAnalytics } from "./components/GoogleAnalytics";
 import { getSiteUrl } from "./lib/seo";
 import "./globals.css";
 
@@ -78,19 +79,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="ru">
-      <head>
-        {googleAnalyticsId ? (
-          <>
-            <script async src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`} />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag('js', new Date()); gtag('config', '${googleAnalyticsId}');`,
-              }}
-            />
-          </>
-        ) : null}
-      </head>
-      <body>{children}</body>
+      <body>
+        <GoogleAnalytics measurementId={googleAnalyticsId} />
+        {children}
+      </body>
     </html>
   );
 }
