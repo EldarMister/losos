@@ -1656,3 +1656,221 @@
 [32m[Nest] 255720  - [39m29.07.2026, 03:21:16 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOrdersController {/api/orders}:[39m[38;5;3m +0ms[39m
 [32m[Nest] 255720  - [39m29.07.2026, 03:21:16 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/orders, POST} route[39m[38;5;3m +1ms[39m
 [32m[Nest] 255720  - [39m29.07.2026, 03:21:16 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +48ms[39m
+[2J[3J[H[[90m04:00:02[0m] File change detected. Starting incremental compilation...
+
+[[90m04:00:05[0m] Found 0 errors. Watching for file changes.
+
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:11 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:11 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +28ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:11 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:11 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:11 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmCoreModule dependencies initialized[39m[38;5;3m +475ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPhoneAuthModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOrdersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCatalogModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAdminModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/health}:[39m[38;5;3m +14ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} route[39m[38;5;3m +5ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCatalogController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/regions, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/categories, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/promotions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products/:id, GET} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPhoneAuthController {/api/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/methods, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/request-code, POST} route[39m[38;5;3m +5ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/verify-code, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/request, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/status, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAdminController {/api/admin}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/dashboard, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/settings, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions/:id, PATCH} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id/status, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, DELETE} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOrdersController {/api/orders}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/orders, POST} route[39m[38;5;3m +5ms[39m
+[32m[Nest] 281284  - [39m29.07.2026, 04:00:12 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +160ms[39m
+[2J[3J[H[[90m04:00:20[0m] File change detected. Starting incremental compilation...
+
+[[90m04:00:22[0m] Found 0 errors. Watching for file changes.
+
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +16ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmCoreModule dependencies initialized[39m[38;5;3m +166ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPhoneAuthModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOrdersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCatalogModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAdminModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/health}:[39m[38;5;3m +6ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} route[39m[38;5;3m +2ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCatalogController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/regions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/categories, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/promotions, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPhoneAuthController {/api/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/methods, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/request-code, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/verify-code, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/request, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/status, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAdminController {/api/admin}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/dashboard, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/settings, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id/status, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOrdersController {/api/orders}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/orders, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 282564  - [39m29.07.2026, 04:00:25 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +47ms[39m
+[2J[3J[H[[90m04:00:30[0m] File change detected. Starting incremental compilation...
+
+[[90m04:00:32[0m] Found 0 errors. Watching for file changes.
+
+[2J[3J[H[[90m04:00:39[0m] File change detected. Starting incremental compilation...
+
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +39ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmCoreModule dependencies initialized[39m[38;5;3m +334ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPhoneAuthModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOrdersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCatalogModule dependencies initialized[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAdminModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/health}:[39m[38;5;3m +11ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} route[39m[38;5;3m +6ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCatalogController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/regions, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/categories, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/promotions, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPhoneAuthController {/api/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/methods, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/request-code, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/verify-code, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/request, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/status, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAdminController {/api/admin}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/dashboard, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/settings, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id/status, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, DELETE} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, DELETE} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, PATCH} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, DELETE} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOrdersController {/api/orders}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/orders, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283308  - [39m29.07.2026, 04:00:44 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +120ms[39m
+[[90m04:00:45[0m] Found 0 errors. Watching for file changes.
+
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[NestFactory] [39m[32mStarting Nest application...[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +25ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAppModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigHostModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mConfigModule dependencies initialized[39m[38;5;3m +2ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmCoreModule dependencies initialized[39m[38;5;3m +324ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mTypeOrmModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mPhoneAuthModule dependencies initialized[39m[38;5;3m +3ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mOrdersModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mCatalogModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[InstanceLoader] [39m[32mAdminModule dependencies initialized[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mHealthController {/api/health}:[39m[38;5;3m +7ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/health, GET} route[39m[38;5;3m +5ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mCatalogController {/api}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/regions, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/categories, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/promotions, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/products/:id, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPhoneAuthController {/api/auth}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/methods, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/request-code, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/verify-code, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/request, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/status, POST} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/auth/whatsapp/webhook, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAdminController {/api/admin}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/dashboard, GET} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/settings, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/regions/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id, GET} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/orders/:id/status, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/categories/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/products/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, PATCH} route[39m[38;5;3m +1ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/admin/promotions/:id, DELETE} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mOrdersController {/api/orders}:[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/orders, POST} route[39m[38;5;3m +0ms[39m
+[32m[Nest] 283908  - [39m29.07.2026, 04:00:49 [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +111ms[39m
+[2J[3J[H[[90m04:01:03[0m] File change detected. Starting incremental compilation...
+

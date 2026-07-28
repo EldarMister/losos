@@ -19,6 +19,7 @@ import {
   Repository,
 } from "typeorm";
 import { NikitaOtpService } from "./nikita-otp.service";
+import { AuthorizedPhone } from "./authorized-phone.entity";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
 
@@ -59,10 +60,15 @@ export class PhoneAuthService {
     private readonly config: ConfigService,
     private readonly otp: NikitaOtpService,
     private readonly whatsapp: WhatsappCloudService,
+    @InjectRepository(AuthorizedPhone)
+    private readonly authorizedPhones: Repository<AuthorizedPhone>,
   ) {}
 
   async requestCode(phone: string) {
     this.hash("configuration-check");
+    if (await this.authorizedPhones.existsBy({ phone, enabled: true })) {
+      return this.issueTrustedVerification(phone);
+    }
     const now = new Date();
     await this.assertRequestAllowed(phone, "sms", now);
 
@@ -291,6 +297,31 @@ export class PhoneAuthService {
     challenge.verificationTokenExpiresAt = new Date(now.getTime() + TOKEN_TTL_MS);
     await this.challenges.save(challenge);
     return "✅ Ваш номер подтверждён. Вернитесь на сайт — вход завершится автоматически.";
+  }
+
+  private async issueTrustedVerification(phone: string) {
+    const now = new Date();
+    const verificationToken = randomBytes(32).toString("hex");
+    await this.challenges.save(this.challenges.create({
+      id: randomUUID(),
+      phone,
+      channel: "trusted",
+      providerToken: "authorized-phone",
+      pollTokenHash: null,
+      attemptCount: 0,
+      expiresAt: new Date(now.getTime() + TOKEN_TTL_MS),
+      nextSendAt: now,
+      verifiedAt: now,
+      verificationTokenHash: this.hash(verificationToken),
+      verificationTokenExpiresAt: new Date(now.getTime() + TOKEN_TTL_MS),
+      consumedAt: null,
+    }));
+    return {
+      verified: true as const,
+      verificationToken,
+      phone,
+      expiresInSeconds: TOKEN_TTL_MS / 1_000,
+    };
   }
 
   private async assertRequestAllowed(

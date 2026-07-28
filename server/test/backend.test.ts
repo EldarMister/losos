@@ -212,6 +212,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
     new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
     {} as never,
     whatsapp as never,
+    { existsBy: async () => false } as never,
   );
 
   const requested = await auth.requestWhatsapp("+996555123456");

@@ -1178,6 +1178,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         if (Number.isInteger(body?.retryAfterSeconds)) setPhoneCodeRetryAfter(body.retryAfterSeconds);
         throw new Error(message || "Не удалось отправить код");
       }
+      if (body?.verified === true && typeof body.verificationToken === "string") {
+        completePhoneVerification(
+          normalizePhone(body.phone || phone),
+          body.verificationToken,
+          Number(body.expiresInSeconds) || 1_800,
+        );
+        return;
+      }
       setPhoneCodeRequested(true);
       setPhoneCode("");
       setPhoneCodeRetryAfter(Number(body?.retryAfterSeconds) || 60);

@@ -18,7 +18,7 @@ export class PhoneAuthChallenge {
 
   @Index()
   @Column({ type: "varchar", length: 16, default: "sms" })
-  channel!: "sms" | "whatsapp";
+  channel!: "sms" | "whatsapp" | "trusted";
 
   @Column({ type: "varchar", length: 255 })
   providerToken!: string;
