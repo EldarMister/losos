@@ -32,7 +32,7 @@ export class PhoneAuthChallenge {
   verifiedAt!: Date | null;
 
   @Index()
-  @Column({ length: 64, nullable: true })
+  @Column({ type: "varchar", length: 64, nullable: true })
   verificationTokenHash!: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
