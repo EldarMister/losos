@@ -557,11 +557,35 @@ export function YandexDeliveryMap({
       setMessage("Геолокация недоступна");
       return;
     }
+
+    const usePosition = ({ coords }: GeolocationPosition) => {
+      void reverseGeocodeRef.current([coords.latitude, coords.longitude]);
+    };
+    const showLocationError = (error: GeolocationPositionError, retried = false) => {
+      if (error.code === error.TIMEOUT && !retried) {
+        navigator.geolocation.getCurrentPosition(
+          usePosition,
+          (retryError) => showLocationError(retryError, true),
+          { enableHighAccuracy: false, timeout: 15_000, maximumAge: 300_000 },
+        );
+        return;
+      }
+      if (error.code === error.PERMISSION_DENIED) {
+        setMessage("Разрешите доступ к геолокации в настройках браузера");
+        return;
+      }
+      if (error.code === error.POSITION_UNAVAILABLE) {
+        setMessage("Не удалось получить геопозицию — проверьте GPS или интернет");
+        return;
+      }
+      setMessage("Не удалось определить местоположение — попробуйте ещё раз");
+    };
+
     setMessage("Определяем местоположение…");
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => void reverseGeocodeRef.current([coords.latitude, coords.longitude]),
-      () => setMessage("Не удалось определить местоположение"),
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      usePosition,
+      (error) => showLocationError(error),
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
     );
   };
 

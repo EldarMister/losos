@@ -458,6 +458,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const footerLegalInfo = selectedRegion?.footerLegalInfo || "ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48";
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
+  const [addressCityOpen, setAddressCityOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
   const [compositionOpen, setCompositionOpen] = useState(false);
   const [compositionView, setCompositionView] = useState<"composition" | "equipment">("composition");
@@ -589,12 +590,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [initialRegion]);
 
   useEffect(() => {
-    try {
-      const selectedCity = window.localStorage.getItem(CITY_SELECTION_STORAGE_KEY);
-      setCityPickerOpen(selectedCity !== "bishkek" && selectedCity !== "osh");
-    } catch {
-      setCityPickerOpen(true);
-    }
+    const checkStoredCity = () => {
+      try {
+        const selectedCity = window.localStorage.getItem(CITY_SELECTION_STORAGE_KEY);
+        setCityPickerOpen(selectedCity !== "bishkek" && selectedCity !== "osh");
+      } catch {
+        setCityPickerOpen(true);
+      }
+    };
+    queueMicrotask(checkStoredCity);
   }, []);
 
   useEffect(() => {
@@ -722,6 +726,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setRegionSlug(option.slug);
     setCityOpen(false);
     setCityPickerOpen(false);
+    setAddressCityOpen(false);
     setAddress("");
     setDeliveryLocation(null);
     setCart([]);
@@ -1304,7 +1309,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               aria-label="Закрыть и выбрать Бишкек"
               onClick={() => chooseCity(regionOptions.find((option) => option.slug === "bishkek") || defaultRegions[0])}
             >×</button>
-            <div className="city-picker-icon" aria-hidden="true">●</div>
             <h2 id="city-picker-title">Выберите город</h2>
             <p>Чтобы показать доступное меню<br />и время доставки</p>
             <div className="city-picker-options">
@@ -1580,12 +1584,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </div>
               {deliveryType === "pickup" ? <>
                 <h2>Самовывоз</h2><p>Выберите точку для самовывоза<br />из доступных в списке или на карте</p>
-                <div className="address-input muted">{city} <span>×</span></div>
+                <div className="address-city-select">
+                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? "Выберите город" : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
+                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label="Выберите город">
+                    {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{option.name}</button>)}
+                  </div> : null}
+                </div>
                 <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>{pickupAddress}</b><small>{pickupHours}</small></span></button>
                 <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
               </> : <>
                 <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером,<br />выберите подсказку или точку на карте</p>
-                <div className="address-input muted">{city} <span>×</span></div>
+                <div className="address-city-select">
+                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? "Выберите город" : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
+                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label="Выберите город">
+                    {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{option.name}</button>)}
+                  </div> : null}
+                </div>
                 <div className="address-search">
                   <input
                     id="delivery-address-input"
