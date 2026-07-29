@@ -74,6 +74,14 @@ type StoredPhoneAuthSession = {
   verificationToken: string;
   expiresAt: number;
 };
+type ProfileOrder = {
+  id: string;
+  total: number;
+  status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
+  deliveryType: DeliveryType;
+  createdAt: string;
+};
+type ProfileData = { naktaCoins: number; currentOrders: ProfileOrder[]; orderHistory: ProfileOrder[] };
 type PersistedStorefrontState = {
   cart: CartLine[];
   deliveryType: DeliveryType;
@@ -144,6 +152,10 @@ const readPhoneAuthSession = (raw: string | null): StoredPhoneAuthSession | null
   }
 };
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
+const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
+  new: "Новый", confirmed: "Подтверждён", preparing: "Готовится", ready: "Готов", delivering: "В пути", completed: "Завершён", cancelled: "Отменён",
+};
+const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 const cartKitItems = [
   {
     name: "Соевый соус",
@@ -594,6 +606,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [phoneAuthOpen, setPhoneAuthOpen] = useState(false);
   const [phoneAuthPurpose, setPhoneAuthPurpose] = useState<"checkout" | "profile">("checkout");
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
@@ -651,6 +664,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     scheduleTimestamp,
   );
   const deliveryClosed = deliveryType === "delivery" && !deliveryAvailability.isOpen;
+  const profileLoading = Boolean(verifiedPhone && phoneVerificationToken && !profileData);
   const openSearch = () => {
     const nav = categoryNavRef.current;
     if (nav) nav.scrollLeft = 0;
@@ -711,6 +725,21 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     const timer = window.setInterval(updateSchedule, 30_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!verifiedPhone || !phoneVerificationToken) {
+      return;
+    }
+    const controller = new AbortController();
+    void fetch(`${STOREFRONT_API_URL}/auth/profile?phone=${encodeURIComponent(verifiedPhone)}`, {
+      headers: { Authorization: `Bearer ${phoneVerificationToken}` },
+      signal: controller.signal,
+    })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Profile request failed")))
+      .then((data: ProfileData) => { if (!controller.signal.aborted) setProfileData(data); })
+      .catch(() => { if (!controller.signal.aborted) setProfileData(null); })
+    return () => controller.abort();
+  }, [phoneVerificationToken, verifiedPhone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1133,6 +1162,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     if (normalized !== verifiedPhone) {
       setPhoneVerificationToken("");
       setVerifiedPhone("");
+      setProfileData(null);
       try {
         window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
       } catch {
@@ -1151,6 +1181,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       // The pending request is still cleared in memory.
     }
     updateCheckoutField("phone", value);
+  };
+
+  const logoutProfile = () => {
+    setPhoneVerificationToken("");
+    setVerifiedPhone("");
+    setProfileData(null);
+    setPhoneCodeRequested(false);
+    setPhoneCode("");
+    setPhoneAuthMessage("");
+    setWhatsappAuthRequest(null);
+    try {
+      window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
+      window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
+    } catch {
+      // The in-memory session is already cleared.
+    }
   };
 
   const requestPhoneCode = async () => {
@@ -1952,7 +1998,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <section className="profile-modal">
             <button className="profile-close" onClick={() => setMenuOpen(false)} aria-label="Закрыть">×</button>
             <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>{verifiedPhone || "Привет!"}</span><strong>{verifiedPhone ? "Вы авторизованы" : "Войдите в профиль"}</strong></div></div>
-            <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a></nav>
+            {verifiedPhone ? <div className="profile-account">
+              <section className="profile-coins"><span>Баланс NAKTA Coin</span><strong>{profileData?.naktaCoins ?? 0}</strong><small>coin</small></section>
+              <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <article key={order.id}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></article>) : <p>Активных заказов нет</p>}</section>
+              <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <article key={order.id}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></article>) : <p>Заказов пока нет</p>}</section>
+              <a className="profile-support" href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a>
+              <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля</button>
+            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a></nav>}
             <button className="profile-login" onClick={() => { if (verifiedPhone) { setMenuOpen(false); return; } setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setPhoneAuthOpen(true); }}>{verifiedPhone ? "Готово" : "Войти"}</button>
           </section>
         </div>
@@ -2133,7 +2185,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       {cartOpen ? (
-        <div className="drawer-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartOpen(false); }}>
+        <div className="drawer-overlay cart-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartOpen(false); }}>
           <aside className="cart-drawer" data-filled={cart.length > 0 ? "true" : "false"} aria-label="Корзина">
             <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
             {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : <>
@@ -2171,7 +2223,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
                   </div>
                   <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
-                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "Примерно через 45 минут"}</small></span></button><button className={`checkout${deliveryClosed ? " closed" : ""}`} disabled={deliveryClosed} onClick={beginCheckout}><span>{deliveryClosed ? "Закрыто" : "Далее"}</span><b>{money(cartTotal)}</b></button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"} ›</span></button><button className={`checkout${deliveryClosed ? " closed" : ""}`} disabled={deliveryClosed} onClick={beginCheckout}><span>{deliveryClosed ? "Закрыто" : "Далее"}</span><b>{money(cartTotal)}</b></button></div>
                 </section>
               </div>
             </>}

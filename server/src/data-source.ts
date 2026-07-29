@@ -18,6 +18,7 @@ import { AddRegionPickupAndFooter1784985000000 } from "./migrations/178498500000
 import { AddRegionDeliverySchedule1784991000000 } from "./migrations/1784991000000-AddRegionDeliverySchedule";
 import { AddAuthorizedPhones1784992000000 } from "./migrations/1784992000000-AddAuthorizedPhones";
 import { AddPhoneAccounts1784993000000 } from "./migrations/1784993000000-AddPhoneAccounts";
+import { AddNaktaCoins1784994000000 } from "./migrations/1784994000000-AddNaktaCoins";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
@@ -55,6 +56,7 @@ export default new DataSource({
     AddRegionDeliverySchedule1784991000000,
     AddAuthorizedPhones1784992000000,
     AddPhoneAccounts1784993000000,
+    AddNaktaCoins1784994000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

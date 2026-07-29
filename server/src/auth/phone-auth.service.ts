@@ -21,6 +21,7 @@ import {
 import { NikitaOtpService } from "./nikita-otp.service";
 import { AuthorizedPhone } from "./authorized-phone.entity";
 import { PhoneAccount } from "./phone-account.entity";
+import { OrderStatus } from "../orders/order.enums";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
 
@@ -267,6 +268,44 @@ export class PhoneAuthService {
     }
     challenge.consumedAt = new Date();
     await repository.save(challenge);
+  }
+
+  async profile(phone: string, verificationToken: string) {
+    const account = await this.accounts.findOne({
+      where: {
+        phone,
+        sessionTokenHash: this.hash(verificationToken),
+        sessionExpiresAt: MoreThan(new Date()),
+      },
+    });
+    if (!account) throw new UnauthorizedException("Войдите в профиль ещё раз");
+
+    const orders = await this.challenges.manager.query(`
+      SELECT "id", "total", "status", "deliveryType", "createdAt"
+      FROM "orders"
+      WHERE "phone" = $1
+      ORDER BY "createdAt" DESC
+      LIMIT 30
+    `, [phone]) as Array<{ id: string; total: number; status: OrderStatus; deliveryType: string; createdAt: Date }>;
+    const currentStatuses = new Set<OrderStatus>([
+      OrderStatus.NEW,
+      OrderStatus.CONFIRMED,
+      OrderStatus.PREPARING,
+      OrderStatus.READY,
+      OrderStatus.DELIVERING,
+    ]);
+    const serialize = (order: typeof orders[number]) => ({
+      id: order.id,
+      total: order.total,
+      status: order.status,
+      deliveryType: order.deliveryType,
+      createdAt: order.createdAt,
+    });
+    return {
+      naktaCoins: account.naktaCoins,
+      currentOrders: orders.filter((order) => currentStatuses.has(order.status)).map(serialize),
+      orderHistory: orders.filter((order) => !currentStatuses.has(order.status)).map(serialize),
+    };
   }
 
   private async confirmWhatsappMessage(senderPhone: string, message: string) {

@@ -19,6 +19,9 @@ export class PhoneAccount {
   @Column({ type: "timestamptz", nullable: true })
   sessionExpiresAt!: Date | null;
 
+  @Column({ type: "int", default: 0 })
+  naktaCoins!: number;
+
   @CreateDateColumn()
   createdAt!: Date;
 

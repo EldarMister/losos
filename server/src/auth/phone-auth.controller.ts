@@ -35,6 +35,15 @@ export class PhoneAuthController {
     };
   }
 
+  @Get("profile")
+  profile(
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.profile(phone || "", verificationToken);
+  }
+
   @Post("request-code")
   @HttpCode(200)
   requestCode(@Body() dto: RequestPhoneCodeDto) {
