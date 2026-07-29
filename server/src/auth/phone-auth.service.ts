@@ -1,6 +1,7 @@
 import {
   HttpException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -271,14 +272,7 @@ export class PhoneAuthService {
   }
 
   async profile(phone: string, verificationToken: string) {
-    const account = await this.accounts.findOne({
-      where: {
-        phone,
-        sessionTokenHash: this.hash(verificationToken),
-        sessionExpiresAt: MoreThan(new Date()),
-      },
-    });
-    if (!account) throw new UnauthorizedException("Войдите в профиль ещё раз");
+    const account = await this.requireAccount(phone, verificationToken);
 
     const orders = await this.challenges.manager.query(`
       SELECT "id", "total", "status", "deliveryType", "createdAt"
@@ -306,6 +300,61 @@ export class PhoneAuthService {
       currentOrders: orders.filter((order) => currentStatuses.has(order.status)).map(serialize),
       orderHistory: orders.filter((order) => !currentStatuses.has(order.status)).map(serialize),
     };
+  }
+
+  async orderDetails(phone: string, verificationToken: string, id: string) {
+    await this.requireAccount(phone, verificationToken);
+    const [order] = await this.challenges.manager.query(`
+      SELECT "id", "total", "subtotal", "status", "deliveryType", "createdAt", "address",
+        "apartment", "entrance", "floor", "intercom", "comment", "utensilsCount", "noUtensils", "paymentMethod"
+      FROM "orders"
+      WHERE "phone" = $1 AND "id" = $2
+      LIMIT 1
+    `, [phone, id]) as Array<{
+      id: string;
+      total: number;
+      subtotal: number;
+      status: OrderStatus;
+      deliveryType: string;
+      createdAt: Date;
+      address: string;
+      apartment: string;
+      entrance: string;
+      floor: string;
+      intercom: string;
+      comment: string;
+      utensilsCount: number;
+      noUtensils: boolean;
+      paymentMethod: string;
+    }>;
+    if (!order) throw new NotFoundException("Заказ не найден");
+
+    const items = await this.challenges.manager.query(`
+      SELECT "productName", "quantity", "lineTotal", "modifierSnapshots"
+      FROM "order_items"
+      WHERE "orderId" = $1
+      ORDER BY "id" ASC
+    `, [id]) as Array<{ productName: string; quantity: number; lineTotal: number; modifierSnapshots: unknown }>;
+
+    return {
+      ...order,
+      items: items.map((item) => ({
+        ...item,
+        modifierSnapshots: Array.isArray(item.modifierSnapshots) ? item.modifierSnapshots : [],
+      })),
+    };
+  }
+
+  private async requireAccount(phone: string, verificationToken: string) {
+    const account = await this.accounts.findOne({
+      where: {
+        phone,
+        sessionTokenHash: this.hash(verificationToken),
+        sessionExpiresAt: MoreThan(new Date()),
+      },
+    });
+    if (!account) throw new UnauthorizedException("Войдите в профиль ещё раз");
+    return account;
   }
 
   private async confirmWhatsappMessage(senderPhone: string, message: string) {

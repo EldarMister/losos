@@ -11,6 +11,7 @@ import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
+import { PhoneAccount } from "../auth/phone-account.entity";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
 import {
   CreateCategoryDto,
@@ -114,13 +115,23 @@ export class AdminService {
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {
-    const order = await this.order(id);
-    if (!canTransitionOrderStatus(order.status, nextStatus)) {
-      throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
-    }
-    if (order.status === nextStatus) return order;
-    order.status = nextStatus;
-    return this.orderRepository.save(order);
+    return this.orderRepository.manager.transaction(async (manager) => {
+      const orders = manager.getRepository(Order);
+      const order = await orders.findOne({ where: { id }, relations: { items: true } });
+      if (!order) throw new NotFoundException("Order not found");
+      if (!canTransitionOrderStatus(order.status, nextStatus)) {
+        throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
+      }
+      order.status = nextStatus;
+      const saved = await orders.save(order);
+      if (nextStatus === OrderStatus.COMPLETED) {
+        const naktaCoins = order.items.reduce((sum, item) => sum + item.naktaCoins, 0);
+        if (naktaCoins > 0) {
+          await manager.getRepository(PhoneAccount).increment({ phone: order.phone }, "naktaCoins", naktaCoins);
+        }
+      }
+      return saved;
+    });
   }
 
   async createCategory(dto: CreateCategoryDto) {

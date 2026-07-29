@@ -10,6 +10,7 @@ type Product = {
   name: string;
   slug: string;
   price: number;
+  naktaCoins: number;
   oldPrice: number | null;
   image: string;
   description: string;
@@ -167,6 +168,7 @@ const emptyProduct = (categoryId = ""): Editor => ({
     slug: "",
     categoryId,
     price: "0",
+    naktaCoins: "0",
     oldPrice: "",
     image: "",
     description: "",
@@ -472,6 +474,7 @@ export function AdminApp() {
         modifierGroups: product.modifierGroups || [],
         categoryId: String(product.categoryId),
         price: String(product.price),
+        naktaCoins: String(product.naktaCoins || 0),
         oldPrice: product.oldPrice ? String(product.oldPrice) : "",
         sortOrder: String(product.sortOrder),
         weight: String(product.weight),
@@ -515,7 +518,7 @@ export function AdminApp() {
   const saveEditor = async (event: FormEvent) => {
     event.preventDefault();
     if (!editor) return;
-    const numberFields = ["categoryId", "price", "sortOrder", "weight", "calories", "protein", "fat", "carbs"];
+    const numberFields = ["categoryId", "price", "naktaCoins", "sortOrder", "weight", "calories", "protein", "fat", "carbs"];
     const editorValues = { ...editor.values };
     if (!editor.id && editor.kind !== "promotion") editorValues.slug = slugify(String(editorValues.title || editorValues.name || "")) || `${editor.kind}-${Date.now()}`;
     const payload = Object.fromEntries(Object.entries(editorValues).map(([key, value]) =>
@@ -911,6 +914,7 @@ export function AdminApp() {
             <label>Категория<select value={String(editor.values.categoryId || "")} onChange={(event) => updateValue("categoryId", event.target.value)}>{dashboard?.categories.map((category) => <option value={category.id} key={category.id}>{category.title}</option>)}</select></label>
             <label>Цена, сом<input required type="number" min="0" value={String(editor.values.price)} onChange={(event) => updateValue("price", event.target.value)} /></label>
             <label>Старая цена, сом<input type="number" min="0" value={String(editor.values.oldPrice || "")} onChange={(event) => updateValue("oldPrice", event.target.value)} placeholder="Без скидки" /></label>
+            <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins || "0")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
           </div>
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
           <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>

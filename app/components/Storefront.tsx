@@ -81,6 +81,24 @@ type ProfileOrder = {
   deliveryType: DeliveryType;
   createdAt: string;
 };
+type ProfileOrderDetail = ProfileOrder & {
+  subtotal: number;
+  address: string;
+  apartment: string;
+  entrance: string;
+  floor: string;
+  intercom: string;
+  comment: string;
+  utensilsCount: number;
+  noUtensils: boolean;
+  paymentMethod: "cash" | "card_on_delivery";
+  items: Array<{
+    productName: string;
+    quantity: number;
+    lineTotal: number;
+    modifierSnapshots: Array<{ itemName: string; quantity: number }>;
+  }>;
+};
 type ProfileData = { naktaCoins: number; currentOrders: ProfileOrder[]; orderHistory: ProfileOrder[] };
 type PersistedStorefrontState = {
   cart: CartLine[];
@@ -156,6 +174,14 @@ const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
   new: "Новый", confirmed: "Подтверждён", preparing: "Готовится", ready: "Готов", delivering: "В пути", completed: "Завершён", cancelled: "Отменён",
 };
 const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+const profileOrderSteps: Array<{ status: ProfileOrder["status"]; label: string }> = [
+  { status: "new", label: "Заказ создан" },
+  { status: "confirmed", label: "Заказ подтверждён" },
+  { status: "preparing", label: "Готовим заказ" },
+  { status: "ready", label: "Заказ готов" },
+  { status: "delivering", label: "Курьер в пути" },
+  { status: "completed", label: "Заказ завершён" },
+];
 const cartKitItems = [
   {
     name: "Соевый соус",
@@ -607,6 +633,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [phoneAuthOpen, setPhoneAuthOpen] = useState(false);
   const [phoneAuthPurpose, setPhoneAuthPurpose] = useState<"checkout" | "profile">("checkout");
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [selectedProfileOrder, setSelectedProfileOrder] = useState<ProfileOrder | null>(null);
+  const [profileOrderDetail, setProfileOrderDetail] = useState<ProfileOrderDetail | null>(null);
+  const [profileOrderDetailLoading, setProfileOrderDetailLoading] = useState(false);
+  const [profileOrderDetailError, setProfileOrderDetailError] = useState("");
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
@@ -1114,6 +1144,27 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCheckoutOpen(true);
   };
 
+  const openProfileOrder = (order: ProfileOrder) => {
+    if (!verifiedPhone || !phoneVerificationToken) return;
+    setSelectedProfileOrder(order);
+    setProfileOrderDetail(null);
+    setProfileOrderDetailError("");
+    setProfileOrderDetailLoading(true);
+    void fetch(`${STOREFRONT_API_URL}/auth/orders/${encodeURIComponent(order.id)}?phone=${encodeURIComponent(verifiedPhone)}`, {
+      headers: { Authorization: `Bearer ${phoneVerificationToken}` },
+    })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Order details request failed")))
+      .then((data: ProfileOrderDetail) => setProfileOrderDetail(data))
+      .catch(() => setProfileOrderDetailError("Не удалось загрузить детали заказа. Попробуйте ещё раз."))
+      .finally(() => setProfileOrderDetailLoading(false));
+  };
+
+  const closeProfileOrder = () => {
+    setSelectedProfileOrder(null);
+    setProfileOrderDetail(null);
+    setProfileOrderDetailError("");
+  };
+
   const continueToCheckout = () => {
     if (!address) {
       setResumeCheckoutAfterAddress(true);
@@ -1187,6 +1238,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setPhoneVerificationToken("");
     setVerifiedPhone("");
     setProfileData(null);
+    closeProfileOrder();
     setPhoneCodeRequested(false);
     setPhoneCode("");
     setPhoneAuthMessage("");
@@ -1760,12 +1812,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories, storyGroups]);
 
   useEffect(() => {
-    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || cartKitOpen || deliveryInfoOpen || phoneAuthOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen);
+    const locked = Boolean(selected || compositionOpen || addressOpen || cartOpen || cartKitOpen || deliveryInfoOpen || phoneAuthOpen || checkoutOpen || promoOpen || menuOpen || cityPickerOpen || selectedProfileOrder);
     if (!locked) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [selected, compositionOpen, addressOpen, cartOpen, cartKitOpen, deliveryInfoOpen, phoneAuthOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen]);
+  }, [selected, compositionOpen, addressOpen, cartOpen, cartKitOpen, deliveryInfoOpen, phoneAuthOpen, checkoutOpen, promoOpen, menuOpen, cityPickerOpen, selectedProfileOrder]);
 
   useEffect(() => {
     if (categorySlug) return;
@@ -2000,8 +2052,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>{verifiedPhone || "Привет!"}</span><strong>{verifiedPhone ? "Вы авторизованы" : "Войдите в профиль"}</strong></div></div>
             {verifiedPhone ? <div className="profile-account">
               <section className="profile-coins"><span>Баланс NAKTA Coin</span><strong>{profileData?.naktaCoins ?? 0}</strong><small>coin</small></section>
-              <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <article key={order.id}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></article>) : <p>Активных заказов нет</p>}</section>
-              <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <article key={order.id}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></article>) : <p>Заказов пока нет</p>}</section>
+              <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Активных заказов нет</p>}</section>
+              <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Заказов пока нет</p>}</section>
               <a className="profile-support" href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a>
               <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля</button>
             </div> : <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a></nav>}
@@ -2228,6 +2280,20 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </div>
             </>}
           </aside>
+        </div>
+      ) : null}
+
+      {selectedProfileOrder ? (
+        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${selectedProfileOrder.id.slice(0, 6).toUpperCase()}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
+          <section className="order-details-modal">
+            <header><div><small>Заказ №{selectedProfileOrder.id.slice(0, 6).toUpperCase()}</small><h2>{profileOrderStatuses[selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
+            {profileOrderDetailLoading ? <p className="order-details-state">Загружаем детали заказа…</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
+              <section className="order-status-card"><b>Статус заказа</b>{selectedProfileOrder.status === "cancelled" ? <p className="order-cancelled">Заказ отменён</p> : <ol>{profileOrderSteps.map((step) => { const currentStep = profileOrderSteps.findIndex((candidate) => candidate.status === selectedProfileOrder.status); const stepIndex = profileOrderSteps.findIndex((candidate) => candidate.status === step.status); return <li className={stepIndex <= currentStep ? "done" : ""} key={step.status}>{step.label}</li>; })}</ol>}</section>
+              <section className="order-details-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className="order-detail-line" key={`${item.productName}-${index}`}><span><b>{item.productName}</b><small>{item.quantity} шт.{item.modifierSnapshots?.length ? ` · ${item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}` : ""}</small></span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
+              <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><p className="order-destination">{profileOrderDetail.address || "Адрес не указан"}</p>{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).join(", ")}</small> : null}<p className="order-meta">{profileOrderDetail.paymentMethod === "cash" ? "Оплата наличными" : "Оплата картой курьеру"}{profileOrderDetail.noUtensils ? " · Без приборов" : profileOrderDetail.utensilsCount ? ` · Приборы: ${profileOrderDetail.utensilsCount}` : ""}</p>{profileOrderDetail.comment ? <p className="order-comment">Комментарий: {profileOrderDetail.comment}</p> : null}</section>
+            </div> : null}
+            <button type="button" className="order-details-close" onClick={closeProfileOrder}>Готово</button>
+          </section>
         </div>
       ) : null}
 

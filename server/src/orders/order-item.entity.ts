@@ -45,6 +45,9 @@ export class OrderItem {
   @Column({ type: "int" })
   lineTotal!: number;
 
+  @Column({ type: "int", default: 0 })
+  naktaCoins!: number;
+
   @Column({ length: 30, default: "scoped-v2" })
   pricingVersion!: string;
 

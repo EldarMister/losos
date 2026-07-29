@@ -27,6 +27,7 @@ import { AddRegionDeliverySchedule1784991000000 } from "./migrations/17849910000
 import { AddAuthorizedPhones1784992000000 } from "./migrations/1784992000000-AddAuthorizedPhones";
 import { AddPhoneAccounts1784993000000 } from "./migrations/1784993000000-AddPhoneAccounts";
 import { AddNaktaCoins1784994000000 } from "./migrations/1784994000000-AddNaktaCoins";
+import { AddProductNaktaCoins1784995000000 } from "./migrations/1784995000000-AddProductNaktaCoins";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
@@ -63,6 +64,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
             AddAuthorizedPhones1784992000000,
             AddPhoneAccounts1784993000000,
             AddNaktaCoins1784994000000,
+            AddProductNaktaCoins1784995000000,
           ],
           migrationsRun: true,
           synchronize:

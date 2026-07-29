@@ -106,7 +106,11 @@ export class OrdersService {
           }
           try {
             const priced = priceOrderLine(product, entry.quantity, entry.modifiers ?? []);
-            return items.create(priced);
+            const naktaCoins = product.naktaCoins * entry.quantity;
+            if (!Number.isSafeInteger(naktaCoins) || naktaCoins > POSTGRES_INTEGER_MAX) {
+              throw new BadRequestException("NAKTA Coin для позиции заказа превышает допустимое значение");
+            }
+            return items.create({ ...priced, naktaCoins });
           } catch (error) {
             if (error instanceof OrderPricingError) throw new BadRequestException(error.message);
             throw error;

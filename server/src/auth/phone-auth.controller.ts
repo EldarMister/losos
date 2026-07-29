@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   HttpCode,
+  Param,
   Post,
   Query,
   RawBody,
@@ -42,6 +43,16 @@ export class PhoneAuthController {
   ) {
     const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
     return this.auth.profile(phone || "", verificationToken);
+  }
+
+  @Get("orders/:id")
+  orderDetails(
+    @Param("id") id: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.orderDetails(phone || "", verificationToken, id);
   }
 
   @Post("request-code")

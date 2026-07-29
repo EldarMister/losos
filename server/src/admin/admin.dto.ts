@@ -87,6 +87,13 @@ export class ProductModifierItemDto {
   @Max(POSTGRES_INTEGER_MAX)
   price!: number;
 
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(POSTGRES_INTEGER_MAX)
+  naktaCoins = 0;
+
   @IsString()
   @MaxLength(2_000_000)
   image = "";
@@ -304,6 +311,7 @@ export class UpdateProductDto {
   @Min(0)
   @Max(POSTGRES_INTEGER_MAX)
   price?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) naktaCoins?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) oldPrice?: number | null;
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() description?: string;

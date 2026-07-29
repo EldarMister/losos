@@ -152,6 +152,7 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "checkWhatsapp",
       "constructor",
       "methods",
+      "orderDetails",
       "profile",
       "receiveWhatsappWebhook",
       "requestCode",

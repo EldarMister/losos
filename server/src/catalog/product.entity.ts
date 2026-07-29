@@ -42,6 +42,9 @@ export class Product {
   @Column({ type: "int" })
   price!: number;
 
+  @Column({ type: "int", default: 0 })
+  naktaCoins!: number;
+
   @Column({ type: "int", nullable: true })
   oldPrice!: number | null;
 
