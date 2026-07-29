@@ -73,14 +73,19 @@ function isInsideBounds(point: [number, number], bounds: RegionMapConfig["bounds
 }
 
 function cleanAddress(value: string) {
-  return value.replace(/^Кыргызстан,\s*/i, "").trim();
+  return value
+    .replace(/^Кыргызстан,\s*/i, "")
+    .replace(/^город\s+республиканского\s+подчинения\s*,?\s*/i, "")
+    .trim();
 }
 
 function addressWithoutCity(value: string, city: string) {
   const cleaned = cleanAddress(value);
   const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const cityPrefix = `(?:г\\.\\s*)?${escapedCity}(?:\\s+город)?`;
+
   return cleaned
-    .replace(new RegExp(`^(?:г\\.\\s*)?${escapedCity}(?:\\s+город)?\\s*,?\\s*`, "i"), "")
+    .replace(new RegExp(`^(?:${cityPrefix}\\s*,?\\s*)+`, "i"), "")
     .trim();
 }
 

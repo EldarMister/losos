@@ -7,6 +7,7 @@ export type Product = {
   category: string;
   name: string;
   price: number;
+  naktaCoins?: number;
   oldPrice?: number | null;
   image: string;
   description?: string;

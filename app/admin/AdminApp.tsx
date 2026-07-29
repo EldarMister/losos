@@ -914,7 +914,7 @@ export function AdminApp() {
             <label>Категория<select value={String(editor.values.categoryId || "")} onChange={(event) => updateValue("categoryId", event.target.value)}>{dashboard?.categories.map((category) => <option value={category.id} key={category.id}>{category.title}</option>)}</select></label>
             <label>Цена, сом<input required type="number" min="0" value={String(editor.values.price)} onChange={(event) => updateValue("price", event.target.value)} /></label>
             <label>Старая цена, сом<input type="number" min="0" value={String(editor.values.oldPrice || "")} onChange={(event) => updateValue("oldPrice", event.target.value)} placeholder="Без скидки" /></label>
-            <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins || "0")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
+            <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins ?? "")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
           </div>
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
           <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>

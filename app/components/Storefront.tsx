@@ -174,6 +174,20 @@ const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
   new: "Новый", confirmed: "Подтверждён", preparing: "Готовится", ready: "Готов", delivering: "В пути", completed: "Завершён", cancelled: "Отменён",
 };
 const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+
+function addressWithSingleCity(value: string, city: string) {
+  const cleaned = value
+    .replace(/^Кыргызстан,\s*/i, "")
+    .replace(/^город\s+республиканского\s+подчинения\s*,?\s*/i, "")
+    .trim();
+  const escapedCity = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const cityPrefix = `(?:г\\.\\s*)?${escapedCity}(?:\\s+город)?`;
+  const addressWithoutCity = cleaned
+    .replace(new RegExp(`^(?:${cityPrefix}\\s*,?\\s*)+`, "i"), "")
+    .trim();
+
+  return addressWithoutCity ? `${city}, ${addressWithoutCity}` : city;
+}
 const profileOrderSteps: Array<{ status: ProfileOrder["status"]; label: string }> = [
   { status: "new", label: "Заказ создан" },
   { status: "confirmed", label: "Заказ подтверждён" },
@@ -280,6 +294,9 @@ const restoreStoredProduct = (value: unknown): Product | null => {
   };
   const description = boundedString(value.description, 2_000);
   if (description) product.description = description;
+  if (Number.isInteger(value.naktaCoins) && (value.naktaCoins as number) > 0 && (value.naktaCoins as number) <= 1_000_000) {
+    product.naktaCoins = value.naktaCoins as number;
+  }
   if (value.isNew === true) product.isNew = true;
   if (["wasabi", "popcorn", "batat", "cheese-sticks", "crab-salmon"].includes(String(value.referenceCard))) {
     product.referenceCard = value.referenceCard as NonNullable<Product["referenceCard"]>;
@@ -637,6 +654,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [profileOrderDetail, setProfileOrderDetail] = useState<ProfileOrderDetail | null>(null);
   const [profileOrderDetailLoading, setProfileOrderDetailLoading] = useState(false);
   const [profileOrderDetailError, setProfileOrderDetailError] = useState("");
+  const [profileRefreshIndex, setProfileRefreshIndex] = useState(0);
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
@@ -769,7 +787,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .then((data: ProfileData) => { if (!controller.signal.aborted) setProfileData(data); })
       .catch(() => { if (!controller.signal.aborted) setProfileData(null); })
     return () => controller.abort();
-  }, [phoneVerificationToken, verifiedPhone]);
+  }, [phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -871,6 +889,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               category: line.product.category,
               name: line.product.name,
               price: line.product.price,
+              naktaCoins: line.product.naktaCoins,
               image: line.product.image,
               description: line.product.description,
               isNew: line.product.isNew,
@@ -927,11 +946,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const currentStory = storyGroups[promoSlide] || storyGroups[0] || defaultStoryGroups[0];
   const cartCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   const cartTotal = cart.reduce((sum, line) => sum + cartLineTotal(line), 0);
-  const cartLocation = address.trim()
-    ? (address.trim().toLocaleLowerCase("ru-RU").startsWith(city.toLocaleLowerCase("ru-RU"))
-      ? address.trim()
-      : `${city}, ${address.trim()}`)
-    : city;
+  const cartLocation = address.trim() ? addressWithSingleCity(address, city) : city;
   const highlightedCategory = categorySlug || activeCategory;
 
   const scrollToCatalogCategory = (slug: string) => {
@@ -1538,17 +1553,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         throw new Error(message || "Не удалось отправить заказ. Попробуйте ещё раз.");
       }
       setPlacedOrder(body as PlacedOrder);
-      setPhoneVerificationToken("");
-      setVerifiedPhone("");
+      setProfileRefreshIndex((current) => current + 1);
       setPhoneCode("");
       setPhoneCodeRequested(false);
       setPhoneAuthMethod("choose");
-      try {
-        window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
-        window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
-      } catch {
-        // The consumed token is already cleared in memory.
-      }
       setCart([]);
       setPendingCartLine(null);
     } catch (error) {
@@ -2021,6 +2029,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading={categoryIndex === 0 && productIndex < 6 ? "eager" : "lazy"} fetchPriority={categoryIndex === 0 && productIndex < 2 ? "high" : undefined} />
+                      {product.naktaCoins && product.naktaCoins > 0 ? <span className="product-nakta-badge" aria-label={`Бонус ${product.naktaCoins} NAKTA Coin`}><i>✦</i><b>+{product.naktaCoins}</b><small>NAKTA<br />Coin</small></span> : null}
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
