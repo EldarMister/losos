@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { resolveImageUrl } from "../api";
+import { resolveImageUrl, WEB_URL } from "../api";
 import { colors, radii } from "../theme";
 import type { Promotion } from "../types";
 
@@ -50,7 +50,12 @@ export function PromotionViewer({
 
   const openCta = () => {
     if (promotion.ctaUrl) {
-      Linking.openURL(promotion.ctaUrl).catch(() => undefined);
+      const target = /(?:^|\.)mnogolososya\.ru/i.test(promotion.ctaUrl)
+        ? `${WEB_URL}/support`
+        : promotion.ctaUrl.startsWith("/")
+          ? `${WEB_URL}${promotion.ctaUrl}`
+          : promotion.ctaUrl;
+      Linking.openURL(target).catch(() => undefined);
     } else {
       move(1);
     }
@@ -65,6 +70,7 @@ export function PromotionViewer({
     >
       <ImageBackground
         resizeMode="cover"
+        resizeMethod="resize"
         source={{ uri: resolveImageUrl(promotion.image) }}
         style={styles.root}
       >

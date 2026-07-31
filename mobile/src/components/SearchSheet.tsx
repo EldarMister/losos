@@ -1,20 +1,22 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { catalogApi, resolveImageUrl } from "../api";
+import { catalogApi } from "../api";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
 import type { Category, Product } from "../types";
+import { ProductCard } from "./ProductCard";
 import { Sheet } from "./Sheet";
 
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
@@ -33,7 +35,9 @@ export function SearchSheet({
   onOpenProduct,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const store = useStore();
+  const inputRef = useRef<TextInput>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
@@ -45,7 +49,10 @@ export function SearchSheet({
       setQuery("");
       setResults([]);
       setError("");
+      return undefined;
     }
+    const timer = setTimeout(() => inputRef.current?.focus(), 350);
+    return () => clearTimeout(timer);
   }, [visible]);
 
   useEffect(() => {
@@ -96,6 +103,48 @@ export function SearchSheet({
       store.addCartLine(product, 1, []);
     }
   };
+  const region = store.activeRegion;
+  const serviceHours = region?.deliveryIs24Hours
+    ? "24 часа"
+    : region?.deliveryOpenTime && region?.deliveryCloseTime
+      ? `${region.deliveryOpenTime}–${region.deliveryCloseTime}`
+      : "часы уточняются";
+  const freeDeliveryRemaining = Math.max(
+    0,
+    (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
+  );
+  const productCardWidth = Math.min(
+    206,
+    Math.max(148, (width - 46) / 2),
+  );
+  const groupedResults = useMemo(() => {
+    const resultIds = new Set(results.map((product) => product.id));
+    const groups = categories.flatMap((category) => {
+      const products = category.products.filter((product) => (
+        product.available !== false && resultIds.has(product.id)
+      ));
+      return products.length ? [{ ...category, products }] : [];
+    });
+    const groupedIds = new Set(
+      groups.flatMap((category) => category.products.map((product) => product.id)),
+    );
+    const uncategorized = results.filter((product) => (
+      product.available !== false && !groupedIds.has(product.id)
+    ));
+    return uncategorized.length
+      ? [...groups, {
+          id: -1,
+          slug: "search-results",
+          title: "Результаты",
+          products: uncategorized,
+        }]
+      : groups;
+  }, [categories, results]);
+
+  const chooseCategory = (category: Category) => {
+    Keyboard.dismiss();
+    setQuery(category.title);
+  };
 
   return (
     <Sheet
@@ -106,7 +155,11 @@ export function SearchSheet({
       footer={store.cartCount ? (
         <View>
           <Text style={styles.deliveryHint}>
-            Доставка 99 сом · До бесплатной 2 633 сом
+            {store.deliveryType === "pickup"
+              ? "Самовывоз из выбранной кухни"
+              : freeDeliveryRemaining > 0
+                ? `До бесплатной доставки ${money(freeDeliveryRemaining)}`
+                : "Бесплатная доставка"}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -118,7 +171,7 @@ export function SearchSheet({
             style={({ pressed }) => [styles.cartBar, pressed && styles.pressed]}
           >
             <Text style={styles.cartPrice}>{money(store.cartTotal)}</Text>
-            <Text style={styles.cartTime}>~70 мин</Text>
+            <Text style={styles.cartTime}>{serviceHours}</Text>
             <View style={styles.cartPreview}>
               <MaterialCommunityIcons name="shopping-outline" size={21} color={colors.orange} />
               <Text style={styles.cartCount}>{store.cartCount}</Text>
@@ -127,14 +180,19 @@ export function SearchSheet({
         </View>
       ) : undefined}
     >
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-        <Pressable accessibilityLabel="Назад" hitSlop={8} onPress={onClose}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 14 }]}>
+        <Pressable
+          accessibilityLabel="Назад"
+          hitSlop={8}
+          onPress={onClose}
+          style={styles.backButton}
+        >
           <MaterialCommunityIcons name="arrow-left" size={26} color={colors.ink} />
         </Pressable>
         <View style={styles.searchInput}>
           <MaterialCommunityIcons name="magnify" size={21} color={colors.ink} />
           <TextInput
-            autoFocus={visible}
+            ref={inputRef}
             onChangeText={setQuery}
             placeholder="Поиск по блюдам"
             placeholderTextColor="#A0A0A0"
@@ -142,11 +200,16 @@ export function SearchSheet({
             style={styles.input}
             value={query}
           />
-          {query ? (
-            <Pressable accessibilityLabel="Очистить поиск" onPress={() => setQuery("")}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.muted} />
-            </Pressable>
-          ) : null}
+          <Pressable
+            accessibilityLabel="Очистить поиск"
+            hitSlop={8}
+            onPress={() => {
+              setQuery("");
+              inputRef.current?.focus();
+            }}
+          >
+            <MaterialCommunityIcons name="close" size={25} color="#A0A0A0" />
+          </Pressable>
         </View>
       </View>
 
@@ -156,20 +219,17 @@ export function SearchSheet({
         showsVerticalScrollIndicator={false}
       >
         {!query.trim() ? (
-          <>
-            <Text style={styles.heading}>Что найдём?</Text>
-            <View style={styles.suggestions}>
-              {categories.map((category) => (
-                <Pressable
-                  key={category.slug}
-                  onPress={() => setQuery(category.title)}
-                  style={styles.suggestion}
-                >
-                  <Text style={styles.suggestionText}>{category.title}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </>
+          <View style={styles.suggestions}>
+            {categories.map((category) => (
+              <Pressable
+                key={category.slug}
+                onPress={() => chooseCategory(category)}
+                style={styles.suggestion}
+              >
+                <Text style={styles.suggestionText}>{category.title}</Text>
+              </Pressable>
+            ))}
+          </View>
         ) : loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.orange} />
@@ -179,43 +239,51 @@ export function SearchSheet({
           <View style={styles.center}>
             <Text style={styles.error}>{error}</Text>
           </View>
-        ) : results.length ? (
+        ) : groupedResults.length ? (
           <>
-            <Text style={styles.heading}>Нашли {results.length}</Text>
-            <View style={styles.results}>
-              {results.map((product) => (
-                <View key={product.id} style={styles.result}>
+            <ScrollView
+              contentContainerStyle={styles.categoryRail}
+              horizontal
+              keyboardShouldPersistTaps="handled"
+              showsHorizontalScrollIndicator={false}
+            >
+              {categories.map((category) => {
+                const active = category.title === query.trim();
+                return (
                   <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Открыть ${product.name}`}
-                    onPress={() => onOpenProduct(product)}
-                    style={styles.resultMain}
+                    key={category.slug}
+                    onPress={() => chooseCategory(category)}
+                    style={[styles.suggestion, active && styles.suggestionActive]}
                   >
-                    <Image
-                      resizeMode="cover"
-                      source={{ uri: resolveImageUrl(product.image) }}
-                      style={styles.resultImage}
+                    <Text
+                      style={[
+                        styles.suggestionText,
+                        active && styles.suggestionTextActive,
+                      ]}
+                    >
+                      {category.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            {groupedResults.map((category) => (
+              <View key={category.slug} style={styles.resultSection}>
+                <Text style={styles.heading}>{category.title}</Text>
+                <View style={styles.results}>
+                  {category.products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      onAdd={() => add(product)}
+                      onPress={() => onOpenProduct(product)}
+                      product={product}
+                      width={productCardWidth}
+                      layout="grid"
                     />
-                    <View style={styles.resultCopy}>
-                      <Text numberOfLines={2} style={styles.resultName}>{product.name}</Text>
-                      <Text style={styles.resultPrice}>{money(product.price)}</Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Добавить ${product.name}`}
-                    hitSlop={7}
-                    onPress={(event) => {
-                      event.stopPropagation();
-                      add(product);
-                    }}
-                    style={styles.add}
-                  >
-                    <MaterialCommunityIcons name="plus" size={22} color={colors.orange} />
-                  </Pressable>
+                  ))}
                 </View>
-              ))}
-            </View>
+              </View>
+            ))}
           </>
         ) : query.trim().length >= 2 ? (
           <View style={styles.center}>
@@ -231,17 +299,25 @@ export function SearchSheet({
 
 const styles = StyleSheet.create({
   header: {
-    paddingHorizontal: 16,
+    paddingLeft: 2,
+    paddingRight: 16,
     paddingBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 11,
   },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   searchInput: {
     flex: 1,
-    height: 50,
-    paddingHorizontal: 13,
-    borderRadius: radii.medium,
+    height: 52,
+    paddingLeft: 12,
+    paddingRight: 12,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -250,32 +326,43 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 15,
   },
   content: {
-    padding: 18,
+    paddingHorizontal: 16,
+    paddingTop: 11,
     paddingBottom: 50,
   },
   heading: {
-    marginBottom: 14,
+    marginBottom: 12,
     color: colors.ink,
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: "800",
   },
   suggestions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 9,
+    columnGap: 16,
+    rowGap: 16,
   },
   suggestion: {
-    paddingVertical: 11,
+    paddingVertical: 9,
     paddingHorizontal: 15,
     borderRadius: radii.pill,
     backgroundColor: colors.surface,
   },
+  suggestionActive: {
+    backgroundColor: colors.ink,
+  },
   suggestionText: {
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 15,
+  },
+  suggestionTextActive: {
+    color: colors.white,
+    fontWeight: "700",
   },
   center: {
     minHeight: 300,
@@ -300,53 +387,17 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   results: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 14,
+  },
+  categoryRail: {
+    paddingTop: 2,
+    paddingBottom: 20,
     gap: 8,
   },
-  result: {
-    minHeight: 90,
-    padding: 8,
-    borderRadius: radii.medium,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-    backgroundColor: colors.surface,
-  },
-  resultMain: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-  },
-  resultImage: {
-    width: 74,
-    height: 74,
-    borderRadius: 14,
-    backgroundColor: colors.white,
-  },
-  resultCopy: {
-    flex: 1,
-    alignSelf: "stretch",
-    paddingVertical: 5,
-    justifyContent: "space-between",
-  },
-  resultName: {
-    color: colors.ink,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: "600",
-  },
-  resultPrice: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  add: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
+  resultSection: {
+    marginBottom: 24,
   },
   deliveryHint: {
     marginBottom: 9,

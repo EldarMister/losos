@@ -39,6 +39,7 @@ export type Product = {
   carbs?: number;
   isNew?: boolean;
   available?: boolean;
+  naktaCoins?: number;
   modifierGroups?: ModifierGroup[];
 };
 
@@ -53,8 +54,30 @@ export type Region = {
   id: number;
   slug: string;
   name: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  contactAddress?: string;
   pickupAddress?: string;
+  pickupYandexUrl?: string;
   pickupWorkingHours?: string;
+  pickupLocations?: PickupLocation[];
+  deliveryOpenTime?: string;
+  deliveryCloseTime?: string;
+  deliveryIs24Hours?: boolean;
+  deliveryWorkingDays?: number[];
+  freeDeliveryThreshold?: number;
+};
+
+export type PickupLocation = {
+  id: number;
+  title: string;
+  address: string;
+  workingHours: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  yandexUrl?: string;
+  enabled: boolean;
+  sortOrder: number;
 };
 
 export type Promotion = {
@@ -88,10 +111,15 @@ export type DeliveryLocation = {
   address: string;
   latitude?: number;
   longitude?: number;
+  pickupLocationId?: number;
+  title?: string;
+  workingHours?: string;
+  yandexUrl?: string;
 };
 
 export type OrderPayload = {
   idempotencyKey: string;
+  verificationToken: string;
   regionSlug: string;
   deliveryType: DeliveryType;
   customerName: string;
@@ -123,4 +151,66 @@ export type CreatedOrder = {
   orderNumber?: number;
   total: number;
   status: string;
+};
+
+export type AuthSession = {
+  phone: string;
+  verificationToken: string;
+  expiresAt: number;
+};
+
+export type AuthMethods = {
+  sms: boolean;
+  whatsapp: boolean;
+};
+
+export type CodeRequest = {
+  verified?: boolean;
+  phone?: string;
+  verificationToken?: string;
+  expiresInSeconds: number;
+  retryAfterSeconds?: number;
+};
+
+export type WhatsappRequest = {
+  challengeId: string;
+  pollToken: string;
+  phone: string;
+  whatsappUrl: string;
+  expiresAt: string;
+  expiresInSeconds: number;
+  retryAfterSeconds: number;
+};
+
+export type ProfileOrder = {
+  id: string;
+  total: number;
+  status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
+  deliveryType: DeliveryType;
+  createdAt: string;
+};
+
+export type ProfileData = {
+  naktaCoins: number;
+  currentOrders: ProfileOrder[];
+  orderHistory: ProfileOrder[];
+};
+
+export type ProfileOrderDetail = ProfileOrder & {
+  subtotal: number;
+  address: string;
+  apartment: string;
+  entrance: string;
+  floor: string;
+  intercom: string;
+  comment: string;
+  utensilsCount: number;
+  noUtensils: boolean;
+  paymentMethod: "cash" | "card";
+  items: Array<{
+    productName: string;
+    quantity: number;
+    lineTotal: number;
+    modifierSnapshots: Array<{ itemName: string; quantity: number }>;
+  }>;
 };

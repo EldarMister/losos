@@ -23,6 +23,7 @@ import type { Category, Product, Promotion } from "../types";
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
 
 type Props = {
+  onOpenMenu: () => void;
   onOpenLocation: () => void;
   onOpenSearch: () => void;
   onOpenProduct: (product: Product) => void;
@@ -31,6 +32,7 @@ type Props = {
 };
 
 export function CatalogScreen({
+  onOpenMenu,
   onOpenLocation,
   onOpenSearch,
   onOpenProduct,
@@ -49,6 +51,17 @@ export function CatalogScreen({
   const [showCategoryNav, setShowCategoryNav] = useState(false);
   const sectionOffsets = useRef<Record<string, number>>({});
   const sectionsOffset = useRef(0);
+  const region = store.activeRegion;
+  const serviceHours = region?.deliveryIs24Hours
+    ? "24 часа"
+    : region?.deliveryOpenTime && region?.deliveryCloseTime
+      ? `${region.deliveryOpenTime}–${region.deliveryCloseTime}`
+      : "часы уточняются";
+  const freeDeliveryRemaining = Math.max(
+    0,
+    (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
+  );
+  const productCardWidth = 156;
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -88,12 +101,12 @@ export function CatalogScreen({
   };
 
   const header = (
-    <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
+    <View style={[styles.header, { paddingTop: Math.max(insets.top, 0) }]}>
         <View style={styles.topRow}>
           <Pressable
-            accessibilityLabel="Открыть выбор адреса"
+            accessibilityLabel="Открыть меню"
             hitSlop={8}
-            onPress={onOpenLocation}
+            onPress={onOpenMenu}
             style={styles.menuButton}
           >
             <MaterialCommunityIcons name="menu" size={26} color={colors.ink} />
@@ -109,7 +122,7 @@ export function CatalogScreen({
             </Text>
           </Pressable>
           <View style={styles.cashbackChip}>
-            <Text style={styles.cashbackText}>Кешбэк</Text>
+            <Text style={styles.cashbackText}>NAKTA Coin</Text>
             <MaterialCommunityIcons name="butterfly" size={17} color={colors.orange} />
           </View>
         </View>
@@ -117,7 +130,9 @@ export function CatalogScreen({
         <Pressable onPress={onOpenLocation} style={styles.locationRow}>
           <View style={styles.timeChip}>
             <Text style={styles.timeText}>
-              {store.deliveryType === "delivery" ? "~70 мин" : "~25 мин"}
+              {store.deliveryType === "pickup"
+                ? store.location?.workingHours?.split(",").at(-1)?.trim() || serviceHours
+                : serviceHours}
             </Text>
           </View>
           <View style={styles.addressChip}>
@@ -215,6 +230,7 @@ export function CatalogScreen({
                   >
                     <Image
                       resizeMode="cover"
+                      resizeMethod="resize"
                       source={{ uri: resolveImageUrl(promotion.image) }}
                       style={styles.promoImage}
                     />
@@ -312,6 +328,8 @@ export function CatalogScreen({
                         onAdd={() => addProduct(product)}
                         onPress={() => onOpenProduct(product)}
                         product={product}
+                        width={productCardWidth}
+                        layout="rail"
                       />
                     ))}
                   </ScrollView>
@@ -327,6 +345,7 @@ export function CatalogScreen({
           accessibilityRole="button"
           accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
           onPress={onOpenCart}
+          pointerEvents="box-only"
           style={[
             styles.cartBar,
             { bottom: Math.max(insets.bottom, 10) },
@@ -334,10 +353,16 @@ export function CatalogScreen({
         >
           <View>
             <Text style={styles.cartPrice}>{money(store.cartTotal)}</Text>
-            <Text style={styles.cartDelivery}>Доставка от 99 сом</Text>
+            <Text style={styles.cartDelivery}>
+              {store.deliveryType === "pickup"
+                ? "Самовывоз"
+                : freeDeliveryRemaining > 0
+                  ? `До бесплатной ${money(freeDeliveryRemaining)}`
+                  : "Бесплатная доставка"}
+            </Text>
           </View>
           <View style={styles.cartMiddle}>
-            <Text style={styles.cartTime}>~70 мин</Text>
+            <Text style={styles.cartTime}>{serviceHours}</Text>
           </View>
           <View style={styles.cartCount}>
             <MaterialCommunityIcons name="shopping-outline" size={22} color={colors.orange} />
@@ -355,34 +380,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
     backgroundColor: colors.white,
   },
   topRow: {
+    marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
   },
   menuButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
+    marginLeft: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   deliverySwitch: {
     flex: 1,
-    height: 46,
+    height: 44,
+    marginLeft: 2,
+    marginRight: 8,
     padding: 3,
-    borderRadius: radii.medium,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
   },
   cashbackChip: {
-    height: 50,
-    paddingHorizontal: 14,
-    borderRadius: 17,
+    height: 44,
+    marginRight: 8,
+    paddingHorizontal: 10,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -391,51 +419,53 @@ const styles = StyleSheet.create({
   },
   cashbackText: {
     color: colors.orange,
-    fontSize: 14,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
   },
   deliverySwitchActive: {
     flex: 1,
-    height: 40,
-    borderRadius: 14,
+    height: 38,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
   },
   deliverySwitchActiveText: {
     color: colors.ink,
+    fontFamily: "Inter_600SemiBold",
     fontSize: 14,
-    fontWeight: "700",
   },
   deliverySwitchText: {
     flex: 1,
     color: "#999999",
+    fontFamily: "Inter_400Regular",
     textAlign: "center",
     fontSize: 14,
   },
   locationRow: {
-    marginTop: 9,
+    marginTop: 8,
+    paddingHorizontal: 16,
     flexDirection: "row",
     gap: 8,
   },
   timeChip: {
-    height: 42,
-    paddingHorizontal: 13,
-    borderRadius: 14,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
   },
   timeText: {
     color: colors.ink,
-    fontSize: 14,
-    fontWeight: "700",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
   },
   addressChip: {
     flex: 1,
-    height: 42,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
@@ -444,7 +474,8 @@ const styles = StyleSheet.create({
   addressText: {
     flex: 1,
     color: colors.ink,
-    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
   },
   center: {
     flex: 1,
@@ -482,17 +513,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   promotionsBlock: {
-    minHeight: 156,
-    paddingTop: 14,
+    minHeight: 168,
+    paddingTop: 16,
   },
   promoRow: {
     paddingHorizontal: 16,
     gap: 9,
   },
   promoCard: {
-    width: 138,
-    height: 142,
-    borderRadius: radii.medium,
+    width: 142,
+    height: 152,
+    borderRadius: 16,
     overflow: "hidden",
     backgroundColor: colors.orange,
   },
@@ -518,9 +549,9 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
   searchButton: {
-    height: 50,
+    height: 52,
     marginHorizontal: 16,
-    borderRadius: radii.medium,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -529,8 +560,8 @@ const styles = StyleSheet.create({
   },
   searchText: {
     color: colors.ink,
+    fontFamily: "Inter_600SemiBold",
     fontSize: 15,
-    fontWeight: "700",
   },
   catalogNav: {
     paddingTop: 12,
@@ -581,18 +612,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     flex: 1,
     color: colors.ink,
-    fontSize: 22,
-    lineHeight: 27,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 23,
+    lineHeight: 29,
     letterSpacing: -0.35,
   },
   productsRow: {
     paddingHorizontal: 16,
     paddingBottom: 14,
-    gap: 10,
+    gap: 12,
   },
   cartBar: {
     position: "absolute",
+    zIndex: 20,
     left: 16,
     right: 16,
     minHeight: 66,
@@ -602,6 +634,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.orange,
     ...shadow,
+    elevation: 30,
   },
   cartPrice: {
     color: colors.white,

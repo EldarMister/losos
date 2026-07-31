@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { resolveImageUrl } from "../api";
-import { colors, radii } from "../theme";
+import { colors } from "../theme";
 import type { Product } from "../types";
 
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
@@ -16,20 +16,32 @@ type Props = {
   product: Product;
   onPress: () => void;
   onAdd: () => void;
+  width?: number;
+  layout?: "rail" | "grid";
 };
 
-export function ProductCard({ product, onPress, onAdd }: Props) {
+export function ProductCard({
+  product,
+  onPress,
+  onAdd,
+  width = 164,
+  layout = "rail",
+}: Props) {
+  const cardHeight = layout === "rail" ? 266 : Math.max(246, width + 78);
+  const imageHeight = layout === "rail" ? 156 : width;
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { width, height: cardHeight }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Открыть ${product.name}`}
         onPress={onPress}
         style={({ pressed }) => pressed && styles.pressed}
       >
-        <View style={styles.imageWrap}>
+        <View style={[styles.imageWrap, { height: imageHeight }]}>
           <Image
             resizeMode="cover"
+            resizeMethod="resize"
             source={{ uri: resolveImageUrl(product.image) }}
             style={styles.image}
           />
@@ -67,18 +79,15 @@ export function ProductCard({ product, onPress, onAdd }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 150,
-    minHeight: 278,
-    padding: 11,
-    borderRadius: radii.medium,
+    borderRadius: 16,
+    overflow: "hidden",
     backgroundColor: colors.surface,
   },
   pressed: {
     opacity: 0.86,
   },
   imageWrap: {
-    height: 150,
-    borderRadius: 14,
+    width: "100%",
     overflow: "hidden",
     backgroundColor: colors.white,
   },
@@ -101,15 +110,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   name: {
-    minHeight: 44,
-    marginTop: 12,
+    minHeight: 38,
+    marginTop: 10,
+    marginHorizontal: 16,
     color: colors.ink,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: "500",
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    lineHeight: 19,
   },
   bottom: {
     marginTop: "auto",
+    marginHorizontal: 16,
+    marginBottom: 12,
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "space-between",
@@ -122,13 +134,13 @@ const styles = StyleSheet.create({
   price: {
     marginTop: 2,
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 16,
-    fontWeight: "500",
   },
   add: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 40,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,

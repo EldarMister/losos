@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Text,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import { colors, radii } from "../theme";
@@ -15,6 +16,7 @@ type Props = {
   loading?: boolean;
   tone?: "orange" | "black" | "soft" | "white";
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
 };
 
 export function PrimaryButton({
@@ -24,6 +26,7 @@ export function PrimaryButton({
   loading,
   tone = "orange",
   style,
+  labelStyle,
 }: Props) {
   const background = {
     orange: colors.orange,
@@ -50,7 +53,7 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={foreground} />
       ) : (
-        <Text style={[styles.label, { color: foreground }]}>{label}</Text>
+        <Text style={[styles.label, { color: foreground }, labelStyle]}>{label}</Text>
       )}
     </Pressable>
   );

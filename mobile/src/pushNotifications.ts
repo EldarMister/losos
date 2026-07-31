@@ -1,0 +1,90 @@
+import Constants from "expo-constants";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
+import { authApi } from "./api";
+import { getDeviceId } from "./session";
+import type { AuthSession } from "./types";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+function easProjectId() {
+  return process.env.EXPO_PUBLIC_EAS_PROJECT_ID
+    || Constants.expoConfig?.extra?.eas?.projectId
+    || Constants.easConfig?.projectId;
+}
+
+function pushIsAvailable() {
+  return Platform.OS !== "web"
+    && Device.isDevice
+    && Constants.appOwnership !== "expo";
+}
+
+async function saveExpoPushToken(
+  session: AuthSession,
+  devicePushToken?: Notifications.DevicePushToken,
+) {
+  if (!pushIsAvailable()) {
+    return { registered: false as const, reason: "development-build-required" as const };
+  }
+  const projectId = easProjectId();
+  if (!projectId) {
+    return { registered: false as const, reason: "project-id-missing" as const };
+  }
+
+  const [{ data: expoPushToken }, deviceId] = await Promise.all([
+    Notifications.getExpoPushTokenAsync({ projectId, devicePushToken }),
+    getDeviceId(),
+  ]);
+  await authApi.registerPushToken(session, {
+    deviceId,
+    expoPushToken,
+    platform: Platform.OS as "android" | "ios",
+  });
+  return { registered: true as const, expoPushToken, deviceId };
+}
+
+export async function registerOrderPush(session: AuthSession, askPermission = true) {
+  if (!pushIsAvailable()) {
+    return { registered: false as const, reason: "development-build-required" as const };
+  }
+
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("orders", {
+      name: "Статусы заказов",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 180, 250],
+      lightColor: "#FF4D00",
+    });
+  }
+
+  let permissions = await Notifications.getPermissionsAsync();
+  if (askPermission && permissions.status !== "granted") {
+    permissions = await Notifications.requestPermissionsAsync();
+  }
+  if (permissions.status !== "granted") {
+    return { registered: false as const, reason: "permission-denied" as const };
+  }
+
+  return saveExpoPushToken(session);
+}
+
+export async function syncChangedOrderPushToken(
+  session: AuthSession,
+  devicePushToken: Notifications.DevicePushToken,
+) {
+  return saveExpoPushToken(session, devicePushToken);
+}
+
+export async function unregisterOrderPush(session: AuthSession) {
+  if (Platform.OS === "web") return;
+  const deviceId = await getDeviceId();
+  await authApi.removePushToken(session, deviceId);
+}

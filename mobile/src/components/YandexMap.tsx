@@ -7,6 +7,7 @@ import {
   parseMapMessage,
   type YandexMapProps,
 } from "./yandexMapShared";
+import { MapCenterMarker } from "./MapCenterMarker";
 
 export function YandexMap({
   regionSlug,
@@ -44,7 +45,12 @@ export function YandexMap({
 
   const html = useMemo(() => (
     credentials
-      ? createYandexMapHtml(credentials, regionSlug, initialLatitude, initialLongitude)
+      ? createYandexMapHtml(
+          credentials,
+          regionSlug,
+          initialLatitude,
+          initialLongitude,
+        )
       : ""
   ), [credentials, initialLatitude, initialLongitude, regionSlug]);
 
@@ -64,22 +70,33 @@ export function YandexMap({
     );
   }
 
-  return createElement("iframe", {
-    allow: "geolocation",
-    "aria-label": "Яндекс Карта выбора адреса",
-    srcDoc: html,
-    style: {
-      width: "100%",
-      height: "100%",
-      display: "block",
-      border: 0,
-      background: "#ecebe7",
-    },
-    title: "Яндекс Карта выбора адреса",
-  });
+  return (
+    <View style={styles.container}>
+      {createElement("iframe", {
+        allow: "geolocation",
+        "aria-label": "Яндекс Карта выбора адреса",
+        srcDoc: html,
+        style: {
+          width: "100%",
+          height: "100%",
+          display: "block",
+          border: 0,
+          background: "#ecebe7",
+        },
+        title: "Яндекс Карта выбора адреса",
+      })}
+      <MapCenterMarker />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "#ECEBE7",
+  },
   state: {
     flex: 1,
     alignItems: "center",

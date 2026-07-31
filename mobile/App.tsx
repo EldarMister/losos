@@ -1,97 +1,146 @@
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Inter_900Black } from "@expo-google-fonts/inter/900Black";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import {
+  createNavigationContainerRef,
+  DefaultTheme,
+  NavigationContainer,
+  type Theme,
+} from "@react-navigation/native";
+import {
+  createNativeStackNavigator,
+  type NativeStackScreenProps,
+} from "@react-navigation/native-stack";
+import * as Notifications from "expo-notifications";
+import { useFonts } from "expo-font";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { catalogApi } from "./src/api";
 import { CartSheet } from "./src/components/CartSheet";
 import { LocationSheet } from "./src/components/LocationSheet";
+import { MenuSheet } from "./src/components/MenuSheet";
 import { ProductSheet } from "./src/components/ProductSheet";
 import { PromotionViewer } from "./src/components/PromotionViewer";
 import { SearchSheet } from "./src/components/SearchSheet";
+import {
+  registerOrderPush,
+  syncChangedOrderPushToken,
+  unregisterOrderPush,
+} from "./src/pushNotifications";
+import { notificationOrderId } from "./src/notificationRouting";
+import { canStartCheckout } from "./src/navigationRules";
+import { AuthScreen } from "./src/screens/AuthScreen";
 import { CatalogScreen } from "./src/screens/CatalogScreen";
 import { CheckoutScreen } from "./src/screens/CheckoutScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
+import { OrderDetailsScreen } from "./src/screens/OrderDetailsScreen";
 import { OrderSuccessScreen } from "./src/screens/OrderSuccessScreen";
+import { ProfileScreen } from "./src/screens/ProfileScreen";
 import { StoreProvider, useStore } from "./src/store";
 import { colors } from "./src/theme";
-import type { CreatedOrder, Product, Promotion } from "./src/types";
+import type { AuthSession, CreatedOrder, Product, Promotion } from "./src/types";
 
-type Screen = "catalog" | "checkout" | "success";
+type RootStackParamList = {
+  Catalog: undefined;
+  Auth: { next?: "checkout" | "profile" | "order"; orderId?: string } | undefined;
+  Checkout: undefined;
+  Success: { order: CreatedOrder };
+  Profile: { section?: "orders" | "balance" | "settings" } | undefined;
+  OrderDetails: { orderId: string };
+};
 
-function MobileApp() {
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+const navigationTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.orange,
+    background: colors.white,
+    card: colors.white,
+    text: colors.ink,
+    border: colors.border,
+  },
+  fonts: {
+    regular: { fontFamily: "Inter_400Regular", fontWeight: "400" },
+    medium: { fontFamily: "Inter_500Medium", fontWeight: "500" },
+    bold: { fontFamily: "Inter_700Bold", fontWeight: "700" },
+    heavy: { fontFamily: "Inter_900Black", fontWeight: "900" },
+  },
+};
+
+type CatalogProps = NativeStackScreenProps<RootStackParamList, "Catalog">;
+
+function CatalogRoute({ navigation }: CatalogProps) {
   const store = useStore();
-  const [screen, setScreen] = useState<Screen>("catalog");
   const [locationVisible, setLocationVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [cartVisible, setCartVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [promotionVisible, setPromotionVisible] = useState(false);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionIndex, setPromotionIndex] = useState(0);
-  const [createdOrder, setCreatedOrder] = useState<CreatedOrder | null>(null);
 
   useEffect(() => {
-    if (store.hydrated && store.onboarded && !store.location) {
-      setLocationVisible(true);
-    }
-  }, [store.hydrated, store.location, store.onboarded]);
+    if (!store.location) setLocationVisible(true);
+  }, [store.location]);
 
-  if (!store.hydrated) {
-    return (
-      <View style={styles.splash}>
-        <View style={styles.splashMark}>
-          <MaterialCommunityIcons name="fish" size={54} color={colors.white} />
-        </View>
-        <Text style={styles.splashTitle}>Много лосося</Text>
-        <ActivityIndicator color={colors.white} style={styles.splashLoader} />
-      </View>
-    );
-  }
+  const finishMenuAction = (action: () => void, delay = 120) => {
+    setTimeout(() => {
+      setPromotionVisible(false);
+      action();
+      setMenuVisible(false);
+    }, delay);
+  };
 
-  if (!store.onboarded) {
-    return <OnboardingScreen onComplete={() => setLocationVisible(true)} />;
-  }
+  const openProfile = () => {
+    finishMenuAction(() => {
+      if (store.session) navigation.navigate("Profile", { section: "settings" });
+      else navigation.navigate("Auth", { next: "profile" });
+    });
+  };
 
-  if (screen === "checkout") {
-    return (
-      <CheckoutScreen
-        onBack={() => {
-          setScreen("catalog");
-          setCartVisible(true);
-        }}
-        onSuccess={(order) => {
-          setCreatedOrder(order);
-          setScreen("success");
-        }}
-      />
-    );
-  }
+  const openProfileSection = (section: "orders" | "balance") => {
+    finishMenuAction(() => navigation.navigate("Profile", { section }));
+  };
 
-  if (screen === "success" && createdOrder) {
-    return (
-      <OrderSuccessScreen
-        onDone={() => {
-          setCreatedOrder(null);
-          setScreen("catalog");
-        }}
-        order={createdOrder}
-      />
-    );
-  }
+  const openSavedAddresses = () => {
+    setTimeout(() => {
+      setPromotionVisible(false);
+      setMenuVisible(false);
+    }, 120);
+    setTimeout(() => setLocationVisible(true), 470);
+  };
 
   return (
     <>
       <CatalogScreen
         onOpenCart={() => setCartVisible(true)}
         onOpenLocation={() => setLocationVisible(true)}
+        onOpenMenu={() => setMenuVisible(true)}
         onOpenProduct={setSelectedProduct}
         onOpenPromotion={(_, index, all) => {
+          if (menuVisible) return;
           setPromotions(all);
           setPromotionIndex(index);
           setPromotionVisible(true);
         }}
         onOpenSearch={() => setSearchVisible(true)}
       />
-
+      <MenuSheet
+        onClose={() => setMenuVisible(false)}
+        onOpenAddresses={openSavedAddresses}
+        onOpenBalance={() => openProfileSection("balance")}
+        onOpenOrders={() => openProfileSection("orders")}
+        onOpenProfile={openProfile}
+        visible={menuVisible}
+      />
       <LocationSheet
         onClose={() => setLocationVisible(false)}
         required={!store.location}
@@ -108,12 +157,14 @@ function MobileApp() {
       />
       <ProductSheet
         onClose={() => setSelectedProduct(null)}
+        onOpenProduct={setSelectedProduct}
         product={selectedProduct}
       />
       <CartSheet
         onCheckout={() => {
           setCartVisible(false);
-          setScreen("checkout");
+          if (canStartCheckout(store.session, store.cartCount)) navigation.navigate("Checkout");
+          else navigation.navigate("Auth", { next: "checkout" });
         }}
         onClose={() => setCartVisible(false)}
         visible={cartVisible}
@@ -128,11 +179,226 @@ function MobileApp() {
   );
 }
 
+type AuthProps = NativeStackScreenProps<RootStackParamList, "Auth">;
+
+function AuthRoute({ navigation, route }: AuthProps) {
+  const goBack = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.replace("Catalog");
+  };
+  const onSuccess = (session: AuthSession) => {
+    void registerOrderPush(session, true).catch(() => undefined);
+    if (route.params?.next === "checkout") navigation.replace("Checkout");
+    else if (route.params?.next === "order" && route.params.orderId) {
+      navigation.replace("OrderDetails", { orderId: route.params.orderId });
+    } else if (route.params?.next === "profile") navigation.replace("Profile");
+    else navigation.replace("Catalog");
+  };
+  return <AuthScreen onBack={goBack} onSuccess={onSuccess} />;
+}
+
+type CheckoutProps = NativeStackScreenProps<RootStackParamList, "Checkout">;
+
+function CheckoutRoute({ navigation }: CheckoutProps) {
+  const store = useStore();
+  useEffect(() => {
+    if (!store.session) navigation.replace("Auth", { next: "checkout" });
+  }, [navigation, store.session]);
+  if (!store.session) return null;
+  return (
+    <CheckoutScreen
+      onBack={() => navigation.goBack()}
+      onSuccess={(order) => navigation.replace("Success", { order })}
+    />
+  );
+}
+
+type SuccessProps = NativeStackScreenProps<RootStackParamList, "Success">;
+
+function SuccessRoute({ navigation, route }: SuccessProps) {
+  return (
+    <OrderSuccessScreen
+      onDone={() => navigation.reset({ index: 0, routes: [{ name: "Catalog" }] })}
+      order={route.params.order}
+    />
+  );
+}
+
+type ProfileProps = NativeStackScreenProps<RootStackParamList, "Profile">;
+
+function ProfileRoute({ navigation, route }: ProfileProps) {
+  const store = useStore();
+  if (!store.session) {
+    return (
+      <AuthScreen
+        onBack={() => navigation.goBack()}
+        onSuccess={() => navigation.replace("Profile")}
+      />
+    );
+  }
+  return (
+    <ProfileScreen
+      onBack={() => navigation.goBack()}
+      onLogout={() => {
+        const session = store.session;
+        void (async () => {
+          if (session) await unregisterOrderPush(session).catch(() => undefined);
+          await store.signOut();
+          navigation.reset({ index: 0, routes: [{ name: "Catalog" }] });
+        })();
+      }}
+      onOpenOrder={(orderId) => navigation.navigate("OrderDetails", { orderId })}
+      section={route.params?.section ?? "settings"}
+    />
+  );
+}
+
+type OrderDetailsProps = NativeStackScreenProps<RootStackParamList, "OrderDetails">;
+
+function OrderDetailsRoute({ navigation, route }: OrderDetailsProps) {
+  const store = useStore();
+  const goBack = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.replace("Catalog");
+  };
+  if (!store.session) {
+    return (
+      <AuthScreen
+        onBack={goBack}
+        onSuccess={() => navigation.replace("OrderDetails", { orderId: route.params.orderId })}
+      />
+    );
+  }
+  return <OrderDetailsScreen onBack={goBack} orderId={route.params.orderId} />;
+}
+
+function MobileApp() {
+  const store = useStore();
+  const [openLoginAfterOnboarding, setOpenLoginAfterOnboarding] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!store.hydrated) return;
+    catalogApi.regions()
+      .then(store.setRegions)
+      .catch(() => undefined);
+  }, [store.hydrated]);
+
+  useEffect(() => {
+    if (!store.session) return;
+    void registerOrderPush(store.session, false).catch(() => undefined);
+  }, [store.session]);
+
+  useEffect(() => {
+    if (!store.session) return;
+    const session = store.session;
+    const subscription = Notifications.addPushTokenListener((devicePushToken) => {
+      void syncChangedOrderPushToken(session, devicePushToken).catch(() => undefined);
+    });
+    return () => subscription.remove();
+  }, [store.session]);
+
+  const openOrder = useCallback((orderId: string) => {
+    if (!navigationRef.isReady()) {
+      setPendingOrderId(orderId);
+      return;
+    }
+    if (store.session) navigationRef.navigate("OrderDetails", { orderId });
+    else navigationRef.navigate("Auth", { next: "order", orderId });
+  }, [store.session]);
+
+  useEffect(() => {
+    if (!store.hydrated) return;
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      const orderId = notificationOrderId(response);
+      if (orderId) {
+        openOrder(orderId);
+        void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+      }
+    });
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const orderId = notificationOrderId(response);
+      if (orderId) openOrder(orderId);
+    });
+    return () => subscription.remove();
+  }, [openOrder, store.hydrated]);
+
+  if (!store.hydrated) return <Splash />;
+
+  if (!store.onboarded) {
+    return (
+      <OnboardingScreen
+        onComplete={() => undefined}
+        onLogin={() => setOpenLoginAfterOnboarding(true)}
+      />
+    );
+  }
+
+  return (
+    <NavigationContainer
+      linking={{
+        prefixes: ["naktasushi://"],
+        config: { screens: { OrderDetails: "orders/:orderId" } },
+      }}
+      onReady={() => {
+        if (openLoginAfterOnboarding) {
+          setOpenLoginAfterOnboarding(false);
+          if (pendingOrderId) {
+            const orderId = pendingOrderId;
+            setPendingOrderId(null);
+            navigationRef.navigate("Auth", { next: "order", orderId });
+          } else {
+            navigationRef.navigate("Auth");
+          }
+        } else if (pendingOrderId) {
+          setPendingOrderId(null);
+          openOrder(pendingOrderId);
+        }
+      }}
+      ref={navigationRef}
+      theme={navigationTheme}
+    >
+      <Stack.Navigator initialRouteName="Catalog" screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
+        <Stack.Screen component={CatalogRoute} name="Catalog" />
+        <Stack.Screen component={AuthRoute} name="Auth" options={{ presentation: "fullScreenModal" }} />
+        <Stack.Screen component={CheckoutRoute} name="Checkout" />
+        <Stack.Screen component={SuccessRoute} name="Success" options={{ gestureEnabled: false }} />
+        <Stack.Screen component={ProfileRoute} name="Profile" />
+        <Stack.Screen component={OrderDetailsRoute} name="OrderDetails" />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+function Splash() {
+  return (
+    <View style={styles.splash}>
+      <View style={styles.splashMark}>
+        <MaterialCommunityIcons name="fish" size={54} color={colors.white} />
+      </View>
+      <Text style={styles.splashTitle}>Накта суши</Text>
+      <ActivityIndicator color={colors.white} style={styles.splashLoader} />
+    </View>
+  );
+}
+
+function AppWithFonts() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_900Black,
+  });
+  if (!fontsLoaded) return <Splash />;
+  return <MobileApp />;
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
-        <MobileApp />
+        <AppWithFonts />
       </StoreProvider>
     </SafeAreaProvider>
   );
@@ -156,10 +422,8 @@ const styles = StyleSheet.create({
   splashTitle: {
     marginTop: 20,
     color: colors.white,
+    fontFamily: "Inter_900Black",
     fontSize: 27,
-    fontWeight: "900",
   },
-  splashLoader: {
-    marginTop: 22,
-  },
+  splashLoader: { marginTop: 22 },
 });

@@ -17,6 +17,7 @@ import { useStore } from "../store";
 
 type Props = {
   onComplete: () => void;
+  onLogin: () => void;
 };
 
 const pages = [
@@ -38,7 +39,7 @@ const pages = [
     colors: ["#D59AF5", "#C47BEF"] as const,
     title: "Пришлём пуш\nо статусе заказа",
     copy: "Сами доставляем заказы и следим за скоростью. Покажем статус заказа в режиме реального времени.",
-    image: require("../../assets/delivery.png"),
+    image: require("../../assets/delivery-nakta.png"),
     imageStyle: "bag" as const,
   },
   {
@@ -50,13 +51,14 @@ const pages = [
   },
 ];
 
-export function OnboardingScreen({ onComplete }: Props) {
+export function OnboardingScreen({ onComplete, onLogin }: Props) {
   const insets = useSafeAreaInsets();
   const { setOnboarded, setNotificationsAsked } = useStore();
   const [page, setPage] = useState(0);
   const [requestingPermission, setRequestingPermission] = useState(false);
-  const current = pages[page];
-  const buttonLabel = page === pages.length - 1 ? "Выбрать адрес доставки" : "Далее";
+  const pageIndex = Math.min(Math.max(page, 0), pages.length - 1);
+  const current = pages[pageIndex];
+  const buttonLabel = pageIndex === pages.length - 1 ? "Выбрать адрес доставки" : "Далее";
   const isNotificationPage = current.imageStyle === "bag";
 
   const complete = () => {
@@ -65,7 +67,7 @@ export function OnboardingScreen({ onComplete }: Props) {
   };
 
   const next = () => {
-    if (page < pages.length - 1) setPage((value) => value + 1);
+    if (pageIndex < pages.length - 1) setPage((value) => Math.min(value + 1, pages.length - 1));
     else complete();
   };
 
@@ -99,7 +101,7 @@ export function OnboardingScreen({ onComplete }: Props) {
           {pages.map((_, index) => (
             <View
               key={index}
-              style={[styles.progress, index <= page && styles.progressActive]}
+              style={[styles.progress, index <= pageIndex && styles.progressActive]}
             />
           ))}
         </View>
@@ -108,9 +110,9 @@ export function OnboardingScreen({ onComplete }: Props) {
           {current.imageStyle === "brand" ? (
             <View style={styles.brandTile}>
               <View style={styles.brandPattern}>
-                <Text style={styles.brandPatternText}>ЛОСОСЬ</Text>
-                <Text style={styles.brandPatternText}>ЛОСОСЬ</Text>
-                <Text style={styles.brandPatternText}>ЛОСОСЬ</Text>
+                <Text style={styles.brandPatternText}>НАКТА</Text>
+                <Text style={styles.brandPatternText}>СУШИ</Text>
+                <Text style={styles.brandPatternText}>НАКТА</Text>
               </View>
             </View>
           ) : current.imageStyle === "heart" ? (
@@ -150,10 +152,13 @@ export function OnboardingScreen({ onComplete }: Props) {
             style={styles.translucentButton}
             tone="white"
           />
-          {page === pages.length - 1 ? (
+          {pageIndex === pages.length - 1 ? (
             <Pressable
               accessibilityRole="button"
-              onPress={complete}
+              onPress={() => {
+                setOnboarded(true);
+                onLogin();
+              }}
               style={styles.loginButton}
             >
               <Text style={styles.loginText}>Войти</Text>

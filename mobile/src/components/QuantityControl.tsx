@@ -8,6 +8,7 @@ type Props = {
   minimum?: number;
   maximum?: number;
   compact?: boolean;
+  bare?: boolean;
 };
 
 export function QuantityControl({
@@ -16,10 +17,18 @@ export function QuantityControl({
   minimum = 0,
   maximum = 20,
   compact,
+  bare,
 }: Props) {
-  const buttonSize = compact ? 34 : 42;
+  const buttonWidth = bare ? 40 : compact ? 34 : 42;
+  const buttonHeight = bare ? 38 : compact ? 34 : 42;
   return (
-    <View style={[styles.container, compact && styles.containerCompact]}>
+    <View
+      style={[
+        styles.container,
+        compact && styles.containerCompact,
+        bare && styles.containerBare,
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Уменьшить количество"
@@ -27,7 +36,8 @@ export function QuantityControl({
         onPress={() => onChange(value - 1)}
         style={({ pressed }) => [
           styles.control,
-          { width: buttonSize, height: buttonSize },
+          bare && styles.controlBare,
+          { width: buttonWidth, height: buttonHeight },
           value <= minimum && styles.disabled,
           pressed && styles.pressed,
         ]}
@@ -42,7 +52,8 @@ export function QuantityControl({
         onPress={() => onChange(value + 1)}
         style={({ pressed }) => [
           styles.control,
-          { width: buttonSize, height: buttonSize },
+          bare && styles.controlBare,
+          { width: buttonWidth, height: buttonHeight },
           value >= maximum && styles.disabled,
           pressed && styles.pressed,
         ]}
@@ -67,11 +78,20 @@ const styles = StyleSheet.create({
     height: 40,
     gap: 5,
   },
+  containerBare: {
+    height: 38,
+    padding: 0,
+    gap: 12,
+    backgroundColor: "transparent",
+  },
   control: {
     borderRadius: 12,
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
+  },
+  controlBare: {
+    backgroundColor: colors.surface,
   },
   value: {
     minWidth: 20,

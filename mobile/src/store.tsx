@@ -9,14 +9,18 @@ import {
   useState,
 } from "react";
 import type {
+  AuthSession,
   CartLine,
   DeliveryLocation,
   DeliveryType,
   Product,
+  Region,
   SelectedModifier,
 } from "./types";
+import { clearSession, readSession, writeSession } from "./session";
 
-const STORAGE_KEY = "losos.mobile.v1";
+const STORAGE_KEY = "nakta.mobile.v2";
+const LEGACY_STORAGE_KEY = "losos.mobile.v1";
 
 type PersistedState = {
   onboarded: boolean;
@@ -31,6 +35,9 @@ type PersistedState = {
 
 type StoreValue = PersistedState & {
   hydrated: boolean;
+  session: AuthSession | null;
+  regions: Region[];
+  activeRegion: Region | null;
   cartCount: number;
   cartTotal: number;
   setOnboarded: (value: boolean) => void;
@@ -38,6 +45,9 @@ type StoreValue = PersistedState & {
   setRegionSlug: (value: string) => void;
   setDeliveryType: (value: DeliveryType) => void;
   setLocation: (value: DeliveryLocation | null) => void;
+  setRegions: (value: Region[]) => void;
+  signIn: (value: AuthSession) => Promise<void>;
+  signOut: () => Promise<void>;
   setUtensilsCount: (value: number) => void;
   setNoUtensils: (value: boolean) => void;
   addCartLine: (
@@ -90,18 +100,33 @@ function isPersistedState(value: unknown): value is PersistedState {
   );
 }
 
+export function restorePersistedState(raw: string | null) {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isPersistedState(parsed) ? { ...initialState, ...parsed } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function StoreProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(initialState);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [regions, setRegions] = useState<Region[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (!raw) return;
-        const parsed: unknown = JSON.parse(raw);
-        if (isPersistedState(parsed)) {
-          setState({ ...initialState, ...parsed });
-        }
+    Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(LEGACY_STORAGE_KEY),
+      readSession(),
+    ])
+      .then(([raw, legacyRaw, storedSession]) => {
+        const persistedRaw = raw || legacyRaw;
+        const restored = restorePersistedState(persistedRaw);
+        if (restored) setState(restored);
+        if (storedSession) setSession(storedSession);
       })
       .catch(() => undefined)
       .finally(() => setHydrated(true));
@@ -149,9 +174,13 @@ export function StoreProvider({ children }: PropsWithChildren) {
   const value = useMemo<StoreValue>(() => {
     const cartCount = state.cart.reduce((sum, line) => sum + line.quantity, 0);
     const cartTotal = state.cart.reduce((sum, line) => sum + lineTotal(line), 0);
+    const activeRegion = regions.find((region) => region.slug === state.regionSlug) ?? null;
     return {
       ...state,
       hydrated,
+      session,
+      regions,
+      activeRegion,
       cartCount,
       cartTotal,
       setOnboarded: (onboarded) => patch({ onboarded }),
@@ -159,6 +188,15 @@ export function StoreProvider({ children }: PropsWithChildren) {
       setRegionSlug: (regionSlug) => patch({ regionSlug }),
       setDeliveryType: (deliveryType) => patch({ deliveryType }),
       setLocation: (location) => patch({ location }),
+      setRegions,
+      signIn: async (nextSession) => {
+        await writeSession(nextSession);
+        setSession(nextSession);
+      },
+      signOut: async () => {
+        await clearSession();
+        setSession(null);
+      },
       setUtensilsCount: (utensilsCount) => patch({
         utensilsCount: Math.min(10, Math.max(1, utensilsCount)),
       }),
@@ -167,7 +205,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
       setCartQuantity,
       clearCart: () => patch({ cart: [] }),
     };
-  }, [addCartLine, hydrated, patch, setCartQuantity, state]);
+  }, [addCartLine, hydrated, patch, regions, session, setCartQuantity, state]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

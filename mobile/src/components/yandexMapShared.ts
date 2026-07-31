@@ -4,6 +4,9 @@ export type MapPoint = {
   address: string;
   latitude: number;
   longitude: number;
+  kind: string;
+  precision: string;
+  isComplete: boolean;
 };
 
 export type YandexMapProps = {
@@ -22,7 +25,7 @@ type RegionMapConfig = {
 const regions: Record<string, RegionMapConfig> = {
   bishkek: {
     city: "Бишкек",
-    center: [42.8746, 74.5698],
+    center: [42.851968, 74.624326],
     bounds: [[42.72, 74.32], [43.02, 74.91]],
   },
   osh: {
@@ -43,63 +46,174 @@ export function createYandexMapHtml(
   initialLongitude?: number,
 ) {
   const config = getRegionMapConfig(regionSlug);
-  const hasInitialPoint = Number.isFinite(initialLatitude) && Number.isFinite(initialLongitude);
+  const geocoderUrl = credentials.geocoderUrl?.trim() || "";
+  const hasInitialPoint = Number.isFinite(initialLatitude)
+    && Number.isFinite(initialLongitude)
+    && (initialLatitude as number) >= config.bounds[0][0]
+    && (initialLatitude as number) <= config.bounds[1][0]
+    && (initialLongitude as number) >= config.bounds[0][1]
+    && (initialLongitude as number) <= config.bounds[1][1];
   const center: [number, number] = hasInitialPoint
     ? [initialLatitude as number, initialLongitude as number]
     : config.center;
-  const markerSvg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">',
-    '<rect x="11" y="14" width="26" height="27" rx="5" fill="#ff4d00"/>',
-    '<path d="M17 17v-3a7 7 0 0 1 14 0v3" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>',
-    '<path d="M17 24h14M17 30h9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>',
-    "</svg>",
-  ].join("");
-  const markerImageUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markerSvg)}`;
 
   if (!credentials.mapsApiKey) {
-    const widgetUrl = new URL("https://yandex.com/map-widget/v1/");
-    widgetUrl.searchParams.set("ll", `${center[1]},${center[0]}`);
-    widgetUrl.searchParams.set("z", hasInitialPoint ? "17" : "15");
     return `<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #ecebe7; }
+    html, body, #map { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #ecebe7; }
     * { box-sizing: border-box; }
-    iframe { width: 100%; height: 100%; border: 0; }
-    .pin {
+    .state {
       position: fixed;
-      z-index: 10;
-      left: 50%;
-      top: 50%;
-      width: 58px;
-      height: 58px;
+      z-index: 2000;
+      inset: 0;
       display: grid;
       place-items: center;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 6px 18px rgba(64, 36, 18, .2);
-      transform: translate(-50%, -82%);
-      pointer-events: none;
+      padding: 28px;
+      color: #696969;
+      font: 600 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-align: center;
+      background: #ecebe7;
     }
-    .pin::after {
-      content: "";
-      position: absolute;
-      left: 27px;
-      bottom: -21px;
-      width: 4px;
-      height: 23px;
-      border-radius: 4px;
-      background: #ff4d00;
+    .leaflet-control-zoom {
+      border: 0 !important;
+      box-shadow: 0 3px 13px rgba(0,0,0,.18) !important;
     }
-    .pin img { position: relative; z-index: 1; width: 36px; height: 36px; object-fit: contain; }
+    .leaflet-control-zoom a {
+      width: 42px !important;
+      height: 42px !important;
+      line-height: 40px !important;
+      color: #454545 !important;
+      border: 0 !important;
+    }
+    .leaflet-control-attribution { font-size: 8px; }
   </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
-  <iframe src="${widgetUrl.toString()}" allowfullscreen title="Яндекс Карта"></iframe>
-  <div class="pin" aria-hidden="true"><img src="${markerImageUrl}" alt=""></div>
+  <div id="map"></div>
+  <div class="state" id="state">Загружаем карту…</div>
+  <script>
+    (function () {
+      const config = ${JSON.stringify(config)};
+      const initialCenter = ${JSON.stringify(center)};
+      const geocoderUrl = ${JSON.stringify(geocoderUrl)};
+      const state = document.getElementById("state");
+      let timer;
+      let geocodeRevision = 0;
+
+      function send(type, payload) {
+        const message = JSON.stringify({ source: "losos-yandex-map", type, ...payload });
+        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+          window.ReactNativeWebView.postMessage(message);
+        }
+        window.parent.postMessage(message, "*");
+      }
+
+      function addressFromProperties(properties) {
+        const street = String(properties.street || properties.name || "").trim();
+        const house = String(properties.housenumber || "").trim();
+        const district = String(properties.district || "").trim();
+        return [street, house].filter(Boolean).join(", ")
+          || district
+          || config.city;
+      }
+
+      async function reverseViaProxy(point, revision) {
+        if (!geocoderUrl) return false;
+        const params = new URLSearchParams({
+          lat: String(point.lat),
+          lon: String(point.lng),
+          region: ${JSON.stringify(regionSlug)}
+        });
+        const response = await fetch(geocoderUrl + "?" + params.toString(), {
+          headers: { Accept: "application/json" }
+        });
+        if (!response.ok) return false;
+        const data = await response.json();
+        const suggestion = data.suggestions && data.suggestions[0];
+        if (!suggestion) return false;
+        if (revision !== geocodeRevision) return true;
+        send("location", {
+          address: suggestion.label,
+          latitude: point.lat,
+          longitude: point.lng,
+          kind: String(suggestion.kind || ""),
+          precision: String(suggestion.precision || ""),
+          isComplete: suggestion.isComplete === true
+        });
+        return true;
+      }
+
+      async function resolveCenter(map) {
+        const point = map.getCenter();
+        const revision = ++geocodeRevision;
+        try {
+          if (await reverseViaProxy(point, revision)) return;
+          const params = new URLSearchParams({
+            lat: String(point.lat),
+            lon: String(point.lng),
+            lang: "default"
+          });
+          const response = await fetch("https://photon.komoot.io/reverse?" + params.toString(), {
+            headers: { Accept: "application/json" }
+          });
+          if (!response.ok) throw new Error("reverse geocoding failed");
+          const data = await response.json();
+          const feature = data.features && data.features[0];
+          if (!feature) throw new Error("address not found");
+          if (revision !== geocodeRevision) return;
+          const properties = feature.properties || {};
+          const houseNumber = String(properties.housenumber || "").trim();
+          send("location", {
+            address: addressFromProperties(properties),
+            latitude: point.lat,
+            longitude: point.lng,
+            kind: houseNumber ? "house" : String(properties.type || "street"),
+            precision: houseNumber ? "exact" : "street",
+            isComplete: Boolean(houseNumber)
+          });
+        } catch (error) {
+          send("status", { message: "Передвиньте карту ближе к нужному дому" });
+        }
+      }
+
+      function scheduleResolve(map) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(function () { resolveCenter(map); }, 520);
+      }
+
+      if (!window.L) {
+        state.textContent = "Не удалось загрузить интерактивную карту";
+        send("error", { message: state.textContent });
+        return;
+      }
+
+      const map = window.L.map("map", {
+        zoomControl: false,
+        attributionControl: true,
+        maxBounds: config.bounds,
+        maxBoundsViscosity: 1
+      }).setView(initialCenter, ${hasInitialPoint ? 17 : 15});
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        minZoom: 10,
+        maxZoom: 19,
+        attribution: "© OpenStreetMap"
+      }).addTo(map);
+      window.L.control.zoom({ position: "topright" }).addTo(map);
+      map.on("moveend", function () { scheduleResolve(map); });
+      map.on("click", function (event) {
+        map.setView(event.latlng, Math.max(map.getZoom(), 16), { animate: true });
+      });
+      state.style.display = "none";
+      send("ready", {});
+      scheduleResolve(map);
+    }());
+  </script>
 </body>
 </html>`;
   }
@@ -118,35 +232,9 @@ export function createYandexMapHtml(
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #ecebe7; }
     * { box-sizing: border-box; }
-    .pin {
-      position: fixed;
-      z-index: 10;
-      left: 50%;
-      top: 50%;
-      width: 58px;
-      height: 58px;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 6px 18px rgba(64, 36, 18, .2);
-      transform: translate(-50%, -82%);
-      pointer-events: none;
-    }
-    .pin::after {
-      content: "";
-      position: absolute;
-      left: 27px;
-      bottom: -21px;
-      width: 4px;
-      height: 23px;
-      border-radius: 4px;
-      background: #ff4d00;
-    }
-    .pin img { position: relative; z-index: 1; width: 36px; height: 36px; object-fit: contain; }
     .state {
       position: fixed;
-      z-index: 20;
+      z-index: 2000;
       inset: 0;
       display: grid;
       place-items: center;
@@ -161,15 +249,16 @@ export function createYandexMapHtml(
 </head>
 <body>
   <div id="map"></div>
-  <div class="pin" aria-hidden="true"><img src="${markerImageUrl}" alt=""></div>
   <div class="state" id="state">Загружаем карту…</div>
   <script>
     (function () {
       const config = ${JSON.stringify(config)};
       const initialCenter = ${JSON.stringify(center)};
+      const geocoderUrl = ${JSON.stringify(geocoderUrl)};
       const state = document.getElementById("state");
       let map;
       let timer;
+      let geocodeRevision = 0;
 
       function send(type, payload) {
         const message = JSON.stringify({ source: "losos-yandex-map", type, ...payload });
@@ -186,23 +275,80 @@ export function createYandexMapHtml(
           .trim();
       }
 
-      function resolveCenter() {
-        if (!map) return;
-        const point = map.getCenter();
-        window.ymaps.geocode(point, { results: 1, kind: "house" })
+      function sendSuggestion(point, suggestion) {
+        send("location", {
+          address: String(suggestion.label || ""),
+          latitude: point[0],
+          longitude: point[1],
+          kind: String(suggestion.kind || ""),
+          precision: String(suggestion.precision || ""),
+          isComplete: suggestion.isComplete === true
+        });
+      }
+
+      function reverseViaProxy(point, revision) {
+        if (!geocoderUrl) return Promise.resolve(false);
+        const params = new URLSearchParams({
+          lat: String(point[0]),
+          lon: String(point[1]),
+          region: ${JSON.stringify(regionSlug)}
+        });
+        return fetch(geocoderUrl + "?" + params.toString(), {
+          headers: { Accept: "application/json" }
+        })
+          .then(function (response) {
+            if (!response.ok) return false;
+            return response.json().then(function (data) {
+              const suggestion = data.suggestions && data.suggestions[0];
+              if (!suggestion) return false;
+              if (revision !== geocodeRevision) return true;
+              sendSuggestion(point, suggestion);
+              return true;
+            });
+          })
+          .catch(function () { return false; });
+      }
+
+      function resolvePoint(point) {
+        const revision = ++geocodeRevision;
+        reverseViaProxy(point, revision).then(function (resolved) {
+          if (resolved || revision !== geocodeRevision) return;
+          return window.ymaps.geocode(point, { results: 1 })
           .then(function (result) {
+            if (revision !== geocodeRevision) return;
             const object = result.geoObjects.get(0);
             if (!object) throw new Error("Адрес не найден");
-            const coordinates = object.geometry.getCoordinates();
+            const metadata = object.properties.get("metaDataProperty.GeocoderMetaData") || {};
+            const components = metadata.Address && Array.isArray(metadata.Address.Components)
+              ? metadata.Address.Components
+              : [];
+            const houseNumber = components.find(function (component) {
+              return component && component.kind === "house";
+            });
+            const address = cleanAddress(object.getAddressLine());
+            const kind = String(metadata.kind || "");
+            const precision = String(metadata.precision || "");
+            const isComplete = kind === "house"
+              && Boolean(houseNumber && houseNumber.name || /(?:,|\\s)\\s*\\d+[\\wА-Яа-я/-]*\\s*$/u.test(address));
             send("location", {
-              address: cleanAddress(object.getAddressLine()),
-              latitude: coordinates[0],
-              longitude: coordinates[1]
+              address,
+              latitude: point[0],
+              longitude: point[1],
+              kind,
+              precision,
+              isComplete
             });
           })
           .catch(function () {
+            if (revision !== geocodeRevision) return;
             send("status", { message: "Передвиньте карту ближе к нужному дому" });
           });
+        });
+      }
+
+      function resolveCenter() {
+        if (!map) return;
+        resolvePoint(map.getCenter());
       }
 
       function scheduleResolve() {
@@ -230,8 +376,10 @@ export function createYandexMapHtml(
         map.controls.get("zoomControl").options.set({ position: { right: 12, top: 76 } });
         map.events.add("actionend", scheduleResolve);
         map.events.add("click", function (event) {
-          map.setCenter(event.get("coords"), Math.max(map.getZoom(), 16), { duration: 220 });
-          scheduleResolve();
+          const clickedPoint = event.get("coords");
+          map.setCenter(clickedPoint, Math.max(map.getZoom(), 16), { duration: 220 });
+          window.clearTimeout(timer);
+          timer = window.setTimeout(function () { resolvePoint(clickedPoint); }, 260);
         });
         state.style.display = "none";
         send("ready", {});
@@ -257,6 +405,9 @@ export function parseMapMessage(value: unknown): MapPoint | null {
         address: payload.address,
         latitude: payload.latitude,
         longitude: payload.longitude,
+        kind: typeof payload.kind === "string" ? payload.kind : "",
+        precision: typeof payload.precision === "string" ? payload.precision : "",
+        isComplete: payload.isComplete === true,
       };
     }
   } catch {

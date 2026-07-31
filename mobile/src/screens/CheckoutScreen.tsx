@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ordersApi } from "../api";
+import { createOrderIdempotencyKey } from "../navigationRules";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { QuantityControl } from "../components/QuantityControl";
 import { useStore } from "../store";
@@ -34,6 +35,7 @@ type FieldProps = {
   placeholder: string;
   keyboardType?: "default" | "phone-pad" | "number-pad";
   multiline?: boolean;
+  editable?: boolean;
 };
 
 function FormField({
@@ -43,12 +45,14 @@ function FormField({
   placeholder,
   keyboardType = "default",
   multiline,
+  editable = true,
 }: FieldProps) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         keyboardType={keyboardType}
+        editable={editable}
         multiline={multiline}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -64,7 +68,7 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
   const [customerName, setCustomerName] = useState("");
-  const [phone, setPhone] = useState("+996");
+  const phone = store.session?.phone ?? "";
   const [address, setAddress] = useState(store.location?.address ?? "");
   const [apartment, setApartment] = useState("");
   const [entrance, setEntrance] = useState("");
@@ -74,6 +78,9 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [idempotencyKey] = useState(
+    () => createOrderIdempotencyKey(),
+  );
 
   const normalizedPhone = phone.replace(/[\s()-]/g, "");
   const validPhone = /^\+(?:7\d{10}|996\d{9})$/.test(normalizedPhone);
@@ -81,7 +88,8 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
     customerName.trim().length >= 2 &&
     validPhone &&
     address.trim().length >= 5 &&
-    store.cart.length > 0
+    store.cart.length > 0 &&
+    Boolean(store.session)
   );
 
   const deliveryLabel = useMemo(
@@ -94,7 +102,8 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
     setSubmitting(true);
     setError("");
     const payload: OrderPayload = {
-      idempotencyKey: `mobile-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      idempotencyKey,
+      verificationToken: store.session?.verificationToken || "",
       regionSlug: store.regionSlug,
       deliveryType: store.deliveryType,
       customerName: customerName.trim(),
@@ -135,10 +144,15 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
     <View style={styles.root}>
       <StatusBar style="dark" />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-        <Pressable accessibilityLabel="Назад в корзину" hitSlop={9} onPress={onBack}>
+        <Pressable
+          accessibilityLabel="Назад в корзину"
+          hitSlop={9}
+          onPress={onBack}
+          style={styles.backButton}
+        >
           <MaterialCommunityIcons name="arrow-left" size={27} color={colors.ink} />
         </Pressable>
-        <Text style={styles.title}>Оформление</Text>
+        <Text style={styles.title}>{deliveryLabel}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -153,19 +167,8 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-        >
+          >
           <View style={styles.section}>
-            <View style={styles.sectionTitleRow}>
-              <View style={styles.iconCircle}>
-                <MaterialCommunityIcons name="map-marker-outline" size={21} color={colors.orange} />
-              </View>
-              <View>
-                <Text style={styles.sectionTitle}>{deliveryLabel}</Text>
-                <Text style={styles.sectionSubtitle}>
-                  {store.regionSlug === "osh" ? "Ош" : "Бишкек"}
-                </Text>
-              </View>
-            </View>
             <FormField
               label={store.deliveryType === "delivery" ? "Адрес" : "Кухня"}
               onChangeText={setAddress}
@@ -175,18 +178,22 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
             {store.deliveryType === "delivery" ? (
               <View style={styles.inlineFields}>
                 <View style={styles.inlineField}>
-                  <FormField label="Квартира" onChangeText={setApartment} placeholder="—" value={apartment} />
+                  <FormField label="Квартира" onChangeText={setApartment} placeholder="Квартира" value={apartment} />
                 </View>
                 <View style={styles.inlineField}>
-                  <FormField label="Подъезд" onChangeText={setEntrance} placeholder="—" value={entrance} />
-                </View>
-                <View style={styles.inlineField}>
-                  <FormField label="Этаж" onChangeText={setFloor} placeholder="—" value={floor} />
+                  <FormField label="Подъезд" onChangeText={setEntrance} placeholder="Подъезд" value={entrance} />
                 </View>
               </View>
             ) : null}
             {store.deliveryType === "delivery" ? (
-              <FormField label="Домофон" onChangeText={setIntercom} placeholder="Код или номер" value={intercom} />
+              <View style={styles.inlineFields}>
+                <View style={styles.inlineField}>
+                  <FormField label="Этаж" onChangeText={setFloor} placeholder="Этаж" value={floor} />
+                </View>
+                <View style={styles.inlineField}>
+                  <FormField label="Домофон" onChangeText={setIntercom} placeholder="Домофон" value={intercom} />
+                </View>
+              </View>
             ) : null}
           </View>
 
@@ -200,8 +207,9 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
             />
             <FormField
               keyboardType="phone-pad"
+              editable={false}
               label="Телефон"
-              onChangeText={setPhone}
+              onChangeText={() => undefined}
               placeholder="+996 555 123 456"
               value={phone}
             />
@@ -248,6 +256,7 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
               </View>
               {!store.noUtensils ? (
                 <QuantityControl
+                  bare
                   compact
                   maximum={10}
                   minimum={1}
@@ -306,34 +315,42 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.white,
   },
   flex: {
     flex: 1,
   },
   header: {
-    paddingHorizontal: 18,
-    paddingBottom: 14,
+    paddingLeft: 2,
+    paddingRight: 16,
+    paddingBottom: 10,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     backgroundColor: colors.white,
   },
+  backButton: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: {
+    flex: 1,
     color: colors.ink,
-    fontSize: 22,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
+    lineHeight: 36,
   },
   headerSpacer: {
-    width: 27,
+    width: 16,
   },
   content: {
-    padding: 12,
-    gap: 10,
+    paddingBottom: 12,
   },
   section: {
     padding: 16,
-    borderRadius: radii.medium,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
     backgroundColor: colors.white,
   },
   sectionTitleRow: {
@@ -352,8 +369,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: colors.ink,
-    fontSize: 18,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
   },
   sectionSubtitle: {
     marginTop: 2,
@@ -361,25 +378,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   field: {
-    marginTop: 13,
-  },
-  fieldLabel: {
-    marginBottom: 6,
-    color: colors.muted,
-    fontSize: 11,
-    fontWeight: "600",
+    marginTop: 8,
   },
   input: {
-    height: 50,
-    paddingHorizontal: 14,
-    borderRadius: 14,
+    height: 52,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 15,
     backgroundColor: colors.surface,
   },
   inputMultiline: {
-    minHeight: 86,
-    paddingTop: 13,
+    minHeight: 92,
+    paddingTop: 16,
     textAlignVertical: "top",
   },
   inlineFields: {

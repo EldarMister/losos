@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { resolveImageUrl } from "../api";
+import { catalogApi, resolveImageUrl } from "../api";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
 import type {
@@ -27,9 +27,10 @@ type Props = {
   product: Product | null;
   onClose: () => void;
   onAdded?: () => void;
+  onOpenProduct?: (product: Product) => void;
 };
 
-function initialSelections(product: Product): ModifierSelection {
+export function initialModifierSelections(product: Product): ModifierSelection {
   const selected: ModifierSelection = {};
   for (const group of product.modifierGroups ?? []) {
     selected[group.id] = {};
@@ -41,19 +42,112 @@ function selectionCount(group: ModifierGroup, selection: ModifierSelection) {
   return Object.values(selection[group.id] ?? {}).reduce((sum, value) => sum + value, 0);
 }
 
-export function ProductSheet({ product, onClose, onAdded }: Props) {
+export function isModifierSelectionValid(
+  product: Product,
+  selection: ModifierSelection,
+) {
+  return (product.modifierGroups ?? []).every((group) => {
+    const count = selectionCount(group, selection);
+    const minimum = group.required
+      ? Math.max(1, group.minSelections ?? 1)
+      : (group.minSelections ?? 0);
+    const maximum = group.selectionType === "single"
+      ? 1
+      : (group.maxSelections ?? 99);
+    return count >= minimum && count <= maximum;
+  });
+}
+
+function RelatedProductCard({
+  product,
+  onAdd,
+  onPress,
+}: {
+  product: Product;
+  onAdd: () => void;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.relatedCard}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Открыть ${product.name}`}
+        onPress={onPress}
+      >
+        <Image
+          resizeMode="cover"
+          resizeMethod="resize"
+          source={{ uri: resolveImageUrl(product.image) }}
+          style={styles.relatedImage}
+        />
+        <Text numberOfLines={2} style={styles.relatedName}>{product.name}</Text>
+      </Pressable>
+      <View style={styles.relatedBottom}>
+        <Text style={styles.relatedPrice}>{money(product.price)}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Добавить ${product.name}`}
+          hitSlop={7}
+          onPress={onAdd}
+          style={styles.relatedAdd}
+        >
+          <MaterialCommunityIcons name="plus" size={21} color={colors.orange} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export function ProductSheet({
+  product,
+  onClose,
+  onAdded,
+  onOpenProduct,
+}: Props) {
   const store = useStore();
   const { height, width } = useWindowDimensions();
   const [quantity, setQuantity] = useState(1);
   const [selection, setSelection] = useState<ModifierSelection>({});
-  const [compositionExpanded, setCompositionExpanded] = useState(false);
+  const [detailView, setDetailView] = useState<"composition" | "equipment" | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!product) return;
     setQuantity(1);
-    setSelection(initialSelections(product));
-    setCompositionExpanded(false);
+    setSelection(initialModifierSelections(product));
+    setDetailView(null);
   }, [product]);
+
+  useEffect(() => {
+    if (!product) {
+      setRelatedProducts([]);
+      return undefined;
+    }
+    setRelatedProducts([]);
+    let ignore = false;
+    catalogApi.categories(store.regionSlug)
+      .then((categories) => {
+        if (ignore) return;
+        const accessoryCategories = categories.filter((category) => (
+          /соус|добав|напит|десерт|закуск/i.test(category.title)
+        ));
+        const candidates = (
+          accessoryCategories.length ? accessoryCategories : categories
+        ).flatMap((category) => category.products);
+        const unique = candidates.filter((candidate, index, items) => (
+          candidate.id !== product.id
+          && candidate.available !== false
+          && items.findIndex((item) => item.id === candidate.id) === index
+        ));
+        setRelatedProducts(unique.slice(0, 8));
+      })
+      .catch(() => {
+        if (!ignore) setRelatedProducts([]);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [product, store.regionSlug]);
 
   const modifiers = useMemo<SelectedModifier[]>(() => {
     if (!product) return [];
@@ -76,12 +170,7 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
 
   const valid = useMemo(() => {
     if (!product) return false;
-    return (product.modifierGroups ?? []).every((group) => {
-      const count = selectionCount(group, selection);
-      const minimum = group.required ? Math.max(1, group.minSelections ?? 1) : (group.minSelections ?? 0);
-      const maximum = group.selectionType === "single" ? 1 : (group.maxSelections ?? 99);
-      return count >= minimum && count <= maximum;
-    });
+    return isModifierSelectionValid(product, selection);
   }, [product, selection]);
 
   const total = useMemo(() => {
@@ -116,98 +205,150 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
     onClose();
     onAdded?.();
   };
-  const heroHeight = Math.min(width * 1.04, height * 0.58);
+  const heroHeight = Math.min(width, height * 0.58);
+
+  const hasEquipment = Boolean(product.composition)
+    && !/соус|васаби|имбир|напит|кола|фанта|вода|морс|сок|чай/i.test(product.name);
+  const detailTitle = detailView === "equipment" ? "Комплектация" : "Состав";
+  const detailCopy = product.composition || product.description || "Состав уточняется.";
+  const equipment = [
+    {
+      name: "Васаби",
+      quantity: 1,
+      product: relatedProducts.find((item) => /^васаби$/i.test(item.name)),
+    },
+    {
+      name: "Соус соевый",
+      quantity: 2,
+      product: relatedProducts.find((item) => /^соус соевый$/i.test(item.name)),
+    },
+    {
+      name: "Имбирь",
+      quantity: 1,
+      product: relatedProducts.find((item) => /имбир/i.test(item.name)),
+    },
+  ];
 
   return (
-    <Sheet
-      fullScreen
-      visible={Boolean(product)}
-      onClose={onClose}
-      footer={(
-        <View style={styles.footerRow}>
-          <QuantityControl minimum={1} onChange={setQuantity} value={quantity} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={valid ? `Добавить, ${money(total)}` : "Выберите модификации"}
-            disabled={!valid}
-            onPress={add}
-            style={({ pressed }) => [
-              styles.addButton,
-              !valid && styles.addButtonDisabled,
-              pressed && styles.addButtonPressed,
-            ]}
-          >
-            <Text style={styles.addButtonLabel}>
-              {valid ? "Добавить" : "Выберите модификации"}
-            </Text>
-            {valid ? <Text style={styles.addButtonPrice}>{money(total)}</Text> : null}
-          </Pressable>
-        </View>
-      )}
-    >
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+    <>
+      <Sheet
+        fullScreen
+        height="83%"
+        visible={Boolean(product)}
+        onClose={onClose}
+        footer={(
+          <View style={styles.footerRow}>
+            <QuantityControl minimum={1} onChange={setQuantity} value={quantity} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={valid ? `Добавить, ${money(total)}` : "Выберите модификации"}
+              disabled={!valid}
+              onPress={add}
+              style={({ pressed }) => [
+                styles.addButton,
+                !valid && styles.addButtonDisabled,
+                pressed && styles.addButtonPressed,
+              ]}
+            >
+              <Text style={styles.addButtonLabel}>
+                {valid ? "Добавить" : "Выберите модификации"}
+              </Text>
+              {valid ? <Text style={styles.addButtonPrice}>{money(total)}</Text> : null}
+            </Pressable>
+          </View>
+        )}
       >
-        <View style={[styles.hero, { height: heroHeight }]}>
-          <Image
-            resizeMode="cover"
-            source={{ uri: resolveImageUrl(product.image) }}
-            style={styles.heroImage}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Закрыть карточку"
-            hitSlop={8}
-            onPress={onClose}
-            style={styles.closeButton}
-          >
-            <MaterialCommunityIcons name="close" size={23} color={colors.ink} />
-          </Pressable>
-          {product.isNew ? (
-            <View style={styles.newBadge}>
-              <Text style={styles.newText}>НОВИНКА</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.infoCard}>
-          <Text style={styles.title}>{product.name}</Text>
-          {product.description ? (
-            <Text style={styles.description}>{product.description}</Text>
-          ) : null}
-        </View>
-
-        {product.weight || product.calories || product.protein || product.fat || product.carbs ? (
-          <View style={styles.nutritionCard}>
-            {[
-              [product.weight, "грамм"],
-              [product.calories, "ккал"],
-              [product.protein, "белки"],
-              [product.fat, "жиры"],
-              [product.carbs, "углеводы"],
-            ].map(([value, label]) => (
-              <View key={label} style={styles.nutritionItem}>
-                <Text style={styles.nutritionValue}>{value || "—"}</Text>
-                <Text style={styles.nutritionLabel}>{label}</Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.hero, { height: heroHeight }]}>
+            <Image
+              resizeMode="cover"
+              resizeMethod="resize"
+              source={{ uri: resolveImageUrl(product.image) }}
+              style={styles.heroImage}
+            />
+            {product.isNew ? (
+              <View style={styles.newBadge}>
+                <Text style={styles.newText}>НОВИНКА</Text>
               </View>
-            ))}
-            {product.composition ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setCompositionExpanded((current) => !current)}
-                style={styles.composition}
-              >
-                <Text style={styles.compositionTitle}>Состав</Text>
-                {compositionExpanded ? (
-                  <Text style={styles.compositionText}>{product.composition}</Text>
-                ) : null}
-              </Pressable>
             ) : null}
           </View>
-        ) : null}
 
-        {(product.modifierGroups ?? []).map((group) => {
+          <View style={styles.infoCard}>
+            <Text style={styles.title}>{product.name}</Text>
+            {product.description ? (
+              <Text style={styles.description}>{product.description}</Text>
+            ) : null}
+          </View>
+
+          {product.weight || product.calories || product.protein || product.fat || product.carbs ? (
+            <View style={styles.nutritionCard}>
+              {[
+                [product.weight, "грамм"],
+                [product.calories, "ккал"],
+                [product.protein, "белки"],
+                [product.fat, "жиры"],
+                [product.carbs, "углеводы"],
+              ].map(([value, label]) => (
+                <View key={label} style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>{value || "—"}</Text>
+                  <Text style={styles.nutritionLabel}>{label}</Text>
+                </View>
+              ))}
+              {product.composition ? (
+                <View style={styles.compositionActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Открыть состав"
+                    onPress={() => setDetailView("composition")}
+                    style={styles.composition}
+                  >
+                    <Text style={styles.compositionTitle}>Состав</Text>
+                  </Pressable>
+                  {hasEquipment ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Открыть комплектацию"
+                      onPress={() => setDetailView("equipment")}
+                      style={styles.composition}
+                    >
+                      <Text style={styles.compositionTitle}>Комплектация</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {relatedProducts.length ? (
+            <View style={styles.relatedSection}>
+              <Text style={styles.relatedTitle}>Вместе вкуснее</Text>
+              <ScrollView
+                contentContainerStyle={styles.relatedRow}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+              >
+                {relatedProducts.map((relatedProduct) => (
+                  <RelatedProductCard
+                    key={relatedProduct.id}
+                    onAdd={() => {
+                      if (relatedProduct.modifierGroups?.some((group) => group.required)) {
+                        onOpenProduct?.(relatedProduct);
+                      } else {
+                        store.addCartLine(relatedProduct, 1, []);
+                      }
+                    }}
+                    onPress={() => onOpenProduct?.(relatedProduct)}
+                    product={relatedProduct}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          {(product.modifierGroups ?? []).map((group) => {
           const groupCount = selectionCount(group, selection);
           return (
             <View key={group.id} style={styles.modifierSection}>
@@ -259,11 +400,16 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
                         accessibilityRole="button"
                         accessibilityLabel={`${active ? "Убрать" : "Выбрать"} ${item.name}`}
                         key={item.id}
-                        onPress={() => setModifier(group, item.id, active ? 0 : 1)}
+                        onPress={() => setModifier(
+                          group,
+                          item.id,
+                          active && !group.required ? 0 : 1,
+                        )}
                         style={[styles.modifierCard, active && styles.modifierCardActive]}
                       >
                         <Image
                           resizeMode="cover"
+                          resizeMethod="resize"
                           source={{ uri: resolveImageUrl(item.image) }}
                           style={styles.modifierImage}
                         />
@@ -290,11 +436,16 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
                         accessibilityRole="button"
                         accessibilityLabel={`${current ? "Убрать" : "Выбрать"} ${item.name}`}
                         key={item.id}
-                        onPress={() => setModifier(group, item.id, current ? 0 : 1)}
+                        onPress={() => setModifier(
+                          group,
+                          item.id,
+                          current && !group.required ? 0 : 1,
+                        )}
                         style={styles.modifierRow}
                       >
                         <Image
                           resizeMode="cover"
+                          resizeMethod="resize"
                           source={{ uri: resolveImageUrl(item.image) }}
                           style={styles.modifierRowImage}
                         />
@@ -327,9 +478,63 @@ export function ProductSheet({ product, onClose, onAdded }: Props) {
               )}
             </View>
           );
-        })}
-      </ScrollView>
-    </Sheet>
+          })}
+        </ScrollView>
+      </Sheet>
+      <Sheet
+        height={detailView === "equipment" ? "39%" : "60%"}
+        onClose={() => setDetailView(null)}
+        visible={detailView !== null}
+        footer={detailView === "composition" ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setDetailView(null)}
+            style={styles.detailButton}
+          >
+            <Text style={styles.detailButtonText}>Понятно</Text>
+          </Pressable>
+        ) : undefined}
+      >
+        <View style={styles.detailHeader}>
+          <Text style={styles.detailTitle}>{detailTitle}</Text>
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.detailContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {detailView === "equipment" ? (
+            <View style={styles.equipmentList}>
+              {equipment.map((item) => (
+                <View key={item.name} style={styles.equipmentRow}>
+                  {item.product ? (
+                    <Image
+                      resizeMode="cover"
+                      resizeMethod="resize"
+                      source={{ uri: resolveImageUrl(item.product.image) }}
+                      style={styles.equipmentImage}
+                    />
+                  ) : (
+                    <View style={[styles.equipmentImage, styles.equipmentFallback]}>
+                      <MaterialCommunityIcons
+                        name="food-variant"
+                        size={25}
+                        color={colors.orange}
+                      />
+                    </View>
+                  )}
+                  <View style={styles.equipmentCopy}>
+                    <Text style={styles.equipmentName}>{item.name}</Text>
+                    <Text style={styles.equipmentQuantity}>{item.quantity} шт</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.detailCopy}>{detailCopy}</Text>
+          )}
+        </ScrollView>
+      </Sheet>
+    </>
   );
 }
 
@@ -347,17 +552,6 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
-  },
-  closeButton: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.92)",
   },
   newBadge: {
     position: "absolute",
@@ -382,14 +576,15 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.ink,
-    fontSize: 29,
-    lineHeight: 34,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
+    lineHeight: 36,
     letterSpacing: -0.55,
   },
   description: {
     marginTop: 12,
     color: "#2A2A2A",
+    fontFamily: "Inter_400Regular",
     fontSize: 15,
     lineHeight: 21,
   },
@@ -407,6 +602,7 @@ const styles = StyleSheet.create({
   },
   nutritionValue: {
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 15,
   },
   nutritionLabel: {
@@ -414,9 +610,14 @@ const styles = StyleSheet.create({
     color: "#A0A0A0",
     fontSize: 10,
   },
-  composition: {
+  compositionActions: {
     width: "100%",
     marginTop: 14,
+    flexDirection: "row",
+    gap: 8,
+  },
+  composition: {
+    flex: 1,
     padding: 13,
     borderRadius: 14,
     backgroundColor: colors.surface,
@@ -424,52 +625,168 @@ const styles = StyleSheet.create({
   compositionTitle: {
     color: colors.ink,
     textAlign: "center",
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+  },
+  relatedSection: {
+    paddingTop: 19,
+    paddingBottom: 20,
+    backgroundColor: colors.surface,
+  },
+  relatedTitle: {
+    paddingHorizontal: 18,
+    marginBottom: 12,
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 15,
+  },
+  relatedRow: {
+    paddingHorizontal: 18,
+    gap: 10,
+  },
+  relatedCard: {
+    width: 152,
+    minHeight: 238,
+    padding: 9,
+    borderRadius: radii.medium,
+    backgroundColor: colors.white,
+  },
+  relatedImage: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 13,
+    backgroundColor: colors.white,
+  },
+  relatedName: {
+    minHeight: 36,
+    marginTop: 8,
+    color: colors.ink,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "600",
+  },
+  relatedBottom: {
+    marginTop: "auto",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  relatedPrice: {
+    color: colors.ink,
     fontSize: 14,
     fontWeight: "700",
   },
-  compositionText: {
-    marginTop: 6,
+  relatedAdd: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.white,
+  },
+  detailHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  detailTitle: {
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
+    lineHeight: 36,
+  },
+  detailContent: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 28,
+  },
+  detailCopy: {
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  equipmentList: {
+    gap: 8,
+  },
+  equipmentRow: {
+    minHeight: 76,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  equipmentImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+  },
+  equipmentFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  equipmentCopy: {
+    flex: 1,
+  },
+  equipmentName: {
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+  },
+  equipmentQuantity: {
+    marginTop: 4,
     color: colors.muted,
-    textAlign: "center",
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 14,
+  },
+  detailButton: {
+    height: 52,
+    marginHorizontal: 4,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  detailButtonText: {
+    color: colors.ink,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
   },
   modifierSection: {
-    paddingVertical: 16,
+    paddingTop: 24,
+    paddingBottom: 16,
     backgroundColor: colors.surface,
   },
   modifierHeader: {
-    paddingHorizontal: 18,
-    marginBottom: 11,
+    paddingHorizontal: 16,
+    marginBottom: 16,
     flexDirection: "row",
   },
   modifierTitle: {
     flex: 1,
     color: colors.ink,
-    fontSize: 18,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 15,
   },
   modifierCards: {
-    paddingHorizontal: 18,
-    gap: 9,
+    height: 156,
+    paddingHorizontal: 16,
+    gap: 8,
   },
   modifierCard: {
-    width: 126,
-    minHeight: 176,
-    padding: 8,
+    width: 108,
+    height: 156,
     borderWidth: 1.5,
     borderColor: "transparent",
-    borderRadius: radii.medium,
-    backgroundColor: colors.surface,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: colors.white,
   },
   modifierCardActive: {
     borderColor: colors.orange,
-    backgroundColor: colors.orangeSoft,
+    backgroundColor: colors.white,
   },
   modifierImage: {
     width: "100%",
-    height: 102,
-    borderRadius: 12,
+    height: 92,
     backgroundColor: colors.white,
   },
   emptyModifierImage: {
@@ -477,44 +794,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modifierCardName: {
-    marginTop: 7,
+    marginTop: 6,
+    marginHorizontal: 6,
     color: colors.ink,
+    textAlign: "center",
+    fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 15,
   },
   modifierPrice: {
     marginTop: "auto",
+    marginHorizontal: 6,
+    marginBottom: 12,
     color: colors.muted,
+    textAlign: "center",
+    fontFamily: "Inter_400Regular",
     fontSize: 11,
   },
   modifierPriceActive: {
     color: colors.orange,
   },
   modifierRows: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 0,
   },
   modifierRow: {
-    minHeight: 64,
-    paddingVertical: 7,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    minHeight: 80,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
   modifierRowImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: colors.white,
   },
   modifierRowCopy: {
     flex: 1,
   },
   modifierRowName: {
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 14,
-    fontWeight: "600",
   },
   modifierRowPrice: {
     marginTop: 3,

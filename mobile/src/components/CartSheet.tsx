@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { catalogApi, resolveImageUrl } from "../api";
 import { lineTotal, useStore } from "../store";
-import { colors, radii } from "../theme";
+import { colors } from "../theme";
 import type { Category, Product } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
 import { QuantityControl } from "./QuantityControl";
@@ -31,6 +31,8 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [kitVisible, setKitVisible] = useState(false);
   const [extrasVisible, setExtrasVisible] = useState(false);
+  const [draftNoUtensils, setDraftNoUtensils] = useState(store.noUtensils);
+  const [draftUtensilsCount, setDraftUtensilsCount] = useState(store.utensilsCount);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -44,6 +46,12 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
       ignore = true;
     };
   }, [store.regionSlug, visible]);
+
+  useEffect(() => {
+    if (!kitVisible) return;
+    setDraftNoUtensils(store.noUtensils);
+    setDraftUtensilsCount(store.utensilsCount);
+  }, [kitVisible, store.noUtensils, store.utensilsCount]);
 
   const recommendations = useMemo(() => {
     const inCart = new Set(store.cart.map((line) => line.product.id));
@@ -60,11 +68,16 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
       .flatMap((category) => category.products)
       .filter(eligible)
       .filter((product) => !merch.some((item) => item.id === product.id));
-    return [...merch, ...others].slice(0, 8);
+    if (merch.length) return merch.slice(0, 8);
+    return others
+      .filter((product) => /соус|напит|десерт|закуск|васаби|имбир/i.test(product.name))
+      .slice(0, 8);
   }, [categories, store.cart]);
   const extraProducts = useMemo(() => (
     categories
-      .filter((category) => /топпинг/i.test(`${category.slug} ${category.title}`))
+      .filter((category) => (
+        /топпинг|соус|добав|васаби|имбир/i.test(`${category.slug} ${category.title}`)
+      ))
       .flatMap((category) => category.products)
       .filter((product) => product.available !== false)
   ), [categories]);
@@ -83,6 +96,16 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
   const kitSummary = store.noUtensils
     ? "без приборов"
     : `${store.utensilsCount} ${store.utensilsCount === 1 ? "комплект" : "комплекта"}`;
+  const region = store.activeRegion;
+  const serviceHours = region?.deliveryIs24Hours
+    ? "24 часа"
+    : region?.deliveryOpenTime && region?.deliveryCloseTime
+      ? `${region.deliveryOpenTime}–${region.deliveryCloseTime}`
+      : "часы уточняются";
+  const freeDeliveryRemaining = Math.max(
+    0,
+    (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
+  );
 
   return (
     <>
@@ -93,7 +116,11 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         footer={store.cart.length ? (
           <View style={styles.footer}>
             <Text style={styles.deliveryHint}>
-              Доставка 99 сом · До бесплатной 2 633 сом
+              {store.deliveryType === "pickup"
+                ? "Самовывоз из выбранной кухни"
+                : freeDeliveryRemaining > 0
+                  ? `Доставка • До бесплатной ${money(freeDeliveryRemaining)}`
+                  : "Доставка • Бесплатно"}
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -104,7 +131,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
               <Text style={styles.checkoutSide}>{money(store.cartTotal)}</Text>
               <Text style={styles.checkoutLabel}>К оформлению</Text>
               <Text style={styles.checkoutSide}>
-                {store.deliveryType === "delivery" ? "~70 мин" : "~25 мин"}
+                {serviceHours}
               </Text>
             </Pressable>
           </View>
@@ -157,6 +184,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                   <View key={line.key} style={styles.line}>
                     <Image
                       resizeMode="cover"
+                      resizeMethod="resize"
                       source={{ uri: resolveImageUrl(line.product.image) }}
                       style={styles.image}
                     />
@@ -166,6 +194,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                       <View style={styles.lineBottom}>
                         <Text style={styles.price}>{money(lineTotal(line))}</Text>
                         <QuantityControl
+                          bare
                           compact
                           onChange={(value) => store.setCartQuantity(line.key, value)}
                           value={line.quantity}
@@ -199,6 +228,11 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                 </View>
                 <Pressable
                   accessibilityRole="button"
+                  accessibilityLabel="Промокоды пока недоступны"
+                  onPress={() => Alert.alert(
+                    "Промокоды скоро появятся",
+                    "Сейчас промокод не применяется и не меняет стоимость заказа.",
+                  )}
                   style={({ pressed }) => [styles.optionAction, pressed && styles.pressed]}
                 >
                   <Text style={styles.optionActionText}>Ввести</Text>
@@ -218,6 +252,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                     <View key={product.id} style={styles.recommendationCard}>
                       <Image
                         resizeMode="cover"
+                        resizeMethod="resize"
                         source={{ uri: resolveImageUrl(product.image) }}
                         style={styles.recommendationImage}
                       />
@@ -247,7 +282,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         )}
       </Sheet>
 
-      <Sheet height="80%" visible={kitVisible} onClose={() => setKitVisible(false)}>
+      <Sheet height="67%" visible={kitVisible} onClose={() => setKitVisible(false)}>
         <View style={styles.kitContent}>
           <Text style={styles.kitTitle}>Комплектация</Text>
           <View style={styles.kitSectionHeader}>
@@ -255,10 +290,10 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             <View style={styles.noUtensils}>
               <Text style={styles.noUtensilsText}>Без приборов</Text>
               <Switch
-                onValueChange={store.setNoUtensils}
+                onValueChange={setDraftNoUtensils}
                 thumbColor={colors.white}
                 trackColor={{ false: "#E5E5E7", true: colors.orange }}
-                value={store.noUtensils}
+                value={draftNoUtensils}
               />
             </View>
           </View>
@@ -271,11 +306,12 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
               <Text style={styles.kitItemSubtitle}>и салфетки</Text>
             </View>
             <QuantityControl
+              bare
               compact
               maximum={10}
               minimum={1}
-              onChange={store.setUtensilsCount}
-              value={store.utensilsCount}
+              onChange={setDraftUtensilsCount}
+              value={draftUtensilsCount}
             />
           </View>
 
@@ -304,7 +340,11 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
           <View style={styles.kitActions}>
             <PrimaryButton
               label="Сохранить выбор"
-              onPress={() => setKitVisible(false)}
+              onPress={() => {
+                store.setNoUtensils(draftNoUtensils);
+                store.setUtensilsCount(draftUtensilsCount);
+                setKitVisible(false);
+              }}
               tone="black"
             />
             <PrimaryButton
@@ -329,6 +369,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
               <View key={product.id} style={styles.extraCard}>
                 <Image
                   resizeMode="cover"
+                  resizeMethod="resize"
                   source={{ uri: resolveImageUrl(product.image) }}
                   style={styles.extraImage}
                 />
@@ -372,9 +413,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.ink,
-    fontSize: 31,
-    lineHeight: 38,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
+    lineHeight: 36,
     letterSpacing: -0.5,
   },
   trashButton: {
@@ -396,40 +437,42 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F8F8",
   },
   lines: {
-    paddingHorizontal: 20,
     backgroundColor: colors.white,
   },
   line: {
-    paddingVertical: 16,
+    minHeight: 132,
+    paddingTop: 12,
+    paddingBottom: 20,
+    paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     flexDirection: "row",
-    gap: 12,
+    gap: 16,
   },
   image: {
-    width: 64,
-    height: 64,
-    borderRadius: 13,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     backgroundColor: colors.surface,
   },
   lineCopy: {
     flex: 1,
-    minHeight: 112,
+    minHeight: 100,
   },
   lineName: {
     color: colors.ink,
+    fontFamily: "Inter_400Regular",
     fontSize: 15,
     lineHeight: 19,
-    fontWeight: "500",
   },
   modifiers: {
-    marginTop: 4,
+    marginTop: 2,
     color: "#A2A2A2",
     fontSize: 12,
     lineHeight: 16,
   },
   lineBottom: {
-    marginTop: "auto",
+    marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -443,7 +486,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7F7F7",
   },
   optionRow: {
-    minHeight: 90,
+    minHeight: 72,
     paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -467,10 +510,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   optionAction: {
-    minWidth: 118,
-    height: 54,
-    paddingHorizontal: 17,
-    borderRadius: 18,
+    minWidth: 112,
+    height: 44,
+    paddingHorizontal: 22,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
@@ -484,38 +527,40 @@ const styles = StyleSheet.create({
     paddingTop: 22,
   },
   recommendationTitle: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     color: colors.ink,
     fontSize: 18,
     fontWeight: "800",
   },
   recommendationRow: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 12,
   },
   recommendationCard: {
     width: 156,
-    minHeight: 278,
-    padding: 10,
-    borderRadius: radii.medium,
-    backgroundColor: colors.white,
+    height: 266,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
   },
   recommendationImage: {
     width: "100%",
     height: 156,
-    borderRadius: 13,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.white,
   },
   recommendationName: {
-    minHeight: 42,
+    minHeight: 38,
     marginTop: 10,
+    marginHorizontal: 16,
     color: colors.ink,
     fontSize: 14,
     lineHeight: 18,
   },
   recommendationBottom: {
     marginTop: "auto",
+    marginHorizontal: 16,
+    marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -525,9 +570,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   recommendationAdd: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 40,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
@@ -541,9 +586,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   checkoutBar: {
-    minHeight: 66,
+    height: 52,
     paddingHorizontal: 18,
-    borderRadius: 19,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.orange,
@@ -600,8 +645,8 @@ const styles = StyleSheet.create({
   },
   kitTitle: {
     color: colors.ink,
-    fontSize: 31,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
   },
   kitSectionHeader: {
     marginTop: 24,
@@ -611,8 +656,8 @@ const styles = StyleSheet.create({
   },
   kitSectionTitle: {
     color: colors.ink,
+    fontFamily: "Inter_700Bold",
     fontSize: 19,
-    fontWeight: "800",
   },
   noUtensils: {
     flexDirection: "row",
@@ -653,9 +698,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   kitPlus: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 40,
+    height: 36,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
@@ -672,8 +717,8 @@ const styles = StyleSheet.create({
   },
   extrasTitle: {
     color: colors.ink,
-    fontSize: 31,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
   },
   extrasSubtitle: {
     marginTop: 10,
@@ -686,21 +731,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   extraCard: {
-    width: 172,
-    minHeight: 268,
-    padding: 10,
-    borderRadius: radii.medium,
+    width: 156,
+    height: 266,
+    borderRadius: 16,
+    overflow: "hidden",
     backgroundColor: colors.surface,
   },
   extraImage: {
     width: "100%",
     height: 156,
-    borderRadius: 13,
     backgroundColor: colors.white,
   },
   extraName: {
-    minHeight: 42,
+    minHeight: 38,
     marginTop: 10,
+    marginHorizontal: 16,
     color: colors.ink,
     fontSize: 14,
     lineHeight: 18,
