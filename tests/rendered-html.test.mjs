@@ -27,10 +27,11 @@ test("server-renders the storefront", async () => {
 });
 
 test("includes the product, cart and address flows", async () => {
-  const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson] = await Promise.all([
+  const [storefront, yandexMap, mapsConfigRoute, geocodeRoute, envExample, catalog, categoryPage, globals, packageJson] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/YandexDeliveryMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/maps-config/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/geocode/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../.env.example", import.meta.url), "utf8"),
     readFile(new URL("../app/data/catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
@@ -65,6 +66,10 @@ test("includes the product, cart and address flows", async () => {
   assert.match(mapsConfigRoute, /YANDEX_MAPS_API_KEY/);
   assert.match(mapsConfigRoute, /YANDEX_SUGGEST_API_KEY/);
   assert.match(mapsConfigRoute, /Cache-Control/);
+  assert.match(geocodeRoute, /source\.get\("lat"\)/);
+  assert.match(geocodeRoute, /source\.get\("lon"\)/);
+  assert.match(geocodeRoute, /\$\{longitude\},\$\{latitude\}/);
+  assert.match(geocodeRoute, /\{ suggestions, items \}/);
   assert.match(envExample, /YANDEX_MAPS_API_KEY=/);
   assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
   assert.match(storefront, /composition-modal/);

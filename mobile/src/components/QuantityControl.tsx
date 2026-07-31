@@ -1,4 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, radii } from "../theme";
 
@@ -9,6 +16,7 @@ type Props = {
   maximum?: number;
   compact?: boolean;
   bare?: boolean;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function QuantityControl({
@@ -18,6 +26,7 @@ export function QuantityControl({
   maximum = 20,
   compact,
   bare,
+  style,
 }: Props) {
   const buttonWidth = bare ? 40 : compact ? 34 : 42;
   const buttonHeight = bare ? 38 : compact ? 34 : 42;
@@ -27,6 +36,7 @@ export function QuantityControl({
         styles.container,
         compact && styles.containerCompact,
         bare && styles.containerBare,
+        style,
       ]}
     >
       <Pressable

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import * as Location from "expo-location";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
-import YaMap, { type CameraPosition } from "react-native-yamap";
+import YaMap, { Marker, type CameraPosition } from "react-native-yamap";
 import { WEB_URL } from "../api";
 import { colors } from "../theme";
 import {
@@ -10,6 +11,7 @@ import {
 import { MapCenterMarker } from "./MapCenterMarker";
 
 const mapKitApiKey = process.env.EXPO_PUBLIC_YANDEX_MAPKIT_API_KEY?.trim() || "";
+const pickupMarkerImage = require("../../assets/pickup-marker.png");
 
 type GeocodingResponse = {
   suggestions?: Array<{
@@ -18,7 +20,26 @@ type GeocodingResponse = {
     precision?: string;
     isComplete?: boolean;
   }>;
+  items?: Array<{
+    address?: string;
+    name?: string;
+    kind?: string;
+    precision?: string;
+  }>;
 };
+
+function addressFromDeviceGeocoder(place: Location.LocationGeocodedAddress) {
+  const street = place.street || place.name || "";
+  const streetNumber = place.streetNumber || "";
+  const address = [street, streetNumber].filter(Boolean).join(", ");
+  const fallback = [place.district, place.city, place.region].filter(Boolean).join(", ");
+  return {
+    address: address || fallback,
+    kind: streetNumber ? "house" : street ? "street" : "district",
+    precision: streetNumber ? "exact" : street ? "street" : "other",
+    isComplete: Boolean(street && streetNumber),
+  };
+}
 
 let mapKitInitialization: Promise<void> | null = null;
 
@@ -34,7 +55,11 @@ export function YandexMap({
   regionSlug,
   initialLatitude,
   initialLongitude,
+  focusRequest = 0,
   onLocationChange,
+  showCenterMarker = true,
+  markers = [],
+  onMarkerPress,
 }: YandexMapProps) {
   const mapRef = useRef<YaMap>(null);
   const geocodingController = useRef<AbortController | null>(null);
@@ -43,11 +68,7 @@ export function YandexMap({
   const [error, setError] = useState("");
   const region = getRegionMapConfig(regionSlug);
   const hasInitialPoint = Number.isFinite(initialLatitude)
-    && Number.isFinite(initialLongitude)
-    && (initialLatitude as number) >= region.bounds[0][0]
-    && (initialLatitude as number) <= region.bounds[1][0]
-    && (initialLongitude as number) >= region.bounds[0][1]
-    && (initialLongitude as number) <= region.bounds[1][1];
+    && Number.isFinite(initialLongitude);
   const initialPoint = hasInitialPoint
     ? { latitude: initialLatitude as number, longitude: initialLongitude as number }
     : { latitude: region.center[0], longitude: region.center[1] };
@@ -79,23 +100,24 @@ export function YandexMap({
   }, []);
 
   useEffect(() => {
-    if (!ready || !hasInitialPoint) return;
-    mapRef.current?.setCenter(
-      { lat: initialPoint.latitude, lon: initialPoint.longitude },
-      17,
-      0,
-      0,
-      0.22,
-    );
-  }, [hasInitialPoint, initialPoint.latitude, initialPoint.longitude, ready]);
+    if (!ready || !markers.length) return;
+    mapRef.current?.fitMarkers(markers.map((marker) => ({
+      lat: marker.latitude,
+      lon: marker.longitude,
+    })));
+  }, [markers, ready]);
+
+  useEffect(() => {
+    if (!showCenterMarker) setError("");
+  }, [showCenterMarker]);
 
   const resolveAddress = useCallback(async (latitude: number, longitude: number) => {
-    if (latitude < region.bounds[0][0]
+    const insideDeliveryRegion = !(latitude < region.bounds[0][0]
       || latitude > region.bounds[1][0]
       || longitude < region.bounds[0][1]
-      || longitude > region.bounds[1][1]) {
+      || longitude > region.bounds[1][1]);
+    if (!insideDeliveryRegion) {
       setError(`Доставка доступна только в городе ${region.city}.`);
-      return;
     }
 
     const revision = ++geocodingRevision.current;
@@ -106,64 +128,98 @@ export function YandexMap({
       const params = new URLSearchParams({
         lat: String(latitude),
         lon: String(longitude),
-        region: regionSlug,
       });
+      if (insideDeliveryRegion) params.set("region", regionSlug);
       const response = await fetch(`${WEB_URL}/api/geocode?${params.toString()}`, {
         signal: controller.signal,
         headers: { Accept: "application/json" },
       });
       const result = await response.json() as GeocodingResponse;
       const suggestion = result.suggestions?.[0];
-      if (!response.ok || !suggestion?.label || revision !== geocodingRevision.current) {
+      const legacySuggestion = result.items?.[0];
+      const address = suggestion?.label || legacySuggestion?.name || legacySuggestion?.address || "";
+      if (!response.ok || !address || revision !== geocodingRevision.current) {
         throw new Error("Адрес не найден");
       }
-      setError("");
+      if (insideDeliveryRegion) setError("");
       onLocationChange({
-        address: suggestion.label,
+        address,
         latitude,
         longitude,
-        kind: suggestion.kind || "",
-        precision: suggestion.precision || "",
-        isComplete: suggestion.isComplete === true,
+        kind: suggestion?.kind || legacySuggestion?.kind || "",
+        precision: suggestion?.precision || legacySuggestion?.precision || "",
+        isComplete: insideDeliveryRegion && (
+          suggestion?.isComplete === true
+          || (legacySuggestion?.kind === "house" && legacySuggestion.precision === "exact")
+        ),
       });
     } catch (reason) {
       if (controller.signal.aborted || revision !== geocodingRevision.current) return;
-      setError(reason instanceof Error && reason.message === "Адрес не найден"
-        ? "Передвиньте карту ближе к нужному дому"
-        : "Не удалось определить адрес. Передвиньте карту ближе к дому.");
+      try {
+        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const fallback = place ? addressFromDeviceGeocoder(place) : null;
+        if (!fallback?.address || revision !== geocodingRevision.current) {
+          throw new Error("Адрес не найден");
+        }
+        if (insideDeliveryRegion) setError("");
+        onLocationChange({
+          ...fallback,
+          latitude,
+          longitude,
+          isComplete: insideDeliveryRegion && fallback.isComplete,
+        });
+      } catch {
+        if (revision !== geocodingRevision.current) return;
+        setError(reason instanceof Error && reason.message === "Адрес не найден"
+          ? "Не удалось определить адрес. Передвиньте метку ближе к дому."
+          : "Сервис адресов временно недоступен. Попробуйте ещё раз.");
+      }
     }
   }, [onLocationChange, region.bounds, region.city, regionSlug]);
 
+  useEffect(() => {
+    if (!ready || !hasInitialPoint) return;
+    mapRef.current?.setCenter(
+      { lat: initialPoint.latitude, lon: initialPoint.longitude },
+      17,
+      0,
+      0,
+      0.28,
+    );
+    if (focusRequest > 0) {
+      void resolveAddress(initialPoint.latitude, initialPoint.longitude);
+    }
+  }, [
+    focusRequest,
+    hasInitialPoint,
+    initialPoint.latitude,
+    initialPoint.longitude,
+    ready,
+    resolveAddress,
+  ]);
+
   const handleCameraPositionChangeEnd = useCallback((event: { nativeEvent: CameraPosition }) => {
+    if (!showCenterMarker) return;
     const { point } = event.nativeEvent;
     void resolveAddress(point.lat, point.lon);
-  }, [resolveAddress]);
+  }, [resolveAddress, showCenterMarker]);
 
-  if (error) {
-    return (
-      <View style={styles.container}>
-        {ready ? (
-          <YaMap
-            initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 15 }}
-            onCameraPositionChangeEnd={handleCameraPositionChangeEnd}
-            rotateGesturesEnabled={false}
-            showUserPosition={false}
-            style={styles.map}
-            tiltGesturesEnabled={false}
-          />
-        ) : null}
-        <View pointerEvents="none" style={styles.errorBanner}>
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
-        {ready ? <MapCenterMarker /> : null}
-      </View>
-    );
-  }
+  const markerElements = markers.map((marker) => (
+    <Marker
+      anchor={{ x: 0.5, y: 1 }}
+      key={marker.id}
+      onPress={() => onMarkerPress?.(marker.id)}
+      point={{ lat: marker.latitude, lon: marker.longitude }}
+      scale={0.14}
+      source={pickupMarkerImage}
+    />
+  ));
+
   if (!ready) {
     return (
       <View style={styles.state}>
-        <ActivityIndicator color={colors.orange} />
-        <Text style={styles.stateText}>Загружаем Яндекс Карту…</Text>
+        {error ? null : <ActivityIndicator color={colors.orange} />}
+        <Text style={styles.stateText}>{error || "Загружаем Яндекс Карту…"}</Text>
       </View>
     );
   }
@@ -173,14 +229,30 @@ export function YandexMap({
       <YaMap
         initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 15 }}
         onCameraPositionChangeEnd={handleCameraPositionChangeEnd}
-        onMapLoaded={() => void resolveAddress(initialPoint.latitude, initialPoint.longitude)}
+        onMapLoaded={() => {
+          if (markers.length) {
+            mapRef.current?.fitMarkers(markers.map((marker) => ({
+              lat: marker.latitude,
+              lon: marker.longitude,
+            })));
+          } else if (showCenterMarker) {
+            void resolveAddress(initialPoint.latitude, initialPoint.longitude);
+          }
+        }}
         ref={mapRef}
         rotateGesturesEnabled={false}
         showUserPosition={false}
         style={styles.map}
         tiltGesturesEnabled={false}
-      />
-      <MapCenterMarker />
+      >
+        {markerElements}
+      </YaMap>
+      {error ? (
+        <View pointerEvents="none" style={styles.errorBanner}>
+          <Text style={styles.stateText}>{error}</Text>
+        </View>
+      ) : null}
+      {showCenterMarker ? <MapCenterMarker /> : null}
     </View>
   );
 }

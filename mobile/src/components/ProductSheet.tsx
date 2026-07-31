@@ -238,7 +238,12 @@ export function ProductSheet({
         onClose={onClose}
         footer={(
           <View style={styles.footerRow}>
-            <QuantityControl minimum={1} onChange={setQuantity} value={quantity} />
+            <QuantityControl
+              minimum={1}
+              onChange={setQuantity}
+              style={styles.productQuantity}
+              value={quantity}
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={valid ? `Добавить, ${money(total)}` : "Выберите модификации"}
@@ -577,8 +582,8 @@ const styles = StyleSheet.create({
   title: {
     color: colors.ink,
     fontFamily: "Inter_700Bold",
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 32,
+    lineHeight: 38,
     letterSpacing: -0.55,
   },
   description: {
@@ -645,7 +650,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   relatedCard: {
-    width: 152,
+    width: 164,
     minHeight: 238,
     padding: 9,
     borderRadius: radii.medium,
@@ -691,8 +696,8 @@ const styles = StyleSheet.create({
   detailTitle: {
     color: colors.ink,
     fontFamily: "Inter_700Bold",
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 32,
+    lineHeight: 38,
   },
   detailContent: {
     paddingHorizontal: 20,
@@ -702,8 +707,8 @@ const styles = StyleSheet.create({
   detailCopy: {
     color: colors.ink,
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 22,
   },
   equipmentList: {
     gap: 8,
@@ -872,6 +877,10 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: "row",
     gap: 10,
+  },
+  productQuantity: {
+    width: 144,
+    justifyContent: "space-between",
   },
   addButton: {
     flex: 1,

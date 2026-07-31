@@ -248,6 +248,21 @@ describe("mobile state and routing", () => {
     fetchMock.mockRestore();
   });
 
+  test("does not replace an empty Yandex result with an inaccurate third-party fallback", async () => {
+    const fetchMock = jest.spyOn(global, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ suggestions: [], items: [] }),
+    } as Response);
+
+    await expect(suggestAddresses("Несуществующая улица", "bishkek")).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("https://naktasushi.com/api/geocode?"),
+      expect.any(Object),
+    );
+    fetchMock.mockRestore();
+  });
+
   test("map fallback remains interactive without a Yandex API key", () => {
     const html = createYandexMapHtml(
       { mapsApiKey: "", suggestApiKey: "" },

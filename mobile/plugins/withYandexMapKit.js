@@ -1,4 +1,4 @@
-const { withAppDelegate } = require("@expo/config-plugins");
+const { withAppDelegate, withGradleProperties } = require("@expo/config-plugins");
 
 const importBlock = "// @generated begin yandex-mapkit-import\nimport YandexMapsMobile\n// @generated end yandex-mapkit-import";
 const initStart = "// @generated begin yandex-mapkit-init";
@@ -18,6 +18,22 @@ function withYandexMapKit(config) {
     || process.env.EXPO_PUBLIC_YANDEX_MAPKIT_API_KEY
     || ""
   ).trim();
+
+  config = withGradleProperties(config, (config) => {
+    const property = config.modResults.find(
+      (item) => item.type === "property" && item.key === "android.minSdkVersion",
+    );
+    if (property) {
+      property.value = "26";
+    } else {
+      config.modResults.push({
+        type: "property",
+        key: "android.minSdkVersion",
+        value: "26",
+      });
+    }
+    return config;
+  });
 
   return withAppDelegate(config, (config) => {
     if (!apiKey) return config;

@@ -13,7 +13,15 @@ export type YandexMapProps = {
   regionSlug: string;
   initialLatitude?: number;
   initialLongitude?: number;
+  focusRequest?: number;
   onLocationChange: (point: MapPoint) => void;
+  showCenterMarker?: boolean;
+  markers?: Array<{
+    id: string;
+    latitude: number;
+    longitude: number;
+  }>;
+  onMarkerPress?: (id: string) => void;
 };
 
 type RegionMapConfig = {
@@ -177,8 +185,8 @@ export function createYandexMapHtml(
             precision: houseNumber ? "exact" : "street",
             isComplete: Boolean(houseNumber)
           });
-        } catch (error) {
-          send("status", { message: "Передвиньте карту ближе к нужному дому" });
+        } catch {
+          // Keep the map clear if reverse geocoding has no result yet.
         }
       }
 
@@ -341,7 +349,6 @@ export function createYandexMapHtml(
           })
           .catch(function () {
             if (revision !== geocodeRevision) return;
-            send("status", { message: "Передвиньте карту ближе к нужному дому" });
           });
         });
       }

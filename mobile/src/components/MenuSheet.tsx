@@ -2,7 +2,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { StatusBar } from "expo-status-bar";
 import type { ComponentProps } from "react";
+import { useEffect, useState } from "react";
 import {
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -12,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WEB_URL } from "../api";
+import { authApi, WEB_URL } from "../api";
 import { useStore } from "../store";
 import { colors } from "../theme";
 
@@ -23,24 +25,12 @@ type Props = {
   onOpenOrders: () => void;
   onOpenAddresses: () => void;
   onOpenBalance: () => void;
+  onLogout: () => void;
 };
 
 const links = [
-  {
-    label: "Поддержка",
-    icon: "message-reply-text-outline",
-    path: "/support",
-  },
-  {
-    label: "О нас",
-    icon: "information-outline",
-    path: "/about",
-  },
-  {
-    label: "Хочу в команду",
-    icon: "account-star-outline",
-    path: "/jobs",
-  },
+  { label: "Поддержка", icon: "message-reply-text-outline", path: "/support" },
+  { label: "О нас", icon: "information-outline", path: "/about" },
 ] as const;
 
 export function MenuSheet({
@@ -50,138 +40,136 @@ export function MenuSheet({
   onOpenOrders,
   onOpenAddresses,
   onOpenBalance,
+  onLogout,
 }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
   const version = Constants.expoConfig?.version || "1.0.0";
+  const [naktaCoins, setNaktaCoins] = useState(0);
+
+  useEffect(() => {
+    if (!visible || !store.session) {
+      if (!store.session) setNaktaCoins(0);
+      return undefined;
+    }
+    let cancelled = false;
+    authApi.profile(store.session)
+      .then((profile) => {
+        if (!cancelled) setNaktaCoins(profile.naktaCoins);
+      })
+      .catch(() => {
+        if (!cancelled) setNaktaCoins(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store.session, visible]);
 
   const openPage = async (path: string) => {
     onClose();
     await Linking.openURL(`${WEB_URL}${path}`);
   };
 
-  const openProfile = () => {
-    onOpenProfile();
-  };
-
   return (
     <Modal
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
       statusBarTranslucent
+      transparent
       visible={visible}
     >
-      <StatusBar backgroundColor="#A8A8AA" style="light" translucent />
-      <View
-        style={[
-          styles.root,
-          {
-            paddingTop: insets.top,
-            paddingBottom: Math.max(insets.bottom, 16),
-          },
-        ]}
-      >
-        <View pointerEvents="none" style={[styles.statusBarFill, { height: insets.top }]} />
+      <StatusBar backgroundColor={colors.white} style="dark" translucent />
+      <View style={styles.root}>
         <Pressable
-          accessibilityLabel="Назад"
-          hitSlop={4}
+          accessibilityLabel="Закрыть меню"
           onPress={onClose}
-          style={styles.back}
-        >
-          <MaterialCommunityIcons name="arrow-left" size={28} color={colors.ink} />
-        </Pressable>
-
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          style={styles.scroll}
-        >
-          <View style={styles.brandRow}>
-            <View style={styles.brandMark}>
-              <MaterialCommunityIcons name="fish" size={29} color={colors.white} />
-            </View>
-            <Text style={styles.brandText}>Накта{"\n"}суши</Text>
-          </View>
-
-          {store.session ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                onPress={openProfile}
-                style={({ pressed }) => [
-                  styles.accountCard,
-                  pressed && styles.rowPressed,
-                ]}
-              >
-                <View style={styles.accountAvatar}>
-                  <MaterialCommunityIcons
-                    name="account"
-                    size={38}
-                    color={colors.orange}
-                  />
-                </View>
-                <View style={styles.accountCopy}>
-                  <Text style={styles.accountHello}>Привет!</Text>
-                  <Text style={styles.accountPhone}>{store.session.phone}</Text>
-                </View>
-              </Pressable>
-              <MenuRow
-                icon="shopping-outline"
-                label="Мои заказы"
-                onPress={onOpenOrders}
-              />
-              <MenuRow
-                icon="map-marker-outline"
-                label="Мои адреса"
-                onPress={onOpenAddresses}
-              />
-              <MenuRow
-                icon="star-four-points-outline"
-                label="NAKTA Coin"
-                onPress={onOpenBalance}
-              />
-              <MenuRow
-                icon="cog-outline"
-                label="Настройки"
-                onPress={openProfile}
-              />
-            </>
-          ) : (
-            <MenuRow
-              icon="account-circle-outline"
-              label="Вход в личный кабинет"
-              onPress={openProfile}
-            />
-          )}
-
-          {links.map((item) => (
-            <Pressable
-              accessibilityRole="link"
-              key={item.path}
-              onPress={() => void openPage(item.path)}
-              style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
-            >
-              <MaterialCommunityIcons
-                name={item.icon}
-                size={28}
-                color={colors.orange}
-              />
-              <Text style={styles.menuLabel}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        <Pressable
-          accessibilityRole="link"
-          onPress={() => void openPage("/legal")}
-          style={({ pressed }) => [
-            styles.legalButton,
-            pressed && styles.rowPressed,
+          style={styles.backdrop}
+        />
+        <View
+          style={[
+            styles.drawer,
+            {
+              paddingTop: insets.top,
+              paddingBottom: Math.max(insets.bottom, 14),
+            },
           ]}
         >
-          <Text style={styles.legalText}>Правовая информация</Text>
-        </Pressable>
-        <Text style={styles.version}>Версия {version}</Text>
+          <Pressable
+            accessibilityLabel="Назад"
+            hitSlop={4}
+            onPress={onClose}
+            style={styles.back}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.ink} />
+          </Pressable>
+
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            style={styles.scroll}
+          >
+            {store.session ? (
+              <>
+                <View style={styles.accountCard}>
+                  <View style={styles.accountAvatar}>
+                    <MaterialCommunityIcons name="account" size={27} color={colors.orange} />
+                  </View>
+                  <View style={styles.accountCopy}>
+                    <Text style={styles.accountHello}>Привет!</Text>
+                    <Text style={styles.accountPhone}>{store.session.phone}</Text>
+                  </View>
+                  <Pressable
+                    accessibilityLabel="Выйти из аккаунта"
+                    onPress={onLogout}
+                    style={({ pressed }) => [styles.logoutButton, pressed && styles.buttonPressed]}
+                  >
+                    <Text style={styles.logoutText}>Выйти</Text>
+                    <MaterialCommunityIcons name="logout" size={15} color={colors.orange} />
+                  </Pressable>
+                </View>
+                <MenuRow icon="shopping-outline" label="Мои заказы" onPress={onOpenOrders} />
+                <MenuRow icon="map-marker-outline" label="Мои адреса" onPress={onOpenAddresses} />
+                <MenuRow
+                  icon="star-four-points-outline"
+                  label="NAKTA Coin"
+                  onPress={onOpenBalance}
+                  trailing={new Intl.NumberFormat("ru-RU").format(naktaCoins)}
+                />
+                <MenuRow icon="cog-outline" label="Настройки" onPress={onOpenProfile} />
+              </>
+            ) : (
+              <MenuRow
+                icon="account-circle-outline"
+                label="Вход в личный кабинет"
+                onPress={onOpenProfile}
+              />
+            )}
+
+            {links.map((item) => (
+              <MenuRow
+                icon={item.icon}
+                key={item.path}
+                label={item.label}
+                onPress={() => void openPage(item.path)}
+              />
+            ))}
+          </ScrollView>
+
+          <Image
+            accessibilityLabel="Накта суши"
+            resizeMode="contain"
+            source={require("../../assets/логотип.png")}
+            style={styles.brandLogo}
+          />
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void openPage("/legal")}
+            style={({ pressed }) => [styles.legalButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.legalText}>Правовая информация</Text>
+          </Pressable>
+          <Text style={styles.version}>Версия {version}</Text>
+        </View>
       </View>
     </Modal>
   );
@@ -191,10 +179,12 @@ function MenuRow({
   icon,
   label,
   onPress,
+  trailing,
 }: {
   icon: ComponentProps<typeof MaterialCommunityIcons>["name"];
   label: string;
   onPress: () => void;
+  trailing?: string;
 }) {
   return (
     <Pressable
@@ -202,8 +192,10 @@ function MenuRow({
       onPress={onPress}
       style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
     >
-      <MaterialCommunityIcons name={icon} size={28} color={colors.orange} />
+      <MaterialCommunityIcons name={icon} size={21} color={colors.orange} />
       <Text style={styles.menuLabel}>{label}</Text>
+      {trailing ? <Text style={styles.rowValue}>{trailing}</Text> : null}
+      <MaterialCommunityIcons name="chevron-right" size={20} color="#A0A0A0" />
     </Pressable>
   );
 }
@@ -211,128 +203,146 @@ function MenuRow({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.white,
   },
-  statusBarFill: {
-    position: "absolute",
-    zIndex: 0,
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#A8A8AA",
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(17, 17, 17, 0.18)",
+  },
+  drawer: {
+    width: "80%",
+    maxWidth: 360,
+    flex: 1,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    backgroundColor: colors.white,
+    shadowColor: "#000000",
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.13,
+    shadowRadius: 18,
+    elevation: 12,
   },
   back: {
     width: 48,
-    height: 48,
-    marginTop: 16,
+    height: 44,
+    marginTop: 4,
     marginLeft: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   scroll: {
     flex: 1,
-    marginTop: 6,
+    marginTop: 2,
   },
   content: {
-    paddingBottom: 16,
+    paddingTop: 2,
+    paddingBottom: 12,
   },
-  brandRow: {
-    minHeight: 48,
-    marginTop: 8,
-    marginBottom: 30,
-    marginLeft: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  brandMark: {
-    width: 46,
-    height: 46,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.orange,
-  },
-  brandText: {
-    color: colors.ink,
-    fontSize: 23,
-    lineHeight: 21,
-    fontWeight: "900",
-    letterSpacing: -0.3,
+  brandLogo: {
+    width: 106,
+    height: 64,
+    alignSelf: "center",
+    marginTop: 6,
+    marginBottom: 2,
   },
   accountCard: {
-    minHeight: 80,
-    marginHorizontal: 16,
-    marginBottom: 18,
-    borderRadius: 28,
+    minHeight: 66,
+    marginHorizontal: 12,
+    marginBottom: 16,
+    paddingRight: 10,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F4F4F2",
   },
   accountAvatar: {
-    width: 64,
-    height: 64,
+    width: 48,
+    height: 48,
     margin: 8,
-    borderRadius: 24,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
     backgroundColor: colors.orangeSoft,
   },
   accountCopy: {
     flex: 1,
-    marginLeft: 16,
-    marginRight: 24,
+    marginLeft: 3,
+    marginRight: 8,
   },
   accountHello: {
     color: "#666666",
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
   },
   accountPhone: {
     marginTop: 3,
     color: colors.ink,
     fontFamily: "Inter_600SemiBold",
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "600",
+    fontSize: 14,
+    lineHeight: 18,
   },
-  menuRow: {
-    minHeight: 56,
-    paddingVertical: 14,
-    paddingLeft: 16,
-    paddingRight: 20,
+  logoutButton: {
+    minWidth: 74,
+    height: 34,
+    paddingHorizontal: 10,
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: colors.white,
+  },
+  logoutText: {
+    color: colors.orange,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+  },
+  menuRow: {
+    minHeight: 44,
+    paddingVertical: 9,
+    paddingLeft: 18,
+    paddingRight: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   rowPressed: {
     backgroundColor: colors.surface,
   },
+  buttonPressed: {
+    opacity: 0.72,
+  },
   menuLabel: {
     flex: 1,
     color: colors.ink,
-    fontSize: 20,
-    lineHeight: 28,
-    fontWeight: "400",
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  rowValue: {
+    color: "#555555",
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
   },
   legalButton: {
-    minHeight: 56,
+    minHeight: 42,
     paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   legalText: {
     color: colors.ink,
-    fontSize: 15,
-    lineHeight: 20,
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 16,
   },
   version: {
-    marginBottom: 16,
+    marginBottom: 3,
     color: "#A8A8A8",
-    fontSize: 15,
-    lineHeight: 20,
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    lineHeight: 14,
     textAlign: "center",
   },
 });

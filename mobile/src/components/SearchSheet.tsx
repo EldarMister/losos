@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -103,6 +104,29 @@ export function SearchSheet({
       store.addCartLine(product, 1, []);
     }
   };
+
+  const productQuantity = (product: Product) => store.cart.reduce(
+    (sum, line) => sum + (line.product.id === product.id ? line.quantity : 0),
+    0,
+  );
+
+  const lastProductLine = (product: Product) => {
+    for (let index = store.cart.length - 1; index >= 0; index -= 1) {
+      if (store.cart[index]?.product.id === product.id) return store.cart[index];
+    }
+    return undefined;
+  };
+
+  const incrementProduct = (product: Product) => {
+    const line = lastProductLine(product);
+    if (line) store.setCartQuantity(line.key, line.quantity + 1);
+    else add(product);
+  };
+
+  const decrementProduct = (product: Product) => {
+    const line = lastProductLine(product);
+    if (line) store.setCartQuantity(line.key, line.quantity - 1);
+  };
   const region = store.activeRegion;
   const serviceHours = region?.deliveryIs24Hours
     ? "24 часа"
@@ -180,6 +204,11 @@ export function SearchSheet({
         </View>
       ) : undefined}
     >
+      <StatusBar style="light" translucent />
+      <View
+        pointerEvents="none"
+        style={[styles.statusBarBackdrop, { height: insets.top }]}
+      />
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 14 }]}>
         <Pressable
           accessibilityLabel="Назад"
@@ -194,6 +223,7 @@ export function SearchSheet({
           <TextInput
             ref={inputRef}
             onChangeText={setQuery}
+            onSubmitEditing={() => Keyboard.dismiss()}
             placeholder="Поиск по блюдам"
             placeholderTextColor="#A0A0A0"
             returnKeyType="search"
@@ -274,9 +304,11 @@ export function SearchSheet({
                   {category.products.map((product) => (
                     <ProductCard
                       key={product.id}
-                      onAdd={() => add(product)}
+                      onAdd={() => incrementProduct(product)}
+                      onRemove={() => decrementProduct(product)}
                       onPress={() => onOpenProduct(product)}
                       product={product}
+                      quantity={productQuantity(product)}
                       width={productCardWidth}
                       layout="grid"
                     />
@@ -298,6 +330,14 @@ export function SearchSheet({
 }
 
 const styles = StyleSheet.create({
+  statusBarBackdrop: {
+    position: "absolute",
+    zIndex: 50,
+    top: 0,
+    right: 0,
+    left: 0,
+    backgroundColor: "#9B9B9D",
+  },
   header: {
     paddingLeft: 2,
     paddingRight: 16,

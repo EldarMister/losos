@@ -158,29 +158,9 @@ export async function suggestAddresses(
       ));
       if (suggestions.length) return suggestions.slice(0, 6);
     }
+    return [];
   } catch (error) {
     if (signal?.aborted) throw error;
+    throw new Error("Сервис адресов временно недоступен");
   }
-
-  const params = new URLSearchParams({
-    q: `${config.city} ${trimmed}`,
-    limit: "8",
-    lang: "default",
-    lat: String(config.center[0]),
-    lon: String(config.center[1]),
-  });
-  const response = await fetch(`https://photon.komoot.io/api/?${params}`, {
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) throw new Error("Сервис адресов временно недоступен");
-  const body = await response.json() as PhotonResponse;
-  const unique = new Map<string, AddressSuggestion>();
-  for (const feature of body.features || []) {
-    const suggestion = photonFeatureToSuggestion(feature, regionSlug);
-    if (!suggestion) continue;
-    const key = `${suggestion.label.toLocaleLowerCase("ru-RU")}:${suggestion.latitude.toFixed(5)}:${suggestion.longitude.toFixed(5)}`;
-    if (!unique.has(key)) unique.set(key, suggestion);
-  }
-  return [...unique.values()].slice(0, 6);
 }

@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -25,6 +26,8 @@ const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)
 type Props = {
   onOpenMenu: () => void;
   onOpenLocation: () => void;
+  onOpenDeliveryInfo: () => void;
+  onOpenCashback: () => void;
   onOpenSearch: () => void;
   onOpenProduct: (product: Product) => void;
   onOpenPromotion: (promotion: Promotion, index: number, all: Promotion[]) => void;
@@ -34,6 +37,8 @@ type Props = {
 export function CatalogScreen({
   onOpenMenu,
   onOpenLocation,
+  onOpenDeliveryInfo,
+  onOpenCashback,
   onOpenSearch,
   onOpenProduct,
   onOpenPromotion,
@@ -48,9 +53,12 @@ export function CatalogScreen({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [activeCategory, setActiveCategory] = useState("");
-  const [showCategoryNav, setShowCategoryNav] = useState(false);
+  const [showStickyNav, setShowStickyNav] = useState(false);
+  const [catalogNavY, setCatalogNavY] = useState(260);
   const sectionOffsets = useRef<Record<string, number>>({});
   const sectionsOffset = useRef(0);
+  const catalogNavOffset = useRef(260);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const region = store.activeRegion;
   const serviceHours = region?.deliveryIs24Hours
     ? "24 часа"
@@ -61,7 +69,7 @@ export function CatalogScreen({
     0,
     (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
   );
-  const productCardWidth = 156;
+  const productCardWidth = 172;
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -92,6 +100,21 @@ export function CatalogScreen({
     [categories],
   );
 
+  const cartPreviewProducts = useMemo(() => {
+    const seen = new Set<number>();
+    return store.cart.flatMap((line) => {
+      if (seen.has(line.product.id)) return [];
+      seen.add(line.product.id);
+      return [line.product];
+    });
+  }, [store.cart]);
+  const previewOverflow = cartPreviewProducts.length > 4
+    ? cartPreviewProducts.length - 3
+    : 0;
+  const visibleCartPreviews = previewOverflow
+    ? cartPreviewProducts.slice(0, 3)
+    : cartPreviewProducts.slice(0, 4);
+
   const addProduct = (product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {
       onOpenProduct(product);
@@ -99,6 +122,35 @@ export function CatalogScreen({
     }
     store.addCartLine(product, 1, []);
   };
+
+  const productQuantity = (product: Product) => store.cart.reduce(
+    (sum, line) => sum + (line.product.id === product.id ? line.quantity : 0),
+    0,
+  );
+
+  const lastProductLine = (product: Product) => {
+    for (let index = store.cart.length - 1; index >= 0; index -= 1) {
+      if (store.cart[index]?.product.id === product.id) return store.cart[index];
+    }
+    return undefined;
+  };
+
+  const incrementProduct = (product: Product) => {
+    const line = lastProductLine(product);
+    if (line) store.setCartQuantity(line.key, line.quantity + 1);
+    else addProduct(product);
+  };
+
+  const decrementProduct = (product: Product) => {
+    const line = lastProductLine(product);
+    if (line) store.setCartQuantity(line.key, line.quantity - 1);
+  };
+
+  const kitchenStatus = region?.deliveryIs24Hours
+    ? "Кухня работает круглосуточно"
+    : region?.deliveryOpenTime && region?.deliveryCloseTime
+      ? `Кухня работает ${region.deliveryOpenTime}–${region.deliveryCloseTime}`
+      : "Время работы кухни уточняется";
 
   const header = (
     <View style={[styles.header, { paddingTop: Math.max(insets.top, 0) }]}>
@@ -121,21 +173,33 @@ export function CatalogScreen({
               {store.deliveryType === "delivery" ? "Самовывоз" : "Доставка"}
             </Text>
           </Pressable>
-          <View style={styles.cashbackChip}>
-            <Text style={styles.cashbackText}>NAKTA Coin</Text>
+          <Pressable
+            accessibilityLabel="Открыть баланс Накта-коинов"
+            onPress={onOpenCashback}
+            style={({ pressed }) => [styles.cashbackChip, pressed && styles.chipPressed]}
+          >
+            <Text style={styles.cashbackText}>Coin</Text>
             <MaterialCommunityIcons name="butterfly" size={17} color={colors.orange} />
-          </View>
+          </Pressable>
         </View>
 
-        <Pressable onPress={onOpenLocation} style={styles.locationRow}>
-          <View style={styles.timeChip}>
+        <View style={styles.locationRow}>
+          <Pressable
+            accessibilityLabel="Открыть информацию о доставке"
+            onPress={onOpenDeliveryInfo}
+            style={({ pressed }) => [styles.timeChip, pressed && styles.chipPressed]}
+          >
             <Text style={styles.timeText}>
               {store.deliveryType === "pickup"
                 ? store.location?.workingHours?.split(",").at(-1)?.trim() || serviceHours
                 : serviceHours}
             </Text>
-          </View>
-          <View style={styles.addressChip}>
+          </Pressable>
+          <Pressable
+            accessibilityLabel="Выбрать адрес"
+            onPress={onOpenLocation}
+            style={({ pressed }) => [styles.addressChip, pressed && styles.chipPressed]}
+          >
             <MaterialCommunityIcons
               name={store.deliveryType === "delivery" ? "map-marker" : "storefront-outline"}
               size={18}
@@ -145,16 +209,16 @@ export function CatalogScreen({
               {store.location?.address || "Укажите адрес"}
             </Text>
             <MaterialCommunityIcons name="chevron-down" size={18} color={colors.muted} />
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
     </View>
   );
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = event.nativeEvent.contentOffset.y;
-    const next = y > 150;
-    if (next !== showCategoryNav) setShowCategoryNav(next);
-    if (next) {
+    const nextSticky = y >= Math.max(0, catalogNavOffset.current - insets.top);
+    setShowStickyNav((current) => current === nextSticky ? current : nextSticky);
+    if (nextSticky) {
       const currentCategory = visibleCategories
         .filter((category) => (
           sectionsOffset.current
@@ -170,9 +234,64 @@ export function CatalogScreen({
     }
   };
 
+  const stickyStart = Math.max(0, catalogNavY - insets.top);
+  const stickyOpacity = scrollY.interpolate({
+    inputRange: [Math.max(0, stickyStart - 8), stickyStart],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
+  const stickyTranslateY = scrollY.interpolate({
+    inputRange: [Math.max(0, stickyStart - 8), stickyStart],
+    outputRange: [6, 0],
+    extrapolate: "clamp",
+  });
+
+  const renderCategoryChips = () => (
+    <ScrollView
+      contentContainerStyle={styles.categoryChips}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+    >
+      {visibleCategories.map((category) => (
+        <Pressable
+          key={category.slug}
+          onPress={() => {
+            setActiveCategory(category.slug);
+            scrollRef.current?.scrollTo({
+              y: Math.max(
+                0,
+                sectionsOffset.current
+                  + (sectionOffsets.current[category.slug] ?? 0)
+                  - 116,
+              ),
+              animated: true,
+            });
+          }}
+          style={[
+            styles.categoryChip,
+            activeCategory === category.slug && styles.categoryChipActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.categoryChipText,
+              activeCategory === category.slug && styles.categoryChipTextActive,
+            ]}
+          >
+            {category.title}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" translucent />
+      <View
+        pointerEvents="none"
+        style={[styles.statusBarBackdrop, { height: insets.top }]}
+      />
       {loading ? (
         <>
           {header}
@@ -194,13 +313,16 @@ export function CatalogScreen({
           </View>
         </>
       ) : (
-        <ScrollView
+        <Animated.ScrollView
           ref={scrollRef}
           contentContainerStyle={[
             styles.content,
             { paddingBottom: Math.max(insets.bottom, 12) + (store.cartCount ? 100 : 24) },
           ]}
-          onScroll={handleScroll}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { listener: handleScroll, useNativeDriver: true },
+          )}
           refreshControl={(
             <RefreshControl
               colors={[colors.orange]}
@@ -211,7 +333,6 @@ export function CatalogScreen({
           )}
           scrollEventThrottle={32}
           showsVerticalScrollIndicator={false}
-          stickyHeaderIndices={[2]}
         >
           {header}
 
@@ -234,60 +355,25 @@ export function CatalogScreen({
                       source={{ uri: resolveImageUrl(promotion.image) }}
                       style={styles.promoImage}
                     />
-                    <View style={styles.promoShade} />
-                    <Text numberOfLines={3} style={styles.promoTitle}>
-                      {promotion.title}
-                    </Text>
                   </Pressable>
                 ))}
               </ScrollView>
             ) : null}
           </View>
 
-          <View style={[styles.catalogNav, showCategoryNav && styles.catalogNavSticky]}>
+          <View
+            onLayout={(event) => {
+              const nextY = event.nativeEvent.layout.y;
+              catalogNavOffset.current = nextY;
+              setCatalogNavY((current) => current === nextY ? current : nextY);
+            }}
+            style={styles.catalogNav}
+          >
             <Pressable onPress={onOpenSearch} style={styles.searchButton}>
               <MaterialCommunityIcons name="magnify" size={22} color={colors.muted} />
               <Text style={styles.searchText}>Поиск</Text>
             </Pressable>
-
-            {showCategoryNav ? (
-              <ScrollView
-                contentContainerStyle={styles.categoryChips}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-              >
-                {visibleCategories.map((category) => (
-                  <Pressable
-                    key={category.slug}
-                    onPress={() => {
-                      setActiveCategory(category.slug);
-                      scrollRef.current?.scrollTo({
-                        y: Math.max(
-                          0,
-                          sectionsOffset.current
-                            + (sectionOffsets.current[category.slug] ?? 0)
-                            - 116,
-                        ),
-                        animated: true,
-                      });
-                    }}
-                    style={[
-                      styles.categoryChip,
-                      activeCategory === category.slug && styles.categoryChipActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        activeCategory === category.slug && styles.categoryChipTextActive,
-                      ]}
-                    >
-                      {category.title}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : null}
+            {renderCategoryChips()}
           </View>
 
           <View
@@ -311,11 +397,13 @@ export function CatalogScreen({
                 >
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{category.title}</Text>
-                    <MaterialCommunityIcons
-                      name="arrow-right"
-                      size={27}
-                      color="#B5B5B5"
-                    />
+                    {category.slug !== visibleCategories[0]?.slug ? (
+                      <MaterialCommunityIcons
+                        name="arrow-right"
+                        size={27}
+                        color="#B5B5B5"
+                      />
+                    ) : null}
                   </View>
                   <ScrollView
                     contentContainerStyle={styles.productsRow}
@@ -325,9 +413,11 @@ export function CatalogScreen({
                     {products.map((product) => (
                       <ProductCard
                         key={product.id}
-                        onAdd={() => addProduct(product)}
+                        onAdd={() => incrementProduct(product)}
+                        onRemove={() => decrementProduct(product)}
                         onPress={() => onOpenProduct(product)}
                         product={product}
+                        quantity={productQuantity(product)}
                         width={productCardWidth}
                         layout="rail"
                       />
@@ -337,8 +427,26 @@ export function CatalogScreen({
               );
             })}
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       )}
+
+      <Animated.View
+        pointerEvents={showStickyNav ? "auto" : "none"}
+        style={[
+          styles.catalogNavSticky,
+          {
+            opacity: stickyOpacity,
+            top: insets.top,
+            transform: [{ translateY: stickyTranslateY }],
+          },
+        ]}
+      >
+        <Pressable onPress={onOpenSearch} style={styles.searchButton}>
+          <MaterialCommunityIcons name="magnify" size={22} color={colors.muted} />
+          <Text style={styles.searchText}>Поиск</Text>
+        </Pressable>
+        {renderCategoryChips()}
+      </Animated.View>
 
       {store.cartCount ? (
         <Pressable
@@ -347,26 +455,49 @@ export function CatalogScreen({
           onPress={onOpenCart}
           pointerEvents="box-only"
           style={[
-            styles.cartBar,
-            { bottom: Math.max(insets.bottom, 10) },
+            styles.cartDock,
+            { paddingBottom: Math.max(insets.bottom, 10) },
           ]}
         >
-          <View>
-            <Text style={styles.cartPrice}>{money(store.cartTotal)}</Text>
-            <Text style={styles.cartDelivery}>
-              {store.deliveryType === "pickup"
-                ? "Самовывоз"
-                : freeDeliveryRemaining > 0
-                  ? `До бесплатной ${money(freeDeliveryRemaining)}`
-                  : "Бесплатная доставка"}
-            </Text>
-          </View>
-          <View style={styles.cartMiddle}>
-            <Text style={styles.cartTime}>{serviceHours}</Text>
-          </View>
-          <View style={styles.cartCount}>
-            <MaterialCommunityIcons name="shopping-outline" size={22} color={colors.orange} />
-            <Text style={styles.cartCountText}>{store.cartCount}</Text>
+          <Text numberOfLines={1} style={styles.cartStatus}>
+            {kitchenStatus} ›
+          </Text>
+          <View style={styles.cartBar}>
+            <View style={styles.cartPriceWrap}>
+              <Text numberOfLines={1} style={styles.cartPrice}>{money(store.cartTotal)}</Text>
+            </View>
+            <View style={styles.cartMiddle}>
+              <Text
+                numberOfLines={1}
+                style={[
+                  styles.cartTime,
+                  store.deliveryType === "delivery"
+                    && freeDeliveryRemaining > 0
+                    && styles.cartThreshold,
+                ]}
+              >
+                {store.deliveryType === "pickup"
+                  ? "Самовывоз"
+                  : freeDeliveryRemaining > 0
+                    ? `${money(freeDeliveryRemaining)} до бесплатной доставки`
+                    : "~35 мин"}
+              </Text>
+            </View>
+            <View style={styles.cartPreviews}>
+              {visibleCartPreviews.map((product) => (
+                <Image
+                  key={product.id}
+                  resizeMode="cover"
+                  source={{ uri: resolveImageUrl(product.image) }}
+                  style={styles.cartPreviewImage}
+                />
+              ))}
+              {previewOverflow ? (
+                <View style={styles.cartPreviewOverflow}>
+                  <Text style={styles.cartPreviewOverflowText}>+{previewOverflow}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </Pressable>
       ) : null}
@@ -378,6 +509,14 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.white,
+  },
+  statusBarBackdrop: {
+    position: "absolute",
+    zIndex: 50,
+    top: 0,
+    right: 0,
+    left: 0,
+    backgroundColor: "#9B9B9D",
   },
   header: {
     paddingBottom: 10,
@@ -421,6 +560,9 @@ const styles = StyleSheet.create({
     color: colors.orange,
     fontFamily: "Inter_700Bold",
     fontSize: 13,
+  },
+  chipPressed: {
+    opacity: 0.72,
   },
   deliverySwitchActive: {
     flex: 1,
@@ -531,25 +673,11 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  promoShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.18)",
-  },
-  promoTitle: {
-    position: "absolute",
-    left: 13,
-    right: 12,
-    top: 13,
-    color: colors.white,
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: "800",
-  },
   pressed: {
     opacity: 0.86,
   },
   searchButton: {
-    height: 52,
+    height: 48,
     marginHorizontal: 16,
     borderRadius: 16,
     flexDirection: "row",
@@ -569,8 +697,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   catalogNavSticky: {
+    position: "absolute",
+    zIndex: 40,
+    right: 0,
+    left: 0,
+    paddingTop: 12,
+    paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+    backgroundColor: colors.white,
   },
   categoryChips: {
     paddingHorizontal: 16,
@@ -613,8 +748,8 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.ink,
     fontFamily: "Inter_700Bold",
-    fontSize: 23,
-    lineHeight: 29,
+    fontSize: 21,
+    lineHeight: 27,
     letterSpacing: -0.35,
   },
   productsRow: {
@@ -622,29 +757,44 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     gap: 12,
   },
-  cartBar: {
+  cartDock: {
     position: "absolute",
     zIndex: 20,
-    left: 16,
-    right: 16,
-    minHeight: 66,
-    paddingHorizontal: 17,
-    borderRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.orange,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    paddingTop: 9,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    backgroundColor: colors.white,
     ...shadow,
     elevation: 30,
   },
+  cartStatus: {
+    marginBottom: 8,
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  cartBar: {
+    height: 60,
+    paddingLeft: 16,
+    paddingRight: 2,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.orange,
+  },
+  cartPriceWrap: {
+    width: 108,
+  },
   cartPrice: {
     color: colors.white,
-    fontSize: 17,
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
     fontWeight: "800",
-  },
-  cartDelivery: {
-    marginTop: 2,
-    color: "rgba(255,255,255,0.82)",
-    fontSize: 10,
   },
   cartMiddle: {
     flex: 1,
@@ -652,23 +802,44 @@ const styles = StyleSheet.create({
   },
   cartTime: {
     color: colors.white,
-    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
     fontWeight: "700",
   },
-  cartCount: {
-    minWidth: 46,
-    height: 42,
-    paddingHorizontal: 8,
-    borderRadius: 13,
-    flexDirection: "row",
+  cartThreshold: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 9,
+  },
+  cartPreviews: {
+    minWidth: 50,
+    height: 44,
+    flexDirection: "row-reverse",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
+    justifyContent: "flex-start",
+  },
+  cartPreviewImage: {
+    width: 38,
+    height: 44,
+    marginLeft: -19,
+    borderWidth: 2,
+    borderColor: colors.white,
+    borderRadius: 10,
     backgroundColor: colors.white,
   },
-  cartCountText: {
+  cartPreviewOverflow: {
+    width: 38,
+    height: 44,
+    marginLeft: -19,
+    borderWidth: 2,
+    borderColor: colors.white,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.white,
+  },
+  cartPreviewOverflowText: {
     color: colors.orange,
-    fontSize: 13,
-    fontWeight: "800",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
   },
 });

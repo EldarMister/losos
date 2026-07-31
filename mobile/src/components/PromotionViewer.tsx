@@ -1,5 +1,4 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 import {
   ImageBackground,
@@ -74,11 +73,6 @@ export function PromotionViewer({
         source={{ uri: resolveImageUrl(promotion.image) }}
         style={styles.root}
       >
-        <LinearGradient
-          colors={["rgba(0,0,0,0.58)", "transparent", "rgba(0,0,0,0.5)"]}
-          locations={[0, 0.35, 1]}
-          style={StyleSheet.absoluteFill}
-        />
         <View style={[styles.safe, { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 18) }]}>
           <View style={styles.progressRow}>
             {promotions.map((item, itemIndex) => (
@@ -89,7 +83,6 @@ export function PromotionViewer({
             ))}
           </View>
           <View style={styles.topRow}>
-            <Text numberOfLines={3} style={styles.title}>{promotion.title}</Text>
             <Pressable accessibilityLabel="Закрыть акцию" hitSlop={8} onPress={onClose}>
               <MaterialCommunityIcons name="close" size={29} color={colors.white} />
             </Pressable>
@@ -98,13 +91,15 @@ export function PromotionViewer({
             <Pressable accessibilityLabel="Предыдущая акция" onPress={() => move(-1)} style={styles.tapZone} />
             <Pressable accessibilityLabel="Следующая акция" onPress={() => move(1)} style={styles.tapZone} />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={openCta}
-            style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-          >
-            <Text style={styles.ctaText}>{promotion.cta || "Дальше"}</Text>
-          </Pressable>
+          {promotion.cta?.trim() ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={openCta}
+              style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+            >
+              <Text style={styles.ctaText}>{promotion.cta}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </ImageBackground>
     </Modal>
@@ -134,20 +129,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   topRow: {
-    marginTop: 18,
+    minHeight: 36,
+    marginTop: 5,
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  title: {
-    flex: 1,
-    color: colors.white,
-    fontSize: 29,
-    lineHeight: 34,
-    fontWeight: "800",
-    textShadowColor: "rgba(0,0,0,0.25)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   tapZones: {
     flex: 1,

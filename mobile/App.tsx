@@ -21,8 +21,11 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { catalogApi } from "./src/api";
 import { CartSheet } from "./src/components/CartSheet";
+import { DeliveryInfoSheet } from "./src/components/DeliveryInfoSheet";
 import { LocationSheet } from "./src/components/LocationSheet";
 import { MenuSheet } from "./src/components/MenuSheet";
+import { NaktaCoinsSheet } from "./src/components/NaktaCoinsSheet";
+import { NotificationPermissionPrompt } from "./src/components/NotificationPermissionPrompt";
 import { ProductSheet } from "./src/components/ProductSheet";
 import { PromotionViewer } from "./src/components/PromotionViewer";
 import { SearchSheet } from "./src/components/SearchSheet";
@@ -79,6 +82,8 @@ type CatalogProps = NativeStackScreenProps<RootStackParamList, "Catalog">;
 function CatalogRoute({ navigation }: CatalogProps) {
   const store = useStore();
   const [locationVisible, setLocationVisible] = useState(false);
+  const [deliveryInfoVisible, setDeliveryInfoVisible] = useState(false);
+  const [cashbackVisible, setCashbackVisible] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [searchVisible, setSearchVisible] = useState(false);
   const [cartVisible, setCartVisible] = useState(false);
@@ -122,6 +127,8 @@ function CatalogRoute({ navigation }: CatalogProps) {
     <>
       <CatalogScreen
         onOpenCart={() => setCartVisible(true)}
+        onOpenCashback={() => setCashbackVisible(true)}
+        onOpenDeliveryInfo={() => setDeliveryInfoVisible(true)}
         onOpenLocation={() => setLocationVisible(true)}
         onOpenMenu={() => setMenuVisible(true)}
         onOpenProduct={setSelectedProduct}
@@ -139,12 +146,28 @@ function CatalogRoute({ navigation }: CatalogProps) {
         onOpenBalance={() => openProfileSection("balance")}
         onOpenOrders={() => openProfileSection("orders")}
         onOpenProfile={openProfile}
+        onLogout={() => {
+          const session = store.session;
+          setMenuVisible(false);
+          void (async () => {
+            if (session) await unregisterOrderPush(session).catch(() => undefined);
+            await store.signOut();
+          })();
+        }}
         visible={menuVisible}
       />
       <LocationSheet
         onClose={() => setLocationVisible(false)}
         required={!store.location}
         visible={locationVisible}
+      />
+      <DeliveryInfoSheet
+        onClose={() => setDeliveryInfoVisible(false)}
+        visible={deliveryInfoVisible}
+      />
+      <NaktaCoinsSheet
+        onClose={() => setCashbackVisible(false)}
+        visible={cashbackVisible}
       />
       <SearchSheet
         onClose={() => setSearchVisible(false)}
@@ -276,6 +299,8 @@ function MobileApp() {
   const store = useStore();
   const [openLoginAfterOnboarding, setOpenLoginAfterOnboarding] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [notificationPromptVisible, setNotificationPromptVisible] = useState(false);
+  const [requestingNotificationPermission, setRequestingNotificationPermission] = useState(false);
 
   useEffect(() => {
     if (!store.hydrated) return;
@@ -288,6 +313,49 @@ function MobileApp() {
     if (!store.session) return;
     void registerOrderPush(store.session, false).catch(() => undefined);
   }, [store.session]);
+
+  useEffect(() => {
+    if (!store.hydrated || !store.session || store.notificationsAsked) {
+      setNotificationPromptVisible(false);
+      return undefined;
+    }
+    let active = true;
+    void Notifications.getPermissionsAsync()
+      .then((permission) => {
+        if (!active) return;
+        if (permission.status === "granted") {
+          store.setNotificationsAsked(true);
+        } else {
+          setNotificationPromptVisible(true);
+        }
+      })
+      .catch(() => {
+        if (active) setNotificationPromptVisible(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [store.hydrated, store.notificationsAsked, store.session]);
+
+  const denyNotifications = () => {
+    if (requestingNotificationPermission) return;
+    store.setNotificationsAsked(true);
+    setNotificationPromptVisible(false);
+  };
+
+  const allowNotifications = async () => {
+    if (!store.session || requestingNotificationPermission) return;
+    setRequestingNotificationPermission(true);
+    try {
+      await registerOrderPush(store.session, true);
+    } catch {
+      // Registration is retried on the next session when permission was granted.
+    } finally {
+      store.setNotificationsAsked(true);
+      setRequestingNotificationPermission(false);
+      setNotificationPromptVisible(false);
+    }
+  };
 
   useEffect(() => {
     if (!store.session) return;
@@ -335,7 +403,8 @@ function MobileApp() {
   }
 
   return (
-    <NavigationContainer
+    <>
+      <NavigationContainer
       linking={{
         prefixes: ["naktasushi://"],
         config: { screens: { OrderDetails: "orders/:orderId" } },
@@ -366,7 +435,14 @@ function MobileApp() {
         <Stack.Screen component={ProfileRoute} name="Profile" />
         <Stack.Screen component={OrderDetailsRoute} name="OrderDetails" />
       </Stack.Navigator>
-    </NavigationContainer>
+      </NavigationContainer>
+      <NotificationPermissionPrompt
+        busy={requestingNotificationPermission}
+        onAllow={() => void allowNotifications()}
+        onDeny={denyNotifications}
+        visible={notificationPromptVisible}
+      />
+    </>
   );
 }
 

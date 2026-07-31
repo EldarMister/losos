@@ -1,0 +1,177 @@
+diff --git a/node_modules/react-native-yamap/android/build.gradle b/node_modules/react-native-yamap/android/build.gradle
+index 30a0b43..e625349 100644
+--- a/node_modules/react-native-yamap/android/build.gradle
++++ b/node_modules/react-native-yamap/android/build.gradle
+@@ -13,7 +13,7 @@ def safeExtGet(prop, fallback) {
+   rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+ }
+ 
+-def GOOGLE_PLAY_SERVICES_LOCATION_VERSION = safeExtGet('playServicesLocationVersion', "+")
++def GOOGLE_PLAY_SERVICES_LOCATION_VERSION = safeExtGet('playServicesLocationVersion', "21.3.0")
+ 
+ android {
+     namespace = 'ru.vvdev.yamap'
+@@ -38,7 +38,7 @@ repositories {
+ }
+ 
+ dependencies {
+-    implementation 'com.google.android.gms:play-services-location:$GOOGLE_PLAY_SERVICES_LOCATION_VERSION'
++    implementation "com.google.android.gms:play-services-location:${GOOGLE_PLAY_SERVICES_LOCATION_VERSION}"
+     implementation 'com.facebook.react:react-native:+'
+     implementation 'com.yandex.android:maps.mobile:4.19.0-full'
+     implementation 'androidx.core:core-ktx:1.13.1'
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt
+index 3fa87ff..9ee8a0d 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt
+@@ -19,9 +19,9 @@ class ClusteredYamapViewManager internal constructor() : ViewGroupManager<Cluste
+         return REACT_CLASS
+     }
+ 
+-    override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any>? {
++    override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+@@ -84,7 +84,7 @@ class ClusteredYamapViewManager internal constructor() : ViewGroupManager<Cluste
+                     MapBuilder.of("bubbled", "onWorldToScreenPointsReceived")
+                 )
+             )
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getCommandsMap(): Map<String, Int>? {
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapCircleManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapCircleManager.kt
+index 85be269..81ebb30 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapCircleManager.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapCircleManager.kt
+@@ -14,15 +14,15 @@ class YamapCircleManager internal constructor() : ViewGroupManager<YamapCircle>(
+         return REACT_CLASS
+     }
+ 
+-    override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any>? {
++    override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+             .put("onPress", MapBuilder.of("registrationName", "onPress"))
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     @Nonnull
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapMarkerManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapMarkerManager.kt
+index eedb2d5..e05c025 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapMarkerManager.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapMarkerManager.kt
+@@ -17,15 +17,15 @@ class YamapMarkerManager internal constructor() : ViewGroupManager<YamapMarker>(
+         return REACT_CLASS
+     }
+ 
+-    override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any>? {
++    override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+             .put("onPress", MapBuilder.of("registrationName", "onPress"))
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     private fun castToMarkerView(view: View): YamapMarker {
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolygonManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolygonManager.kt
+index cf14b19..8138518 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolygonManager.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolygonManager.kt
+@@ -15,15 +15,15 @@ class YamapPolygonManager internal constructor() : ViewGroupManager<YamapPolygon
+         return REACT_CLASS
+     }
+ 
+-    override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any>? {
++    override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+             .put("onPress", MapBuilder.of("registrationName", "onPress"))
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     private fun castToPolygonView(view: View): YamapPolygon {
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolylineManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolylineManager.kt
+index 8be99c8..6582c9a 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolylineManager.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapPolylineManager.kt
+@@ -15,15 +15,15 @@ class YamapPolylineManager internal constructor() : ViewGroupManager<YamapPolyli
+         return REACT_CLASS
+     }
+ 
+-    override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any>? {
++    override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+             .put("onPress", MapBuilder.of("registrationName", "onPress"))
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     private fun castToPolylineView(view: View): YamapPolyline {
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapViewManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapViewManager.kt
+index 229c007..758f577 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapViewManager.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/YamapViewManager.kt
+@@ -19,9 +19,9 @@ class YamapViewManager internal constructor() : ViewGroupManager<YamapView>() {
+         return REACT_CLASS
+     }
+ 
+-    override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any>? {
++    override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any>? {
+         return MapBuilder.builder<String, Any>()
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getExportedCustomBubblingEventTypeConstants(): MutableMap<String, Any>? {
+@@ -84,7 +84,7 @@ class YamapViewManager internal constructor() : ViewGroupManager<YamapView>() {
+                     MapBuilder.of("bubbled", "onWorldToScreenPointsReceived")
+                 )
+             )
+-            .build()
++            .build().toMutableMap()
+     }
+ 
+     override fun getCommandsMap(): Map<String, Int>? {
+diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/view/YamapView.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/view/YamapView.kt
+index 0833099..2bf580f 100644
+--- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/view/YamapView.kt
++++ b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/view/YamapView.kt
+@@ -685,7 +685,7 @@ open class YamapView(context: Context?) : MapView(context), UserLocationObjectLi
+         val wTransports = Arguments.createMap()
+ 
+         for ((key, value) in transports) {
+-            wTransports.putArray(key, Arguments.fromList(value))
++            wTransports.putArray(key, Arguments.fromList(value ?: emptyList<String?>()))
+         }
+ 
+         routeMetadata.putMap("transports", wTransports)

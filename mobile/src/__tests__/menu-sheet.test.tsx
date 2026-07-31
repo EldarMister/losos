@@ -4,6 +4,9 @@ import { useStore } from "../store";
 
 jest.mock("../api", () => ({
   WEB_URL: "https://naktasushi.com",
+  authApi: {
+    profile: jest.fn().mockResolvedValue({ naktaCoins: 1250 }),
+  },
 }));
 
 jest.mock("../store", () => ({
@@ -30,6 +33,7 @@ function props() {
     onOpenOrders: jest.fn(),
     onOpenAddresses: jest.fn(),
     onOpenBalance: jest.fn(),
+    onLogout: jest.fn(),
   };
 }
 
@@ -42,7 +46,7 @@ describe("MenuSheet account states", () => {
     expect(screen.getByText("Вход в личный кабинет")).toBeTruthy();
     expect(screen.getByText("Поддержка")).toBeTruthy();
     expect(screen.getByText("О нас")).toBeTruthy();
-    expect(screen.getByText("Хочу в команду")).toBeTruthy();
+    expect(screen.queryByText("Хочу в команду")).toBeNull();
   });
 
   test("shows account, orders, addresses, balance and settings after login", async () => {
@@ -53,6 +57,9 @@ describe("MenuSheet account states", () => {
     const screen = await render(<MenuSheet {...callbacks} />);
 
     expect(screen.getByText("+996555123456")).toBeTruthy();
+    expect(await screen.findByText("1 250")).toBeTruthy();
+    await fireEvent.press(screen.getByText("+996555123456"));
+    expect(callbacks.onOpenProfile).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText("Мои заказы"));
     await fireEvent.press(screen.getByText("Мои адреса"));
     await fireEvent.press(screen.getByText("NAKTA Coin"));

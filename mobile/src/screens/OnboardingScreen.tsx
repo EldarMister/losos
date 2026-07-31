@@ -1,4 +1,3 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { NotificationPermissionPrompt } from "../components/NotificationPermissionPrompt";
 import { colors, radii } from "../theme";
 import { useStore } from "../store";
 
@@ -25,7 +25,7 @@ const pages = [
     colors: ["#FF5207", "#FF4B00"] as const,
     title: "Качественно\nи вкусно",
     copy: "Делаем выбор в пользу лучших продуктов, технологичных процессов и заботы о клиентах. В Бишкеке и Оше.",
-    image: null,
+    image: require("../../assets/app-icon.jpeg"),
     imageStyle: "brand" as const,
   },
   {
@@ -39,14 +39,14 @@ const pages = [
     colors: ["#D59AF5", "#C47BEF"] as const,
     title: "Пришлём пуш\nо статусе заказа",
     copy: "Сами доставляем заказы и следим за скоростью. Покажем статус заказа в режиме реального времени.",
-    image: require("../../assets/delivery-nakta.png"),
+    image: require("../../assets/delivery.png"),
     imageStyle: "bag" as const,
   },
   {
     colors: ["#FF5907", "#FF4B00"] as const,
     title: "Приятного вам аппетита!",
     copy: "",
-    image: null,
+    image: require("../../assets/heart.png"),
     imageStyle: "heart" as const,
   },
 ];
@@ -56,6 +56,7 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
   const { setOnboarded, setNotificationsAsked } = useStore();
   const [page, setPage] = useState(0);
   const [requestingPermission, setRequestingPermission] = useState(false);
+  const [permissionPromptVisible, setPermissionPromptVisible] = useState(false);
   const pageIndex = Math.min(Math.max(page, 0), pages.length - 1);
   const current = pages[pageIndex];
   const buttonLabel = pageIndex === pages.length - 1 ? "Выбрать адрес доставки" : "Далее";
@@ -71,7 +72,7 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
     else complete();
   };
 
-  const requestNotifications = async () => {
+  const allowNotifications = async () => {
     setRequestingPermission(true);
     setNotificationsAsked(true);
     try {
@@ -81,8 +82,16 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
       }
     } finally {
       setRequestingPermission(false);
+      setPermissionPromptVisible(false);
       next();
     }
+  };
+
+  const denyNotifications = () => {
+    if (requestingPermission) return;
+    setNotificationsAsked(true);
+    setPermissionPromptVisible(false);
+    next();
   };
 
   return (
@@ -106,22 +115,11 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
           ))}
         </View>
 
-        <View style={styles.visual}>
+        <View style={[styles.visual, current.imageStyle === "heart" && styles.heartVisual]}>
           {current.imageStyle === "brand" ? (
-            <View style={styles.brandTile}>
-              <View style={styles.brandPattern}>
-                <Text style={styles.brandPatternText}>НАКТА</Text>
-                <Text style={styles.brandPatternText}>СУШИ</Text>
-                <Text style={styles.brandPatternText}>НАКТА</Text>
-              </View>
-            </View>
+            <Image resizeMode="cover" source={current.image} style={styles.brandTile} />
           ) : current.imageStyle === "heart" ? (
-            <View style={styles.heartWrap}>
-              <MaterialCommunityIcons name="heart" size={230} color="#FF9A21" />
-              <View style={[styles.heartStripe, styles.heartStripeOne]} />
-              <View style={[styles.heartStripe, styles.heartStripeTwo]} />
-              <View style={[styles.heartStripe, styles.heartStripeThree]} />
-            </View>
+            <Image resizeMode="contain" source={current.image} style={styles.heartImage} />
           ) : (
             <Image
               resizeMode="contain"
@@ -131,23 +129,26 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
           )}
         </View>
 
-        <View style={styles.copyBlock}>
-          <Text style={styles.title}>{current.title}</Text>
-          {current.copy ? <Text style={styles.copy}>{current.copy}</Text> : null}
-        </View>
+        {current.imageStyle !== "heart" ? (
+          <View style={styles.copyBlock}>
+            <Text style={styles.title}>{current.title}</Text>
+            {current.copy ? <Text style={styles.copy}>{current.copy}</Text> : null}
+          </View>
+        ) : null}
 
         <View style={styles.actions}>
           {isNotificationPage ? (
             <PrimaryButton
-              label="Включить уведомления"
-              loading={requestingPermission}
-              onPress={requestNotifications}
+              label="Включить пуш-уведомления"
+              labelStyle={styles.onboardingButtonLabel}
+              onPress={() => setPermissionPromptVisible(true)}
               style={styles.translucentButton}
               tone="white"
             />
           ) : null}
           <PrimaryButton
             label={buttonLabel}
+            labelStyle={styles.onboardingButtonLabel}
             onPress={next}
             style={styles.translucentButton}
             tone="white"
@@ -166,6 +167,12 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
           ) : null}
         </View>
       </View>
+      <NotificationPermissionPrompt
+        busy={requestingPermission}
+        onAllow={() => void allowNotifications()}
+        onDeny={denyNotifications}
+        visible={permissionPromptVisible}
+      />
     </LinearGradient>
   );
 }
@@ -197,62 +204,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   brandTile: {
-    width: 230,
-    height: 230,
-    borderRadius: 62,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    backgroundColor: "#FF7800",
-  },
-  brandPattern: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
-    opacity: 0.92,
-    transform: [{ rotate: "-4deg" }, { scale: 1.25 }],
-  },
-  brandPatternText: {
-    color: colors.white,
-    fontSize: 48,
-    lineHeight: 45,
-    fontWeight: "900",
+    width: 176,
+    height: 176,
+    borderRadius: 49,
   },
   bagImage: {
-    width: 285,
-    height: 285,
+    width: 230,
+    height: 230,
   },
   basketImage: {
     width: 300,
     height: 300,
   },
-  heartWrap: {
-    width: 260,
-    height: 245,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
+  heartVisual: {
+    flex: 1,
+    marginHorizontal: -8,
   },
-  heartStripe: {
-    position: "absolute",
-    width: 170,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: "rgba(255,255,255,0.74)",
-    transform: [{ rotate: "32deg" }],
-  },
-  heartStripeOne: {
-    top: 84,
-    left: 48,
-  },
-  heartStripeTwo: {
-    top: 121,
-    left: 41,
-  },
-  heartStripeThree: {
-    top: 157,
-    left: 52,
+  heartImage: {
+    width: "100%",
+    maxWidth: 380,
+    aspectRatio: 1,
   },
   copyBlock: {
     minHeight: 188,
@@ -276,7 +247,10 @@ const styles = StyleSheet.create({
   },
   translucentButton: {
     borderRadius: radii.large,
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: "rgba(255,255,255,0.24)",
+  },
+  onboardingButtonLabel: {
+    color: colors.white,
   },
   loginButton: {
     minHeight: 52,

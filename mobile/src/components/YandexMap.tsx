@@ -13,7 +13,9 @@ export function YandexMap({
   regionSlug,
   initialLatitude,
   initialLongitude,
+  focusRequest = 0,
   onLocationChange,
+  showCenterMarker = true,
 }: YandexMapProps) {
   const [credentials, setCredentials] = useState<MapsConfig | null>(null);
   const [error, setError] = useState("");
@@ -52,7 +54,7 @@ export function YandexMap({
           initialLongitude,
         )
       : ""
-  ), [credentials, initialLatitude, initialLongitude, regionSlug]);
+  ), [credentials, focusRequest, initialLatitude, initialLongitude, regionSlug]);
 
   if (error) {
     return (
@@ -85,7 +87,7 @@ export function YandexMap({
         },
         title: "Яндекс Карта выбора адреса",
       })}
-      <MapCenterMarker />
+      {showCenterMarker ? <MapCenterMarker /> : null}
     </View>
   );
 }
