@@ -6,11 +6,14 @@ import { ConfigService } from "@nestjs/config";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import {
+  CreatePickupLocationDto,
   CreateRegionDto,
   CreateProductDto,
   CreatePromotionDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
+import { dispatchOrderStatusPush } from "../src/admin/order-status-notifier";
+import { RegisterPushTokenDto } from "../src/auth/push-token.dto";
 import {
   CheckWhatsappAuthDto,
   RequestPhoneCodeDto,
@@ -35,6 +38,8 @@ import {
   OrderStatus,
 } from "../src/orders/order.enums";
 import { priceOrderLine } from "../src/orders/order-pricing";
+import { PushNotificationsService } from "../src/notifications/push-notifications.service";
+import { AddPickupLocationsAndPushTokens1784996000000 } from "../src/migrations/1784996000000-AddPickupLocationsAndPushTokens";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -102,6 +107,186 @@ test("region delivery settings validate time, days, and free-delivery threshold"
   assert.ok(validateSync(invalid).length >= 4);
 });
 
+test("pickup locations and device push tokens reject invalid shared-contract data", () => {
+  const pickup = plainToInstance(CreatePickupLocationDto, {
+    regionId: 1,
+    title: "Кухня на Чуй",
+    address: "Бишкек, проспект Чуй, 155",
+    workingHours: "Ежедневно, 11:00–23:00",
+    latitude: 42.8746,
+    longitude: 74.5698,
+    yandexUrl: "https://yandex.ru/maps/?ll=74.5698,42.8746",
+    enabled: true,
+    sortOrder: 0,
+  });
+  assert.deepEqual(validateSync(pickup), []);
+
+  const invalidPickup = plainToInstance(CreatePickupLocationDto, {
+    regionId: 0,
+    title: "",
+    address: "",
+    latitude: 100,
+    longitude: 200,
+    yandexUrl: "javascript:alert(1)",
+  });
+  assert.ok(validateSync(invalidPickup).length >= 5);
+
+  const push = plainToInstance(RegisterPushTokenDto, {
+    phone: "+996 (555) 123-456",
+    deviceId: "61db5908-a072-4d2e-8685-a726c5f3278a",
+    expoPushToken: "ExponentPushToken[abcdefghijklmnopqrstuv]",
+    platform: "android",
+  });
+  assert.deepEqual(validateSync(push), []);
+  assert.equal(push.phone, "+996555123456");
+
+  const invalidPush = plainToInstance(RegisterPushTokenDto, {
+    phone: "+996123",
+    deviceId: "device",
+    expoPushToken: "not-a-token",
+    platform: "windows",
+  });
+  assert.equal(validateSync(invalidPush).length, 4);
+});
+
+test("push token upsert is device-owned and logout deletion is phone-scoped", async () => {
+  const records: Array<Record<string, unknown>> = [];
+  const deleted: unknown[] = [];
+  const repository = {
+    findOneBy: async (where: Record<string, unknown>) =>
+      records.find((record) => Object.entries(where).every(([key, value]) => record[key] === value)) ?? null,
+    create: () => ({}),
+    save: async (value: Record<string, unknown>) => {
+      const existing = records.findIndex((record) =>
+        record.deviceId === value.deviceId || record.expoPushToken === value.expoPushToken);
+      const saved = { id: existing >= 0 ? records[existing].id : `token-${records.length + 1}`, ...value };
+      if (existing >= 0) records[existing] = saved;
+      else records.push(saved);
+      return saved;
+    },
+    delete: async (criteria: unknown) => {
+      deleted.push(criteria);
+      return { affected: 1 };
+    },
+  };
+  const push = new PushNotificationsService(repository as never);
+  const deviceId = "61db5908-a072-4d2e-8685-a726c5f3278a";
+  await push.register({
+    phone: "+996555123456",
+    deviceId,
+    expoPushToken: "ExponentPushToken[abcdefghijklmnopqrstuv]",
+    platform: "android",
+  });
+  await push.register({
+    phone: "+996700123456",
+    deviceId,
+    expoPushToken: "ExponentPushToken[zyxwvutsrqponmlkjihgfe]",
+    platform: "ios",
+  });
+  assert.equal(records.length, 1);
+  assert.equal(records[0].phone, "+996700123456");
+  assert.equal(records[0].platform, "ios");
+
+  assert.deepEqual(
+    await push.remove("+996700123456", deviceId),
+    { removed: true },
+  );
+  assert.deepEqual(deleted[0], { phone: "+996700123456", deviceId });
+});
+
+test("order status push has a deep link and removes DeviceNotRegistered tokens", async () => {
+  const deleted: unknown[] = [];
+  const devices = [
+    { id: "token-1", phone: "+996555123456", enabled: true, expoPushToken: "ExponentPushToken[first]" },
+    { id: "token-2", phone: "+996555123456", enabled: true, expoPushToken: "ExponentPushToken[second]" },
+  ];
+  const repository = {
+    find: async () => devices,
+    delete: async (criteria: unknown) => {
+      deleted.push(criteria);
+      return { affected: 1 };
+    },
+  };
+  const originalFetch = globalThis.fetch;
+  let requestBody: unknown;
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    requestBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({
+      data: [
+        { status: "ok" },
+        { status: "error", details: { error: "DeviceNotRegistered" } },
+      ],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const push = new PushNotificationsService(repository as never);
+    await push.sendOrderStatus("+996555123456", "order-42", OrderStatus.READY);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.deepEqual(
+    (requestBody as Array<{ data: Record<string, string> }>).map((message) => message.data),
+    [
+      { orderId: "order-42", status: "ready", url: "naktasushi://orders/order-42" },
+      { orderId: "order-42", status: "ready", url: "naktasushi://orders/order-42" },
+    ],
+  );
+  assert.deepEqual(deleted, [["token-2"]]);
+});
+
+test("pickup and push migration has reversible tables and migrates legacy pickup data", async () => {
+  const migration = new AddPickupLocationsAndPushTokens1784996000000();
+  const upQueries: string[] = [];
+  await migration.up({
+    query: async (statement: string) => {
+      upQueries.push(statement.replace(/\s+/g, " ").trim());
+      return [];
+    },
+  } as never);
+  assert.ok(upQueries.some((statement) => statement.includes('CREATE TABLE "pickup_locations"')));
+  assert.ok(upQueries.some((statement) =>
+    statement.includes('INSERT INTO "pickup_locations"')
+    && statement.includes('FROM "regions"')));
+  assert.ok(upQueries.some((statement) => statement.includes('CREATE TABLE "device_push_tokens"')));
+  assert.ok(upQueries.some((statement) => statement.includes('REFERENCES "phone_accounts"("phone")')));
+
+  const downQueries: string[] = [];
+  await migration.down({
+    query: async (statement: string) => {
+      downQueries.push(statement);
+      return [];
+    },
+  } as never);
+  assert.deepEqual(downQueries, [
+    'DROP TABLE "device_push_tokens"',
+    'DROP TABLE "pickup_locations"',
+  ]);
+});
+
+test("a push failure is isolated after a valid order status transition", async () => {
+  const order = {
+    id: "order-push-failure",
+    phone: "+996555123456",
+    status: OrderStatus.CONFIRMED,
+  };
+  const pushErrors: unknown[] = [];
+  const originalConsoleError = console.error;
+  console.error = (...args: unknown[]) => {
+    pushErrors.push(args);
+  };
+  try {
+    dispatchOrderStatusPush(
+      { sendOrderStatus: async () => { throw new Error("Expo unavailable"); } } as never,
+      order,
+    );
+    await Promise.resolve();
+    assert.equal(order.status, OrderStatus.CONFIRMED);
+    assert.equal(pushErrors.length, 1);
+  } finally {
+    console.error = originalConsoleError;
+  }
+});
+
 test("delivery working hours use Bishkek time and support overnight schedules", () => {
   const daytime = { deliveryOpenTime: "11:30", deliveryCloseTime: "22:30" };
   assert.equal(isDeliveryOpenAt(daytime, new Date("2026-07-29T06:00:00.000Z")), true);
@@ -155,6 +340,8 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "orderDetails",
       "profile",
       "receiveWhatsappWebhook",
+      "registerPushToken",
+      "removePushToken",
       "requestCode",
       "requestWhatsapp",
       "verifyCode",

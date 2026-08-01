@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   RawBody,
+  Delete,
 } from "@nestjs/common";
 import {
   CheckWhatsappAuthDto,
@@ -20,13 +21,38 @@ import {
   type WhatsappWebhookPayload,
 } from "./phone-auth.service";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
+import { RegisterPushTokenDto } from "./push-token.dto";
+import { PushNotificationsService } from "../notifications/push-notifications.service";
 
 @Controller("auth")
 export class PhoneAuthController {
   constructor(
     private readonly auth: PhoneAuthService,
     private readonly whatsapp: WhatsappCloudService,
+    private readonly push: PushNotificationsService,
   ) {}
+
+  @Post("push-tokens")
+  async registerPushToken(
+    @Body() dto: RegisterPushTokenDto,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    await this.auth.assertAccount(dto.phone, verificationToken);
+    const token = await this.push.register(dto);
+    return { deviceId: token.deviceId, registered: true };
+  }
+
+  @Delete("push-tokens/:deviceId")
+  async removePushToken(
+    @Param("deviceId") deviceId: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    await this.auth.assertAccount(phone || "", verificationToken);
+    return this.push.remove(phone || "", deviceId);
+  }
 
   @Get("methods")
   methods() {

@@ -1,5 +1,6 @@
 import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Category } from "./category.entity";
+import { PickupLocation } from "./pickup-location.entity";
 import { Promotion } from "./promotion.entity";
 
 @Entity("regions")
@@ -64,4 +65,7 @@ export class Region {
 
   @OneToMany(() => Promotion, (promotion) => promotion.region)
   promotions!: Promotion[];
+
+  @OneToMany(() => PickupLocation, (location) => location.region)
+  pickupLocations!: PickupLocation[];
 }

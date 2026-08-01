@@ -7,6 +7,9 @@ import { Region } from "./catalog/region.entity";
 import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
 import { AuthorizedPhone } from "./auth/authorized-phone.entity";
 import { PhoneAccount } from "./auth/phone-account.entity";
+import { DevicePushToken } from "./auth/device-push-token.entity";
+import { PickupLocation } from "./catalog/pickup-location.entity";
+import { AddPickupLocationsAndPushTokens1784996000000 } from "./migrations/1784996000000-AddPickupLocationsAndPushTokens";
 import { BootstrapSchema1784978000000 } from "./migrations/1784978000000-BootstrapSchema";
 import { AddProductCustomization1784979000000 } from "./migrations/1784979000000-AddProductCustomization";
 import { AddProductionOrders1784980000000 } from "./migrations/1784980000000-AddProductionOrders";
@@ -39,7 +42,7 @@ const databaseUrl = process.env.DATABASE_URL ?? "postgresql://losos:losos@localh
 export default new DataSource({
   type: "postgres",
   url: databaseUrl,
-  entities: [Region, Category, Product, Promotion, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount],
+  entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, DevicePushToken],
   migrations: [
     BootstrapSchema1784978000000,
     AddProductCustomization1784979000000,
@@ -59,6 +62,7 @@ export default new DataSource({
     AddPhoneAccounts1784993000000,
     AddNaktaCoins1784994000000,
     AddProductNaktaCoins1784995000000,
+    AddPickupLocationsAndPushTokens1784996000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

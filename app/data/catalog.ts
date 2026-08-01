@@ -349,7 +349,7 @@ const p = (
   protein: 14,
   fat: 13,
   carbs: 69,
-  description: "Свежие ингредиенты, яркий вкус и фирменная подача Много лосося.",
+  description: "Свежие ингредиенты, яркий вкус и фирменная подача Накта суши.",
   modalKind: "related",
   ...extra,
   ...(productMetaByName[name] || {}),
@@ -664,7 +664,7 @@ export const categories: Category[] = [
 export const promoCards = [
   { alt: "Скидка студентам", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/104b14d17af4e66ab32a1f99bfa9cb23_resize_in_box_1104_1104.jpg" },
   { alt: "Telegram: промокоды и мемы", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/f28303d1312d58d8023742cc7c75a57a_resize_in_box_1104_1104.jpg" },
-  { alt: "Много лосося — удовольствие есть", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/43ddb99861e8cfbedf08f2a313738c4b_resize_in_box_1104_1104.jpg" },
+  { alt: "Накта суши — удовольствие есть", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/43ddb99861e8cfbedf08f2a313738c4b_resize_in_box_1104_1104.jpg" },
   { alt: "Всё вкусное — детям!", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/b8d03d4e8617466336260d917af4f21b_resize_in_box_1104_1104.jpg" },
   { alt: "Кешбэк до 100%", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/c9d2f34588567ee37d2fa4a7c937821a_resize_in_box_1104_1104.jpg" },
   { alt: "Мноооооого палочки?", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/f449b42a119d8d82dbaf4ec023d4bd95_resize_in_box_1104_1104.png" },

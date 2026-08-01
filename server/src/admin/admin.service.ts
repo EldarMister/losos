@@ -9,10 +9,13 @@ import {
 import { Product } from "../catalog/product.entity";
 import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
+import { PickupLocation } from "../catalog/pickup-location.entity";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { PhoneAccount } from "../auth/phone-account.entity";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
+import { PushNotificationsService } from "../notifications/push-notifications.service";
+import { dispatchOrderStatusPush } from "./order-status-notifier";
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -22,16 +25,21 @@ import {
   UpdateProductDto,
   UpdatePromotionDto,
   UpdateRegionDto,
+  CreatePickupLocationDto,
+  UpdatePickupLocationDto,
 } from "./admin.dto";
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectRepository(Region) private readonly regions: Repository<Region>,
+    @InjectRepository(PickupLocation)
+    private readonly pickupLocations: Repository<PickupLocation>,
     @InjectRepository(Category) private readonly categories: Repository<Category>,
     @InjectRepository(Product) private readonly products: Repository<Product>,
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
     @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
+    private readonly pushNotifications: PushNotificationsService,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -47,11 +55,18 @@ export class AdminService {
         order: { sortOrder: "ASC", id: "ASC" },
       }),
     ]);
-    return { region, categories, promotions };
+    const pickupLocations = await this.pickupLocations.find({
+      where: { region: { id: region.id } },
+      order: { sortOrder: "ASC", id: "ASC" },
+    });
+    return { region: { ...region, pickupLocations }, categories, promotions };
   }
 
   settings() {
-    return this.regions.find({ order: { sortOrder: "ASC", id: "ASC" } });
+    return this.regions.find({
+      relations: { pickupLocations: true },
+      order: { sortOrder: "ASC", id: "ASC" },
+    });
   }
 
   async createRegion(dto: CreateRegionDto) {
@@ -115,7 +130,7 @@ export class AdminService {
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {
-    return this.orderRepository.manager.transaction(async (manager) => {
+    const saved = await this.orderRepository.manager.transaction(async (manager) => {
       const orders = manager.getRepository(Order);
       const order = await orders.findOne({ where: { id }, relations: { items: true } });
       if (!order) throw new NotFoundException("Order not found");
@@ -132,6 +147,34 @@ export class AdminService {
       }
       return saved;
     });
+    dispatchOrderStatusPush(this.pushNotifications, saved);
+    return saved;
+  }
+
+  async createPickupLocation(dto: CreatePickupLocationDto) {
+    const region = await this.regions.findOneBy({ id: dto.regionId });
+    if (!region) throw new NotFoundException("Город не найден");
+    const location = this.pickupLocations.create({
+      ...dto,
+      latitude: dto.latitude ?? null,
+      longitude: dto.longitude ?? null,
+      region,
+    });
+    return this.pickupLocations.save(location);
+  }
+
+  async updatePickupLocation(id: number, dto: UpdatePickupLocationDto) {
+    const location = await this.pickupLocations.findOneBy({ id });
+    if (!location) throw new NotFoundException("Кухня самовывоза не найдена");
+    Object.assign(location, dto);
+    return this.pickupLocations.save(location);
+  }
+
+  async deletePickupLocation(id: number) {
+    const location = await this.pickupLocations.findOneBy({ id });
+    if (!location) throw new NotFoundException("Кухня самовывоза не найдена");
+    await this.pickupLocations.remove(location);
+    return { deleted: true };
   }
 
   async createCategory(dto: CreateCategoryDto) {

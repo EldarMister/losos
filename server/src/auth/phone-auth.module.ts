@@ -7,9 +7,13 @@ import { PhoneAuthController } from "./phone-auth.controller";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { PhoneAuthService } from "./phone-auth.service";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
+import { PushNotificationsModule } from "../notifications/push-notifications.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PhoneAuthChallenge, AuthorizedPhone, PhoneAccount])],
+  imports: [
+    TypeOrmModule.forFeature([PhoneAuthChallenge, AuthorizedPhone, PhoneAccount]),
+    PushNotificationsModule,
+  ],
   controllers: [PhoneAuthController],
   providers: [PhoneAuthService, NikitaOtpService, WhatsappCloudService],
   exports: [PhoneAuthService],

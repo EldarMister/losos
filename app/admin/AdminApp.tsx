@@ -4,7 +4,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; footerCompanyName: string; footerLegalInfo: string };
+type PickupLocation = { id: number; title: string; address: string; workingHours: string; latitude: number | null; longitude: number | null; yandexUrl: string; enabled: boolean; sortOrder: number };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -102,7 +103,22 @@ type Tab = "statistics" | "orders" | "products" | "promotions" | "categories" | 
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
-type RegionEditor = { id?: number; values: Record<string, string | boolean | number[]> };
+type PickupLocationEditor = {
+  id?: number;
+  title: string;
+  address: string;
+  workingHours: string;
+  latitude: string;
+  longitude: string;
+  yandexUrl: string;
+  enabled: boolean;
+  sortOrder: string;
+};
+type RegionEditor = {
+  id?: number;
+  values: Record<string, string | boolean | number[]>;
+  pickupLocations: PickupLocationEditor[];
+};
 
 const apiUrl = (
   process.env.NEXT_PUBLIC_API_URL ||
@@ -111,8 +127,8 @@ const apiUrl = (
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
 ];
 const deliveryWeekdays = [
   { value: 1, label: "Пн" }, { value: 2, label: "Вт" }, { value: 3, label: "Ср" },
@@ -231,6 +247,7 @@ export function AdminApp() {
   const [orderPage, setOrderPage] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
+  const [deletedPickupLocationIds, setDeletedPickupLocationIds] = useState<number[]>([]);
   const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
   const orderControlsRef = useRef<HTMLDivElement>(null);
   const region = regionByTab[tab];
@@ -621,51 +638,109 @@ export function AdminApp() {
     }
   };
 
-  const openRegion = (item?: Region) => setRegionEditor(item ? {
-    id: item.id,
-    values: {
-      slug: item.slug,
-      name: item.name,
-      enabled: item.enabled,
-      sortOrder: String(item.sortOrder),
-      contactPhone: item.contactPhone || "",
-      contactEmail: item.contactEmail || "",
-      contactAddress: item.contactAddress || "",
-      pickupAddress: item.pickupAddress || "",
-      pickupYandexUrl: item.pickupYandexUrl || "",
-      pickupWorkingHours: item.pickupWorkingHours || "",
-      deliveryOpenTime: item.deliveryOpenTime || "11:30",
-      deliveryCloseTime: item.deliveryCloseTime || "22:30",
-      deliveryIs24Hours: item.deliveryIs24Hours === true,
-      deliveryWorkingDays: Array.isArray(item.deliveryWorkingDays) ? item.deliveryWorkingDays : [0, 1, 2, 3, 4, 5, 6],
-      freeDeliveryThreshold: String(item.freeDeliveryThreshold ?? 4900),
-      footerCompanyName: item.footerCompanyName || "",
-      footerLegalInfo: item.footerLegalInfo || "",
-    },
-  } : {
-    values: {
-      slug: "",
-      name: "",
-      enabled: true,
-      sortOrder: String(availableRegions.length),
-      contactPhone: "",
-      contactEmail: "",
-      contactAddress: "",
-      pickupAddress: "",
-      pickupYandexUrl: "",
-      pickupWorkingHours: "",
-      deliveryOpenTime: "11:30",
-      deliveryCloseTime: "22:30",
-      deliveryIs24Hours: false,
-      deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6],
-      freeDeliveryThreshold: "4900",
-      footerCompanyName: "",
-      footerLegalInfo: "",
-    },
-  });
+  const openRegion = (item?: Region) => {
+    setDeletedPickupLocationIds([]);
+    setRegionEditor(item ? {
+      id: item.id,
+      values: {
+        slug: item.slug,
+        name: item.name,
+        enabled: item.enabled,
+        sortOrder: String(item.sortOrder),
+        contactPhone: item.contactPhone || "",
+        contactEmail: item.contactEmail || "",
+        contactAddress: item.contactAddress || "",
+        pickupAddress: item.pickupAddress || "",
+        pickupYandexUrl: item.pickupYandexUrl || "",
+        pickupWorkingHours: item.pickupWorkingHours || "",
+        deliveryOpenTime: item.deliveryOpenTime || "11:30",
+        deliveryCloseTime: item.deliveryCloseTime || "22:30",
+        deliveryIs24Hours: item.deliveryIs24Hours === true,
+        deliveryWorkingDays: Array.isArray(item.deliveryWorkingDays) ? item.deliveryWorkingDays : [0, 1, 2, 3, 4, 5, 6],
+        freeDeliveryThreshold: String(item.freeDeliveryThreshold ?? 4900),
+        footerCompanyName: item.footerCompanyName || "",
+        footerLegalInfo: item.footerLegalInfo || "",
+      },
+      pickupLocations: (item.pickupLocations || []).map((location) => ({
+        id: location.id,
+        title: location.title || "",
+        address: location.address,
+        workingHours: location.workingHours || "",
+        latitude: location.latitude === null ? "" : String(location.latitude),
+        longitude: location.longitude === null ? "" : String(location.longitude),
+        yandexUrl: location.yandexUrl || "",
+        enabled: location.enabled,
+        sortOrder: String(location.sortOrder),
+      })),
+    } : {
+      values: {
+        slug: "",
+        name: "",
+        enabled: true,
+        sortOrder: String(availableRegions.length),
+        contactPhone: "",
+        contactEmail: "",
+        contactAddress: "",
+        pickupAddress: "",
+        pickupYandexUrl: "",
+        pickupWorkingHours: "",
+        deliveryOpenTime: "11:30",
+        deliveryCloseTime: "22:30",
+        deliveryIs24Hours: false,
+        deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6],
+        freeDeliveryThreshold: "4900",
+        footerCompanyName: "",
+        footerLegalInfo: "",
+      },
+      pickupLocations: [],
+    });
+  };
 
   const updateRegionValue = (name: string, value: string | boolean | number[]) => {
     setRegionEditor((current) => current ? { ...current, values: { ...current.values, [name]: value } } : current);
+  };
+
+  const updatePickupLocation = (
+    index: number,
+    name: keyof PickupLocationEditor,
+    value: string | boolean,
+  ) => {
+    setRegionEditor((current) => current ? {
+      ...current,
+      pickupLocations: current.pickupLocations.map((location, locationIndex) => (
+        locationIndex === index ? { ...location, [name]: value } : location
+      )),
+    } : current);
+  };
+
+  const addPickupLocation = () => {
+    setRegionEditor((current) => current ? {
+      ...current,
+      pickupLocations: [...current.pickupLocations, {
+        title: "",
+        address: "",
+        workingHours: "",
+        latitude: "",
+        longitude: "",
+        yandexUrl: "",
+        enabled: true,
+        sortOrder: String(current.pickupLocations.length),
+      }],
+    } : current);
+  };
+
+  const removePickupLocation = (index: number) => {
+    setRegionEditor((current) => {
+      if (!current) return current;
+      const location = current.pickupLocations[index];
+      if (location?.id) {
+        setDeletedPickupLocationIds((ids) => [...ids, location.id as number]);
+      }
+      return {
+        ...current,
+        pickupLocations: current.pickupLocations.filter((_, locationIndex) => locationIndex !== index),
+      };
+    });
   };
 
   const saveRegion = async (event: FormEvent) => {
@@ -674,8 +749,13 @@ export function AdminApp() {
     setLoading(true);
     setMessage("");
     try {
+      const firstPickup = regionEditor.pickupLocations.find((location) => location.enabled)
+        ?? regionEditor.pickupLocations[0];
       const payload = {
         ...regionEditor.values,
+        pickupAddress: firstPickup?.address.trim() || "",
+        pickupYandexUrl: firstPickup?.yandexUrl.trim() || "",
+        pickupWorkingHours: firstPickup?.workingHours.trim() || "",
         sortOrder: Number(regionEditor.values.sortOrder),
         freeDeliveryThreshold: Number(regionEditor.values.freeDeliveryThreshold),
         slug: String(regionEditor.values.slug).trim().toLowerCase().replace(/\s+/g, "-"),
@@ -684,7 +764,32 @@ export function AdminApp() {
         method: regionEditor.id ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       }) as Region;
+      await Promise.all([
+        ...regionEditor.pickupLocations
+          .filter((location) => location.address.trim())
+          .map((location) => request(
+            `/admin/pickup-locations${location.id ? `/${location.id}` : ""}`,
+            {
+              method: location.id ? "PATCH" : "POST",
+              body: JSON.stringify({
+                ...(!location.id ? { regionId: saved.id } : {}),
+                title: location.title.trim(),
+                address: location.address.trim(),
+                workingHours: location.workingHours.trim(),
+                latitude: location.latitude === "" ? undefined : Number(location.latitude),
+                longitude: location.longitude === "" ? undefined : Number(location.longitude),
+                yandexUrl: location.yandexUrl.trim(),
+                enabled: location.enabled,
+                sortOrder: Number(location.sortOrder),
+              }),
+            },
+          )),
+        ...deletedPickupLocationIds.map((id) => request(`/admin/pickup-locations/${id}`, {
+          method: "DELETE",
+        })),
+      ]);
       setRegionEditor(null);
+      setDeletedPickupLocationIds([]);
       await loadSettings();
       setRegionByTab((current) => ({ ...current, [tab]: saved.slug }));
       setMessage("Настройки города сохранены");
@@ -973,15 +1078,29 @@ export function AdminApp() {
           <label>Бесплатная доставка от, сом<input required type="number" min="0" step="1" value={String(regionEditor.values.freeDeliveryThreshold)} onChange={(event) => updateRegionValue("freeDeliveryThreshold", event.target.value)} /></label>
         </div>
         <div className="admin-region-block">
-          <b>Самовывоз</b><small>Эти данные увидит клиент при выборе самовывоза.</small>
-          <label>Адрес точки самовывоза<input value={String(regionEditor.values.pickupAddress)} onChange={(event) => updateRegionValue("pickupAddress", event.target.value)} placeholder="Ош, улица Курманжан-Датка, 123" /></label>
-          <label>Ссылка на Яндекс Карты<input type="url" value={String(regionEditor.values.pickupYandexUrl)} onChange={(event) => updateRegionValue("pickupYandexUrl", event.target.value)} placeholder="https://yandex.ru/maps/..." /></label>
-          <label>Время работы<input value={String(regionEditor.values.pickupWorkingHours)} onChange={(event) => updateRegionValue("pickupWorkingHours", event.target.value)} placeholder="Ежедневно, 11:30 – 22:30" /></label>
+          <div className="admin-pickup-heading"><span><b>Кухни самовывоза</b><small>Список синхронно используется сайтом и приложением.</small></span><button type="button" onClick={addPickupLocation}>+ Добавить кухню</button></div>
+          <div className="admin-pickup-list">
+            {regionEditor.pickupLocations.length ? regionEditor.pickupLocations.map((location, index) => <section key={location.id ?? `new-${index}`}>
+              <div className="admin-pickup-row-head"><b>Кухня {index + 1}</b><button type="button" onClick={() => removePickupLocation(index)}>Удалить</button></div>
+              <div className="admin-two-fields">
+                <label>Название<input value={location.title} onChange={(event) => updatePickupLocation(index, "title", event.target.value)} placeholder="Центральная кухня" /></label>
+                <label>Порядок<input type="number" min="0" value={location.sortOrder} onChange={(event) => updatePickupLocation(index, "sortOrder", event.target.value)} /></label>
+              </div>
+              <label>Адрес<input required value={location.address} onChange={(event) => updatePickupLocation(index, "address", event.target.value)} placeholder="Бишкек, проспект Чуй, 155" /></label>
+              <div className="admin-two-fields">
+                <label>Широта<input type="number" step="any" min="-90" max="90" value={location.latitude} onChange={(event) => updatePickupLocation(index, "latitude", event.target.value)} placeholder="42.8746" /></label>
+                <label>Долгота<input type="number" step="any" min="-180" max="180" value={location.longitude} onChange={(event) => updatePickupLocation(index, "longitude", event.target.value)} placeholder="74.5698" /></label>
+              </div>
+              <label>Время работы<input value={location.workingHours} onChange={(event) => updatePickupLocation(index, "workingHours", event.target.value)} placeholder="Ежедневно, 11:30 – 22:30" /></label>
+              <label>Ссылка на Яндекс Карты<input type="url" value={location.yandexUrl} onChange={(event) => updatePickupLocation(index, "yandexUrl", event.target.value)} placeholder="https://yandex.ru/maps/..." /></label>
+              <label className="admin-switch"><span><b>Доступна для заказа</b><small>Показывается клиентам</small></span><input type="checkbox" checked={location.enabled} onChange={(event) => updatePickupLocation(index, "enabled", event.target.checked)} /></label>
+            </section>) : <p className="admin-pickup-empty">Добавьте хотя бы одну кухню, чтобы включить самовывоз.</p>}
+          </div>
         </div>
         <div className="admin-region-block">
           <b>Футер сайта</b><small>Контакты внизу витрины для выбранного города.</small>
-          <label>Название компании<input value={String(regionEditor.values.footerCompanyName)} onChange={(event) => updateRegionValue("footerCompanyName", event.target.value)} placeholder="ООО «Гастрономия»" /></label>
-          <label>Юридическая информация<textarea value={String(regionEditor.values.footerLegalInfo)} onChange={(event) => updateRegionValue("footerLegalInfo", event.target.value)} placeholder="ОГРН, адрес и другая информация" /></label>
+          <label>Название компании<input value={String(regionEditor.values.footerCompanyName)} onChange={(event) => updateRegionValue("footerCompanyName", event.target.value)} placeholder="Накта суши" /></label>
+          <label>Юридическая информация<textarea value={String(regionEditor.values.footerLegalInfo)} onChange={(event) => updateRegionValue("footerLegalInfo", event.target.value)} placeholder="Реквизиты, адрес и условия обслуживания" /></label>
         </div>
         <div className="admin-two-fields">
           <label>Порядок<input type="number" min="0" value={String(regionEditor.values.sortOrder)} onChange={(event) => updateRegionValue("sortOrder", event.target.value)} /></label>

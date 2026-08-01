@@ -21,6 +21,8 @@ import {
   UpdateProductDto,
   UpdatePromotionDto,
   UpdateRegionDto,
+  CreatePickupLocationDto,
+  UpdatePickupLocationDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -48,6 +50,24 @@ export class AdminController {
   @Patch("regions/:id")
   updateRegion(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateRegionDto) {
     return this.admin.updateRegion(id, dto);
+  }
+
+  @Post("pickup-locations")
+  createPickupLocation(@Body() dto: CreatePickupLocationDto) {
+    return this.admin.createPickupLocation(dto);
+  }
+
+  @Patch("pickup-locations/:id")
+  updatePickupLocation(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() dto: UpdatePickupLocationDto,
+  ) {
+    return this.admin.updatePickupLocation(id, dto);
+  }
+
+  @Delete("pickup-locations/:id")
+  deletePickupLocation(@Param("id", ParseIntPipe) id: number) {
+    return this.admin.deletePickupLocation(id);
   }
 
   @Get("orders")

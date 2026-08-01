@@ -345,6 +345,10 @@ export class PhoneAuthService {
     };
   }
 
+  assertAccount(phone: string, verificationToken: string) {
+    return this.requireAccount(phone, verificationToken);
+  }
+
   private async requireAccount(phone: string, verificationToken: string) {
     const account = await this.accounts.findOne({
       where: {

@@ -70,6 +70,33 @@ export class UpdateRegionDto {
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
 }
 
+export class CreatePickupLocationDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  regionId!: number;
+
+  @IsOptional() @IsString() @MaxLength(120) title = "";
+  @IsString() @IsNotEmpty() @MaxLength(240) address!: string;
+  @IsOptional() @IsString() @MaxLength(120) workingHours = "";
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) latitude?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) longitude?: number;
+  @IsOptional() @IsString() @MaxLength(500) @ValidateIf((_, value) => value !== "") @IsUrl({ require_protocol: true }) yandexUrl = "";
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled = true;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder = 0;
+}
+
+export class UpdatePickupLocationDto {
+  @IsOptional() @IsString() @MaxLength(120) title?: string;
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(240) address?: string;
+  @IsOptional() @IsString() @MaxLength(120) workingHours?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-90) @Max(90) latitude?: number | null;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(-180) @Max(180) longitude?: number | null;
+  @IsOptional() @IsString() @MaxLength(500) @ValidateIf((_, value) => value !== "") @IsUrl({ require_protocol: true }) yandexUrl?: string;
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
+}
+
 export class ProductModifierItemDto {
   @IsString()
   @IsNotEmpty()

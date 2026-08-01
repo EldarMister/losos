@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
+import { NumberTicker } from "./NumberTicker";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
 const YandexPickupMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexPickupMap: Map }) => ({ default: Map })));
@@ -33,6 +34,17 @@ type PendingCartLine = {
   modifiers: SelectedModifier[];
 };
 type DeliveryType = "delivery" | "pickup";
+type PickupLocationOption = {
+  id: number;
+  title?: string;
+  address: string;
+  workingHours?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  yandexUrl?: string;
+  enabled?: boolean;
+  sortOrder?: number;
+};
 type RegionOption = {
   slug: "bishkek" | "osh";
   name: string;
@@ -41,6 +53,7 @@ type RegionOption = {
   pickupAddress?: string;
   pickupYandexUrl?: string;
   pickupWorkingHours?: string;
+  pickupLocations?: PickupLocationOption[];
   deliveryOpenTime?: string;
   deliveryCloseTime?: string;
   deliveryIs24Hours?: boolean;
@@ -508,11 +521,11 @@ const defaultStoryGroups: StoryGroup[] = [
     title: "Telegram: промокоды и мемы",
     kind: "telegram",
     cta: "Подарки в студию!",
-    ctaUrl: "https://t.me/mnogolososya",
+    ctaUrl: "/support",
     pages: [{ src: "/reference-telegram-story.png" }],
   },
   {
-    title: "Много лосося — удовольствие есть",
+    title: "Накта суши — удовольствие есть",
     kind: "pleasure",
     pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/19fb66365769d651613e33c969235601_resize_in_box_2048_2048.jpg" }],
   },
@@ -548,7 +561,7 @@ const defaultStoryGroups: StoryGroup[] = [
 
 const promotionTitleAliases: Record<string, string> = {
   "Промокоды и подарки": "Telegram: промокоды и мемы",
-  "Удовольствие есть": "Много лосося — удовольствие есть",
+  "Удовольствие есть": "Накта суши — удовольствие есть",
 };
 
 const promotionArtifactTitles = new Set(["memories/test", "test", "тест"]);
@@ -616,9 +629,28 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
   const [regionSlug, setRegionSlug] = useState<"bishkek" | "osh">(initialRegion);
   const [regionOptions, setRegionOptions] = useState<RegionOption[]>(defaultRegions);
+  const [selectedPickupLocationId, setSelectedPickupLocationId] = useState<number | null>(null);
   const selectedRegion = regionOptions.find((option) => option.slug === regionSlug);
-  const pickupAddress = selectedRegion?.pickupAddress || (regionSlug === "osh" ? "Ош, улица Курманжан-Датка, 123" : "Бишкек, проспект Чуй, 123");
-  const pickupHours = selectedRegion?.pickupWorkingHours || "Ежедневно, без выходных\n11:30 – 22:30";
+  const pickupLocations = useMemo<PickupLocationOption[]>(() => {
+    const current = (selectedRegion?.pickupLocations || [])
+      .filter((location) => location.enabled !== false && location.address?.trim())
+      .sort((left, right) => (left.sortOrder ?? 0) - (right.sortOrder ?? 0));
+    if (current.length > 0) return current;
+    if (!selectedRegion?.pickupAddress?.trim()) return [];
+    return [{
+      id: -1,
+      title: "Кухня",
+      address: selectedRegion.pickupAddress,
+      workingHours: selectedRegion.pickupWorkingHours,
+      yandexUrl: selectedRegion.pickupYandexUrl,
+      enabled: true,
+      sortOrder: 0,
+    }];
+  }, [selectedRegion]);
+  const selectedPickupLocation = pickupLocations.find((location) => location.id === selectedPickupLocationId)
+    || pickupLocations[0];
+  const pickupAddress = selectedPickupLocation?.address || "Выберите доступную кухню";
+  const pickupHours = selectedPickupLocation?.workingHours || "Часы работы уточняются";
   const deliveryOpenTime = selectedRegion?.deliveryOpenTime || "11:30";
   const deliveryCloseTime = selectedRegion?.deliveryCloseTime || "22:30";
   const deliveryIs24Hours = selectedRegion?.deliveryIs24Hours === true;
@@ -626,11 +658,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const deliveryScheduleLabel = deliveryDaysLabel(deliveryWorkingDays);
   const deliveryHoursLabel = deliveryIs24Hours ? "Круглосуточно" : `${deliveryOpenTime} – ${deliveryCloseTime}`;
   const freeDeliveryThreshold = Math.max(0, selectedRegion?.freeDeliveryThreshold ?? 4900);
-  const pickupYandexUrl = selectedRegion?.pickupYandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
+  const pickupYandexUrl = selectedPickupLocation?.yandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
   const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
   const footerEmail = selectedRegion?.contactEmail || "musaev.janybek.kg@gmail.com";
-  const footerCompanyName = selectedRegion?.footerCompanyName || "ООО «Гастрономия»";
-  const footerLegalInfo = selectedRegion?.footerLegalInfo || "ОГРН 1197746601326, 109029, г. Москва, вн.тер.г. муниципальный округ Нижегородский, ул. Средняя Калитниковская, д.28, стр.4, этаж/пом/ком 1/VIII/№48";
+  const footerCompanyName = selectedRegion?.footerCompanyName || "Накта суши";
+  const footerLegalInfo = selectedRegion?.footerLegalInfo || "Сервис доставки «Накта суши», Кыргызская Республика. Реквизиты и условия обслуживания доступны в разделе «Правовая информация».";
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [addressCityOpen, setAddressCityOpen] = useState(false);
@@ -1013,6 +1045,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setPendingCartLine(null);
       setUtensilsCount(1);
       setNoUtensils(false);
+      setPickupLocationSelected(false);
+      setSelectedPickupLocationId(null);
     }
     setRegionSlug(option.slug);
     setCityOpen(false);
@@ -1138,8 +1172,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const openDeliveryType = (type: DeliveryType) => {
     setDeliveryType(type);
     if (type === "pickup") {
-      // В текущей модели у города одна точка самовывоза, поэтому выбираем её сразу.
-      setPickupLocationSelected(true);
+      const firstLocation = pickupLocations[0];
+      setSelectedPickupLocationId((current) => current ?? firstLocation?.id ?? null);
+      setPickupLocationSelected(Boolean(firstLocation));
     } else {
       setDraftAddress(address);
       setDeliveryLocation(null);
@@ -1933,7 +1968,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <img src="/desktop-header-20260726-v3.png" alt="Накта суши" />
         </picture>
         <img className="brand-smile" src="/смайлик.webp" alt="" aria-hidden="true" />
-        <a href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="download-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
+        <a className="download-app download-app-nakta" href="/support" aria-label="Приложение Накта суши"><span>НАКТА СУШИ</span><small>мобильное приложение</small></a>
       </section>
 
       <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
@@ -1957,7 +1992,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <div className={`delivery-status${deliveryClosed ? " closed" : ""}`}><strong>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Закрыто" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "от ~45 минут"}</small></div>
             </div>
           </div>
-          <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? ` ${money(cartTotal)}` : ""}</button>
+          <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? <> <NumberTicker value={cartTotal} format={money} /></> : ""}</button>
         </header>
 
         <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
@@ -2050,13 +2085,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <footer className="footer" id="contacts">
         <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
-        <a className="footer-app-link" href="https://trk.mail.ru/c/a7gh71" aria-label="Скачайте приложение"><img className="footer-app" src="https://mnogolososya.ru/_nuxt/download-app.BLqCltS2.svg" alt="Скачайте приложение" /></a>
+        <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Приложение Накта суши"><strong>НАКТА СУШИ</strong><small>мобильное приложение</small></a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
-        <div className="footer-links"><a href="https://about.mnogolososya.ru/">Правовая информация</a><span>•</span><a href="https://rabota.mnogolososya.ru/?utm_source=web_site&utm_medium=web&utm_campaign=hr">Работа</a></div>
+        <div className="footer-links"><a href="/legal">Правовая информация</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
         <p className="footer-legal">{footerLegalInfo}</p>
       </footer>
 
-      {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}><span>Далее</span><b>{money(cartTotal)}</b></button> : null}
+      {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}><span>Далее</span><b><NumberTicker value={cartTotal} format={money} /></b></button> : null}
 
       {menuOpen ? (
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
@@ -2067,9 +2102,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <section className="profile-coins"><span>Баланс NAKTA Coin</span><strong>{profileData?.naktaCoins ?? 0}</strong><small>coin</small></section>
               <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Активных заказов нет</p>}</section>
               <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Заказов пока нет</p>}</section>
-              <a className="profile-support" href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a>
+              <a className="profile-support" href="/support"><span aria-hidden="true">💬</span>Поддержка</a>
               <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля</button>
-            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a></nav>}
+            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href="/support"><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>}
             <button className="profile-login" onClick={() => { if (verifiedPhone) { setMenuOpen(false); return; } setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setPhoneAuthOpen(true); }}>{verifiedPhone ? "Готово" : "Войти"}</button>
           </section>
         </div>
@@ -2142,7 +2177,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 </section>;
               })}</div> : null}
               {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? `Добавить ${money(configuredModalTotal)}` : "Настройте блюдо"}</button></div>
+              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? <>Добавить <NumberTicker value={configuredModalTotal} format={money} /></> : "Настройте блюдо"}</button></div>
             </div>
           </div>
         </div>
@@ -2207,7 +2242,25 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{option.name}</button>)}
                   </div> : null}
                 </div>
-                <button className={`pickup-location ${pickupLocationSelected ? "selected" : ""}`} onClick={() => setPickupLocationSelected(true)}><span className="pickup-radio" /><span><b>{pickupAddress}</b><small>{pickupHours}</small></span></button>
+                <div className="pickup-location-list">
+                  {pickupLocations.length > 0 ? pickupLocations.map((location) => {
+                    const isSelected = pickupLocationSelected && selectedPickupLocation?.id === location.id;
+                    return <button
+                      key={location.id}
+                      className={`pickup-location ${isSelected ? "selected" : ""}`}
+                      onClick={() => {
+                        setSelectedPickupLocationId(location.id);
+                        setPickupLocationSelected(true);
+                      }}
+                    >
+                      <span className="pickup-radio" />
+                      <span>
+                        <b>{location.title ? `${location.title} · ${location.address}` : location.address}</b>
+                        <small>{location.workingHours || "Часы работы уточняются"}</small>
+                      </span>
+                    </button>;
+                  }) : <div className="map-state">В этом городе пока нет доступных кухонь</div>}
+                </div>
                 <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
               </> : <>
                 <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером,<br />выберите подсказку или точку на карте</p>
@@ -2253,7 +2306,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="drawer-overlay cart-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartOpen(false); }}>
           <aside className="cart-drawer" data-filled={cart.length > 0 ? "true" : "false"} aria-label="Корзина">
             <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
-            {cart.length === 0 ? <div className="cart-empty"><img src="https://mnogolososya.ru/_nuxt/empty-cart.CYKZtHDV.svg" alt="" /><div>Место сбора<br />вкусных блюд</div></div> : <>
+            {cart.length === 0 ? <div className="cart-empty"><span className="cart-empty-mark" aria-hidden="true">🍣</span><div>Место сбора<br />вкусных блюд</div></div> : <>
               <div className="cart-address">{cartLocation}</div>
               <div className="cart-layout">
                 <div className="cart-products-column">
@@ -2266,7 +2319,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                           <b>{line.product.name}</b>
                           {line.product.description ? <p>{line.product.description}</p> : null}
                           {line.modifiers.length ? <div className="cart-line-modifiers">{line.modifiers.map((modifier) => <span key={`${modifier.groupId}-${modifier.itemId}`}>{modifier.itemName} ×{modifier.quantity}{modifier.price ? ` +${money(modifier.price * modifier.quantity)}` : ""}</span>)}</div> : null}
-                          <div className="cart-line-footer"><span>{money(cartLineTotal(line))}</span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
+                          <div className="cart-line-footer"><span><NumberTicker value={cartLineTotal(line)} format={money} /></span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
                         </div>
                       </div>
                     ))}
@@ -2288,7 +2341,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
                   </div>
                   <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
-                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"} ›</span></button><button className={`checkout${deliveryClosed ? " closed" : ""}`} disabled={deliveryClosed} onClick={beginCheckout}><span>{deliveryClosed ? "Закрыто" : "Далее"}</span><b>{money(cartTotal)}</b></button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"} ›</span></button><button className={`checkout${deliveryClosed ? " closed" : ""}`} disabled={deliveryClosed} onClick={beginCheckout}><span>{deliveryClosed ? "Закрыто" : "Далее"}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
                 </section>
               </div>
             </>}
@@ -2335,7 +2388,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <div><span>Время доставки</span><b>~45 мин</b></div>
                   <div><span>Рабочее время</span><b>{deliveryHoursLabel}</b></div>
                   <div><span>При заказе от {money(freeDeliveryThreshold)}</span><b>Бесплатно</b></div>
-                  {cartTotal < freeDeliveryThreshold ? <div><span>До бесплатной доставки</span><b>{money(freeDeliveryThreshold - cartTotal)}</b></div> : null}
+                  {cartTotal < freeDeliveryThreshold ? <div><span>До бесплатной доставки</span><b><NumberTicker value={freeDeliveryThreshold - cartTotal} format={money} /></b></div> : null}
                 </div>
               </>
             )}
@@ -2419,7 +2472,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <span>Спасибо!</span>
               <h2>Заказ принят</h2>
               <p>Номер заказа <b>#{placedOrder.orderNumber || placedOrder.id.slice(0, 8).toUpperCase()}</b>. Мы уже передали его ресторану.</p>
-              <div><span>К оплате</span><b>{money(placedOrder.total)}</b></div>
+              <div><span>К оплате</span><b><NumberTicker value={placedOrder.total} format={money} /></b></div>
               <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>Вернуться в меню</button>
             </section> : <form className="checkout-form" onSubmit={submitOrder}>
               <header className="checkout-head">
@@ -2463,9 +2516,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <h3>Ваш заказ</h3>
                   {cart.map((line) => <div className="checkout-line" key={line.key}>
                     <span><b>{line.product.name} × {line.quantity}</b>{line.modifiers.length ? <small>{line.modifiers.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}</span>
-                    <strong>{money(cartLineTotal(line))}</strong>
+                    <strong><NumberTicker value={cartLineTotal(line)} format={money} /></strong>
                   </div>)}
-                  <div className="checkout-total"><span>Итого</span><b>{money(cartTotal)}</b></div>
+                  <div className="checkout-total"><span>Итого</span><b><NumberTicker value={cartTotal} format={money} /></b></div>
                 </section>
               </div>
 
@@ -2473,7 +2526,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
                 <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || deliveryClosed || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
                   <span>{checkoutSubmitting ? "Отправляем заказ…" : deliveryClosed ? "Доставка закрыта" : "Заказать"}</span>
-                  <b>{money(cartTotal)}</b>
+                  <b><NumberTicker value={cartTotal} format={money} /></b>
                 </button>
                 <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>
               </footer>

@@ -28,6 +28,9 @@ import { AddAuthorizedPhones1784992000000 } from "./migrations/1784992000000-Add
 import { AddPhoneAccounts1784993000000 } from "./migrations/1784993000000-AddPhoneAccounts";
 import { AddNaktaCoins1784994000000 } from "./migrations/1784994000000-AddNaktaCoins";
 import { AddProductNaktaCoins1784995000000 } from "./migrations/1784995000000-AddProductNaktaCoins";
+import { AddPickupLocationsAndPushTokens1784996000000 } from "./migrations/1784996000000-AddPickupLocationsAndPushTokens";
+import { PickupLocation } from "./catalog/pickup-location.entity";
+import { DevicePushToken } from "./auth/device-push-token.entity";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCategoryImage";
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
@@ -45,7 +48,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
         return {
           type: "postgres" as const,
           url: databaseUrl,
-          entities: [Region, Category, Product, Promotion, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount],
+          entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, DevicePushToken],
           migrations: [
             BootstrapSchema1784978000000,
             AddProductCustomization1784979000000,
@@ -65,6 +68,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
             AddPhoneAccounts1784993000000,
             AddNaktaCoins1784994000000,
             AddProductNaktaCoins1784995000000,
+            AddPickupLocationsAndPushTokens1784996000000,
           ],
           migrationsRun: true,
           synchronize:

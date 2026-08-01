@@ -9,9 +9,14 @@ import { Order } from "../orders/order.entity";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
+import { PushNotificationsModule } from "../notifications/push-notifications.module";
+import { PickupLocation } from "../catalog/pickup-location.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Region, Category, Product, Promotion, Order, OrderItem])],
+  imports: [
+    TypeOrmModule.forFeature([Region, PickupLocation, Category, Product, Promotion, Order, OrderItem]),
+    PushNotificationsModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService, AdminTokenGuard],
 })

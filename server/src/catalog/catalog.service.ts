@@ -23,12 +23,12 @@ const defaultPromotions = [
   {
     title: "Telegram: промокоды и мемы",
     image: "/reference-telegram-story.png",
-    cta: "Подарки в студию!",
-    ctaUrl: "https://t.me/mnogolososya",
+    cta: "Узнать подробнее",
+    ctaUrl: "/support",
   },
   {
-    title: "Много лосося — удовольствие есть",
-    image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/19fb66365769d651613e33c969235601_resize_in_box_2048_2048.jpg",
+    title: "Накта суши — удовольствие есть",
+    image: "/og-social-v2.png",
     cta: "",
     ctaUrl: "",
   },
@@ -60,7 +60,8 @@ const defaultPromotions = [
 
 const promotionAliases = new Map<string, string>([
   ["Промокоды и подарки", "Telegram: промокоды и мемы"],
-  ["Удовольствие есть", "Много лосося — удовольствие есть"],
+  ["Удовольствие есть", "Накта суши — удовольствие есть"],
+  ["Много лосося — удовольствие есть", "Накта суши — удовольствие есть"],
 ]);
 
 const promotionArtifacts = new Set(["memories/test", "test", "тест"]);
@@ -222,6 +223,7 @@ export class CatalogService implements OnModuleInit {
   regions() {
     return this.regionRepository.find({
       where: { enabled: true },
+      relations: { pickupLocations: true },
       order: { sortOrder: "ASC", id: "ASC" },
     });
   }

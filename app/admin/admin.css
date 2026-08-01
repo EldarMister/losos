@@ -295,6 +295,14 @@ button { cursor: pointer; }
 .admin-region-block > small { margin-top: -7px; color: var(--admin-muted); }
 .admin-region-block label { display: grid; gap: 8px; color: #31333a; font-size: 12px; font-weight: 700; }
 .admin-region-block .admin-switch { grid-column: 1 / -1; }
+.admin-pickup-heading, .admin-pickup-row-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.admin-pickup-heading span { display: grid; gap: 3px; }
+.admin-pickup-heading span small { color: var(--admin-muted); font-weight: 400; }
+.admin-pickup-heading > button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 12px; background: #111; color: #fff; cursor: pointer; }
+.admin-pickup-list { display: grid; gap: 12px; }
+.admin-pickup-list > section { display: grid; gap: 12px; padding: 15px; border: 1px solid #e0e3e8; border-radius: 15px; background: #fff; }
+.admin-pickup-row-head button { border: 0; background: transparent; color: #c53b32; cursor: pointer; }
+.admin-pickup-empty { margin: 0; padding: 18px; border-radius: 14px; color: var(--admin-muted); text-align: center; background: #fff; }
 .admin-working-days { display: grid; gap: 8px; color: #31333a; font-size: 12px; font-weight: 700; }
 .admin-working-days > div { display: flex; flex-wrap: wrap; gap: 7px; }
 .admin-working-days button { width: 42px; min-height: 36px; padding: 7px; border: 1px solid #dfe2e8; border-radius: 8px; background: #fff; color: #596070; font: inherit; font-weight: 700; }
