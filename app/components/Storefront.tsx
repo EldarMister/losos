@@ -2061,9 +2061,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 : null}
               <div className="product-grid">
                 {category.products.map((product, productIndex) => {
-                  const plainCartLine = product.modifierGroups?.length
-                    ? null
-                    : cart.find((line) => line.key === cartLineKey(product.id, [])) ?? null;
+                  const productCartLines = cart.filter((line) => line.product.id === product.id);
+                  const productCartLine = productCartLines[0] ?? null;
+                  const productCartQuantity = productCartLines.reduce((sum, line) => sum + line.quantity, 0);
 
                   return <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
@@ -2073,7 +2073,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     </div>
                     <div className="product-body">
                       <div className="product-name">{product.name}</div>
-                      <div className={`product-actions${plainCartLine ? " has-quantity" : ""}`}>{plainCartLine ? <div className="product-quantity-controls" role="group" aria-label={`Количество ${product.name}`}><button type="button" aria-label={`Уменьшить ${product.name}`} onClick={(event) => { event.stopPropagation(); changeQuantity(plainCartLine.key, -1); }}>−</button><span>{plainCartLine.quantity}</span><button type="button" aria-label={`Увеличить ${product.name}`} disabled={plainCartLine.quantity >= 20} onClick={(event) => { event.stopPropagation(); changeQuantity(plainCartLine.key, 1); }}>+</button></div> : <><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</>}</div>
+                      <div className={`product-actions${productCartLine ? " has-quantity" : ""}`}>{productCartLine ? <div className="product-quantity-controls" role="group" aria-label={`Количество ${product.name}`}><button type="button" aria-label={`Уменьшить ${product.name}`} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, -1); }}>−</button><span>{productCartQuantity}</span><button type="button" aria-label={`Увеличить ${product.name}`} disabled={productCartLine.quantity >= 20} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, 1); }}>+</button></div> : <><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</>}</div>
                     </div>
                   </article>;
                 })}
