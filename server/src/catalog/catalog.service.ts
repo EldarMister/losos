@@ -1,12 +1,11 @@
 import { Injectable, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { isDeepStrictEqual } from "node:util";
 import { ILike, Repository } from "typeorm";
 import { Category } from "./category.entity";
 import { Product } from "./product.entity";
 import { Promotion } from "./promotion.entity";
 import { Region } from "./region.entity";
-import { seedCategories, type SeedProduct } from "./seed-data";
+import { seedCategories } from "./seed-data";
 
 const defaultRegions = [
   { slug: "bishkek", name: "Бишкек", sortOrder: 0 },
@@ -58,38 +57,6 @@ const defaultPromotions = [
   },
 ] as const;
 
-const promotionAliases = new Map<string, string>([
-  ["Промокоды и подарки", "Telegram: промокоды и мемы"],
-  ["Удовольствие есть", "Накта суши — удовольствие есть"],
-  ["Много лосося — удовольствие есть", "Накта суши — удовольствие есть"],
-]);
-
-const promotionArtifacts = new Set(["memories/test", "test", "тест"]);
-
-function normalizePromotionTitle(title: string) {
-  return title.trim().toLocaleLowerCase("ru-RU");
-}
-
-function seedProductNeedsUpdate(product: Product, seed: SeedProduct) {
-  return (
-    product.slug !== seed.slug
-    || product.name !== seed.name
-    || product.price !== seed.price
-    || product.image !== seed.image
-    || product.description !== seed.description
-    || product.composition !== seed.composition
-    || Math.abs(product.weight - seed.weight) > 0.001
-    || product.calories !== seed.calories
-    || product.protein !== seed.protein
-    || product.fat !== seed.fat
-    || product.carbs !== seed.carbs
-    || product.isNew !== seed.isNew
-    || product.available !== seed.available
-    || product.sortOrder !== seed.sortOrder
-    || !isDeepStrictEqual(product.modifierGroups ?? [], seed.modifierGroups)
-  );
-}
-
 @Injectable()
 export class CatalogService implements OnModuleInit {
   constructor(
@@ -103,7 +70,8 @@ export class CatalogService implements OnModuleInit {
     if (process.env.SEED_CATALOG_ON_STARTUP === "false") return;
 
     await this.regionRepository.manager.transaction(async (manager) => {
-      // Serializes canonical seed reconciliation across concurrently starting instances.
+      // Seed data bootstraps only a clean database. Existing catalog content is
+      // owned by the admin panel and must never be rewritten on application startup.
       await manager.query(`SELECT pg_advisory_xact_lock($1)`, [729_172]);
       const regions = manager.getRepository(Region);
       const categories = manager.getRepository(Category);
@@ -112,110 +80,27 @@ export class CatalogService implements OnModuleInit {
 
       for (const definition of defaultRegions) {
         let region = await regions.findOne({ where: { slug: definition.slug } });
-        if (!region) region = await regions.save(regions.create(definition));
+        if (region) continue;
 
-        const existingCategories = await categories.find({
-          where: { region: { id: region.id } },
-          relations: { products: true },
-        });
-        const categoriesBySlug = new Map(existingCategories.map((category) => [category.slug, category]));
-        const seedCategoriesBySlug = new Map(seedCategories.map((category) => [category.slug, category]));
-
-        for (const category of existingCategories) {
-          const canonicalSourceIds = new Set(
-            seedCategoriesBySlug.get(category.slug)?.products.map((product) => product.sourceId)
-              ?? [],
-          );
-          const staleSeededProducts = category.products.filter((product) =>
-            product.sourceId !== null && !canonicalSourceIds.has(product.sourceId));
-          if (!staleSeededProducts.length) continue;
-          const staleIds = new Set(staleSeededProducts.map((product) => product.id));
-          category.products = category.products.filter((product) => !staleIds.has(product.id));
-          await products.remove(staleSeededProducts);
-        }
-
+        region = await regions.save(regions.create(definition));
         for (const entry of seedCategories) {
-          let category = categoriesBySlug.get(entry.slug);
-          if (!category) {
-            category = await categories.save(categories.create({
-              slug: entry.slug,
-              title: entry.title,
-              sortOrder: entry.sortOrder,
-              region,
-            }));
-            category.products = [];
-            categoriesBySlug.set(category.slug, category);
-          } else if (
-            category.title !== entry.title
-            || category.sortOrder !== entry.sortOrder
-          ) {
-            category.title = entry.title;
-            category.sortOrder = entry.sortOrder;
-            category = await categories.save(category);
-            categoriesBySlug.set(category.slug, category);
-          }
-
-          const seededProductsBySourceId = new Map(
-            category.products
-              .filter((product) => product.sourceId !== null)
-              .map((product) => [product.sourceId, product]),
-          );
-          const productsToSave: Product[] = [];
-          for (const seed of entry.products) {
-            const existing = seededProductsBySourceId.get(seed.sourceId);
-            if (!existing) {
-              productsToSave.push(products.create({ ...seed, category }));
-              continue;
-            }
-            if (!seedProductNeedsUpdate(existing, seed)) continue;
-            Object.assign(existing, seed);
-            productsToSave.push(existing);
-          }
-          if (productsToSave.length) {
-            const savedProducts = await products.save(productsToSave);
-            for (const savedProduct of savedProducts) {
-              if (!category.products.some((product) => product.id === savedProduct.id)) {
-                category.products.push(savedProduct);
-              }
-            }
-          }
-        }
-
-        const existingPromotions = await promotions.find({
-          where: { region: { id: region.id } },
-        });
-        const artifacts = existingPromotions.filter((promotion) =>
-          promotionArtifacts.has(normalizePromotionTitle(promotion.title)));
-        if (artifacts.length) await promotions.remove(artifacts);
-
-        const activePromotions = existingPromotions.filter((promotion) =>
-          !promotionArtifacts.has(normalizePromotionTitle(promotion.title)));
-        const promotionsToSave: Promotion[] = [];
-        const duplicatePromotionsToRemove: Promotion[] = [];
-        for (const [sortOrder, definition] of defaultPromotions.entries()) {
-          const aliases = [...promotionAliases.entries()]
-            .filter(([, canonicalTitle]) => canonicalTitle === definition.title)
-            .map(([alias]) => alias);
-          const candidates = activePromotions.filter((promotion) =>
-            promotion.title === definition.title || aliases.includes(promotion.title));
-          const promotion = candidates.find((candidate) =>
-            candidate.title === definition.title)
-            ?? candidates[0]
-            ?? promotions.create({ ...definition, region });
-
-          Object.assign(promotion, definition, {
-            enabled: true,
-            sortOrder,
+          const category = await categories.save(categories.create({
+            slug: entry.slug,
+            title: entry.title,
+            sortOrder: entry.sortOrder,
             region,
-          });
-          promotionsToSave.push(promotion);
-          duplicatePromotionsToRemove.push(...candidates.filter((candidate) =>
-            candidate !== promotion));
+          }));
+          await products.save(entry.products.map((product) => products.create({
+            ...product,
+            category,
+          })));
         }
-        if (promotionsToSave.length) await promotions.save(promotionsToSave);
-        if (duplicatePromotionsToRemove.length) {
-          await promotions.remove(duplicatePromotionsToRemove);
-        }
+        await promotions.save(defaultPromotions.map((promotion, sortOrder) => promotions.create({
+          ...promotion,
+          enabled: true,
+          sortOrder,
+          region,
+        })));
       }
     });
   }

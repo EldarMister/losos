@@ -40,6 +40,7 @@ import {
 import { priceOrderLine } from "../src/orders/order-pricing";
 import { PushNotificationsService } from "../src/notifications/push-notifications.service";
 import { AddPickupLocationsAndPushTokens1784996000000 } from "../src/migrations/1784996000000-AddPickupLocationsAndPushTokens";
+import { AddRegionDeliveryDetailsAndZone1784997000000 } from "../src/migrations/1784997000000-AddRegionDeliveryDetailsAndZone";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -93,6 +94,15 @@ test("region delivery settings validate time, days, and free-delivery threshold"
     deliveryIs24Hours: true,
     deliveryWorkingDays: [1, 2, 3, 4, 5],
     freeDeliveryThreshold: 4900,
+    deliveryFee: 99,
+    estimatedDeliveryMinutes: 50,
+    minimumOrderAmount: 900,
+    maximumOrderAmount: 30000,
+    deliveryZone: [
+      { latitude: 42.8, longitude: 74.5 },
+      { latitude: 42.9, longitude: 74.6 },
+      { latitude: 42.8, longitude: 74.7 },
+    ],
   });
   assert.deepEqual(validateSync(valid), []);
 
@@ -103,8 +113,13 @@ test("region delivery settings validate time, days, and free-delivery threshold"
     deliveryCloseTime: "22:70",
     deliveryWorkingDays: [7],
     freeDeliveryThreshold: -1,
+    deliveryFee: -1,
+    estimatedDeliveryMinutes: 0,
+    minimumOrderAmount: -1,
+    maximumOrderAmount: 0,
+    deliveryZone: [{ latitude: 200, longitude: 300 }],
   });
-  assert.ok(validateSync(invalid).length >= 4);
+  assert.ok(validateSync(invalid).length >= 9);
 });
 
 test("pickup locations and device push tokens reject invalid shared-contract data", () => {
@@ -263,6 +278,31 @@ test("pickup and push migration has reversible tables and migrates legacy pickup
   ]);
 });
 
+test("region delivery details migration adds admin-controlled pricing and zone", async () => {
+  const migration = new AddRegionDeliveryDetailsAndZone1784997000000();
+  const upQueries: string[] = [];
+  await migration.up({
+    query: async (statement: string) => {
+      upQueries.push(statement.replace(/\s+/g, " ").trim());
+      return [];
+    },
+  } as never);
+  assert.ok(upQueries.some((statement) => statement.includes('"deliveryFee"')));
+  assert.ok(upQueries.some((statement) => statement.includes('"estimatedDeliveryMinutes"')));
+  assert.ok(upQueries.some((statement) => statement.includes('"deliveryZone"')));
+  assert.ok(upQueries.some((statement) => statement.includes('jsonb_array_length("deliveryZone") = 0')));
+
+  const downQueries: string[] = [];
+  await migration.down({
+    query: async (statement: string) => {
+      downQueries.push(statement);
+      return [];
+    },
+  } as never);
+  assert.equal(downQueries.length, 5);
+  assert.ok(downQueries[0].includes('"deliveryZone"'));
+});
+
 test("a push failure is isolated after a valid order status transition", async () => {
   const order = {
     id: "order-push-failure",
@@ -336,6 +376,7 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
     [
       "checkWhatsapp",
       "constructor",
+      "deleteAccount",
       "methods",
       "orderDetails",
       "profile",
@@ -348,6 +389,38 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "verifyWhatsappWebhook",
     ],
   );
+});
+
+test("account deletion verifies the session and removes all phone-owned profile data", async () => {
+  const phone = "+996555123456";
+  const token = "a".repeat(64);
+  const statements: Array<{ sql: string; parameters: unknown[] }> = [];
+  const manager = {
+    query: async (sql: string, parameters: unknown[]) => {
+      statements.push({ sql: sql.replace(/\s+/g, " ").trim(), parameters });
+      return [];
+    },
+  };
+  const accounts = {
+    findOne: async () => ({ phone, naktaCoins: 0 }),
+    manager: {
+      transaction: async (callback: (value: typeof manager) => Promise<void>) => callback(manager),
+    },
+  };
+  const auth = new PhoneAuthService(
+    {} as never,
+    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
+    {} as never,
+    {} as never,
+    {} as never,
+    accounts as never,
+  );
+
+  assert.deepEqual(await auth.deleteAccount(phone, token), { deleted: true });
+  assert.deepEqual(statements.map((item) => item.parameters), [[phone], [phone], [phone]]);
+  assert.match(statements[0].sql, /DELETE FROM "orders"/);
+  assert.match(statements[1].sql, /DELETE FROM "phone_auth_challenges"/);
+  assert.match(statements[2].sql, /DELETE FROM "phone_accounts"/);
 });
 
 test("WhatsApp webhook verifies the sender and unlocks polling", async () => {

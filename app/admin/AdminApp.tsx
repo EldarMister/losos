@@ -2,10 +2,11 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor";
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
 type PickupLocation = { id: number; title: string; address: string; workingHours: string; latitude: number | null; longitude: number | null; yandexUrl: string; enabled: boolean; sortOrder: number };
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -126,10 +127,39 @@ const apiUrl = (
     ? "http://localhost:4000/api"
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
+const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
+  bishkek: [[42.94, 74.48], [42.945, 74.62], [42.925, 74.71], [42.89, 74.75], [42.835, 74.74], [42.795, 74.68], [42.78, 74.57], [42.795, 74.48], [42.84, 74.43], [42.9, 74.44]].map(([latitude, longitude]) => ({ latitude, longitude })),
+  osh: [[40.59, 72.75], [40.6, 72.84], [40.565, 72.9], [40.505, 72.91], [40.46, 72.86], [40.445, 72.78], [40.475, 72.72], [40.535, 72.7]].map(([latitude, longitude]) => ({ latitude, longitude })),
+};
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
 ];
+
+function formatDeliveryZone(points: DeliveryZonePoint[] | undefined) {
+  return (points || []).map((point) => `${point.latitude}, ${point.longitude}`).join("\n");
+}
+
+function parseDeliveryZone(value: string) {
+  const points = value.split(/\r?\n|;/).map((line) => line.trim()).filter(Boolean).map((line) => {
+    const [latitude, longitude, extra] = line.split(/[\s,]+/).filter(Boolean).map(Number);
+    if (extra !== undefined || !Number.isFinite(latitude) || !Number.isFinite(longitude)
+      || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      throw new Error(`Некорректная точка зоны доставки: ${line}`);
+    }
+    return { latitude, longitude };
+  });
+  if (points.length < 3) throw new Error("Укажите минимум три точки зоны доставки");
+  return points;
+}
+
+function deliveryZoneEditorPoints(value: string) {
+  try {
+    return parseDeliveryZone(value);
+  } catch {
+    return [];
+  }
+}
 const deliveryWeekdays = [
   { value: 1, label: "Пн" }, { value: 2, label: "Вт" }, { value: 3, label: "Ср" },
   { value: 4, label: "Чт" }, { value: 5, label: "Пт" }, { value: 6, label: "Сб" }, { value: 0, label: "Вс" },
@@ -658,6 +688,11 @@ export function AdminApp() {
         deliveryIs24Hours: item.deliveryIs24Hours === true,
         deliveryWorkingDays: Array.isArray(item.deliveryWorkingDays) ? item.deliveryWorkingDays : [0, 1, 2, 3, 4, 5, 6],
         freeDeliveryThreshold: String(item.freeDeliveryThreshold ?? 4900),
+        deliveryFee: String(item.deliveryFee ?? 99),
+        estimatedDeliveryMinutes: String(item.estimatedDeliveryMinutes ?? 50),
+        minimumOrderAmount: String(item.minimumOrderAmount ?? 900),
+        maximumOrderAmount: String(item.maximumOrderAmount ?? 30000),
+        deliveryZone: formatDeliveryZone(item.deliveryZone?.length ? item.deliveryZone : defaultDeliveryZones[item.slug]),
         footerCompanyName: item.footerCompanyName || "",
         footerLegalInfo: item.footerLegalInfo || "",
       },
@@ -689,6 +724,11 @@ export function AdminApp() {
         deliveryIs24Hours: false,
         deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6],
         freeDeliveryThreshold: "4900",
+        deliveryFee: "99",
+        estimatedDeliveryMinutes: "50",
+        minimumOrderAmount: "900",
+        maximumOrderAmount: "30000",
+        deliveryZone: "",
         footerCompanyName: "",
         footerLegalInfo: "",
       },
@@ -751,13 +791,19 @@ export function AdminApp() {
     try {
       const firstPickup = regionEditor.pickupLocations.find((location) => location.enabled)
         ?? regionEditor.pickupLocations[0];
+      const { deliveryZone: deliveryZoneValue, ...values } = regionEditor.values;
       const payload = {
-        ...regionEditor.values,
+        ...values,
         pickupAddress: firstPickup?.address.trim() || "",
         pickupYandexUrl: firstPickup?.yandexUrl.trim() || "",
         pickupWorkingHours: firstPickup?.workingHours.trim() || "",
         sortOrder: Number(regionEditor.values.sortOrder),
         freeDeliveryThreshold: Number(regionEditor.values.freeDeliveryThreshold),
+        deliveryFee: Number(regionEditor.values.deliveryFee),
+        estimatedDeliveryMinutes: Number(regionEditor.values.estimatedDeliveryMinutes),
+        minimumOrderAmount: Number(regionEditor.values.minimumOrderAmount),
+        maximumOrderAmount: Number(regionEditor.values.maximumOrderAmount),
+        deliveryZone: parseDeliveryZone(String(deliveryZoneValue || "")),
         slug: String(regionEditor.values.slug).trim().toLowerCase().replace(/\s+/g, "-"),
       };
       const saved = await request(`/admin/regions${regionEditor.id ? `/${regionEditor.id}` : ""}`, {
@@ -1060,6 +1106,7 @@ export function AdminApp() {
           <label>Телефон<input value={String(regionEditor.values.contactPhone)} onChange={(event) => updateRegionValue("contactPhone", event.target.value)} placeholder="+996 555 123 456" /></label>
           <label>Электронная почта<input type="email" value={String(regionEditor.values.contactEmail)} onChange={(event) => updateRegionValue("contactEmail", event.target.value)} placeholder="hello@example.com" /></label>
         </div>
+        <label>Адрес для страницы поддержки<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Бишкек, улица …" /></label>
         <div className="admin-region-block">
           <b>Доставка</b><small>График действует по времени Бишкека. В нерабочие дни и после закрытия новые заказы не принимаются.</small>
           <label className="admin-switch"><span><b>Круглосуточно</b><small>Доставка доступна 24 часа в выбранные дни</small></span><input type="checkbox" checked={Boolean(regionEditor.values.deliveryIs24Hours)} onChange={(event) => updateRegionValue("deliveryIs24Hours", event.target.checked)} /></label>
@@ -1075,7 +1122,26 @@ export function AdminApp() {
             <label>Начало рабочего дня<input required={!Boolean(regionEditor.values.deliveryIs24Hours)} disabled={Boolean(regionEditor.values.deliveryIs24Hours)} type="time" value={String(regionEditor.values.deliveryOpenTime)} onChange={(event) => updateRegionValue("deliveryOpenTime", event.target.value)} /></label>
             <label>Конец рабочего дня<input required={!Boolean(regionEditor.values.deliveryIs24Hours)} disabled={Boolean(regionEditor.values.deliveryIs24Hours)} type="time" value={String(regionEditor.values.deliveryCloseTime)} onChange={(event) => updateRegionValue("deliveryCloseTime", event.target.value)} /></label>
           </div>
+          <div className="admin-two-fields">
+            <label>Примерное время, мин<input required type="number" min="1" max="600" value={String(regionEditor.values.estimatedDeliveryMinutes)} onChange={(event) => updateRegionValue("estimatedDeliveryMinutes", event.target.value)} /></label>
+            <label>Стоимость доставки, сом<input required type="number" min="0" value={String(regionEditor.values.deliveryFee)} onChange={(event) => updateRegionValue("deliveryFee", event.target.value)} /></label>
+          </div>
           <label>Бесплатная доставка от, сом<input required type="number" min="0" step="1" value={String(regionEditor.values.freeDeliveryThreshold)} onChange={(event) => updateRegionValue("freeDeliveryThreshold", event.target.value)} /></label>
+          <div className="admin-two-fields">
+            <label>Минимальный заказ, сом<input required type="number" min="0" value={String(regionEditor.values.minimumOrderAmount)} onChange={(event) => updateRegionValue("minimumOrderAmount", event.target.value)} /></label>
+            <label>Максимальный заказ, сом<input required type="number" min="1" value={String(regionEditor.values.maximumOrderAmount)} onChange={(event) => updateRegionValue("maximumOrderAmount", event.target.value)} /></label>
+          </div>
+          <b>Зона доставки</b><small>Нарисуйте границу — сайт и приложение используют один и тот же полигон.</small>
+          <DeliveryZoneEditor
+            cityName={String(regionEditor.values.name || "Город")}
+            points={deliveryZoneEditorPoints(String(regionEditor.values.deliveryZone || ""))}
+            regionSlug={String(regionEditor.values.slug || "bishkek")}
+            onChange={(points) => updateRegionValue("deliveryZone", formatDeliveryZone(points))}
+          />
+          <details className="admin-zone-coordinates">
+            <summary>Координаты вручную</summary>
+            <label><small>Одна точка «широта, долгота» в строке.</small><textarea required rows={6} value={String(regionEditor.values.deliveryZone)} onChange={(event) => updateRegionValue("deliveryZone", event.target.value)} placeholder={"42.90, 74.50\n42.90, 74.70\n42.80, 74.60"} /></label>
+          </details>
         </div>
         <div className="admin-region-block">
           <div className="admin-pickup-heading"><span><b>Кухни самовывоза</b><small>Список синхронно используется сайтом и приложением.</small></span><button type="button" onClick={addPickupLocation}>+ Добавить кухню</button></div>

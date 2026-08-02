@@ -46,10 +46,11 @@ type PickupLocationOption = {
   sortOrder?: number;
 };
 type RegionOption = {
-  slug: "bishkek" | "osh";
+  slug: string;
   name: string;
   contactPhone?: string;
   contactEmail?: string;
+  contactAddress?: string;
   pickupAddress?: string;
   pickupYandexUrl?: string;
   pickupWorkingHours?: string;
@@ -59,6 +60,11 @@ type RegionOption = {
   deliveryIs24Hours?: boolean;
   deliveryWorkingDays?: number[];
   freeDeliveryThreshold?: number;
+  deliveryFee?: number;
+  estimatedDeliveryMinutes?: number;
+  minimumOrderAmount?: number;
+  maximumOrderAmount?: number;
+  deliveryZone?: Array<{ latitude: number; longitude: number }>;
   footerCompanyName?: string;
   footerLegalInfo?: string;
 };
@@ -364,7 +370,7 @@ const restoreStoredModifiers = (value: unknown): SelectedModifier[] | null => {
 };
 const parseStoredStorefrontState = (
   rawValue: string | null,
-  regionSlug: "bishkek" | "osh",
+  regionSlug: string,
 ): PersistedStorefrontState | null => {
   if (!rawValue || rawValue.length > 250_000) return null;
   try {
@@ -559,50 +565,13 @@ const defaultStoryGroups: StoryGroup[] = [
   },
 ];
 
-const promotionTitleAliases: Record<string, string> = {
-  "Промокоды и подарки": "Telegram: промокоды и мемы",
-  "Удовольствие есть": "Накта суши — удовольствие есть",
-};
-
-const promotionArtifactTitles = new Set(["memories/test", "test", "тест"]);
-const normalizedPromotionTitle = (title: string) => title.trim().toLocaleLowerCase("ru-RU");
-
-const reconcilePromotions = (promotions: Promotion[]) => {
-  const normalized = promotions
-    .filter((promotion) => !promotionArtifactTitles.has(normalizedPromotionTitle(promotion.title)))
-    .map((promotion) => ({
-      ...promotion,
-      title: promotionTitleAliases[promotion.title] || promotion.title,
-    }));
-  const canonicalTitles = new Set(defaultStoryGroups.map((group) => group.title));
-  const stories: StoryGroup[] = defaultStoryGroups.map((group) => ({ ...group }));
-  const cards: Promotion[] = defaultStoryGroups.map((group, index) => {
-    const remote = normalized.find((promotion) => promotion.title === group.title);
-    const referenceCard = promoCards.find((card) => card.alt === group.title);
-    return {
-      id: remote?.id ?? -(index + 1),
-      title: group.title,
-      image: referenceCard?.src || group.pages[0].src,
-      cta: group.cta,
-      ctaUrl: group.ctaUrl,
-    };
-  });
-
-  normalized
-    .filter((promotion) => !canonicalTitles.has(promotion.title))
-    .forEach((promotion) => {
-      stories.push({
-        title: promotion.title,
-        kind: "pleasure",
-        pages: [{ src: promotion.image }],
-        cta: promotion.cta || undefined,
-        ctaUrl: promotion.ctaUrl || undefined,
-      });
-      cards.push(promotion);
-    });
-
-  return { cards, stories };
-};
+const promotionsToStories = (promotions: Promotion[]): StoryGroup[] => promotions.map((promotion) => ({
+  title: promotion.title,
+  kind: "pleasure",
+  pages: [{ src: promotion.image }],
+  cta: promotion.cta || undefined,
+  ctaUrl: promotion.ctaUrl || undefined,
+}));
 
 function ProductArt({ product, mode, loading, fetchPriority }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" | "eager"; fetchPriority?: "high" | "auto" }) {
   if (mode === "detail") {
@@ -623,11 +592,13 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 
 function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const searchParams = useSearchParams();
-  const initialRegion = searchParams.get("region") === "osh" ? "osh" : "bishkek";
+  const initialRegion = searchParams.get("region")?.trim() || "bishkek";
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [city, setCity] = useState(initialRegion === "osh" ? "Ош" : "Бишкек");
-  const [regionSlug, setRegionSlug] = useState<"bishkek" | "osh">(initialRegion);
+  const [city, setCity] = useState(
+    defaultRegions.find((region) => region.slug === initialRegion)?.name || initialRegion,
+  );
+  const [regionSlug, setRegionSlug] = useState(initialRegion);
   const [regionOptions, setRegionOptions] = useState<RegionOption[]>(defaultRegions);
   const [selectedPickupLocationId, setSelectedPickupLocationId] = useState<number | null>(null);
   const selectedRegion = regionOptions.find((option) => option.slug === regionSlug);
@@ -658,6 +629,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const deliveryScheduleLabel = deliveryDaysLabel(deliveryWorkingDays);
   const deliveryHoursLabel = deliveryIs24Hours ? "Круглосуточно" : `${deliveryOpenTime} – ${deliveryCloseTime}`;
   const freeDeliveryThreshold = Math.max(0, selectedRegion?.freeDeliveryThreshold ?? 4900);
+  const deliveryFee = Math.max(0, selectedRegion?.deliveryFee ?? 99);
+  const estimatedDeliveryMinutes = Math.max(1, selectedRegion?.estimatedDeliveryMinutes ?? 50);
+  const minimumOrderAmount = Math.max(0, selectedRegion?.minimumOrderAmount ?? 900);
+  const maximumOrderAmount = Math.max(minimumOrderAmount, selectedRegion?.maximumOrderAmount ?? 30000);
   const pickupYandexUrl = selectedPickupLocation?.yandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
   const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
   const footerEmail = selectedRegion?.contactEmail || "musaev.janybek.kg@gmail.com";
@@ -757,22 +732,24 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
     fetch(`${baseUrl}/regions`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Regions request failed")))
-      .then((data: RegionOption[]) => { if (data.length > 0) setRegionOptions(data); })
+      .then((data: RegionOption[]) => {
+        if (!Array.isArray(data) || data.length === 0) return;
+        setRegionOptions(data);
+        const active = data.find((region) => region.slug === regionSlug) || data[0];
+        setCity(active.name);
+        if (active.slug !== regionSlug) setRegionSlug(active.slug);
+      })
       .catch(() => undefined);
 
     fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Catalog request failed")))
       .then((data: Array<Category & { products: Product[] }>) => {
-        if (!Array.isArray(data) || data.length === 0) throw new Error("Catalog response is empty");
+        if (!Array.isArray(data)) throw new Error("Catalog response is invalid");
         setCatalogCategories(data.map((category) => ({
           slug: category.slug,
           title: category.title,
           image: typeof category.image === "string" ? category.image : "",
-          products: category.products.map((product) => {
-            const localProduct = categories.flatMap((entry) => entry.products)
-              .find((entry) => entry.name === product.name);
-            return { ...localProduct, ...product, category: category.slug };
-          }),
+          products: category.products.map((product) => ({ ...product, category: category.slug })),
         })));
         setCatalogLoading(false);
       })
@@ -785,10 +762,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     fetch(`${baseUrl}/promotions?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
       .then((data: Promotion[]) => {
-        if (!Array.isArray(data) || data.length === 0) throw new Error("Promotions response is empty");
-        const reconciled = reconcilePromotions(data);
-        setRegionalPromotions(reconciled.cards);
-        setStoryGroups(reconciled.stories);
+        if (!Array.isArray(data)) throw new Error("Promotions response is invalid");
+        setRegionalPromotions(data);
+        setStoryGroups(promotionsToStories(data));
       })
       .catch(() => {
         if (controller.signal.aborted) return;
@@ -1948,16 +1924,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <button
               className="city-picker-close"
               type="button"
-              aria-label="Закрыть и выбрать Бишкек"
-              onClick={() => chooseCity(regionOptions.find((option) => option.slug === "bishkek") || defaultRegions[0])}
+              aria-label="Закрыть и выбрать первый доступный город"
+              onClick={() => chooseCity(regionOptions[0] || defaultRegions[0])}
             >×</button>
             <h2 id="city-picker-title">Выберите город</h2>
             <p>Чтобы показать доступное меню<br />и время доставки</p>
             <div className="city-picker-options">
-              {["osh", "bishkek"].map((slug) => {
-                const option = regionOptions.find((region) => region.slug === slug) || defaultRegions.find((region) => region.slug === slug)!;
-                return <button key={option.slug} type="button" onClick={() => chooseCity(option)}>{option.name}</button>;
-              })}
+              {regionOptions.map((option) => (
+                <button key={option.slug} type="button" onClick={() => chooseCity(option)}>{option.name}</button>
+              ))}
             </div>
           </section>
         </div>
@@ -2068,7 +2043,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   return <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading={categoryIndex === 0 && productIndex < 6 ? "eager" : "lazy"} fetchPriority={categoryIndex === 0 && productIndex < 2 ? "high" : undefined} />
-                      {product.naktaCoins && product.naktaCoins > 0 ? <span className="product-nakta-badge" aria-label={`Бонус ${product.naktaCoins} NAKTA Coin`}><i>✦</i><b>+{product.naktaCoins}</b><small>NAKTA<br />Coin</small></span> : null}
+                      {product.naktaCoins && product.naktaCoins > 0 ? <span className="product-nakta-badge" aria-label={`Бонус ${product.naktaCoins} NAKTA Coin`}><img src="/nakta-coin.png" alt="" aria-hidden="true" /><span><b>+{product.naktaCoins}</b><small>NAKTA COIN</small></span></span> : null}
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
@@ -2102,9 +2077,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <section className="profile-coins"><span>Баланс NAKTA Coin</span><strong>{profileData?.naktaCoins ?? 0}</strong><small>coin</small></section>
               <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Активных заказов нет</p>}</section>
               <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Заказов пока нет</p>}</section>
-              <a className="profile-support" href="/support"><span aria-hidden="true">💬</span>Поддержка</a>
+              <a className="profile-support" href={`/support?region=${encodeURIComponent(regionSlug)}`}><span aria-hidden="true">💬</span>Поддержка</a>
               <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля</button>
-            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href="/support"><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>}
+            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href={`/support?region=${encodeURIComponent(regionSlug)}`}><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>}
             <button className="profile-login" onClick={() => { if (verifiedPhone) { setMenuOpen(false); return; } setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setPhoneAuthOpen(true); }}>{verifiedPhone ? "Готово" : "Войти"}</button>
           </section>
         </div>
@@ -2215,6 +2190,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   inputId="delivery-address-input"
                   query={draftAddress}
                   region={regionSlug}
+                  regionName={city}
+                  deliveryZone={selectedRegion?.deliveryZone}
                   searchRequest={addressSearchRequest}
                   onQueryChange={setDraftAddress}
                   onLocationChange={setDeliveryLocation}
@@ -2385,8 +2362,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <p className={`delivery-info-hours${deliveryClosed ? " closed" : ""}`}>{deliveryClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
                 <div className="delivery-info-details">
                   <h3>Детали</h3>
-                  <div><span>Время доставки</span><b>~45 мин</b></div>
+                  <div><span>Время доставки</span><b>~{estimatedDeliveryMinutes} мин</b></div>
+                  <div><span>Минимальный заказ</span><b>{money(minimumOrderAmount)}</b></div>
+                  <div><span>Максимальный заказ</span><b>{money(maximumOrderAmount)}</b></div>
                   <div><span>Рабочее время</span><b>{deliveryHoursLabel}</b></div>
+                  <div><span>При заказе до {money(freeDeliveryThreshold)}</span><b>{money(deliveryFee)}</b></div>
                   <div><span>При заказе от {money(freeDeliveryThreshold)}</span><b>Бесплатно</b></div>
                   {cartTotal < freeDeliveryThreshold ? <div><span>До бесплатной доставки</span><b><NumberTicker value={freeDeliveryThreshold - cartTotal} format={money} /></b></div> : null}
                 </div>

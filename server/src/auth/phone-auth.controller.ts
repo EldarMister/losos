@@ -71,6 +71,15 @@ export class PhoneAuthController {
     return this.auth.profile(phone || "", verificationToken);
   }
 
+  @Delete("account")
+  deleteAccount(
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.deleteAccount(phone || "", verificationToken);
+  }
+
   @Get("orders/:id")
   orderDetails(
     @Param("id") id: string,

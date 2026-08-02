@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 export function InfoPage({
   title,
@@ -15,7 +16,7 @@ export function InfoPage({
         <header className="info-page-header">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img className="info-page-logo" src="/logo.webp" alt="Накта суши" />
-          <a className="info-page-back" href="/">Вернуться в меню</a>
+          <Link className="info-page-back" href="/">Вернуться в меню</Link>
         </header>
         <article className="info-page-card">
           <h1>{title}</h1>

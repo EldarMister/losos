@@ -6,6 +6,8 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsLatitude,
+  IsLongitude,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -22,6 +24,16 @@ import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+export class DeliveryZonePointDto {
+  @Type(() => Number)
+  @IsLatitude()
+  latitude!: number;
+
+  @Type(() => Number)
+  @IsLongitude()
+  longitude!: number;
+}
 
 export class CreateRegionDto {
   @IsString()
@@ -47,6 +59,11 @@ export class CreateRegionDto {
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() deliveryIs24Hours = false;
   @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn([0, 1, 2, 3, 4, 5, 6], { each: true }) deliveryWorkingDays: number[] = [0, 1, 2, 3, 4, 5, 6];
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold = 4900;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) deliveryFee = 99;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(600) estimatedDeliveryMinutes = 50;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) minimumOrderAmount = 900;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(POSTGRES_INTEGER_MAX) maximumOrderAmount = 30000;
+  @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
 }
@@ -66,6 +83,11 @@ export class UpdateRegionDto {
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() deliveryIs24Hours?: boolean;
   @IsOptional() @IsArray() @ArrayMaxSize(7) @IsIn([0, 1, 2, 3, 4, 5, 6], { each: true }) deliveryWorkingDays?: number[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) deliveryFee?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(600) estimatedDeliveryMinutes?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) minimumOrderAmount?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(POSTGRES_INTEGER_MAX) maximumOrderAmount?: number;
+  @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
 }
@@ -262,6 +284,13 @@ export class CreateProductDto {
   @Min(0)
   @Max(POSTGRES_INTEGER_MAX)
   price!: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(POSTGRES_INTEGER_MAX)
+  naktaCoins = 0;
 
   @IsOptional()
   @Type(() => Number)

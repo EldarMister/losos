@@ -275,12 +275,12 @@ export class PhoneAuthService {
     const account = await this.requireAccount(phone, verificationToken);
 
     const orders = await this.challenges.manager.query(`
-      SELECT "id", "total", "status", "deliveryType", "createdAt"
+      SELECT "id", "total", "status", "deliveryType", "createdAt", "address"
       FROM "orders"
       WHERE "phone" = $1
       ORDER BY "createdAt" DESC
       LIMIT 30
-    `, [phone]) as Array<{ id: string; total: number; status: OrderStatus; deliveryType: string; createdAt: Date }>;
+    `, [phone]) as Array<{ id: string; total: number; status: OrderStatus; deliveryType: string; createdAt: Date; address: string }>;
     const currentStatuses = new Set<OrderStatus>([
       OrderStatus.NEW,
       OrderStatus.CONFIRMED,
@@ -294,6 +294,7 @@ export class PhoneAuthService {
       status: order.status,
       deliveryType: order.deliveryType,
       createdAt: order.createdAt,
+      address: order.address,
     });
     return {
       naktaCoins: account.naktaCoins,
@@ -343,6 +344,19 @@ export class PhoneAuthService {
         modifierSnapshots: Array.isArray(item.modifierSnapshots) ? item.modifierSnapshots : [],
       })),
     };
+  }
+
+  async deleteAccount(phone: string, verificationToken: string) {
+    await this.requireAccount(phone, verificationToken);
+    await this.accounts.manager.transaction(async (manager) => {
+      // Orders are part of the profile identity in this project. Removing them
+      // prevents a later sign-in with the same number from restoring deleted data.
+      await manager.query(`DELETE FROM "orders" WHERE "phone" = $1`, [phone]);
+      await manager.query(`DELETE FROM "phone_auth_challenges" WHERE "phone" = $1`, [phone]);
+      // Device push tokens are removed by the account foreign-key cascade.
+      await manager.query(`DELETE FROM "phone_accounts" WHERE "phone" = $1`, [phone]);
+    });
+    return { deleted: true };
   }
 
   assertAccount(phone: string, verificationToken: string) {

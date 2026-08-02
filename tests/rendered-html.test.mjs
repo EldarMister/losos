@@ -83,7 +83,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
   assert.match(storefront, /className="profile-modal"/);
-  assert.doesNotMatch(storefront, /auth-roskachestvo-banner|О нас/);
+  assert.doesNotMatch(storefront, /auth-roskachestvo-banner/);
   assert.match(storefront, /searchOpen/);
   assert.match(storefront, /Что ищем\?/);
   assert.match(storefront, /b92972a55683d636714fea75d11469ce/);
@@ -175,14 +175,13 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /aria-disabled=\{product\.available === false\}/);
   assert.match(storefront, /item\.slug === productSlug && item\.available !== false/);
   assert.match(storefront, /disabled=\{selected\.available === false \|\| !modifiersComplete\}/);
-  assert.match(storefront, /className="footer-app"/);
+  assert.match(storefront, /className="footer-app-link footer-app-nakta"/);
   assert.match(storefront, /0503 178 916/);
   assert.match(storefront, /musaev\.janybek\.kg@gmail\.com/);
   assert.match(storefront, /format\(value\) \+ " сом"/);
   assert.match(storefront, /const cartLocation = address\.trim\(\)/);
   assert.match(storefront, /const cartKitItems = \[/);
   assert.match(storefront, /if \(mode === "cart"\) \{\s*return <img src=\{product\.image\}/);
-  assert.match(storefront, /муниципальный округ Нижегородский/);
   assert.match(catalog, /hity-prodaz-2/);
   assert.match(catalog, /Соус сладкий васаби/);
   assert.match(catalog, /"Зелёный", 590/);
@@ -198,7 +197,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(catalog, /116ebec73cfa9103dd9332b8438cd9e1/);
   assert.ok(catalog.indexOf('"Поке спайси с лососем", 890') < catalog.indexOf('"Поке с тунцом", 795'));
   assert.match(storefront, /title: "Нашли для вас"/);
-  assert.match(storefront, /promotionArtifactTitles = new Set\(\["memories\/test", "test", "тест"\]\)/);
+  assert.match(storefront, /const promotionsToStories = \(promotions: Promotion\[\]\)/);
+  assert.doesNotMatch(storefront, /promotionArtifactTitles|reconcilePromotions/);
   assert.match(storefront, /if \(mode === "detail"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(storefront, /if \(mode === "related"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(categoryPage, /categorySlug=\{slug\}/);

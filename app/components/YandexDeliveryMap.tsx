@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type DeliveryLocation = {
@@ -9,7 +9,8 @@ export type DeliveryLocation = {
   coordinates: [number, number];
 };
 
-type RegionSlug = "bishkek" | "osh";
+type RegionSlug = string;
+type DeliveryZonePoint = { latitude: number; longitude: number };
 
 type RegionMapConfig = {
   city: string;
@@ -17,7 +18,7 @@ type RegionMapConfig = {
   bounds: [[number, number], [number, number]];
 };
 
-const regionMapConfig: Record<RegionSlug, RegionMapConfig> = {
+const regionMapConfig: Record<string, RegionMapConfig> = {
   bishkek: {
     city: "Бишкек",
     center: [42.8746, 74.5698],
@@ -29,6 +30,35 @@ const regionMapConfig: Record<RegionSlug, RegionMapConfig> = {
     bounds: [[40.35, 72.61], [40.69, 73.08]],
   },
 };
+
+function getRegionMapConfig(
+  region: RegionSlug,
+  cityName?: string,
+  deliveryZone?: DeliveryZonePoint[],
+): RegionMapConfig {
+  const fallback = regionMapConfig[region] ?? regionMapConfig.bishkek;
+  const validZone = deliveryZone?.filter((point) => (
+    Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+  )) ?? [];
+  if (validZone.length < 3) return { ...fallback, city: cityName || fallback.city };
+
+  const latitudes = validZone.map((point) => point.latitude);
+  const longitudes = validZone.map((point) => point.longitude);
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLon = Math.min(...longitudes);
+  const maxLon = Math.max(...longitudes);
+  const latPadding = Math.max((maxLat - minLat) * 0.08, 0.01);
+  const lonPadding = Math.max((maxLon - minLon) * 0.08, 0.01);
+  return {
+    city: cityName || fallback.city,
+    center: [(minLat + maxLat) / 2, (minLon + maxLon) / 2],
+    bounds: [
+      [minLat - latPadding, minLon - lonPadding],
+      [maxLat + latPadding, maxLon + lonPadding],
+    ],
+  };
+}
 
 let yandexMapsPromise: Promise<any> | null = null;
 
@@ -70,6 +100,25 @@ function loadYandexMaps(apiKey: string, suggestApiKey: string) {
 function isInsideBounds(point: [number, number], bounds: RegionMapConfig["bounds"]) {
   const [[minLat, minLon], [maxLat, maxLon]] = bounds;
   return point[0] >= minLat && point[0] <= maxLat && point[1] >= minLon && point[1] <= maxLon;
+}
+
+function isInsideDeliveryArea(
+  point: [number, number],
+  bounds: RegionMapConfig["bounds"],
+  deliveryZone?: DeliveryZonePoint[],
+) {
+  if (!deliveryZone || deliveryZone.length < 3) return isInsideBounds(point, bounds);
+  const [latitude, longitude] = point;
+  let inside = false;
+  for (let index = 0, previous = deliveryZone.length - 1; index < deliveryZone.length; previous = index, index += 1) {
+    const current = deliveryZone[index];
+    const before = deliveryZone[previous];
+    const intersects = ((current.latitude > latitude) !== (before.latitude > latitude))
+      && longitude < ((before.longitude - current.longitude) * (latitude - current.latitude))
+        / (before.latitude - current.latitude) + current.longitude;
+    if (intersects) inside = !inside;
+  }
+  return inside;
 }
 
 function cleanAddress(value: string) {
@@ -126,6 +175,8 @@ type YandexDeliveryMapProps = {
   inputId: string;
   query: string;
   region: RegionSlug;
+  regionName?: string;
+  deliveryZone?: DeliveryZonePoint[];
   searchRequest: number;
   onQueryChange: (value: string) => void;
   onLocationChange: (location: DeliveryLocation | null) => void;
@@ -147,7 +198,7 @@ const pickupShortLinkCoordinates: Record<string, [number, number]> = {
 };
 
 function pickupCoordinates(yandexUrl: string | undefined, region: RegionSlug): [number, number] {
-  const fallback = regionMapConfig[region].center;
+  const fallback = getRegionMapConfig(region).center;
   const normalizedUrl = yandexUrl?.trim().replace(/\/$/, "");
   if (normalizedUrl && pickupShortLinkCoordinates[normalizedUrl]) return pickupShortLinkCoordinates[normalizedUrl];
 
@@ -199,6 +250,8 @@ export function YandexDeliveryMap({
   inputId,
   query,
   region,
+  regionName,
+  deliveryZone,
   searchRequest,
   onQueryChange,
   onLocationChange,
@@ -220,7 +273,10 @@ export function YandexDeliveryMap({
     query: "",
     items: [],
   });
-  const config = regionMapConfig[region];
+  const config = useMemo(
+    () => getRegionMapConfig(region, regionName, deliveryZone),
+    [deliveryZone, region, regionName],
+  );
   const mapsApiKey = credentials?.mapsApiKey || "";
   const suggestApiKey = credentials?.suggestApiKey || mapsApiKey;
   const suggestionsHost = typeof document === "undefined" ? null : document.getElementById(`${inputId}-suggestions`);
@@ -335,7 +391,7 @@ export function YandexDeliveryMap({
     };
 
     const reverseGeocode = async (point: [number, number]) => {
-      if (!isInsideBounds(point, config.bounds)) {
+      if (!isInsideDeliveryArea(point, config.bounds, deliveryZone)) {
         setMessage(`Выберите адрес в городе ${config.city}`);
         onLocationChange(null);
         updatePoint(config.center, 13);
@@ -367,7 +423,7 @@ export function YandexDeliveryMap({
         if (cancelled) return;
         const geoObject = result[0];
         if (!geoObject) throw new Error("Адрес не найден");
-        if (!isInsideBounds(geoObject.coordinates, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!isInsideDeliveryArea(geoObject.coordinates, config.bounds, deliveryZone)) throw new Error(`Выберите адрес в городе ${config.city}`);
         const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
@@ -405,7 +461,7 @@ export function YandexDeliveryMap({
             if (cancelled) return;
             const uriObject = uriResult[0];
             const uriPoint = uriObject?.coordinates;
-            if (uriPoint && isInsideBounds(uriPoint, config.bounds)) {
+            if (uriPoint && isInsideDeliveryArea(uriPoint, config.bounds, deliveryZone)) {
               const resolvedAddress = addressWithoutCity(
                 uriObject.address || formattedAddress || subtitle || trimmed,
                 config.city,
@@ -427,7 +483,7 @@ export function YandexDeliveryMap({
             const organization = await (window as any).ymaps.findOrganization(organizationId);
             if (cancelled) return;
             const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
-            if (organizationPoint && isInsideBounds(organizationPoint, config.bounds)) {
+            if (organizationPoint && isInsideDeliveryArea(organizationPoint, config.bounds, deliveryZone)) {
               const addressLine = typeof organization.getAddressLine === "function" ? organization.getAddressLine() : "";
               const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
               updatePoint(organizationPoint, 17);
@@ -457,7 +513,7 @@ export function YandexDeliveryMap({
               if (cancelled) return;
               for (const candidate of addressResult) {
                 const candidatePoint = candidate.coordinates;
-                if (!candidatePoint || !isInsideBounds(candidatePoint, config.bounds)) continue;
+                if (!candidatePoint || !isInsideDeliveryArea(candidatePoint, config.bounds, deliveryZone)) continue;
                 const resolvedAddress = addressWithoutCity(candidate.address || suggestedAddress, config.city) || trimmed;
                 updatePoint(candidatePoint, 17);
                 suppressSuggestionsRef.current = trimmed;
@@ -477,14 +533,14 @@ export function YandexDeliveryMap({
         let geoObject: GeocodedLocation | undefined;
         for (const candidate of result) {
           const candidatePoint = candidate.coordinates;
-          if (candidatePoint && isInsideBounds(candidatePoint, config.bounds)) {
+          if (candidatePoint && isInsideDeliveryArea(candidatePoint, config.bounds, deliveryZone)) {
             geoObject = candidate;
             break;
           }
         }
         if (!geoObject) throw new Error(`Адрес в городе ${config.city} не найден`);
         const point = geoObject.coordinates;
-        if (!isInsideBounds(point, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!isInsideDeliveryArea(point, config.bounds, deliveryZone)) throw new Error(`Выберите адрес в городе ${config.city}`);
         const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
         updatePoint(point);
         suppressSuggestionsRef.current = resolvedAddress;
@@ -511,6 +567,19 @@ export function YandexDeliveryMap({
           suppressMapOpenBlock: false,
           yandexMapDisablePoiInteractivity: true,
         });
+        if (deliveryZone && deliveryZone.length >= 3) {
+          map.geoObjects.add(new ymaps.Polygon(
+            [deliveryZone.map((point) => [point.latitude, point.longitude])],
+            {},
+            {
+              fillColor: "#FF5A1F0D",
+              strokeColor: "#FF5A1F",
+              strokeOpacity: 0.35,
+              strokeWidth: 1,
+              interactivityModel: "default#transparent",
+            },
+          ));
+        }
         const markerLayout = ymaps.templateLayoutFactory.createClass(
           '<div class="delivery-map-marker" aria-hidden="true"><img src="/delivery.png" alt=""></div>',
         );
@@ -549,7 +618,7 @@ export function YandexDeliveryMap({
       if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
     };
-  }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, region, suggestApiKey]);
+  }, [config, credentials, deliveryZone, inputId, mapsApiKey, onLocationChange, onQueryChange, region, suggestApiKey]);
 
   useEffect(() => {
     if (status !== "ready" || searchRequest <= handledSearchRequestRef.current) return;
