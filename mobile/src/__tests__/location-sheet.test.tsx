@@ -176,6 +176,21 @@ describe("LocationSheet delivery address workflow", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  test("closes manual address entry when the backdrop is pressed", async () => {
+    const store = makeStore("улица Медерова");
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    fireEvent.press(await screen.findByLabelText("Уточнить адрес"));
+    expect(await screen.findByPlaceholderText("Введите адрес")).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText("Закрыть ввод адреса"));
+
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText("Введите адрес")).toBeNull();
+    });
+  });
+
   test("continues immediately for a house-level address", async () => {
     const store = makeStore("улица Медерова, 41");
     (useStore as jest.Mock).mockReturnValue(store);
@@ -313,6 +328,7 @@ describe("LocationSheet delivery address workflow", () => {
     const store = makeStore("улица Медерова, 41");
     (useStore as jest.Mock).mockReturnValue(store);
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(null);
     (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue({
       coords: { latitude: 42.8752, longitude: 74.6037 },
     });
@@ -364,6 +380,34 @@ describe("LocationSheet delivery address workflow", () => {
     await waitFor(() => {
       const repeatedProps = mockYandexMap.mock.calls.at(-1)?.[0] as { focusRequest: number };
       expect(repeatedProps.focusRequest).toBe(2);
+    });
+  });
+
+  test("automatically centers an empty delivery map on the customer", async () => {
+    const store = makeStore("");
+    store.location = undefined as never;
+    (useStore as jest.Mock).mockReturnValue(store);
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
+    (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(null);
+    (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue({
+      coords: { latitude: 42.8761, longitude: 74.6054 },
+    });
+    mockYandexMap.mockClear();
+
+    await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
+      const props = mockYandexMap.mock.calls.at(-1)?.[0] as {
+        focusRequest: number;
+        initialLatitude: number;
+        initialLongitude: number;
+      };
+      expect(props).toMatchObject({
+        focusRequest: 1,
+        initialLatitude: 42.8761,
+        initialLongitude: 74.6054,
+      });
     });
   });
 });

@@ -277,6 +277,10 @@ function ProfileRoute({ navigation, route }: ProfileProps) {
   return (
     <ProfileScreen
       onBack={() => navigation.goBack()}
+      onAccountDeleted={async () => {
+        await store.signOut();
+        navigation.reset({ index: 0, routes: [{ name: "Catalog" }] });
+      }}
       onLogout={() => {
         const session = store.session;
         void (async () => {
@@ -320,7 +324,12 @@ function MobileApp() {
   useEffect(() => {
     if (!store.hydrated) return;
     catalogApi.regions()
-      .then(store.setRegions)
+      .then((regions) => {
+        store.setRegions(regions);
+        if (regions.length && !regions.some((region) => region.slug === store.regionSlug)) {
+          store.setRegionSlug(regions[0].slug);
+        }
+      })
       .catch(() => undefined);
   }, [store.hydrated]);
 

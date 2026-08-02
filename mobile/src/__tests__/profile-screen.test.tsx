@@ -1,4 +1,5 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Alert } from "react-native";
 import { authApi } from "../api";
 import { ProfileScreen } from "../screens/ProfileScreen";
 import { useStore } from "../store";
@@ -8,6 +9,7 @@ jest.mock("../api", () => ({
   authApi: {
     order: jest.fn(),
     profile: jest.fn(),
+    deleteAccount: jest.fn(),
   },
 }));
 
@@ -103,5 +105,33 @@ describe("ProfileScreen order history", () => {
     expect(screen.getByText("Выполнен")).toBeTruthy();
     await fireEvent.press(screen.getByLabelText("Заказ №FEDCBA"));
     expect(onOpenOrder).toHaveBeenCalledWith("fedcba-history");
+  });
+
+  test("deletes the account only after destructive confirmation", async () => {
+    (authApi.profile as jest.Mock).mockResolvedValue(emptyProfile);
+    (authApi.deleteAccount as jest.Mock).mockResolvedValue({ deleted: true });
+    const onAccountDeleted = jest.fn();
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+    const screen = await render(
+      <ProfileScreen
+        onAccountDeleted={onAccountDeleted}
+        onBack={jest.fn()}
+        onLogout={jest.fn()}
+        onOpenOrder={jest.fn()}
+        section="settings"
+      />,
+    );
+
+    await fireEvent.press(await screen.findByText("Удалить аккаунт"));
+    expect(authApi.deleteAccount).not.toHaveBeenCalled();
+    const buttons = alert.mock.calls[0]?.[2] || [];
+    const destructive = buttons.find((button) => button.style === "destructive");
+    await act(async () => {
+      destructive?.onPress?.();
+    });
+
+    await waitFor(() => expect(authApi.deleteAccount).toHaveBeenCalledTimes(1));
+    expect(onAccountDeleted).toHaveBeenCalledTimes(1);
+    alert.mockRestore();
   });
 });

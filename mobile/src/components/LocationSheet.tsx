@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -23,6 +24,13 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from "react-native-reanimated";
 import { catalogApi } from "../api";
 import {
   isSpecificDeliveryAddress,
@@ -34,6 +42,11 @@ import { useStore } from "../store";
 import { colors, shadow } from "../theme";
 import type { DeliveryType, PickupLocation, Region } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
+import {
+  SwipeDismissScrollProvider,
+  SwipeDismissScrollView,
+  useSwipeToDismiss,
+} from "./SwipeDismiss";
 import { YandexMap } from "./YandexMap";
 import {
   getDeliveryZone,
@@ -103,6 +116,8 @@ export function pickupIntroCopy(count: number) {
 export function LocationSheet({ visible, required, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
+  const [modalMounted, setModalMounted] = useState(visible);
+  const [contentVisible, setContentVisible] = useState(visible);
   const [type, setType] = useState<DeliveryType>(store.deliveryType);
   const [address, setAddress] = useState(store.location?.address ?? "");
   const [addressComplete, setAddressComplete] = useState(
@@ -121,7 +136,14 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     store.location?.pickupLocationId ?? null,
   );
   const [pickupListVisible, setPickupListVisible] = useState(false);
-  const [locating, setLocating] = useState(false);
+  const [locating, setLocating] = useState(
+    visible
+      && store.deliveryType === "delivery"
+      && (!store.location?.address
+        || !Number.isFinite(store.location?.latitude)
+        || !Number.isFinite(store.location?.longitude)),
+  );
+  const automaticLocationAttempted = useRef(false);
   const [panelHeight, setPanelHeight] = useState(226);
   const [deviceLocation, setDeviceLocation] = useState<{
     latitude: number;
@@ -133,6 +155,40 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const closeSearch = useCallback(() => {
+    setSearchVisible(false);
+    Keyboard.dismiss();
+  }, []);
+  const searchSwipe = useSwipeToDismiss({
+    enabled: searchVisible,
+    onDismiss: closeSearch,
+  });
+
+  useEffect(() => {
+    if (searchVisible) searchSwipe.reset();
+  }, [searchSwipe.reset, searchVisible]);
+
+  useEffect(() => {
+    let frame = 0;
+    let secondFrame = 0;
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
+    if (visible) {
+      setModalMounted(true);
+      if (!contentVisible) {
+        frame = requestAnimationFrame(() => {
+          secondFrame = requestAnimationFrame(() => setContentVisible(true));
+        });
+      }
+    } else {
+      setContentVisible(false);
+      closeTimer = setTimeout(() => setModalMounted(false), 340);
+    }
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(secondFrame);
+      if (closeTimer) clearTimeout(closeTimer);
+    };
+  }, [visible]);
   const selectedRegionData = useMemo(
     () => regions.find((region) => region.slug === selectedRegion),
     [regions, selectedRegion],
@@ -370,37 +426,67 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     onClose();
   };
 
-  const locateMe = async () => {
-    if (locating) return;
+  const locateMe = useCallback(async (force = false) => {
+    if (locating && !force) return;
     setLocating(true);
     setLocationError("");
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
+      let permission = await Location.getForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        permission = await Location.requestForegroundPermissionsAsync();
+      }
       if (permission.status !== "granted") {
         setLocationError("Разрешите геопозицию в настройках телефона.");
         return;
       }
+      const focusPoint = (point: { latitude: number; longitude: number }) => {
+        setDeviceLocation(point);
+        setLatitude(point.latitude);
+        setLongitude(point.longitude);
+        setMapInitialPoint(point);
+        setMapFocusRequest((value) => value + 1);
+        setAddress("Определяем адрес…");
+        setAddressComplete(false);
+        setSearchQuery("");
+      };
+      const lastKnown = await Location.getLastKnownPositionAsync({
+        maxAge: 120_000,
+        requiredAccuracy: 1_000,
+      });
+      if (lastKnown) {
+        focusPoint({
+          latitude: lastKnown.coords.latitude,
+          longitude: lastKnown.coords.longitude,
+        });
+      }
       const position = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-      const point = {
+      focusPoint({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-      };
-      setDeviceLocation(point);
-      setLatitude(point.latitude);
-      setLongitude(point.longitude);
-      setMapInitialPoint(point);
-      setMapFocusRequest((value) => value + 1);
-      setAddress("Определяем адрес…");
-      setAddressComplete(false);
-      setSearchQuery("");
+      });
     } catch {
       setLocationError("Не удалось определить местоположение. Укажите адрес вручную.");
     } finally {
       setLocating(false);
     }
-  };
+  }, [locating]);
+
+  useEffect(() => {
+    if (!visible) {
+      automaticLocationAttempted.current = false;
+      return;
+    }
+    const hasSelectedAddress = Boolean(store.location?.address)
+      && Number.isFinite(store.location?.latitude)
+      && Number.isFinite(store.location?.longitude);
+    if (type !== "delivery" || hasSelectedAddress || automaticLocationAttempted.current) return;
+    automaticLocationAttempted.current = true;
+    // Open the map on the customer instead of reverse-geocoding a city-center fallback.
+    setLocating(false);
+    queueMicrotask(() => void locateMe(true));
+  }, [locateMe, store.location?.address, store.location?.latitude, store.location?.longitude, type, visible]);
 
   const close = () => {
     if (pickupListVisible) {
@@ -408,8 +494,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       return;
     }
     if (searchVisible) {
-      setSearchVisible(false);
-      Keyboard.dismiss();
+      closeSearch();
       return;
     }
     if (!required) onClose();
@@ -417,12 +502,12 @@ export function LocationSheet({ visible, required, onClose }: Props) {
 
   return (
     <Modal
-      animationType="fade"
+      animationType="none"
       hardwareAccelerated
       presentationStyle="overFullScreen"
       onRequestClose={close}
       statusBarTranslucent
-      visible={visible}
+      visible={modalMounted}
     >
       <StatusBar style="light" translucent />
       <KeyboardAvoidingView
@@ -442,7 +527,9 @@ export function LocationSheet({ visible, required, onClose }: Props) {
             }}
             onLocationChange={handleMapLocation}
             regionSlug={selectedRegion}
-            showCenterMarker={type === "delivery"}
+            showCenterMarker={type === "delivery" && (
+              !locating || Number.isFinite(mapInitialPoint.latitude)
+            )}
           />
         </View>
 
@@ -505,7 +592,10 @@ export function LocationSheet({ visible, required, onClose }: Props) {
           </Pressable>
         ) : null}
 
-        <View
+        {contentVisible ? (
+          <Animated.View
+            entering={SlideInDown.duration(420)}
+            exiting={SlideOutDown.duration(320)}
           testID="location-main-panel"
           onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
           style={[
@@ -624,16 +714,23 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               </>
             )
           )}
-        </View>
+          </Animated.View>
+        ) : null}
 
         {pickupListVisible ? (
-          <View style={styles.pickupOverlay}>
+          <Animated.View
+            entering={FadeIn.duration(220)}
+            exiting={FadeOut.duration(220)}
+            style={styles.pickupOverlay}
+          >
             <Pressable
               accessibilityLabel="Закрыть список кухонь"
               onPress={() => setPickupListVisible(false)}
               style={styles.pickupBackdrop}
             />
-            <View
+            <Animated.View
+              entering={SlideInDown.duration(380)}
+              exiting={SlideOutDown.duration(300)}
               testID="pickup-list-panel"
               style={[
                 styles.pickupSheet,
@@ -699,85 +796,103 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                 tone="soft"
                 style={[styles.primary, styles.pickupBackButton]}
               />
-            </View>
-          </View>
+            </Animated.View>
+          </Animated.View>
         ) : null}
 
         {searchVisible ? (
-          <View style={styles.searchOverlay}>
-            <View
-              style={[
-                styles.searchPanel,
-                {
-                  marginTop: Math.max(insets.top + 20, 68),
-                  paddingBottom: Math.max(insets.bottom, 12),
-                },
-              ]}
-            >
-              <View style={styles.searchField}>
-              <TextInput
-                autoCapitalize="sentences"
-                autoCorrect={false}
-                autoFocus
-                onChangeText={(value) => setSearchQuery(value.replace(/%20/gi, " "))}
-                onSubmitEditing={submitSearch}
-                placeholder="Введите адрес"
-                placeholderTextColor="#9B9B9B"
-                returnKeyType="search"
-                selectionColor={colors.orange}
-                style={styles.searchInput}
-                value={searchQuery}
-              />
-              {searchQuery ? (
-                <Pressable
-                  accessibilityLabel="Очистить поиск"
-                  hitSlop={10}
-                  onPress={() => {
-                    setSearchQuery("");
-                    setSuggestions([]);
-                    setSearchError("");
-                  }}
-                >
-                  <MaterialCommunityIcons name="close" size={25} color={colors.muted} />
-                </Pressable>
-              ) : null}
-              </View>
-
-              {searching ? (
-                <View style={styles.searchState}>
-                  <ActivityIndicator color={colors.orange} />
-                  <Text style={styles.searchStateText}>Ищем адрес…</Text>
-                </View>
-              ) : null}
-
-              {!searching ? (
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                  style={styles.suggestionList}
-                >
-                  {suggestions.map((suggestion) => (
+          <Animated.View
+            entering={FadeIn.duration(220)}
+            exiting={FadeOut.duration(220)}
+            style={styles.searchOverlay}
+          >
+            <Pressable
+              accessibilityLabel="Закрыть ввод адреса"
+              onPress={closeSearch}
+              style={styles.searchBackdrop}
+            />
+            <GestureDetector gesture={searchSwipe.gesture}>
+              <Animated.View
+                entering={SlideInDown.duration(360)}
+                exiting={SlideOutDown.duration(280)}
+                onLayout={(event) => searchSwipe.onLayout(event.nativeEvent.layout.height)}
+                style={[
+                  styles.searchPanel,
+                  {
+                    marginTop: Math.max(insets.top + 20, 68),
+                    paddingBottom: Math.max(insets.bottom, 12),
+                  },
+                  searchSwipe.animatedStyle,
+                ]}
+              >
+                <View style={styles.searchHandle} />
+                <View style={styles.searchField}>
+                  <TextInput
+                    autoCapitalize="sentences"
+                    autoCorrect={false}
+                    autoFocus
+                    onChangeText={(value) => setSearchQuery(value.replace(/%20/gi, " "))}
+                    onSubmitEditing={submitSearch}
+                    placeholder="Введите адрес"
+                    placeholderTextColor="#9B9B9B"
+                    returnKeyType="search"
+                    selectionColor={colors.orange}
+                    style={styles.searchInput}
+                    value={searchQuery}
+                  />
+                  {searchQuery ? (
                     <Pressable
-                      key={suggestion.id}
-                      onPress={() => void chooseSuggestion(suggestion)}
-                      style={({ pressed }) => [
-                        styles.suggestionRow,
-                        pressed && styles.suggestionRowPressed,
-                      ]}
+                      accessibilityLabel="Очистить поиск"
+                      hitSlop={10}
+                      onPress={() => {
+                        setSearchQuery("");
+                        setSuggestions([]);
+                        setSearchError("");
+                      }}
                     >
-                      <View style={styles.suggestionCopy}>
-                        <Text style={styles.suggestionTitle}>{suggestion.label}</Text>
-                        {suggestion.subtitle ? (
-                          <Text style={styles.suggestionSubtitle}>{suggestion.subtitle}</Text>
-                        ) : null}
-                      </View>
+                      <MaterialCommunityIcons name="close" size={25} color={colors.muted} />
                     </Pressable>
-                  ))}
-                  {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
-                </ScrollView>
-              ) : null}
-            </View>
-          </View>
+                  ) : null}
+                </View>
+
+                {searching ? (
+                  <View style={styles.searchState}>
+                    <ActivityIndicator color={colors.orange} />
+                    <Text style={styles.searchStateText}>Ищем адрес…</Text>
+                  </View>
+                ) : null}
+
+                {!searching ? (
+                  <SwipeDismissScrollProvider scrollOffsetY={searchSwipe.scrollOffsetY}>
+                    <SwipeDismissScrollView
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                      style={styles.suggestionList}
+                    >
+                      {suggestions.map((suggestion) => (
+                        <Pressable
+                          key={suggestion.id}
+                          onPress={() => void chooseSuggestion(suggestion)}
+                          style={({ pressed }) => [
+                            styles.suggestionRow,
+                            pressed && styles.suggestionRowPressed,
+                          ]}
+                        >
+                          <View style={styles.suggestionCopy}>
+                            <Text style={styles.suggestionTitle}>{suggestion.label}</Text>
+                            {suggestion.subtitle ? (
+                              <Text style={styles.suggestionSubtitle}>{suggestion.subtitle}</Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      ))}
+                      {searchError ? <Text style={styles.searchError}>{searchError}</Text> : null}
+                    </SwipeDismissScrollView>
+                  </SwipeDismissScrollProvider>
+                ) : null}
+              </Animated.View>
+            </GestureDetector>
+          </Animated.View>
         ) : null}
       </KeyboardAvoidingView>
     </Modal>
@@ -1074,15 +1189,27 @@ const styles = StyleSheet.create({
   searchOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 20,
-    backgroundColor: "#A3A3A1",
+    justifyContent: "flex-end",
+  },
+  searchBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(28,28,28,0.38)",
   },
   searchPanel: {
     flex: 1,
-    paddingTop: 28,
+    paddingTop: 10,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     overflow: "hidden",
     backgroundColor: colors.white,
+  },
+  searchHandle: {
+    width: 42,
+    height: 5,
+    marginBottom: 10,
+    alignSelf: "center",
+    borderRadius: 3,
+    backgroundColor: "#D7D7D7",
   },
   searchField: {
     height: 54,

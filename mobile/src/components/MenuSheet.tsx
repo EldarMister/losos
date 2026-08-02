@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -23,6 +24,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { authApi, WEB_URL } from "../api";
 import { useStore } from "../store";
+import { supportUrl } from "../support";
 import { colors } from "../theme";
 import { useDrawerDismiss } from "./DrawerGesture";
 
@@ -66,23 +68,38 @@ export function MenuSheet({
     drawerGesture.reset();
     openOffset.value = -360;
     backdropProgress.value = 0;
+    let secondFrame = 0;
     const frame = requestAnimationFrame(() => {
-      openOffset.value = withTiming(0, { duration: 240 });
-      backdropProgress.value = withTiming(1, { duration: 240 });
+      secondFrame = requestAnimationFrame(() => {
+        openOffset.value = withTiming(0, {
+          duration: 360,
+          easing: Easing.bezier(0.22, 1, 0.36, 1),
+        });
+        backdropProgress.value = withTiming(1, {
+          duration: 320,
+          easing: Easing.out(Easing.cubic),
+        });
+      });
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(secondFrame);
+    };
   }, [backdropProgress, drawerGesture.reset, openOffset, visible]);
 
   useEffect(() => {
     if (!mounted || visible) return;
     openOffset.value = withTiming(
       -Math.max(drawerGesture.drawerWidth.value, 360),
-      { duration: 190 },
+      { duration: 300, easing: Easing.bezier(0.4, 0, 0.2, 1) },
       (finished) => {
         if (finished) runOnJS(setMounted)(false);
       },
     );
-    backdropProgress.value = withTiming(0, { duration: 190 });
+    backdropProgress.value = withTiming(0, {
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+    });
   }, [backdropProgress, drawerGesture.drawerWidth, mounted, openOffset, visible]);
 
   const drawerAnimatedStyle = useAnimatedStyle(() => ({
@@ -119,7 +136,7 @@ export function MenuSheet({
 
   const openPage = async (path: string) => {
     onClose();
-    await Linking.openURL(`${WEB_URL}${path}`);
+    await Linking.openURL(path === "/support" ? supportUrl(store.activeRegion) : `${WEB_URL}${path}`);
   };
 
   if (!mounted) return null;
@@ -173,9 +190,6 @@ export function MenuSheet({
             {store.session ? (
               <>
                 <View style={styles.accountCard}>
-                  <View style={styles.accountAvatar}>
-                    <MaterialCommunityIcons name="account" size={27} color={colors.orange} />
-                  </View>
                   <View style={styles.accountCopy}>
                     <Text style={styles.accountHello}>Привет!</Text>
                     <Text style={styles.accountPhone}>{store.session.phone}</Text>
@@ -311,24 +325,14 @@ const styles = StyleSheet.create({
     minHeight: 66,
     marginHorizontal: 12,
     marginBottom: 16,
-    paddingRight: 10,
+    paddingHorizontal: 14,
     borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F4F4F2",
   },
-  accountAvatar: {
-    width: 48,
-    height: 48,
-    margin: 8,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.orangeSoft,
-  },
   accountCopy: {
     flex: 1,
-    marginLeft: 3,
     marginRight: 8,
   },
   accountHello: {

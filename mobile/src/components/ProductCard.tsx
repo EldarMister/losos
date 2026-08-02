@@ -13,6 +13,7 @@ import type { Product } from "../types";
 import { useOptimisticNumber } from "../useOptimisticNumber";
 import { NumberTicker } from "./NumberTicker";
 import { ImmediatePressable } from "./ImmediatePressable";
+import { NaktaCoinBadge } from "./NaktaCoinBadge";
 import { RipplePressable as Pressable } from "./RipplePressable";
 
 const money = formatMoney;
@@ -78,6 +79,13 @@ export const ProductCard = memo(function ProductCard({
             source={{ uri: resolveImageUrl(product.image) }}
             style={styles.image}
           />
+          {product.naktaCoins ? (
+            <NaktaCoinBadge
+              amount={product.naktaCoins}
+              compact
+              style={styles.naktaCoinBadge}
+            />
+          ) : null}
         </View>
         <Text numberOfLines={2} style={styles.name}>{product.name}</Text>
       </Pressable>
@@ -166,6 +174,11 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 15,
     lineHeight: 19,
+  },
+  naktaCoinBadge: {
+    position: "absolute",
+    left: 8,
+    bottom: 9,
   },
   bottom: {
     marginTop: "auto",

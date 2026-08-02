@@ -307,20 +307,6 @@ export function YandexMap({
   }, [effectiveDeliveryZone, onLocationChange, region.city, regionSlug]);
 
   useEffect(() => {
-    if (!ready || hasInitialPoint || !showCenterMarker) return;
-    // Resolve the default delivery point while MapKit is still decoding its
-    // style and downloading tiles. Address selection must not wait for paint.
-    void resolveAddress(initialPoint.latitude, initialPoint.longitude);
-  }, [
-    hasInitialPoint,
-    initialPoint.latitude,
-    initialPoint.longitude,
-    ready,
-    resolveAddress,
-    showCenterMarker,
-  ]);
-
-  useEffect(() => {
     if (!ready || !hasInitialPoint) return;
     mapRef.current?.setCenter(
       { lat: initialPoint.latitude, lon: initialPoint.longitude },
@@ -370,7 +356,7 @@ export function YandexMap({
   return (
     <View style={styles.container}>
       <YaMap
-        initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 11 }}
+        initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 16 }}
         onCameraPositionChangeEnd={handleCameraPositionChangeEnd}
         onMapLoaded={() => {
           setMapLoaded(true);
@@ -380,9 +366,7 @@ export function YandexMap({
               lat: marker.latitude,
               lon: marker.longitude,
             })));
-          } else if (showCenterMarker && !hasInitialPoint && deliveryZoneMapPoints.length >= 3) {
-            mapRef.current?.fitMarkers(deliveryZoneMapPoints);
-          } else if (showCenterMarker) {
+          } else if (showCenterMarker && hasInitialPoint) {
             void resolveAddress(initialPoint.latitude, initialPoint.longitude);
           }
         }}

@@ -11,9 +11,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { authApi, WEB_URL } from "../api";
+import { authApi } from "../api";
 import { formatMoney } from "../money";
 import { useStore } from "../store";
+import { supportUrl } from "../support";
 import { colors } from "../theme";
 import type { ProfileOrderDetail } from "../types";
 
@@ -169,7 +170,7 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
 
           <Pressable
             accessibilityLabel="Связаться с поддержкой"
-            onPress={() => void Linking.openURL(`${WEB_URL}/support`)}
+            onPress={() => void Linking.openURL(supportUrl(store.activeRegion))}
             style={({ pressed }) => [styles.supportButton, pressed && styles.pressed]}
           >
             <MaterialCommunityIcons name="phone-outline" size={20} color={colors.ink} />

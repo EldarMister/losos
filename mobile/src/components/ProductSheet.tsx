@@ -21,6 +21,7 @@ import type {
 } from "../types";
 import { QuantityControl } from "./QuantityControl";
 import { NumberTicker } from "./NumberTicker";
+import { NaktaCoinBadge } from "./NaktaCoinBadge";
 import { RipplePressable as Pressable } from "./RipplePressable";
 import { Sheet } from "./Sheet";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
@@ -78,12 +79,17 @@ function RelatedProductCard({
         accessibilityLabel={`Открыть ${product.name}`}
         onPress={onPress}
       >
-        <Image
-          resizeMode="cover"
-          resizeMethod="resize"
-          source={{ uri: resolveImageUrl(product.image) }}
-          style={styles.relatedImage}
-        />
+        <View style={styles.relatedImageWrap}>
+          <Image
+            resizeMode="cover"
+            resizeMethod="resize"
+            source={{ uri: resolveImageUrl(product.image) }}
+            style={styles.relatedImage}
+          />
+          {product.naktaCoins ? (
+            <NaktaCoinBadge amount={product.naktaCoins} compact style={styles.relatedCoinBadge} />
+          ) : null}
+        </View>
         <Text numberOfLines={2} style={styles.relatedName}>{product.name}</Text>
       </Pressable>
       <View style={styles.relatedBottom}>
@@ -303,6 +309,9 @@ export function ProductSheet({
               source={{ uri: resolveImageUrl(product.image) }}
               style={styles.heroImage}
             />
+            {product.naktaCoins ? (
+              <NaktaCoinBadge amount={product.naktaCoins} style={styles.heroCoinBadge} />
+            ) : null}
             {product.isNew ? (
               <View style={styles.newBadge}>
                 <Text style={styles.newText}>НОВИНКА</Text>
@@ -615,6 +624,11 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.55,
   },
+  heroCoinBadge: {
+    position: "absolute",
+    left: 14,
+    bottom: 14,
+  },
   description: {
     marginTop: 12,
     color: "#2A2A2A",
@@ -687,11 +701,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     overflow: "hidden",
   },
-  relatedImage: {
+  relatedImageWrap: {
     width: "100%",
     aspectRatio: 1,
     borderRadius: 13,
+    overflow: "hidden",
     backgroundColor: colors.white,
+  },
+  relatedImage: {
+    width: "100%",
+    height: "100%",
+  },
+  relatedCoinBadge: {
+    position: "absolute",
+    left: 6,
+    bottom: 6,
   },
   relatedName: {
     minHeight: 36,

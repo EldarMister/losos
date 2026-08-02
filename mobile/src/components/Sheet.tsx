@@ -66,17 +66,25 @@ export function Sheet({
     swipe.reset();
     openOffset.value = 900;
     openProgress.value = 0;
+    let secondFrame = 0;
     const frame = requestAnimationFrame(() => {
-      openOffset.value = withTiming(0, {
-        duration: OPEN_DURATION,
-        easing: OPEN_EASING,
-      });
-      openProgress.value = withTiming(1, {
-        duration: OPEN_DURATION,
-        easing: OPEN_EASING,
+      // The second frame guarantees that Android has painted the off-screen
+      // start position before the iOS-like slide animation begins.
+      secondFrame = requestAnimationFrame(() => {
+        openOffset.value = withTiming(0, {
+          duration: OPEN_DURATION,
+          easing: OPEN_EASING,
+        });
+        openProgress.value = withTiming(1, {
+          duration: OPEN_DURATION,
+          easing: OPEN_EASING,
+        });
       });
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(secondFrame);
+    };
   }, [openOffset, openProgress, swipe.reset, visible]);
 
   useEffect(() => {

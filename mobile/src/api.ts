@@ -13,7 +13,6 @@ import type {
   WhatsappRequest,
 } from "./types";
 import { Platform } from "react-native";
-import { brandPromotion } from "./promotionBranding";
 
 const developmentApiUrl = Platform.OS === "web" && __DEV__ && typeof window !== "undefined"
   ? `${window.location.protocol}//${window.location.hostname}:4000/api`
@@ -76,12 +75,10 @@ export const catalogApi = {
       `/products?region=${encodeURIComponent(regionSlug)}&search=${encodeURIComponent(search)}`,
     );
   },
-  async promotions(regionSlug: string) {
-    const promotions = await request<Promotion[]>(
+  promotions(regionSlug: string) {
+    return request<Promotion[]>(
       `/promotions?region=${encodeURIComponent(regionSlug)}`,
     );
-    return promotions.map((promotion) =>
-      brandPromotion(promotion, `${WEB_URL}/og-social-v2.png`));
   },
   regions() {
     return request<Region[]>("/regions");
@@ -199,6 +196,15 @@ export const authApi = {
     return request<ProfileOrderDetail>(
       `/auth/orders/${encodeURIComponent(orderId)}?phone=${encodeURIComponent(session.phone)}`,
       { headers: sessionHeaders(session) },
+    );
+  },
+  deleteAccount(session: AuthSession) {
+    return request<{ deleted: boolean }>(
+      `/auth/account?phone=${encodeURIComponent(session.phone)}`,
+      {
+        method: "DELETE",
+        headers: sessionHeaders(session),
+      },
     );
   },
   registerPushToken(

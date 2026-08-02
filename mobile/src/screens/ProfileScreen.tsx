@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -36,6 +37,7 @@ type Props = {
   onBack: () => void;
   onOpenOrder: (orderId: string) => void;
   onLogout: () => void;
+  onAccountDeleted?: () => void | Promise<void>;
 };
 
 function OrderCard({
@@ -146,6 +148,7 @@ export function ProfileScreen({
   onBack,
   onOpenOrder,
   onLogout,
+  onAccountDeleted,
 }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
@@ -155,6 +158,8 @@ export function ProfileScreen({
   const [error, setError] = useState("");
   const [orderTab, setOrderTab] = useState<"active" | "history">("active");
   const [orderAddresses, setOrderAddresses] = useState<Record<string, string>>({});
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const addressRequests = useRef(new Set<string>());
 
   const load = useCallback(async (refresh = false) => {
@@ -214,6 +219,33 @@ export function ProfileScreen({
     };
   }, [orderAddresses, orders, store.session]);
   const backgroundColor = section === "balance" ? "#F8F8F8" : colors.white;
+
+  const deleteAccount = useCallback(async () => {
+    if (!store.session || deletingAccount) return;
+    setDeletingAccount(true);
+    setDeleteError("");
+    try {
+      await authApi.deleteAccount(store.session);
+      await onAccountDeleted?.();
+    } catch (reason) {
+      setDeleteError(
+        reason instanceof Error ? reason.message : "Не удалось удалить аккаунт",
+      );
+    } finally {
+      setDeletingAccount(false);
+    }
+  }, [deletingAccount, onAccountDeleted, store.session]);
+
+  const confirmAccountDeletion = () => {
+    Alert.alert(
+      "Удалить аккаунт?",
+      "Заказы, баланс, сессия и данные профиля будут удалены без возможности восстановления.",
+      [
+        { text: "Отмена", style: "cancel" },
+        { text: "Удалить", style: "destructive", onPress: () => void deleteAccount() },
+      ],
+    );
+  };
 
   const refreshControl = (
     <RefreshControl
@@ -383,6 +415,24 @@ export function ProfileScreen({
               />
             </View>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={deletingAccount}
+            onPress={confirmAccountDeletion}
+            style={({ pressed }) => [
+              styles.deleteAccount,
+              pressed && styles.deleteAccountPressed,
+              deletingAccount && styles.deleteAccountDisabled,
+            ]}
+          >
+            {deletingAccount ? (
+              <ActivityIndicator color={colors.danger} />
+            ) : (
+              <MaterialCommunityIcons name="delete-outline" size={21} color={colors.danger} />
+            )}
+            <Text style={styles.deleteAccountText}>Удалить аккаунт</Text>
+          </Pressable>
+          {deleteError ? <Text style={styles.deleteAccountError}>{deleteError}</Text> : null}
         </ScrollView>
       )}
     </View>
@@ -751,5 +801,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#000000",
+  },
+  deleteAccount: {
+    height: 52,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#F1B9B9",
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    backgroundColor: "#FFF8F8",
+  },
+  deleteAccountPressed: {
+    backgroundColor: "#FFEDED",
+  },
+  deleteAccountDisabled: {
+    opacity: 0.6,
+  },
+  deleteAccountText: {
+    color: colors.danger,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  deleteAccountError: {
+    marginTop: 10,
+    color: colors.danger,
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
   },
 });

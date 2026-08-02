@@ -49,11 +49,9 @@ export function PromotionViewer({
 
   const openCta = () => {
     if (promotion.ctaUrl) {
-      const target = /(?:^|\.)mnogolososya\.ru/i.test(promotion.ctaUrl)
-        ? `${WEB_URL}/support`
-        : promotion.ctaUrl.startsWith("/")
-          ? `${WEB_URL}${promotion.ctaUrl}`
-          : promotion.ctaUrl;
+      const target = promotion.ctaUrl.startsWith("/")
+        ? `${WEB_URL}${promotion.ctaUrl}`
+        : promotion.ctaUrl;
       Linking.openURL(target).catch(() => undefined);
     } else {
       move(1);
