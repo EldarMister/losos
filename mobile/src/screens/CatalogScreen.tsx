@@ -17,11 +17,18 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi, resolveImageUrl } from "../api";
 import { ProductCard } from "../components/ProductCard";
+import { NumberTicker } from "../components/NumberTicker";
+import {
+  deliveryEtaLabel,
+  deliveryFeeFor,
+  freeDeliveryRemaining,
+} from "../delivery";
 import { useStore } from "../store";
+import { formatMoney } from "../money";
 import { colors, radii, shadow } from "../theme";
 import type { Category, Product, Promotion } from "../types";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 type Props = {
   onOpenMenu: () => void;
@@ -60,15 +67,9 @@ export function CatalogScreen({
   const catalogNavOffset = useRef(260);
   const scrollY = useRef(new Animated.Value(0)).current;
   const region = store.activeRegion;
-  const serviceHours = region?.deliveryIs24Hours
-    ? "24 часа"
-    : region?.deliveryOpenTime && region?.deliveryCloseTime
-      ? `${region.deliveryOpenTime}–${region.deliveryCloseTime}`
-      : "часы уточняются";
-  const freeDeliveryRemaining = Math.max(
-    0,
-    (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
-  );
+  const etaLabel = deliveryEtaLabel(region);
+  const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
+  const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
   const productCardWidth = 172;
 
   const load = useCallback(async (refresh = false) => {
@@ -115,42 +116,24 @@ export function CatalogScreen({
     ? cartPreviewProducts.slice(0, 3)
     : cartPreviewProducts.slice(0, 4);
 
-  const addProduct = (product: Product) => {
+  const addProduct = useCallback((product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {
       onOpenProduct(product);
       return;
     }
     store.addCartLine(product, 1, []);
-  };
+  }, [onOpenProduct, store.addCartLine]);
 
-  const productQuantity = (product: Product) => store.cart.reduce(
-    (sum, line) => sum + (line.product.id === product.id ? line.quantity : 0),
-    0,
-  );
-
-  const lastProductLine = (product: Product) => {
-    for (let index = store.cart.length - 1; index >= 0; index -= 1) {
-      if (store.cart[index]?.product.id === product.id) return store.cart[index];
+  const quantityByProductId = useMemo(() => {
+    const quantities = new Map<number, number>();
+    for (const line of store.cart) {
+      quantities.set(
+        line.product.id,
+        (quantities.get(line.product.id) ?? 0) + line.quantity,
+      );
     }
-    return undefined;
-  };
-
-  const incrementProduct = (product: Product) => {
-    const line = lastProductLine(product);
-    if (line) store.setCartQuantity(line.key, line.quantity + 1);
-    else addProduct(product);
-  };
-
-  const decrementProduct = (product: Product) => {
-    const line = lastProductLine(product);
-    if (line) store.setCartQuantity(line.key, line.quantity - 1);
-  };
-
-  const kitchenStatus = region?.deliveryIs24Hours
-    ? "Кухня работает круглосуточно"
-    : region?.deliveryOpenTime && region?.deliveryCloseTime
-      ? `Кухня работает ${region.deliveryOpenTime}–${region.deliveryCloseTime}`
-      : "Время работы кухни уточняется";
+    return quantities;
+  }, [store.cart]);
 
   const header = (
     <View style={[styles.header, { paddingTop: Math.max(insets.top, 0) }]}>
@@ -163,16 +146,42 @@ export function CatalogScreen({
           >
             <MaterialCommunityIcons name="menu" size={26} color={colors.ink} />
           </Pressable>
-          <Pressable onPress={onOpenLocation} style={styles.deliverySwitch}>
-            <View style={styles.deliverySwitchActive}>
-              <Text style={styles.deliverySwitchActiveText}>
-                {store.deliveryType === "delivery" ? "Доставка" : "Самовывоз"}
+          <View style={styles.deliverySwitch}>
+            <Pressable
+              onPress={() => {
+                store.setDeliveryType("delivery");
+                onOpenLocation();
+              }}
+              style={[
+                styles.deliverySwitchOption,
+                store.deliveryType === "delivery" && styles.deliverySwitchActive,
+              ]}
+            >
+              <Text style={store.deliveryType === "delivery"
+                ? styles.deliverySwitchActiveText
+                : styles.deliverySwitchText}
+              >
+                Доставка
               </Text>
-            </View>
-            <Text style={styles.deliverySwitchText}>
-              {store.deliveryType === "delivery" ? "Самовывоз" : "Доставка"}
-            </Text>
-          </Pressable>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                store.setDeliveryType("pickup");
+                onOpenLocation();
+              }}
+              style={[
+                styles.deliverySwitchOption,
+                store.deliveryType === "pickup" && styles.deliverySwitchActive,
+              ]}
+            >
+              <Text style={store.deliveryType === "pickup"
+                ? styles.deliverySwitchActiveText
+                : styles.deliverySwitchText}
+              >
+                Самовывоз
+              </Text>
+            </Pressable>
+          </View>
           <Pressable
             accessibilityLabel="Открыть баланс Накта-коинов"
             onPress={onOpenCashback}
@@ -191,8 +200,8 @@ export function CatalogScreen({
           >
             <Text style={styles.timeText}>
               {store.deliveryType === "pickup"
-                ? store.location?.workingHours?.split(",").at(-1)?.trim() || serviceHours
-                : serviceHours}
+                ? "Самовывоз"
+                : etaLabel}
             </Text>
           </Pressable>
           <Pressable
@@ -413,11 +422,12 @@ export function CatalogScreen({
                     {products.map((product) => (
                       <ProductCard
                         key={product.id}
-                        onAdd={() => incrementProduct(product)}
-                        onRemove={() => decrementProduct(product)}
-                        onPress={() => onOpenProduct(product)}
+                        onAdd={addProduct}
+                        onIncrement={store.incrementCartProduct}
+                        onRemove={store.decrementCartProduct}
+                        onPress={onOpenProduct}
                         product={product}
-                        quantity={productQuantity(product)}
+                        quantity={quantityByProductId.get(product.id) ?? 0}
                         width={productCardWidth}
                         layout="rail"
                       />
@@ -449,38 +459,57 @@ export function CatalogScreen({
       </Animated.View>
 
       {store.cartCount ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
-          onPress={onOpenCart}
-          pointerEvents="box-only"
+        <View
           style={[
             styles.cartDock,
             { paddingBottom: Math.max(insets.bottom, 10) },
           ]}
         >
-          <Text numberOfLines={1} style={styles.cartStatus}>
-            {kitchenStatus} ›
-          </Text>
-          <View style={styles.cartBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Подробные условия доставки"
+            hitSlop={6}
+            onPress={onOpenDeliveryInfo}
+            style={styles.cartStatusButton}
+          >
+            <View style={styles.cartStatus}>
+              {store.deliveryType === "pickup"
+                ? <Text style={styles.cartStatusText}>Самовывоз • бесплатно ›</Text>
+                : <>
+                    <Text style={styles.cartStatusText}>Доставка </Text>
+                    <NumberTicker format={money} height={16} style={styles.cartStatusText} value={deliveryFee} />
+                    <Text style={styles.cartStatusText}> • </Text>
+                    {remainingForFreeDelivery > 0 ? <>
+                      <Text style={styles.cartStatusText}>До бесплатной </Text>
+                      <NumberTicker format={money} height={16} style={styles.cartStatusText} value={remainingForFreeDelivery} />
+                    </> : <Text style={styles.cartStatusText}>Бесплатная доставка</Text>}
+                    <Text style={styles.cartStatusText}> ›</Text>
+                  </>}
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
+            onPress={onOpenCart}
+            style={styles.cartBar}
+          >
             <View style={styles.cartPriceWrap}>
-              <Text numberOfLines={1} style={styles.cartPrice}>{money(store.cartTotal)}</Text>
+              <NumberTicker
+                accessibilityLabel={`Сумма корзины: ${money(store.cartTotal)}`}
+                format={money}
+                height={22}
+                style={styles.cartPrice}
+                value={store.cartTotal}
+              />
             </View>
             <View style={styles.cartMiddle}>
               <Text
                 numberOfLines={1}
-                style={[
-                  styles.cartTime,
-                  store.deliveryType === "delivery"
-                    && freeDeliveryRemaining > 0
-                    && styles.cartThreshold,
-                ]}
+                style={styles.cartTime}
               >
                 {store.deliveryType === "pickup"
                   ? "Самовывоз"
-                  : freeDeliveryRemaining > 0
-                    ? `${money(freeDeliveryRemaining)} до бесплатной доставки`
-                    : "~35 мин"}
+                  : etaLabel}
               </Text>
             </View>
             <View style={styles.cartPreviews}>
@@ -494,12 +523,17 @@ export function CatalogScreen({
               ))}
               {previewOverflow ? (
                 <View style={styles.cartPreviewOverflow}>
-                  <Text style={styles.cartPreviewOverflowText}>+{previewOverflow}</Text>
+                  <NumberTicker
+                    format={(value) => `+${value}`}
+                    height={15}
+                    style={styles.cartPreviewOverflowText}
+                    value={previewOverflow}
+                  />
                 </View>
               ) : null}
             </View>
-          </View>
-        </Pressable>
+          </Pressable>
+        </View>
       ) : null}
     </View>
   );
@@ -565,7 +599,6 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   deliverySwitchActive: {
-    flex: 1,
     height: 38,
     borderRadius: 13,
     alignItems: "center",
@@ -577,8 +610,14 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
   },
-  deliverySwitchText: {
+  deliverySwitchOption: {
     flex: 1,
+    height: 38,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deliverySwitchText: {
     color: "#999999",
     fontFamily: "Inter_400Regular",
     textAlign: "center",
@@ -772,11 +811,20 @@ const styles = StyleSheet.create({
     elevation: 30,
   },
   cartStatus: {
-    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  cartStatusText: {
     color: colors.muted,
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 16,
+  },
+  cartStatusButton: {
+    minHeight: 24,
+    paddingBottom: 8,
+    justifyContent: "center",
   },
   cartBar: {
     height: 60,
@@ -805,10 +853,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
     fontWeight: "700",
-  },
-  cartThreshold: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 9,
   },
   cartPreviews: {
     minWidth: 50,

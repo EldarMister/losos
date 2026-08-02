@@ -40,6 +40,8 @@ next-env.d.ts
 /dist/
 /.wrangler/
 /outputs/
+/mobile/build-output/
+/mobile/nakta-sushi-build.tar.gz
 /work/
 /.postgres-data/
 /server/dist/

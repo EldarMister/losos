@@ -9,8 +9,13 @@ import {
 } from "./yandexMapShared";
 import { MapCenterMarker } from "./MapCenterMarker";
 
+export function preloadYandexMapKit() {
+  return Promise.resolve();
+}
+
 export function YandexMap({
   regionSlug,
+  deliveryZone,
   initialLatitude,
   initialLongitude,
   focusRequest = 0,
@@ -52,9 +57,10 @@ export function YandexMap({
           regionSlug,
           initialLatitude,
           initialLongitude,
+          deliveryZone,
         )
       : ""
-  ), [credentials, focusRequest, initialLatitude, initialLongitude, regionSlug]);
+  ), [credentials, deliveryZone, focusRequest, initialLatitude, initialLongitude, regionSlug]);
 
   if (error) {
     return (

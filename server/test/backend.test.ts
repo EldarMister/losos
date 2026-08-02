@@ -4,11 +4,13 @@ import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import {
+  CreateRegionDto,
   CreateProductDto,
   CreatePromotionDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
+import { isPointInDeliveryZone } from "../src/catalog/delivery-zone";
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
@@ -399,6 +401,40 @@ test("admin product DTO accepts clearing a discount and validates old price boun
 
   const invalidOldPrice = plainToInstance(UpdateProductDto, { oldPrice: -1 });
   assert.ok(validateSync(invalidOldPrice).some((error) => error.property === "oldPrice"));
+});
+
+test("delivery polygon accepts points inside and rejects points outside", () => {
+  const zone = [
+    { latitude: 40, longitude: 72 },
+    { latitude: 41, longitude: 72 },
+    { latitude: 41, longitude: 73 },
+    { latitude: 40, longitude: 73 },
+  ];
+  assert.equal(isPointInDeliveryZone(40.5, 72.5, zone), true);
+  assert.equal(isPointInDeliveryZone(41.5, 72.5, zone), false);
+});
+
+test("admin region DTO validates a delivery polygon", () => {
+  const valid = plainToInstance(CreateRegionDto, {
+    slug: "osh",
+    name: "Ош",
+    deliveryZone: [
+      { latitude: 40.6, longitude: 72.7 },
+      { latitude: 40.6, longitude: 72.9 },
+      { latitude: 40.4, longitude: 72.8 },
+    ],
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const invalid = plainToInstance(CreateRegionDto, {
+    slug: "osh",
+    name: "Ош",
+    deliveryZone: [
+      { latitude: 140.6, longitude: 72.7 },
+      { latitude: 40.6, longitude: 272.9 },
+    ],
+  });
+  assert.ok(validateSync(invalid).some((error) => error.property === "deliveryZone"));
 });
 
 test("admin catalog semantics reject inconsistent modifier groups", () => {

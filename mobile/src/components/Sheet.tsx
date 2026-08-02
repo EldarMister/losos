@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from "react";
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -8,8 +8,19 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radii, shadow } from "../theme";
+import {
+  SwipeDismissScrollProvider,
+  useSwipeToDismiss,
+} from "./SwipeDismiss";
 
 type Props = PropsWithChildren<{
   visible: boolean;
@@ -18,6 +29,7 @@ type Props = PropsWithChildren<{
   edgeToEdge?: boolean;
   footer?: ReactNode;
   height?: ViewStyle["height"];
+  swipeToDismiss?: boolean;
 }>;
 
 export function Sheet({
@@ -27,39 +39,117 @@ export function Sheet({
   edgeToEdge,
   footer,
   height,
+  swipeToDismiss = true,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const [mounted, setMounted] = useState(visible);
+  const openOffset = useSharedValue(visible ? 0 : 900);
+  const openProgress = useSharedValue(visible ? 1 : 0);
+  const swipe = useSwipeToDismiss({
+    enabled: swipeToDismiss && !edgeToEdge,
+    onDismiss: onClose,
+  });
+
+  useEffect(() => {
+    if (!visible) return;
+    setMounted(true);
+    swipe.reset();
+    openOffset.value = 900;
+    openProgress.value = 0;
+    const frame = requestAnimationFrame(() => {
+      openOffset.value = withTiming(0, { duration: 240 });
+      openProgress.value = withTiming(1, { duration: 240 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [openOffset, openProgress, swipe.reset, visible]);
+
+  useEffect(() => {
+    if (!mounted || visible) return;
+    openOffset.value = withTiming(
+      Math.max(swipe.surfaceHeight.value, 900),
+      { duration: 190 },
+      (finished) => {
+        if (finished) runOnJS(setMounted)(false);
+      },
+    );
+    openProgress.value = withTiming(0, { duration: 190 });
+  }, [mounted, openOffset, openProgress, swipe.surfaceHeight, visible]);
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: openOffset.value + swipe.translationY.value }],
+  }));
+  const backdropAnimatedStyle = useAnimatedStyle(() => {
+    const dragProgress = Math.min(
+      1,
+      swipe.translationY.value / Math.max(swipe.surfaceHeight.value, 1),
+    );
+    return { opacity: openProgress.value * (1 - dragProgress) };
+  });
+
+  if (!mounted) return null;
+
   return (
     <Modal
-      animationType="slide"
+      animationType="none"
+      hardwareAccelerated
+      presentationStyle="overFullScreen"
       transparent
       statusBarTranslucent
-      visible={visible}
+      visible={mounted}
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.root}
-      >
-        <Pressable
-          accessibilityLabel="Закрыть окно"
-          onPress={onClose}
-          style={[styles.backdrop, fullScreen && styles.backdropFull]}
-        />
-        <View
-          style={[
-            styles.sheet,
-            fullScreen && styles.fullScreen,
-            edgeToEdge && styles.edgeToEdge,
-            height !== undefined && { height },
-            { paddingBottom: Math.max(insets.bottom, 12) },
-          ]}
+      <GestureHandlerRootView style={styles.root}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.root}
         >
-          <View style={styles.content}>{children}</View>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </View>
-      </KeyboardAvoidingView>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.backdrop,
+              fullScreen && styles.backdropFull,
+              backdropAnimatedStyle,
+            ]}
+          />
+          <Pressable
+            accessibilityLabel="Закрыть окно"
+            onPress={onClose}
+            style={StyleSheet.absoluteFill}
+          />
+          <GestureDetector gesture={swipe.gesture}>
+            <Animated.View
+              onLayout={(event) => swipe.onLayout(event.nativeEvent.layout.height)}
+              style={[
+                styles.sheet,
+                fullScreen && styles.fullScreen,
+                edgeToEdge && styles.edgeToEdge,
+                height !== undefined && { height },
+                sheetAnimatedStyle,
+              ]}
+            >
+              <View
+                collapsable={false}
+                style={[
+                  styles.surface,
+                  edgeToEdge && styles.surfaceEdgeToEdge,
+                  {
+                    paddingBottom: Math.max(
+                      insets.bottom,
+                      Platform.OS === "android" ? 24 : 12,
+                    ),
+                  },
+                ]}
+              >
+                <SwipeDismissScrollProvider scrollOffsetY={swipe.scrollOffsetY}>
+                  <View style={styles.content}>{children}</View>
+                  {footer ? <View style={styles.footer}>{footer}</View> : null}
+                </SwipeDismissScrollProvider>
+              </View>
+            </Animated.View>
+          </GestureDetector>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -84,6 +174,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadow,
   },
+  surface: {
+    flex: 1,
+    overflow: "hidden",
+    borderTopLeftRadius: radii.sheet,
+    borderTopRightRadius: radii.sheet,
+    backgroundColor: colors.white,
+  },
   fullScreen: {
     maxHeight: "92%",
     height: "92%",
@@ -91,6 +188,10 @@ const styles = StyleSheet.create({
   edgeToEdge: {
     maxHeight: "100%",
     height: "100%",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
+  surfaceEdgeToEdge: {
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
   },

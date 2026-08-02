@@ -158,7 +158,7 @@ export function MenuSheet({
           <Image
             accessibilityLabel="Накта суши"
             resizeMode="contain"
-            source={require("../../assets/логотип.png")}
+            source={require("../../assets/logo.png")}
             style={styles.brandLogo}
           />
           <Pressable

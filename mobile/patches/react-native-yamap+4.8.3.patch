@@ -17,9 +17,10 @@ index 30a0b43..e625349 100644
  dependencies {
 -    implementation 'com.google.android.gms:play-services-location:$GOOGLE_PLAY_SERVICES_LOCATION_VERSION'
 +    implementation "com.google.android.gms:play-services-location:${GOOGLE_PLAY_SERVICES_LOCATION_VERSION}"
-     implementation 'com.facebook.react:react-native:+'
-     implementation 'com.yandex.android:maps.mobile:4.19.0-full'
-     implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'com.facebook.react:react-native:+'
+-    implementation 'com.yandex.android:maps.mobile:4.19.0-full'
++    implementation 'com.yandex.android:maps.mobile:4.39.1-full'
+    implementation 'androidx.core:core-ktx:1.13.1'
 diff --git a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt b/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt
 index 3fa87ff..9ee8a0d 100644
 --- a/node_modules/react-native-yamap/android/src/main/java/ru/vvdev/yamap/ClusteredYamapViewManager.kt

@@ -15,6 +15,8 @@ import {
 } from "../geocoding";
 import {
   createYandexMapHtml,
+  getDeliveryZone,
+  isPointInDeliveryZone,
   parseMapMessage,
 } from "../components/yandexMapShared";
 import { lineTotal, restorePersistedState } from "../store";
@@ -274,6 +276,18 @@ describe("mobile state and routing", () => {
     expect(html).toContain("isComplete: Boolean(houseNumber)");
     expect(html).not.toContain('class="pin"');
     expect(html).not.toContain("yandex.com/map-widget");
+    expect(html).toContain("window.L.polygon");
+  });
+
+  test("uses the configured city polygon for delivery validation", () => {
+    const zone = getDeliveryZone("osh", [
+      { latitude: 40, longitude: 72 },
+      { latitude: 41, longitude: 72 },
+      { latitude: 41, longitude: 73 },
+      { latitude: 40, longitude: 73 },
+    ]);
+    expect(isPointInDeliveryZone(40.5, 72.5, zone)).toBe(true);
+    expect(isPointInDeliveryZone(41.5, 72.5, zone)).toBe(false);
   });
 
   test("ignores stale coordinates outside the selected delivery city", () => {

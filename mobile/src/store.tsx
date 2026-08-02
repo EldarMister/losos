@@ -55,6 +55,8 @@ type StoreValue = PersistedState & {
     quantity: number,
     modifiers: SelectedModifier[],
   ) => void;
+  incrementCartProduct: (productId: number) => void;
+  decrementCartProduct: (productId: number) => void;
   setCartQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
 };
@@ -134,7 +136,10 @@ export function StoreProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!hydrated) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
+    const timer = setTimeout(() => {
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
+    }, 280);
+    return () => clearTimeout(timer);
   }, [hydrated, state]);
 
   const patch = useCallback((value: Partial<PersistedState>) => {
@@ -171,6 +176,33 @@ export function StoreProvider({ children }: PropsWithChildren) {
     }));
   }, []);
 
+  const incrementCartProduct = useCallback((productId: number) => {
+    setState((current) => {
+      const lineIndex = current.cart.findLastIndex((line) => line.product.id === productId);
+      if (lineIndex < 0) return current;
+      const cart = current.cart.map((line, index) => (
+        index === lineIndex
+          ? { ...line, quantity: Math.min(20, line.quantity + 1) }
+          : line
+      ));
+      return { ...current, cart };
+    });
+  }, []);
+
+  const decrementCartProduct = useCallback((productId: number) => {
+    setState((current) => {
+      const lineIndex = current.cart.findLastIndex((line) => line.product.id === productId);
+      if (lineIndex < 0) return current;
+      const currentLine = current.cart[lineIndex];
+      const cart = currentLine.quantity <= 1
+        ? current.cart.filter((_, index) => index !== lineIndex)
+        : current.cart.map((line, index) => (
+          index === lineIndex ? { ...line, quantity: line.quantity - 1 } : line
+        ));
+      return { ...current, cart };
+    });
+  }, []);
+
   const value = useMemo<StoreValue>(() => {
     const cartCount = state.cart.reduce((sum, line) => sum + line.quantity, 0);
     const cartTotal = state.cart.reduce((sum, line) => sum + lineTotal(line), 0);
@@ -202,10 +234,22 @@ export function StoreProvider({ children }: PropsWithChildren) {
       }),
       setNoUtensils: (noUtensils) => patch({ noUtensils }),
       addCartLine,
+      incrementCartProduct,
+      decrementCartProduct,
       setCartQuantity,
       clearCart: () => patch({ cart: [] }),
     };
-  }, [addCartLine, hydrated, patch, regions, session, setCartQuantity, state]);
+  }, [
+    addCartLine,
+    decrementCartProduct,
+    hydrated,
+    incrementCartProduct,
+    patch,
+    regions,
+    session,
+    setCartQuantity,
+    state,
+  ]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

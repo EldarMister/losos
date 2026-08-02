@@ -6,6 +6,8 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsLatitude,
+  IsLongitude,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -20,6 +22,16 @@ import {
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 
 const optionalBoolean = ({ value }: { value: unknown }) => value === true || value === "true";
+
+export class DeliveryZonePointDto {
+  @Type(() => Number)
+  @IsLatitude()
+  latitude!: number;
+
+  @Type(() => Number)
+  @IsLongitude()
+  longitude!: number;
+}
 
 export class CreateRegionDto {
   @IsString()
@@ -40,6 +52,15 @@ export class CreateRegionDto {
   @IsOptional() @IsString() @MaxLength(240) pickupAddress = "";
   @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl = "";
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours = "";
+  @IsOptional() @IsString() @MaxLength(10) deliveryOpenTime = "11:30";
+  @IsOptional() @IsString() @MaxLength(10) deliveryCloseTime = "22:30";
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() deliveryIs24Hours = false;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold = 4900;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) deliveryFee = 99;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(600) estimatedDeliveryMinutes = 50;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) minimumOrderAmount = 900;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(POSTGRES_INTEGER_MAX) maximumOrderAmount = 30000;
+  @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
 }
@@ -54,6 +75,15 @@ export class UpdateRegionDto {
   @IsOptional() @IsString() @MaxLength(240) pickupAddress?: string;
   @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl?: string;
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours?: string;
+  @IsOptional() @IsString() @MaxLength(10) deliveryOpenTime?: string;
+  @IsOptional() @IsString() @MaxLength(10) deliveryCloseTime?: string;
+  @IsOptional() @Transform(optionalBoolean) @IsBoolean() deliveryIs24Hours?: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) freeDeliveryThreshold?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) deliveryFee?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(600) estimatedDeliveryMinutes?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) minimumOrderAmount?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(POSTGRES_INTEGER_MAX) maximumOrderAmount?: number;
+  @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
 }

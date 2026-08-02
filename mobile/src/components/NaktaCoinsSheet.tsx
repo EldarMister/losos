@@ -38,7 +38,7 @@ export function NaktaCoinsSheet({ visible, onClose }: Props) {
   }, [store.session, visible]);
 
   return (
-    <Sheet height={390} onClose={onClose} visible={visible}>
+    <Sheet height={420} onClose={onClose} visible={visible}>
       <View style={styles.content}>
         <Text style={styles.title}>NAKTA Coin</Text>
         <Text style={styles.balanceLabel}>Ваш баланс NAKTA Coin</Text>

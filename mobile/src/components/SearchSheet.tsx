@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  InteractionManager,
   Keyboard,
   Pressable,
   ScrollView,
@@ -14,13 +15,20 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
+import {
+  deliveryEtaLabel,
+  deliveryFeeFor,
+  freeDeliveryRemaining,
+} from "../delivery";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
+import { formatMoney, formatNumber } from "../money";
 import type { Category, Product } from "../types";
 import { ProductCard } from "./ProductCard";
+import { NumberTicker } from "./NumberTicker";
 import { Sheet } from "./Sheet";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 type Props = {
   visible: boolean;
@@ -59,13 +67,16 @@ export function SearchSheet({
   useEffect(() => {
     if (!visible) return undefined;
     let ignore = false;
-    catalogApi.categories(store.regionSlug)
-      .then((nextCategories) => {
-        if (!ignore) setCategories(nextCategories);
-      })
-      .catch(() => undefined);
+    const task = InteractionManager.runAfterInteractions(() => {
+      catalogApi.categories(store.regionSlug)
+        .then((nextCategories) => {
+          if (!ignore) setCategories(nextCategories);
+        })
+        .catch(() => undefined);
+    });
     return () => {
       ignore = true;
+      task.cancel();
     };
   }, [store.regionSlug, visible]);
 
@@ -97,46 +108,28 @@ export function SearchSheet({
     return () => clearTimeout(timer);
   }, [categories, query, store.regionSlug]);
 
-  const add = (product: Product) => {
+  const add = useCallback((product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {
       onOpenProduct(product);
     } else {
       store.addCartLine(product, 1, []);
     }
-  };
+  }, [onOpenProduct, store.addCartLine]);
 
-  const productQuantity = (product: Product) => store.cart.reduce(
-    (sum, line) => sum + (line.product.id === product.id ? line.quantity : 0),
-    0,
-  );
-
-  const lastProductLine = (product: Product) => {
-    for (let index = store.cart.length - 1; index >= 0; index -= 1) {
-      if (store.cart[index]?.product.id === product.id) return store.cart[index];
+  const quantityByProductId = useMemo(() => {
+    const quantities = new Map<number, number>();
+    for (const line of store.cart) {
+      quantities.set(
+        line.product.id,
+        (quantities.get(line.product.id) ?? 0) + line.quantity,
+      );
     }
-    return undefined;
-  };
-
-  const incrementProduct = (product: Product) => {
-    const line = lastProductLine(product);
-    if (line) store.setCartQuantity(line.key, line.quantity + 1);
-    else add(product);
-  };
-
-  const decrementProduct = (product: Product) => {
-    const line = lastProductLine(product);
-    if (line) store.setCartQuantity(line.key, line.quantity - 1);
-  };
+    return quantities;
+  }, [store.cart]);
   const region = store.activeRegion;
-  const serviceHours = region?.deliveryIs24Hours
-    ? "24 часа"
-    : region?.deliveryOpenTime && region?.deliveryCloseTime
-      ? `${region.deliveryOpenTime}–${region.deliveryCloseTime}`
-      : "часы уточняются";
-  const freeDeliveryRemaining = Math.max(
-    0,
-    (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
-  );
+  const etaLabel = deliveryEtaLabel(region);
+  const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
+  const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
   const productCardWidth = Math.min(
     206,
     Math.max(148, (width - 46) / 2),
@@ -178,13 +171,18 @@ export function SearchSheet({
       onClose={onClose}
       footer={store.cartCount ? (
         <View>
-          <Text style={styles.deliveryHint}>
+          <View style={styles.deliveryHint}>
             {store.deliveryType === "pickup"
-              ? "Самовывоз из выбранной кухни"
-              : freeDeliveryRemaining > 0
-                ? `До бесплатной доставки ${money(freeDeliveryRemaining)}`
-                : "Бесплатная доставка"}
-          </Text>
+              ? <Text style={styles.deliveryHintText}>Самовывоз из выбранной кухни</Text>
+              : remainingForFreeDelivery > 0
+                ? <>
+                    <Text style={styles.deliveryHintText}>Доставка </Text>
+                    <NumberTicker format={money} height={15} style={styles.deliveryHintText} value={deliveryFee} />
+                    <Text style={styles.deliveryHintText}> • До бесплатной </Text>
+                    <NumberTicker format={money} height={15} style={styles.deliveryHintText} value={remainingForFreeDelivery} />
+                  </>
+                : <Text style={styles.deliveryHintText}>Бесплатная доставка</Text>}
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
@@ -194,11 +192,19 @@ export function SearchSheet({
             }}
             style={({ pressed }) => [styles.cartBar, pressed && styles.pressed]}
           >
-            <Text style={styles.cartPrice}>{money(store.cartTotal)}</Text>
-            <Text style={styles.cartTime}>{serviceHours}</Text>
+            <NumberTicker
+              accessibilityLabel={`Сумма корзины: ${money(store.cartTotal)}`}
+              format={money}
+              height={22}
+              style={styles.cartPrice}
+              value={store.cartTotal}
+            />
+            <Text style={styles.cartTime}>
+              {store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
+            </Text>
             <View style={styles.cartPreview}>
               <MaterialCommunityIcons name="shopping-outline" size={21} color={colors.orange} />
-              <Text style={styles.cartCount}>{store.cartCount}</Text>
+              <NumberTicker format={formatNumber} height={16} style={styles.cartCount} value={store.cartCount} />
             </View>
           </Pressable>
         </View>
@@ -304,11 +310,12 @@ export function SearchSheet({
                   {category.products.map((product) => (
                     <ProductCard
                       key={product.id}
-                      onAdd={() => incrementProduct(product)}
-                      onRemove={() => decrementProduct(product)}
-                      onPress={() => onOpenProduct(product)}
+                      onAdd={add}
+                      onIncrement={store.incrementCartProduct}
+                      onRemove={store.decrementCartProduct}
+                      onPress={onOpenProduct}
                       product={product}
-                      quantity={productQuantity(product)}
+                      quantity={quantityByProductId.get(product.id) ?? 0}
                       width={productCardWidth}
                       layout="grid"
                     />
@@ -441,6 +448,11 @@ const styles = StyleSheet.create({
   },
   deliveryHint: {
     marginBottom: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  deliveryHintText: {
     color: "#777777",
     fontSize: 12,
   },

@@ -3,6 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
 import { Product } from "../catalog/product.entity";
+import { Region } from "../catalog/region.entity";
+import { isPointInDeliveryZone } from "../catalog/delivery-zone";
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 import { CreateOrderDto } from "./create-order.dto";
 import { OrderItem } from "./order-item.entity";
@@ -69,6 +71,7 @@ export class OrdersService {
         const orders = manager.getRepository(Order);
         const items = manager.getRepository(OrderItem);
         const productRepository = manager.getRepository(Product);
+        const regionRepository = manager.getRepository(Region);
 
         const concurrentExisting = await orders.findOne({
           where: { idempotencyKey },
@@ -88,6 +91,16 @@ export class OrdersService {
         }
         const byId = new Map(products.map((product) => [product.id, product]));
         const regionSlug = dto.regionSlug || "bishkek";
+        const region = await regionRepository.findOne({ where: { slug: regionSlug, enabled: true } });
+        if (!region) throw new BadRequestException(`Region ${regionSlug} is unavailable`);
+        if ((dto.deliveryType || DeliveryType.DELIVERY) === DeliveryType.DELIVERY) {
+          if (!Number.isFinite(dto.latitude) || !Number.isFinite(dto.longitude)) {
+            throw new BadRequestException("Delivery coordinates are required");
+          }
+          if (!isPointInDeliveryZone(dto.latitude!, dto.longitude!, region.deliveryZone || [])) {
+            throw new BadRequestException("Address is outside the delivery zone");
+          }
+        }
 
         const lines = dto.items.map((entry) => {
           const product = byId.get(entry.productId)!;

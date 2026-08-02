@@ -1,11 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
-import YaMap, { Marker, type CameraPosition } from "react-native-yamap";
+import YaMap, {
+  Marker,
+  Polyline,
+  Search,
+  type CameraPosition,
+} from "react-native-yamap";
 import { WEB_URL } from "../api";
+import { localizedAddressLabel } from "../geocoding";
 import { colors } from "../theme";
 import {
   getRegionMapConfig,
+  getDeliveryZone,
+  isPointInDeliveryZone,
+  type MapPoint,
   type YandexMapProps,
 } from "./yandexMapShared";
 import { MapCenterMarker } from "./MapCenterMarker";
@@ -28,8 +37,8 @@ type GeocodingResponse = {
   }>;
 };
 
-function addressFromDeviceGeocoder(place: Location.LocationGeocodedAddress) {
-  const street = place.street || place.name || "";
+function addressFromDeviceGeocoder(place: Location.LocationGeocodedAddress, city: string) {
+  const street = localizedAddressLabel(place.street || place.name || "", city);
   const streetNumber = place.streetNumber || "";
   const address = [street, streetNumber].filter(Boolean).join(", ");
   const fallback = [place.district, place.city, place.region].filter(Boolean).join(", ");
@@ -42,17 +51,45 @@ function addressFromDeviceGeocoder(place: Location.LocationGeocodedAddress) {
 }
 
 let mapKitInitialization: Promise<void> | null = null;
+const reverseGeocodeCache = new Map<string, MapPoint>();
+
+function reverseGeocodeCacheKey(regionSlug: string, latitude: number, longitude: number) {
+  return `${regionSlug}:${latitude.toFixed(5)}:${longitude.toFixed(5)}`;
+}
+
+function cacheReverseGeocode(key: string, point: MapPoint) {
+  reverseGeocodeCache.delete(key);
+  reverseGeocodeCache.set(key, point);
+  if (reverseGeocodeCache.size > 64) {
+    const oldestKey = reverseGeocodeCache.keys().next().value;
+    if (oldestKey) reverseGeocodeCache.delete(oldestKey);
+  }
+}
 
 function initializeMapKit() {
   if (Platform.OS === "ios") return Promise.resolve();
   if (!mapKitInitialization) {
-    mapKitInitialization = YaMap.init(mapKitApiKey);
+    mapKitInitialization = Promise.race([
+      YaMap.setLocale("ru_RU").then(() => YaMap.init(mapKitApiKey)),
+      new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error("Не удалось загрузить Yandex MapKit. Проверьте интернет и повторите.")), 12_000);
+      }),
+    ]).catch((error) => {
+      mapKitInitialization = null;
+      throw error;
+    });
   }
   return mapKitInitialization;
 }
 
+export function preloadYandexMapKit() {
+  if (!mapKitApiKey) return Promise.reject(new Error("Не задан ключ Yandex MapKit"));
+  return initializeMapKit();
+}
+
 export function YandexMap({
   regionSlug,
+  deliveryZone,
   initialLatitude,
   initialLongitude,
   focusRequest = 0,
@@ -65,8 +102,22 @@ export function YandexMap({
   const geocodingController = useRef<AbortController | null>(null);
   const geocodingRevision = useRef(0);
   const [ready, setReady] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState("");
   const region = getRegionMapConfig(regionSlug);
+  const effectiveDeliveryZone = useMemo(
+    () => getDeliveryZone(regionSlug, deliveryZone),
+    [deliveryZone, regionSlug],
+  );
+  const deliveryZoneMapPoints = useMemo(() => effectiveDeliveryZone.map((point) => ({
+    lat: point.latitude,
+    lon: point.longitude,
+  })), [effectiveDeliveryZone]);
+  const deliveryZoneOutlinePoints = useMemo(() => (
+    deliveryZoneMapPoints.length
+      ? [...deliveryZoneMapPoints, deliveryZoneMapPoints[0]]
+      : []
+  ), [deliveryZoneMapPoints]);
   const hasInitialPoint = Number.isFinite(initialLatitude)
     && Number.isFinite(initialLongitude);
   const initialPoint = hasInitialPoint
@@ -100,6 +151,14 @@ export function YandexMap({
   }, []);
 
   useEffect(() => {
+    if (!ready || mapLoaded) return undefined;
+    const timer = setTimeout(() => {
+      setError("Карта загружается слишком долго. Проверьте интернет-соединение.");
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, [mapLoaded, ready]);
+
+  useEffect(() => {
     if (!ready || !markers.length) return;
     mapRef.current?.fitMarkers(markers.map((marker) => ({
       lat: marker.latitude,
@@ -112,10 +171,11 @@ export function YandexMap({
   }, [showCenterMarker]);
 
   const resolveAddress = useCallback(async (latitude: number, longitude: number) => {
-    const insideDeliveryRegion = !(latitude < region.bounds[0][0]
-      || latitude > region.bounds[1][0]
-      || longitude < region.bounds[0][1]
-      || longitude > region.bounds[1][1]);
+    const insideDeliveryRegion = isPointInDeliveryZone(
+      latitude,
+      longitude,
+      effectiveDeliveryZone,
+    );
     if (!insideDeliveryRegion) {
       setError(`Доставка доступна только в городе ${region.city}.`);
     }
@@ -124,10 +184,44 @@ export function YandexMap({
     geocodingController.current?.abort();
     const controller = new AbortController();
     geocodingController.current = controller;
-    try {
+    const cacheKey = reverseGeocodeCacheKey(regionSlug, latitude, longitude);
+    const cachedPoint = reverseGeocodeCache.get(cacheKey);
+    if (cachedPoint) {
+      if (insideDeliveryRegion) setError("");
+      onLocationChange(cachedPoint);
+      return;
+    }
+
+    const nativeRequest = Search.searchPoint(
+      { lat: latitude, lon: longitude },
+      20,
+      { geometry: true, searchTypes: 1 as never },
+    ).then((place) => {
+      const address = localizedAddressLabel(
+        (place as unknown as { formatted?: string })?.formatted || "",
+        region.city,
+      );
+      if (!address) return null;
+      const complete = /(?:,|\s)\s*\d+[\dA-Za-zА-Яа-я/-]*\s*$/u.test(address);
+      return {
+        address,
+        latitude,
+        longitude,
+        kind: complete ? "house" : "street",
+        precision: complete ? "exact" : "street",
+        isComplete: insideDeliveryRegion && complete,
+      } satisfies MapPoint;
+    }).catch(() => null);
+
+    const serverRequest = (async (): Promise<MapPoint | null> => {
       const params = new URLSearchParams({
         lat: String(latitude),
         lon: String(longitude),
+        // Keep compatibility with the currently deployed geocoder, which
+        // accepts reverse-geocoding coordinates through the text parameter.
+        // The newer endpoint also accepts lat/lon and limits this to one item.
+        text: `${longitude},${latitude}`,
+        kind: "house",
       });
       if (insideDeliveryRegion) params.set("region", regionSlug);
       const response = await fetch(`${WEB_URL}/api/geocode?${params.toString()}`, {
@@ -137,12 +231,12 @@ export function YandexMap({
       const result = await response.json() as GeocodingResponse;
       const suggestion = result.suggestions?.[0];
       const legacySuggestion = result.items?.[0];
-      const address = suggestion?.label || legacySuggestion?.name || legacySuggestion?.address || "";
-      if (!response.ok || !address || revision !== geocodingRevision.current) {
-        throw new Error("Адрес не найден");
-      }
-      if (insideDeliveryRegion) setError("");
-      onLocationChange({
+      const address = localizedAddressLabel(
+        suggestion?.label || legacySuggestion?.address || legacySuggestion?.name || "",
+        region.city,
+      );
+      if (!response.ok || !address) return null;
+      return {
         address,
         latitude,
         longitude,
@@ -152,30 +246,79 @@ export function YandexMap({
           suggestion?.isComplete === true
           || (legacySuggestion?.kind === "house" && legacySuggestion.precision === "exact")
         ),
-      });
+      };
+    })().catch(() => null);
+
+    // Cold MapKit search and the HTTP geocoder now race instead of blocking one
+    // another. A complete house wins immediately; otherwise keep the best
+    // partial result after both sources have answered.
+    const firstPoint = await Promise.race([nativeRequest, serverRequest]);
+    if (revision !== geocodingRevision.current) return;
+    if (firstPoint?.isComplete) {
+      controller.abort();
+      cacheReverseGeocode(cacheKey, firstPoint);
+      if (insideDeliveryRegion) setError("");
+      onLocationChange(firstPoint);
+      return;
+    }
+    if (firstPoint) {
+      // Show a street/district immediately while the other source keeps
+      // resolving a precise house in the background.
+      if (insideDeliveryRegion) setError("");
+      onLocationChange(firstPoint);
+    }
+
+    const [nativePoint, serverPoint] = await Promise.all([nativeRequest, serverRequest]);
+    if (revision !== geocodingRevision.current) return;
+    const resolvedPoint = [serverPoint, nativePoint].find((point) => point?.isComplete)
+      || serverPoint
+      || nativePoint;
+    if (resolvedPoint) {
+      cacheReverseGeocode(cacheKey, resolvedPoint);
+      if (insideDeliveryRegion) setError("");
+      if (resolvedPoint.address !== firstPoint?.address
+        || resolvedPoint.isComplete !== firstPoint?.isComplete) {
+        onLocationChange(resolvedPoint);
+      }
+      return;
+    }
+
+    try {
+      const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const fallback = place ? addressFromDeviceGeocoder(place, region.city) : null;
+      if (!fallback?.address || revision !== geocodingRevision.current) {
+        throw new Error("Адрес не найден");
+      }
+      const point = {
+        ...fallback,
+        latitude,
+        longitude,
+        isComplete: insideDeliveryRegion && fallback.isComplete,
+      };
+      cacheReverseGeocode(cacheKey, point);
+      if (insideDeliveryRegion) setError("");
+      onLocationChange(point);
     } catch (reason) {
       if (controller.signal.aborted || revision !== geocodingRevision.current) return;
-      try {
-        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
-        const fallback = place ? addressFromDeviceGeocoder(place) : null;
-        if (!fallback?.address || revision !== geocodingRevision.current) {
-          throw new Error("Адрес не найден");
-        }
-        if (insideDeliveryRegion) setError("");
-        onLocationChange({
-          ...fallback,
-          latitude,
-          longitude,
-          isComplete: insideDeliveryRegion && fallback.isComplete,
-        });
-      } catch {
-        if (revision !== geocodingRevision.current) return;
-        setError(reason instanceof Error && reason.message === "Адрес не найден"
-          ? "Не удалось определить адрес. Передвиньте метку ближе к дому."
-          : "Сервис адресов временно недоступен. Попробуйте ещё раз.");
-      }
+      setError(reason instanceof Error && reason.message === "Адрес не найден"
+        ? "Не удалось определить адрес. Передвиньте метку ближе к дому."
+        : "Сервис адресов временно недоступен. Попробуйте ещё раз.");
     }
-  }, [onLocationChange, region.bounds, region.city, regionSlug]);
+  }, [effectiveDeliveryZone, onLocationChange, region.city, regionSlug]);
+
+  useEffect(() => {
+    if (!ready || hasInitialPoint || !showCenterMarker) return;
+    // Resolve the default delivery point while MapKit is still decoding its
+    // style and downloading tiles. Address selection must not wait for paint.
+    void resolveAddress(initialPoint.latitude, initialPoint.longitude);
+  }, [
+    hasInitialPoint,
+    initialPoint.latitude,
+    initialPoint.longitude,
+    ready,
+    resolveAddress,
+    showCenterMarker,
+  ]);
 
   useEffect(() => {
     if (!ready || !hasInitialPoint) return;
@@ -227,14 +370,18 @@ export function YandexMap({
   return (
     <View style={styles.container}>
       <YaMap
-        initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 15 }}
+        initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 11 }}
         onCameraPositionChangeEnd={handleCameraPositionChangeEnd}
         onMapLoaded={() => {
+          setMapLoaded(true);
+          setError("");
           if (markers.length) {
             mapRef.current?.fitMarkers(markers.map((marker) => ({
               lat: marker.latitude,
               lon: marker.longitude,
             })));
+          } else if (showCenterMarker && !hasInitialPoint && deliveryZoneMapPoints.length >= 3) {
+            mapRef.current?.fitMarkers(deliveryZoneMapPoints);
           } else if (showCenterMarker) {
             void resolveAddress(initialPoint.latitude, initialPoint.longitude);
           }
@@ -245,6 +392,16 @@ export function YandexMap({
         style={styles.map}
         tiltGesturesEnabled={false}
       >
+        {showCenterMarker ? (
+          <Polyline
+            points={deliveryZoneOutlinePoints}
+            strokeColor="#FF5A1F"
+            strokeWidth={0.1}
+            outlineColor="#FF5A1F"
+            outlineWidth={0}
+            zIndex={11}
+          />
+        ) : null}
         {markerElements}
       </YaMap>
       {error ? (

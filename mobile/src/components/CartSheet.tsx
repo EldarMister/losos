@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
+  InteractionManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,14 +12,22 @@ import {
   View,
 } from "react-native";
 import { catalogApi, resolveImageUrl } from "../api";
+import {
+  deliveryEtaLabel,
+  deliveryFeeFor,
+  freeDeliveryRemaining,
+} from "../delivery";
 import { lineTotal, useStore } from "../store";
 import { colors } from "../theme";
+import { formatMoney } from "../money";
 import type { Category, Product } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
+import { NumberTicker } from "./NumberTicker";
 import { QuantityControl } from "./QuantityControl";
 import { Sheet } from "./Sheet";
+import { SwipeDismissScrollView } from "./SwipeDismiss";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 type Props = {
   visible: boolean;
@@ -37,13 +46,16 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
   useEffect(() => {
     if (!visible) return undefined;
     let ignore = false;
-    catalogApi.categories(store.regionSlug)
-      .then((nextCategories) => {
-        if (!ignore) setCategories(nextCategories);
-      })
-      .catch(() => undefined);
+    const task = InteractionManager.runAfterInteractions(() => {
+      catalogApi.categories(store.regionSlug)
+        .then((nextCategories) => {
+          if (!ignore) setCategories(nextCategories);
+        })
+        .catch(() => undefined);
+    });
     return () => {
       ignore = true;
+      task.cancel();
     };
   }, [store.regionSlug, visible]);
 
@@ -97,15 +109,9 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
     ? "без приборов"
     : `${store.utensilsCount} ${store.utensilsCount === 1 ? "комплект" : "комплекта"}`;
   const region = store.activeRegion;
-  const serviceHours = region?.deliveryIs24Hours
-    ? "24 часа"
-    : region?.deliveryOpenTime && region?.deliveryCloseTime
-      ? `${region.deliveryOpenTime}–${region.deliveryCloseTime}`
-      : "часы уточняются";
-  const freeDeliveryRemaining = Math.max(
-    0,
-    (region?.freeDeliveryThreshold ?? 0) - store.cartTotal,
-  );
+  const etaLabel = deliveryEtaLabel(region);
+  const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
+  const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
 
   return (
     <>
@@ -115,23 +121,34 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         onClose={onClose}
         footer={store.cart.length ? (
           <View style={styles.footer}>
-            <Text style={styles.deliveryHint}>
+            <View style={styles.deliveryHint}>
               {store.deliveryType === "pickup"
-                ? "Самовывоз из выбранной кухни"
-                : freeDeliveryRemaining > 0
-                  ? `Доставка • До бесплатной ${money(freeDeliveryRemaining)}`
-                  : "Доставка • Бесплатно"}
-            </Text>
+                ? <Text style={styles.deliveryHintText}>Самовывоз из выбранной кухни</Text>
+                : remainingForFreeDelivery > 0
+                  ? <>
+                      <Text style={styles.deliveryHintText}>Доставка </Text>
+                      <NumberTicker format={money} height={15} style={styles.deliveryHintText} value={deliveryFee} />
+                      <Text style={styles.deliveryHintText}> • До бесплатной </Text>
+                      <NumberTicker format={money} height={15} style={styles.deliveryHintText} value={remainingForFreeDelivery} />
+                    </>
+                  : <Text style={styles.deliveryHintText}>Доставка • Бесплатно</Text>}
+            </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`К оформлению, ${money(store.cartTotal)}`}
               onPress={onCheckout}
               style={({ pressed }) => [styles.checkoutBar, pressed && styles.pressed]}
             >
-              <Text style={styles.checkoutSide}>{money(store.cartTotal)}</Text>
+              <NumberTicker
+                accessibilityLabel={`Сумма корзины: ${money(store.cartTotal)}`}
+                format={money}
+                height={21}
+                style={styles.checkoutSide}
+                value={store.cartTotal}
+              />
               <Text style={styles.checkoutLabel}>К оформлению</Text>
               <Text style={styles.checkoutSide}>
-                {serviceHours}
+                {store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
               </Text>
             </Pressable>
           </View>
@@ -169,7 +186,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             />
           </View>
         ) : (
-          <ScrollView
+          <SwipeDismissScrollView
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
           >
@@ -192,7 +209,12 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                       <Text numberOfLines={2} style={styles.lineName}>{line.product.name}</Text>
                       <Text numberOfLines={2} style={styles.modifiers}>{detail}</Text>
                       <View style={styles.lineBottom}>
-                        <Text style={styles.price}>{money(lineTotal(line))}</Text>
+                        <NumberTicker
+                          format={money}
+                          height={21}
+                          style={styles.price}
+                          value={lineTotal(line)}
+                        />
                         <QuantityControl
                           bare
                           compact
@@ -278,7 +300,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                 </ScrollView>
               </View>
             ) : null}
-          </ScrollView>
+          </SwipeDismissScrollView>
         )}
       </Sheet>
 
@@ -582,6 +604,11 @@ const styles = StyleSheet.create({
   },
   deliveryHint: {
     marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  deliveryHintText: {
     color: "#777777",
     fontSize: 12,
   },

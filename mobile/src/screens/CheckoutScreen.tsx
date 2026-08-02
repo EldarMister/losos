@@ -16,12 +16,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ordersApi } from "../api";
 import { createOrderIdempotencyKey } from "../navigationRules";
 import { PrimaryButton } from "../components/PrimaryButton";
+import { NumberTicker } from "../components/NumberTicker";
 import { QuantityControl } from "../components/QuantityControl";
+import { formatMoney } from "../money";
 import { useStore } from "../store";
 import { colors, radii, shadow } from "../theme";
 import type { CreatedOrder, OrderPayload } from "../types";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 type Props = {
   onBack: () => void;
@@ -297,7 +299,12 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View>
             <Text style={styles.totalLabel}>Итого</Text>
-            <Text style={styles.total}>{money(store.cartTotal)}</Text>
+            <NumberTicker
+              accessibilityLabel={`Итого: ${money(store.cartTotal)}`}
+              format={money}
+              style={styles.total}
+              value={store.cartTotal}
+            />
           </View>
           <PrimaryButton
             disabled={!canSubmit}

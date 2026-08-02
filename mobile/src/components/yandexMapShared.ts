@@ -9,8 +9,14 @@ export type MapPoint = {
   isComplete: boolean;
 };
 
+export type DeliveryZonePoint = {
+  latitude: number;
+  longitude: number;
+};
+
 export type YandexMapProps = {
   regionSlug: string;
+  deliveryZone?: DeliveryZonePoint[];
   initialLatitude?: number;
   initialLongitude?: number;
   focusRequest?: number;
@@ -43,8 +49,59 @@ const regions: Record<string, RegionMapConfig> = {
   },
 };
 
+const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
+  bishkek: [
+    { latitude: 42.94, longitude: 74.48 },
+    { latitude: 42.945, longitude: 74.62 },
+    { latitude: 42.925, longitude: 74.71 },
+    { latitude: 42.89, longitude: 74.75 },
+    { latitude: 42.835, longitude: 74.74 },
+    { latitude: 42.795, longitude: 74.68 },
+    { latitude: 42.78, longitude: 74.57 },
+    { latitude: 42.795, longitude: 74.48 },
+    { latitude: 42.84, longitude: 74.43 },
+    { latitude: 42.9, longitude: 74.44 },
+  ],
+  osh: [
+    { latitude: 40.59, longitude: 72.75 },
+    { latitude: 40.6, longitude: 72.84 },
+    { latitude: 40.565, longitude: 72.9 },
+    { latitude: 40.505, longitude: 72.91 },
+    { latitude: 40.46, longitude: 72.86 },
+    { latitude: 40.445, longitude: 72.78 },
+    { latitude: 40.475, longitude: 72.72 },
+    { latitude: 40.535, longitude: 72.7 },
+  ],
+};
+
 export function getRegionMapConfig(regionSlug: string) {
   return regions[regionSlug] ?? regions.bishkek;
+}
+
+export function getDeliveryZone(regionSlug: string, points?: DeliveryZonePoint[]) {
+  const valid = points?.filter((point) => (
+    Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+  ));
+  return valid && valid.length >= 3
+    ? valid
+    : defaultDeliveryZones[regionSlug] ?? defaultDeliveryZones.bishkek;
+}
+
+export function isPointInDeliveryZone(
+  latitude: number,
+  longitude: number,
+  zone: DeliveryZonePoint[],
+) {
+  let inside = false;
+  for (let index = 0, previous = zone.length - 1; index < zone.length; previous = index, index += 1) {
+    const currentPoint = zone[index];
+    const previousPoint = zone[previous];
+    const intersects = ((currentPoint.latitude > latitude) !== (previousPoint.latitude > latitude))
+      && longitude < ((previousPoint.longitude - currentPoint.longitude) * (latitude - currentPoint.latitude))
+        / (previousPoint.latitude - currentPoint.latitude) + currentPoint.longitude;
+    if (intersects) inside = !inside;
+  }
+  return inside;
 }
 
 export function createYandexMapHtml(
@@ -52,8 +109,10 @@ export function createYandexMapHtml(
   regionSlug: string,
   initialLatitude?: number,
   initialLongitude?: number,
+  deliveryZone?: DeliveryZonePoint[],
 ) {
   const config = getRegionMapConfig(regionSlug);
+  const zone = getDeliveryZone(regionSlug, deliveryZone);
   const geocoderUrl = credentials.geocoderUrl?.trim() || "";
   const hasInitialPoint = Number.isFinite(initialLatitude)
     && Number.isFinite(initialLongitude)
@@ -108,6 +167,7 @@ export function createYandexMapHtml(
   <script>
     (function () {
       const config = ${JSON.stringify(config)};
+      const deliveryZone = ${JSON.stringify(zone)};
       const initialCenter = ${JSON.stringify(center)};
       const geocoderUrl = ${JSON.stringify(geocoderUrl)};
       const state = document.getElementById("state");
@@ -212,6 +272,15 @@ export function createYandexMapHtml(
         maxZoom: 19,
         attribution: "© OpenStreetMap"
       }).addTo(map);
+      window.L.polygon(deliveryZone.map(function (point) {
+        return [point.latitude, point.longitude];
+      }), {
+        color: "#ff5a1f",
+        weight: 0.1,
+        fillColor: "#ff5a1f",
+        fillOpacity: 0,
+        interactive: false
+      }).addTo(map);
       window.L.control.zoom({ position: "topright" }).addTo(map);
       map.on("moveend", function () { scheduleResolve(map); });
       map.on("click", function (event) {
@@ -261,6 +330,7 @@ export function createYandexMapHtml(
   <script>
     (function () {
       const config = ${JSON.stringify(config)};
+      const deliveryZone = ${JSON.stringify(zone)};
       const initialCenter = ${JSON.stringify(center)};
       const geocoderUrl = ${JSON.stringify(geocoderUrl)};
       const state = document.getElementById("state");
@@ -388,6 +458,17 @@ export function createYandexMapHtml(
           window.clearTimeout(timer);
           timer = window.setTimeout(function () { resolvePoint(clickedPoint); }, 260);
         });
+        map.geoObjects.add(new window.ymaps.Polygon(
+          [deliveryZone.map(function (point) { return [point.latitude, point.longitude]; })],
+          { hintContent: "Зона доставки" },
+          {
+            fillColor: "#FF5A1F00",
+            strokeColor: "#FF5A1F",
+            strokeWidth: 0.1,
+            interactivityModel: "default#transparent",
+            zIndex: 1
+          }
+        ));
         state.style.display = "none";
         send("ready", {});
         scheduleResolve();

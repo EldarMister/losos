@@ -1,12 +1,17 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type DeliveryLocation = {
   address: string;
   coordinates: [number, number];
+};
+
+export type DeliveryZonePoint = {
+  latitude: number;
+  longitude: number;
 };
 
 type RegionSlug = "bishkek" | "osh";
@@ -28,6 +33,17 @@ const regionMapConfig: Record<RegionSlug, RegionMapConfig> = {
     center: [40.513, 72.8161],
     bounds: [[40.35, 72.61], [40.69, 73.08]],
   },
+};
+
+const defaultDeliveryZones: Record<RegionSlug, DeliveryZonePoint[]> = {
+  bishkek: [
+    [42.94, 74.48], [42.945, 74.62], [42.925, 74.71], [42.89, 74.75], [42.835, 74.74],
+    [42.795, 74.68], [42.78, 74.57], [42.795, 74.48], [42.84, 74.43], [42.9, 74.44],
+  ].map(([latitude, longitude]) => ({ latitude, longitude })),
+  osh: [
+    [40.59, 72.75], [40.6, 72.84], [40.565, 72.9], [40.505, 72.91], [40.46, 72.86],
+    [40.445, 72.78], [40.475, 72.72], [40.535, 72.7],
+  ].map(([latitude, longitude]) => ({ latitude, longitude })),
 };
 
 let yandexMapsPromise: Promise<any> | null = null;
@@ -67,9 +83,35 @@ function loadYandexMaps(apiKey: string, suggestApiKey: string) {
   return yandexMapsPromise;
 }
 
-function isInsideBounds(point: [number, number], bounds: RegionMapConfig["bounds"]) {
-  const [[minLat, minLon], [maxLat, maxLon]] = bounds;
-  return point[0] >= minLat && point[0] <= maxLat && point[1] >= minLon && point[1] <= maxLon;
+function normalizeDeliveryZone(region: RegionSlug, points?: DeliveryZonePoint[]) {
+  const valid = points?.filter((point) => (
+    Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+  ));
+  return valid && valid.length >= 3 ? valid : defaultDeliveryZones[region];
+}
+
+function deliveryZoneBounds(points: DeliveryZonePoint[]): RegionMapConfig["bounds"] {
+  const latitudes = points.map((point) => point.latitude);
+  const longitudes = points.map((point) => point.longitude);
+  const padding = 0.025;
+  return [
+    [Math.min(...latitudes) - padding, Math.min(...longitudes) - padding],
+    [Math.max(...latitudes) + padding, Math.max(...longitudes) + padding],
+  ];
+}
+
+function isInsideDeliveryZone(point: [number, number], zone: DeliveryZonePoint[]) {
+  const [latitude, longitude] = point;
+  let inside = false;
+  for (let index = 0, previous = zone.length - 1; index < zone.length; previous = index, index += 1) {
+    const currentPoint = zone[index];
+    const previousPoint = zone[previous];
+    const intersects = ((currentPoint.latitude > latitude) !== (previousPoint.latitude > latitude))
+      && longitude < ((previousPoint.longitude - currentPoint.longitude) * (latitude - currentPoint.latitude))
+        / (previousPoint.latitude - currentPoint.latitude) + currentPoint.longitude;
+    if (intersects) inside = !inside;
+  }
+  return inside;
 }
 
 function cleanAddress(value: string) {
@@ -121,6 +163,7 @@ type YandexDeliveryMapProps = {
   inputId: string;
   query: string;
   region: RegionSlug;
+  deliveryZone?: DeliveryZonePoint[];
   searchRequest: number;
   onQueryChange: (value: string) => void;
   onLocationChange: (location: DeliveryLocation | null) => void;
@@ -169,6 +212,7 @@ export function YandexDeliveryMap({
   inputId,
   query,
   region,
+  deliveryZone,
   searchRequest,
   onQueryChange,
   onLocationChange,
@@ -191,6 +235,11 @@ export function YandexDeliveryMap({
     items: [],
   });
   const config = regionMapConfig[region];
+  const deliveryZonePoints = useMemo(
+    () => normalizeDeliveryZone(region, deliveryZone),
+    [deliveryZone, region],
+  );
+  const mapBounds = useMemo(() => deliveryZoneBounds(deliveryZonePoints), [deliveryZonePoints]);
   const mapsApiKey = credentials?.mapsApiKey || "";
   const suggestApiKey = credentials?.suggestApiKey || mapsApiKey;
   const suggestionsHost = typeof document === "undefined" ? null : document.getElementById(`${inputId}-suggestions`);
@@ -229,7 +278,7 @@ export function YandexDeliveryMap({
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
-      const [[minLat, minLon], [maxLat, maxLon]] = config.bounds;
+      const [[minLat, minLon], [maxLat, maxLon]] = mapBounds;
       const request = new RegExp(config.city, "i").test(trimmed) ? trimmed : `${config.city} ${trimmed}`;
       const params = new URLSearchParams({
         apikey: suggestApiKey,
@@ -282,7 +331,7 @@ export function YandexDeliveryMap({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [config, query, status, suggestApiKey]);
+  }, [config, mapBounds, query, status, suggestApiKey]);
 
   useEffect(() => {
     if (!credentials) return;
@@ -305,7 +354,7 @@ export function YandexDeliveryMap({
     };
 
     const reverseGeocode = async (point: [number, number]) => {
-      if (!isInsideBounds(point, config.bounds)) {
+      if (!isInsideDeliveryZone(point, deliveryZonePoints)) {
         setMessage(`Выберите адрес в городе ${config.city}`);
         onLocationChange(null);
         updatePoint(config.center, 13);
@@ -319,7 +368,7 @@ export function YandexDeliveryMap({
         const geoObject = result.geoObjects.get(0);
         if (!geoObject) throw new Error("Адрес не найден");
         const resolvedPoint = geoObject.geometry.getCoordinates() as [number, number];
-        if (!isInsideBounds(resolvedPoint, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!isInsideDeliveryZone(resolvedPoint, deliveryZonePoints)) throw new Error("Этот адрес находится вне зоны доставки");
         const resolvedAddress = addressWithoutCity(geoObject.getAddressLine(), config.city);
         updatePoint(resolvedPoint);
         suppressSuggestionsRef.current = resolvedAddress;
@@ -358,7 +407,7 @@ export function YandexDeliveryMap({
             if (cancelled) return;
             const uriObject = uriResult.geoObjects.get(0);
             const uriPoint = uriObject?.geometry?.getCoordinates() as [number, number] | undefined;
-            if (uriPoint && isInsideBounds(uriPoint, config.bounds)) {
+            if (uriPoint && isInsideDeliveryZone(uriPoint, deliveryZonePoints)) {
               const addressLine = typeof uriObject.getAddressLine === "function" ? uriObject.getAddressLine() : "";
               const resolvedAddress = addressWithoutCity(
                 addressLine || formattedAddress || subtitle || trimmed,
@@ -381,7 +430,7 @@ export function YandexDeliveryMap({
             const organization = await (window as any).ymaps.findOrganization(organizationId);
             if (cancelled) return;
             const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
-            if (organizationPoint && isInsideBounds(organizationPoint, config.bounds)) {
+            if (organizationPoint && isInsideDeliveryZone(organizationPoint, deliveryZonePoints)) {
               const addressLine = typeof organization.getAddressLine === "function" ? organization.getAddressLine() : "";
               const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
               updatePoint(organizationPoint, 17);
@@ -402,7 +451,7 @@ export function YandexDeliveryMap({
             const searchControl = new (window as any).ymaps.control.SearchControl({
               options: {
                 provider: "yandex#search",
-                boundedBy: config.bounds,
+                boundedBy: mapBounds,
                 strictBounds: true,
                 results: 8,
                 noPlacemark: true,
@@ -414,7 +463,7 @@ export function YandexDeliveryMap({
             const businessResults = searchControl.getResultsArray() as any[];
             const organization = businessResults.find((candidate) => {
               const candidatePoint = candidate?.geometry?.getCoordinates() as [number, number] | undefined;
-              return candidatePoint && isInsideBounds(candidatePoint, config.bounds);
+              return candidatePoint && isInsideDeliveryZone(candidatePoint, deliveryZonePoints);
             });
             const organizationPoint = organization?.geometry?.getCoordinates() as [number, number] | undefined;
             if (organizationPoint) {
@@ -438,7 +487,7 @@ export function YandexDeliveryMap({
                 ? suggestedAddress
                 : `${config.city}, ${suggestedAddress}`;
               const addressResult = await (window as any).ymaps.geocode(addressRequest, {
-                boundedBy: config.bounds,
+                boundedBy: mapBounds,
                 strictBounds: true,
                 results: 3,
               });
@@ -446,7 +495,7 @@ export function YandexDeliveryMap({
               for (let index = 0; index < addressResult.geoObjects.getLength(); index += 1) {
                 const candidate = addressResult.geoObjects.get(index);
                 const candidatePoint = candidate?.geometry?.getCoordinates() as [number, number] | undefined;
-                if (!candidatePoint || !isInsideBounds(candidatePoint, config.bounds)) continue;
+                if (!candidatePoint || !isInsideDeliveryZone(candidatePoint, deliveryZonePoints)) continue;
                 const addressLine = typeof candidate.getAddressLine === "function" ? candidate.getAddressLine() : suggestedAddress;
                 const resolvedAddress = addressWithoutCity(addressLine, config.city) || trimmed;
                 updatePoint(candidatePoint, 17);
@@ -464,7 +513,7 @@ export function YandexDeliveryMap({
 
         // URI Геосаджеста используется HTTP Геокодером; JS API надёжнее ищет обычный адрес по тексту.
         const result = await (window as any).ymaps.geocode(request, {
-          boundedBy: config.bounds,
+          boundedBy: mapBounds,
           strictBounds: true,
           results: 5,
         });
@@ -473,14 +522,14 @@ export function YandexDeliveryMap({
         for (let index = 0; index < result.geoObjects.getLength(); index += 1) {
           const candidate = result.geoObjects.get(index);
           const candidatePoint = candidate?.geometry.getCoordinates() as [number, number] | undefined;
-          if (candidatePoint && isInsideBounds(candidatePoint, config.bounds)) {
+          if (candidatePoint && isInsideDeliveryZone(candidatePoint, deliveryZonePoints)) {
             geoObject = candidate;
             break;
           }
         }
         if (!geoObject) throw new Error(`Адрес в городе ${config.city} не найден`);
         const point = geoObject.geometry.getCoordinates() as [number, number];
-        if (!isInsideBounds(point, config.bounds)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!isInsideDeliveryZone(point, deliveryZonePoints)) throw new Error("Этот адрес находится вне зоны доставки");
         const resolvedAddress = addressWithoutCity(geoObject.getAddressLine(), config.city);
         updatePoint(point);
         suppressSuggestionsRef.current = resolvedAddress;
@@ -503,7 +552,7 @@ export function YandexDeliveryMap({
           controls: ["zoomControl"],
           type: "yandex#map",
         }, {
-          restrictMapArea: config.bounds,
+          restrictMapArea: mapBounds,
           suppressMapOpenBlock: false,
           yandexMapDisablePoiInteractivity: true,
         });
@@ -519,6 +568,18 @@ export function YandexDeliveryMap({
           },
           iconOffset: [-30, -68],
         });
+        const deliveryPolygon = new ymaps.Polygon(
+          [deliveryZonePoints.map((point) => [point.latitude, point.longitude])],
+          { hintContent: "Зона доставки" },
+          {
+            fillColor: "#FF5A1F00",
+            strokeColor: "#FF5A1F",
+            strokeWidth: 0.1,
+            interactivityModel: "default#transparent",
+            zIndex: 1,
+          },
+        );
+        map.geoObjects.add(deliveryPolygon);
         map.events.add("click", (event: any) => reverseGeocode(event.get("coords")));
         placemark.events.add("dragend", () => reverseGeocode(placemark.geometry.getCoordinates()));
         fitMapToPanel = () => map?.container.fitToViewport();
@@ -545,7 +606,7 @@ export function YandexDeliveryMap({
       if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
     };
-  }, [config, credentials, inputId, mapsApiKey, onLocationChange, onQueryChange, suggestApiKey]);
+  }, [config, credentials, deliveryZonePoints, inputId, mapBounds, mapsApiKey, onLocationChange, onQueryChange, suggestApiKey]);
 
   useEffect(() => {
     if (status !== "ready" || searchRequest <= handledSearchRequestRef.current) return;

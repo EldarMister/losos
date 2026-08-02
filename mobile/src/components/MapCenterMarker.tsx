@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 66,
     marginLeft: -24,
-    marginTop: -63,
+    marginTop: -66,
     alignItems: "center",
   },
   circle: {

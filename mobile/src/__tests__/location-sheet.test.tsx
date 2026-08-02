@@ -1,8 +1,13 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Location from "expo-location";
 import { catalogApi } from "../api";
-import { LocationSheet } from "../components/LocationSheet";
+import {
+  LocationSheet,
+  pickupIntroCopy,
+  regionPickupLocations,
+} from "../components/LocationSheet";
 import { useStore } from "../store";
+import type { Region } from "../types";
 
 const mockYandexMap = jest.fn((_props: unknown) => null);
 
@@ -64,6 +69,9 @@ type StoreMock = {
       enabled: boolean;
       sortOrder: number;
     }>;
+    pickupAddress?: string;
+    pickupWorkingHours?: string;
+    pickupYandexUrl?: string;
   }>;
   regionSlug: string;
   setDeliveryType: jest.Mock;
@@ -95,6 +103,60 @@ function makeStore(address: string): StoreMock {
 }
 
 describe("LocationSheet delivery address workflow", () => {
+  test("shows an honest unavailable state instead of six hardcoded kitchens", async () => {
+    const store = makeStore("улица Медерова, 41");
+    (catalogApi.regions as jest.Mock).mockResolvedValue(store.regions);
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    fireEvent.press(screen.getByText("Самовывоз"));
+
+    expect(await screen.findByText(
+      "Сейчас для самовывоза нет доступных кухонь. Загляните сюда немного позже.",
+    )).toBeTruthy();
+    expect(screen.getByLabelText("Список").props.accessibilityState?.disabled).toBe(true);
+    expect(screen.queryByText(/6 кухнях/)).toBeNull();
+    expect(screen.getByLabelText("Корзина самовывоза").props.source).toBe(
+      require("../../assets/корзина.png"),
+    );
+  });
+
+  test("filters and sorts pickup locations from the API", () => {
+    const region = {
+      id: 1,
+      slug: "bishkek",
+      name: "Бишкек",
+      pickupLocations: [
+        { id: 2, title: "Вторая", address: "B", workingHours: "", enabled: true, sortOrder: 20 },
+        { id: 3, title: "Скрытая", address: "C", workingHours: "", enabled: false, sortOrder: 0 },
+        { id: 1, title: "Первая", address: "A", workingHours: "", enabled: true, sortOrder: 10 },
+      ],
+    } as Region;
+
+    expect(regionPickupLocations(region).map((item) => item.id)).toEqual([1, 2]);
+    expect(pickupIntroCopy(1)).toContain("1 кухне");
+    expect(pickupIntroCopy(2)).toContain("2 кухнях");
+  });
+
+  test("keeps a configured legacy pickup address as one real location", () => {
+    const region = {
+      id: 7,
+      slug: "osh",
+      name: "Ош",
+      pickupAddress: "улица Курманжан Датки, 123",
+      pickupWorkingHours: "Ежедневно, 11:00–22:00",
+      pickupYandexUrl: "https://yandex.ru/maps/example",
+      pickupLocations: [],
+    } as Region;
+
+    expect(regionPickupLocations(region)).toEqual([expect.objectContaining({
+      id: -7,
+      address: "улица Курманжан Датки, 123",
+      workingHours: "Ежедневно, 11:00–22:00",
+      yandexUrl: "https://yandex.ru/maps/example",
+    })]);
+  });
+
   test("opens an empty manual search for an incomplete street address", async () => {
     const store = makeStore("улица Медерова");
     (useStore as jest.Mock).mockReturnValue(store);

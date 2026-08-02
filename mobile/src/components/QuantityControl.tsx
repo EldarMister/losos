@@ -1,13 +1,18 @@
 import {
-  Pressable,
+  startTransition,
+} from "react";
+import {
   StyleSheet,
-  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, radii } from "../theme";
+import { formatNumber } from "../money";
+import { useOptimisticNumber } from "../useOptimisticNumber";
+import { NumberTicker } from "./NumberTicker";
+import { ImmediatePressable } from "./ImmediatePressable";
 
 type Props = {
   value: number;
@@ -30,6 +35,15 @@ export function QuantityControl({
 }: Props) {
   const buttonWidth = bare ? 40 : compact ? 34 : 42;
   const buttonHeight = bare ? 38 : compact ? 34 : 42;
+  const [displayValue, setDisplayValue] = useOptimisticNumber(value);
+
+  const change = (delta: number) => {
+    const constrained = setDisplayValue((current) => (
+      Math.min(maximum, Math.max(minimum, current + delta))
+    ));
+    startTransition(() => onChange(constrained));
+  };
+
   return (
     <View
       style={[
@@ -39,37 +53,43 @@ export function QuantityControl({
         style,
       ]}
     >
-      <Pressable
+      <ImmediatePressable
         accessibilityRole="button"
         accessibilityLabel="Уменьшить количество"
-        disabled={value <= minimum}
-        onPress={() => onChange(value - 1)}
+        disabled={displayValue <= minimum}
+        onPress={() => change(-1)}
         style={({ pressed }) => [
           styles.control,
           bare && styles.controlBare,
           { width: buttonWidth, height: buttonHeight },
-          value <= minimum && styles.disabled,
+          displayValue <= minimum && styles.disabled,
           pressed && styles.pressed,
         ]}
       >
         <MaterialCommunityIcons name="minus" size={compact ? 18 : 21} color={colors.muted} />
-      </Pressable>
-      <Text style={[styles.value, compact && styles.valueCompact]}>{value}</Text>
-      <Pressable
+      </ImmediatePressable>
+      <NumberTicker
+        accessibilityLabel={`Количество: ${displayValue}`}
+        format={formatNumber}
+        height={compact ? 18 : 20}
+        style={[styles.value, compact && styles.valueCompact]}
+        value={displayValue}
+      />
+      <ImmediatePressable
         accessibilityRole="button"
         accessibilityLabel="Увеличить количество"
-        disabled={value >= maximum}
-        onPress={() => onChange(value + 1)}
+        disabled={displayValue >= maximum}
+        onPress={() => change(1)}
         style={({ pressed }) => [
           styles.control,
           bare && styles.controlBare,
           { width: buttonWidth, height: buttonHeight },
-          value >= maximum && styles.disabled,
+          displayValue >= maximum && styles.disabled,
           pressed && styles.pressed,
         ]}
       >
         <MaterialCommunityIcons name="plus" size={compact ? 18 : 21} color={colors.muted} />
-      </Pressable>
+      </ImmediatePressable>
     </View>
   );
 }

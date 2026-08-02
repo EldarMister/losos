@@ -10,7 +10,11 @@ import { AddProductionOrders1784980000000 } from "./migrations/1784980000000-Add
 import { AllowFractionalWeight1784981000000 } from "./migrations/1784981000000-AllowFractionalWeight";
 import { AddOrderCoordinates1784982000000 } from "./migrations/1784982000000-AddOrderCoordinates";
 import { AddScopedModifierPricing1784983000000 } from "./migrations/1784983000000-AddScopedModifierPricing";
+import { AddRegionContacts1784984000000 } from "./migrations/1784984000000-AddRegionContacts";
+import { AddRegionPickupAndFooter1784985000000 } from "./migrations/1784985000000-AddRegionPickupAndFooter";
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
+import { AddRegionDeliveryDetails1784987000000 } from "./migrations/1784987000000-AddRegionDeliveryDetails";
+import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-AddRegionDeliveryZone";
 import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
 
@@ -33,7 +37,11 @@ export default new DataSource({
     AllowFractionalWeight1784981000000,
     AddOrderCoordinates1784982000000,
     AddScopedModifierPricing1784983000000,
+    AddRegionContacts1784984000000,
+    AddRegionPickupAndFooter1784985000000,
     AddProductOldPrice1784986000000,
+    AddRegionDeliveryDetails1784987000000,
+    AddRegionDeliveryZone1784988000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

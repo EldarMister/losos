@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
-import type { DeliveryLocation } from "./YandexDeliveryMap";
+import type { DeliveryLocation, DeliveryZonePoint } from "./YandexDeliveryMap";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
 const YandexPickupMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexPickupMap: Map }) => ({ default: Map })));
@@ -43,6 +43,7 @@ type RegionOption = {
   pickupWorkingHours?: string;
   footerCompanyName?: string;
   footerLegalInfo?: string;
+  deliveryZone?: DeliveryZonePoint[];
 };
 type Promotion = { id: number; title: string; image: string; cta?: string; ctaUrl?: string };
 type CheckoutForm = {
@@ -1447,6 +1448,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   inputId="delivery-address-input"
                   query={draftAddress}
                   region={regionSlug}
+                  deliveryZone={selectedRegion?.deliveryZone}
                   searchRequest={addressSearchRequest}
                   onQueryChange={setDraftAddress}
                   onLocationChange={setDeliveryLocation}

@@ -52,6 +52,7 @@ function withYandexMapKit(config) {
     if (!contents.includes(initStart)) {
       const initBlock = [
         initStart,
+        "YMKMapKit.setLocale(\"ru_RU\")",
         `YMKMapKit.setApiKey(\"${escapeSwiftString(apiKey)}\")`,
         "YMKMapKit.sharedInstance().onStart()",
         initEnd,

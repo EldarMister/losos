@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { memo, startTransition } from "react";
 import {
   Image,
   Pressable,
@@ -8,24 +9,30 @@ import {
 } from "react-native";
 import { resolveImageUrl } from "../api";
 import { colors } from "../theme";
+import { formatNumber } from "../money";
 import type { Product } from "../types";
+import { useOptimisticNumber } from "../useOptimisticNumber";
+import { NumberTicker } from "./NumberTicker";
+import { ImmediatePressable } from "./ImmediatePressable";
 
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
 
 type Props = {
   product: Product;
-  onPress: () => void;
-  onAdd: () => void;
-  onRemove?: () => void;
+  onPress: (product: Product) => void;
+  onAdd: (product: Product) => void;
+  onIncrement?: (productId: number) => void;
+  onRemove?: (productId: number) => void;
   quantity?: number;
   width?: number;
   layout?: "rail" | "grid";
 };
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product,
   onPress,
   onAdd,
+  onIncrement,
   onRemove,
   quantity = 0,
   width = 164,
@@ -33,13 +40,35 @@ export function ProductCard({
 }: Props) {
   const cardHeight = layout === "rail" ? 266 : Math.max(246, width + 78);
   const imageHeight = layout === "rail" ? 156 : width;
+  const [displayQuantity, setDisplayQuantity] = useOptimisticNumber(quantity);
+
+  const add = () => {
+    if (product.modifierGroups?.some((group) => group.required)) {
+      onAdd(product);
+      return;
+    }
+    setDisplayQuantity(1);
+    startTransition(() => onAdd(product));
+  };
+
+  const increment = () => {
+    if (displayQuantity >= 20) return;
+    setDisplayQuantity((current) => Math.min(20, current + 1));
+    startTransition(() => onIncrement?.(product.id));
+  };
+
+  const decrement = () => {
+    if (displayQuantity <= 0) return;
+    setDisplayQuantity((current) => Math.max(0, current - 1));
+    startTransition(() => onRemove?.(product.id));
+  };
 
   return (
     <View style={[styles.card, { width, height: cardHeight }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Открыть ${product.name}`}
-        onPress={onPress}
+        onPress={() => onPress(product)}
         style={({ pressed }) => pressed && styles.pressed}
       >
         <View style={[styles.imageWrap, { height: imageHeight }]}>
@@ -52,31 +81,38 @@ export function ProductCard({
         </View>
         <Text numberOfLines={2} style={styles.name}>{product.name}</Text>
       </Pressable>
-      {quantity > 0 ? (
+      {displayQuantity > 0 ? (
         <View style={styles.stepper}>
-          <Pressable
+          <ImmediatePressable
             accessibilityLabel={`Уменьшить количество ${product.name}`}
             hitSlop={6}
             onPress={(event) => {
               event.stopPropagation();
-              onRemove?.();
+              decrement();
             }}
             style={({ pressed }) => [styles.stepperButton, pressed && styles.addPressed]}
           >
             <MaterialCommunityIcons name="minus" size={22} color="#B6B6B6" />
-          </Pressable>
-          <Text style={styles.quantity}>{quantity}</Text>
-          <Pressable
+          </ImmediatePressable>
+          <NumberTicker
+            accessibilityLabel={`Количество: ${displayQuantity}`}
+            format={formatNumber}
+            height={20}
+            style={styles.quantity}
+            value={displayQuantity}
+          />
+          <ImmediatePressable
             accessibilityLabel={`Увеличить количество ${product.name}`}
+            disabled={displayQuantity >= 20}
             hitSlop={6}
             onPress={(event) => {
               event.stopPropagation();
-              onAdd();
+              increment();
             }}
             style={({ pressed }) => [styles.stepperButton, pressed && styles.addPressed]}
           >
             <MaterialCommunityIcons name="plus" size={22} color="#B6B6B6" />
-          </Pressable>
+          </ImmediatePressable>
         </View>
       ) : (
         <View style={styles.bottom}>
@@ -86,23 +122,23 @@ export function ProductCard({
             ) : null}
             <Text style={styles.price}>{money(product.price)}</Text>
           </View>
-          <Pressable
+          <ImmediatePressable
             accessibilityRole="button"
             accessibilityLabel={`Добавить ${product.name}`}
             hitSlop={8}
             onPress={(event) => {
               event.stopPropagation();
-              onAdd();
+              add();
             }}
             style={({ pressed }) => [styles.add, pressed && styles.addPressed]}
           >
             <MaterialCommunityIcons name="plus" size={23} color={colors.orange} />
-          </Pressable>
+          </ImmediatePressable>
         </View>
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

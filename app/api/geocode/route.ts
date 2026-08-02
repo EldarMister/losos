@@ -7,7 +7,10 @@ type YandexGeoObject = {
         kind?: string;
         precision?: string;
         text?: string;
-        Address?: { formatted?: string };
+        Address?: {
+          formatted?: string;
+          Components?: Array<{ kind?: string; name?: string }>;
+        };
       };
     };
     Point?: { pos?: string };
@@ -22,6 +25,27 @@ const REGION_BOUNDS: Record<Region, string> = {
   bishkek: "74.32,42.72~74.91,43.02",
   osh: "72.61,40.35~73.08,40.69",
 };
+
+const REGION_CITY: Record<Region, string> = {
+  bishkek: "Бишкек",
+  osh: "Ош",
+};
+
+function shortRussianAddress(
+  metadata: NonNullable<NonNullable<YandexGeoObject["GeoObject"]>["metaDataProperty"]>["GeocoderMetaData"],
+  fallback: string,
+  region: Region | null,
+) {
+  const components = metadata?.Address?.Components || [];
+  const street = components.find((component) => component.kind === "street")?.name?.trim() || "";
+  const house = components.find((component) => component.kind === "house")?.name?.trim() || "";
+  if (street) return [street, house].filter(Boolean).join(", ");
+  const city = region ? REGION_CITY[region] : "";
+  return (metadata?.Address?.formatted || metadata?.text || fallback)
+    .replace(/^(?:Кыргызстан|Кыргызская Республика)\s*,?\s*/i, "")
+    .replace(city ? new RegExp(`^(?:г\\.\\s*)?${city}\\s*,?\\s*`, "i") : /$^/, "")
+    .trim();
+}
 
 function validCoordinate(value: string | null, minimum: number, maximum: number) {
   if (value === null || value.trim() === "") return null;
@@ -62,13 +86,15 @@ export async function GET(request: Request) {
     apikey: apiKey,
     lang: "ru_RU",
     format: "json",
-    results: "5",
+    results: latitude === null ? "10" : "1",
   });
   if (uri) params.set("uri", uri);
   else if (text) params.set("geocode", text);
   else params.set("geocode", `${longitude},${latitude}`);
-  if (kind && ["house", "street", "district", "locality"].includes(kind)) {
-    params.set("kind", kind);
+  if (latitude !== null) {
+    params.set("kind", kind && ["house", "street", "district", "locality"].includes(kind)
+      ? kind
+      : "house");
   }
   if (region) {
     params.set("bbox", REGION_BOUNDS[region]);
@@ -96,7 +122,7 @@ export async function GET(request: Request) {
       const metadata = GeoObject?.metaDataProperty?.GeocoderMetaData;
       const [itemLongitude, itemLatitude] = position;
       const address = metadata?.Address?.formatted || metadata?.text || GeoObject?.name || "";
-      const name = GeoObject?.name || address;
+      const name = shortRussianAddress(metadata, GeoObject?.name || address, region);
       const kind = metadata?.kind || "";
       const precision = metadata?.precision || "";
       return [{

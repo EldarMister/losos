@@ -4,12 +4,12 @@
     "slug": "nakta-sushi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/app-icon.jpeg",
+    "icon": "./assets/app-icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "naktasushi",
     "splash": {
-      "image": "./assets/app-icon.jpeg",
+      "image": "./assets/app-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF4D00"
     },
@@ -23,14 +23,16 @@
     "android": {
       "package": "kg.naktasushi.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/app-icon.jpeg",
+        "foregroundImage": "./assets/app-icon.png",
         "backgroundColor": "#FF4D00"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "POST_NOTIFICATIONS",
-        "android.permission.INTERNET"
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "plugins": [
@@ -41,7 +43,45 @@
           "defaultChannel": "orders"
         }
       ],
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Inter_400Regular",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "Inter_500Medium",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf", "weight": 500 }
+                ]
+              },
+              {
+                "fontFamily": "Inter_600SemiBold",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf", "weight": 600 }
+                ]
+              },
+              {
+                "fontFamily": "Inter_700Bold",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf", "weight": 700 }
+                ]
+              },
+              {
+                "fontFamily": "Inter_900Black",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf", "weight": 900 }
+                ]
+              }
+            ]
+          }
+        }
+      ],
       "expo-secure-store",
       [
         "expo-location",
@@ -54,7 +94,13 @@
       "./plugins/withYandexMapKit"
     ],
     "web": {
-      "favicon": "./assets/app-icon.jpeg"
-    }
+      "favicon": "./assets/app-icon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "42c54960-7eb1-4a6a-9309-64dc068ce7bd"
+      }
+    },
+    "owner": "eldarchkk"
   }
 }

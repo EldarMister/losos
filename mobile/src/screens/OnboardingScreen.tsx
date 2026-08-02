@@ -25,7 +25,7 @@ const pages = [
     colors: ["#FF5207", "#FF4B00"] as const,
     title: "Качественно\nи вкусно",
     copy: "Делаем выбор в пользу лучших продуктов, технологичных процессов и заботы о клиентах. В Бишкеке и Оше.",
-    image: require("../../assets/app-icon.jpeg"),
+    image: require("../../assets/app-icon.png"),
     imageStyle: "brand" as const,
   },
   {

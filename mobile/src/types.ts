@@ -61,11 +61,16 @@ export type Region = {
   pickupYandexUrl?: string;
   pickupWorkingHours?: string;
   pickupLocations?: PickupLocation[];
+  deliveryZone?: Array<{ latitude: number; longitude: number }>;
   deliveryOpenTime?: string;
   deliveryCloseTime?: string;
   deliveryIs24Hours?: boolean;
   deliveryWorkingDays?: number[];
   freeDeliveryThreshold?: number;
+  deliveryFee?: number;
+  estimatedDeliveryMinutes?: number;
+  minimumOrderAmount?: number;
+  maximumOrderAmount?: number;
 };
 
 export type PickupLocation = {

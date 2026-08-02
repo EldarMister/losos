@@ -1,7 +1,13 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from "react";
 import {
   ActivityIndicator,
   Image,
@@ -16,11 +22,17 @@ import {
   Text,
   TextInput,
   View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
 import {
   isSpecificDeliveryAddress,
+  resolveAddressSuggestion,
   suggestAddresses,
   type AddressSuggestion,
 } from "../geocoding";
@@ -28,8 +40,17 @@ import { useStore } from "../store";
 import { colors, shadow } from "../theme";
 import type { DeliveryType, PickupLocation, Region } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
+import {
+  SwipeDismissScrollProvider,
+  SwipeDismissScrollView,
+  useSwipeToDismiss,
+} from "./SwipeDismiss";
 import { YandexMap } from "./YandexMap";
-import type { MapPoint } from "./yandexMapShared";
+import {
+  getDeliveryZone,
+  isPointInDeliveryZone,
+  type MapPoint,
+} from "./yandexMapShared";
 
 type Props = {
   visible: boolean;
@@ -43,7 +64,47 @@ type PickupOption = {
   pickup: PickupLocation;
 };
 
-function regionPickupLocations(region: Region): PickupLocation[] {
+type SwipePanelProps = PropsWithChildren<{
+  dismissEnabled?: boolean;
+  onDismiss: () => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  resetKey?: string | number | boolean | null;
+  style?: StyleProp<ViewStyle>;
+}>;
+
+function SwipePanel({
+  children,
+  dismissEnabled = true,
+  onDismiss,
+  onLayout,
+  resetKey,
+  style,
+}: SwipePanelProps) {
+  const swipe = useSwipeToDismiss({ dismissEnabled, onDismiss });
+
+  useEffect(() => {
+    swipe.reset();
+  }, [resetKey, swipe.reset]);
+
+  return (
+    <SwipeDismissScrollProvider scrollOffsetY={swipe.scrollOffsetY}>
+      <GestureDetector gesture={swipe.gesture}>
+        <Animated.View
+          collapsable={false}
+          onLayout={(event) => {
+            swipe.onLayout(event.nativeEvent.layout.height);
+            onLayout?.(event);
+          }}
+          style={[style, swipe.animatedStyle]}
+        >
+          {children}
+        </Animated.View>
+      </GestureDetector>
+    </SwipeDismissScrollProvider>
+  );
+}
+
+export function regionPickupLocations(region: Region): PickupLocation[] {
   const available = [...(region.pickupLocations || [])]
     .filter((item) => item.enabled !== false)
     .sort((left, right) => left.sortOrder - right.sortOrder);
@@ -78,7 +139,7 @@ function distanceBetween(
   return distance < 1 ? `${Math.round(distance * 1000)} м` : `${distance.toFixed(1)} км`;
 }
 
-function pickupIntroCopy(count: number) {
+export function pickupIntroCopy(count: number) {
   if (!count) {
     return "Сейчас для самовывоза нет доступных кухонь. Загляните сюда немного позже.";
   }
@@ -123,6 +184,14 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const selectedRegionData = useMemo(
+    () => regions.find((region) => region.slug === selectedRegion),
+    [regions, selectedRegion],
+  );
+  const deliveryZone = useMemo(
+    () => getDeliveryZone(selectedRegion, selectedRegionData?.deliveryZone),
+    [selectedRegion, selectedRegionData?.deliveryZone],
+  );
 
   const refreshDeviceLocation = useCallback(async (requestPermission: boolean) => {
     try {
@@ -224,37 +293,13 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   }, [searchQuery, searchVisible, selectedRegion]);
 
   const pickupOptions = useMemo<PickupOption[]>(() => {
-    const options = regions.flatMap((item) => (
+    return regions.flatMap((item) => (
       regionPickupLocations(item).map((pickup) => ({
         key: `${item.slug}:${pickup.id}`,
         region: item,
         pickup,
       }))
     ));
-    if (options.length) return options;
-    const region = regions[0];
-    if (!region) return [];
-    return [
-      [901, "Кухня на Медерова", "улица Медерова, 41", 42.851968, 74.624326],
-      [902, "Кухня на Киевской", "улица Киевская, 120", 42.8752, 74.6037],
-      [903, "Кухня в центре", "проспект Чуй, 155", 42.8764, 74.6031],
-      [904, "Кухня на Токтогула", "улица Токтогула, 125", 42.8697, 74.5978],
-      [905, "Кухня на Исанова", "улица Исанова, 78", 42.8728, 74.5919],
-      [906, "Кухня на Манаса", "проспект Манаса, 40", 42.8657, 74.5896],
-    ].map(([id, title, address, pickupLatitude, pickupLongitude], index) => ({
-      key: `${region.slug}:${id}`,
-      region,
-      pickup: {
-        id: id as number,
-        title: title as string,
-        address: address as string,
-        workingHours: "Ежедневно, без выходных, 11:00–23:00",
-        latitude: pickupLatitude as number,
-        longitude: pickupLongitude as number,
-        enabled: true,
-        sortOrder: index,
-      },
-    }));
   }, [regions]);
   const selectedPickupOption = pickupOptions.find((item) => (
     item.region.slug === selectedRegion && item.pickup.id === selectedPickupId
@@ -318,32 +363,44 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     setSearchVisible(true);
   };
 
-  const chooseSuggestion = (suggestion: AddressSuggestion) => {
-    setAddress(suggestion.label);
-    setAddressComplete(
-      suggestion.isComplete
-      || isSpecificDeliveryAddress(
-        suggestion.label,
-        suggestion.kind,
-        suggestion.precision,
-      ),
-    );
-    setSearchQuery(suggestion.label);
-    setLatitude(suggestion.latitude);
-    setLongitude(suggestion.longitude);
-    setMapInitialPoint({
-      latitude: suggestion.latitude,
-      longitude: suggestion.longitude,
-    });
-    setMapFocusRequest((value) => value + 1);
-    setLocationError("");
-    setSearchVisible(false);
-    Keyboard.dismiss();
+  const chooseSuggestion = async (suggestion: AddressSuggestion) => {
+    setSearching(true);
+    setSearchError("");
+    try {
+      const resolved = await resolveAddressSuggestion(suggestion, selectedRegion);
+      if (!isPointInDeliveryZone(resolved.latitude, resolved.longitude, deliveryZone)) {
+        throw new Error("Этот адрес находится вне зоны доставки");
+      }
+      setAddress(resolved.label);
+      setAddressComplete(
+        resolved.isComplete
+        || isSpecificDeliveryAddress(
+          resolved.label,
+          resolved.kind,
+          resolved.precision,
+        ),
+      );
+      setSearchQuery(resolved.label);
+      setLatitude(resolved.latitude);
+      setLongitude(resolved.longitude);
+      setMapInitialPoint({
+        latitude: resolved.latitude,
+        longitude: resolved.longitude,
+      });
+      setMapFocusRequest((value) => value + 1);
+      setLocationError("");
+      setSearchVisible(false);
+      Keyboard.dismiss();
+    } catch (error) {
+      setSearchError(error instanceof Error ? error.message : "Не удалось выбрать адрес");
+    } finally {
+      setSearching(false);
+    }
   };
 
   const submitSearch = () => {
     if (suggestions[0]) {
-      chooseSuggestion(suggestions[0]);
+      void chooseSuggestion(suggestions[0]);
       return;
     }
     setSearchError("Выберите адрес из списка.");
@@ -411,18 +468,22 @@ export function LocationSheet({ visible, required, onClose }: Props) {
 
   return (
     <Modal
-      animationType="slide"
+      animationType="fade"
+      hardwareAccelerated
+      presentationStyle="overFullScreen"
       onRequestClose={close}
       statusBarTranslucent
       visible={visible}
     >
       <StatusBar style="light" translucent />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.root}
-      >
+      <GestureHandlerRootView style={styles.root}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.root}
+        >
         <View style={styles.map}>
           <YandexMap
+            deliveryZone={deliveryZone}
             focusRequest={mapFocusRequest}
             initialLatitude={mapInitialPoint.latitude}
             initialLongitude={mapInitialPoint.longitude}
@@ -496,8 +557,11 @@ export function LocationSheet({ visible, required, onClose }: Props) {
           </Pressable>
         ) : null}
 
-        <View
+        <SwipePanel
+          dismissEnabled={!required}
+          onDismiss={close}
           onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
+          resetKey={`${type}:${selectedPickupId ?? "intro"}`}
           style={[
             styles.panel,
             type === "delivery"
@@ -614,7 +678,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               </>
             )
           )}
-        </View>
+        </SwipePanel>
 
         {pickupListVisible ? (
           <View style={styles.pickupOverlay}>
@@ -623,14 +687,19 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               onPress={() => setPickupListVisible(false)}
               style={styles.pickupBackdrop}
             />
-            <View
+            <SwipePanel
+              onDismiss={() => setPickupListVisible(false)}
+              resetKey={pickupListVisible}
               style={[
                 styles.pickupSheet,
                 { paddingBottom: Math.max(insets.bottom, 12) },
               ]}
             >
               <Text style={styles.pickupSheetTitle}>Выберите кухню для самовывоза</Text>
-              <ScrollView showsVerticalScrollIndicator={false} style={styles.pickupSheetList}>
+              <SwipeDismissScrollView
+                showsVerticalScrollIndicator={false}
+                style={styles.pickupSheetList}
+              >
                 {pickupOptions.map((option) => {
                   const active = option.region.slug === selectedRegion
                     && option.pickup.id === selectedPickupId;
@@ -669,7 +738,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                     </Pressable>
                   );
                 })}
-              </ScrollView>
+              </SwipeDismissScrollView>
               <PrimaryButton
                 disabled={!selectedPickup}
                 label="Выбрать"
@@ -685,7 +754,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                 tone="soft"
                 style={[styles.primary, styles.pickupBackButton]}
               />
-            </View>
+            </SwipePanel>
           </View>
         ) : null}
 
@@ -745,7 +814,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                   {suggestions.map((suggestion) => (
                     <Pressable
                       key={suggestion.id}
-                      onPress={() => chooseSuggestion(suggestion)}
+                      onPress={() => void chooseSuggestion(suggestion)}
                       style={({ pressed }) => [
                         styles.suggestionRow,
                         pressed && styles.suggestionRowPressed,
@@ -765,7 +834,8 @@ export function LocationSheet({ visible, required, onClose }: Props) {
             </View>
           </View>
         ) : null}
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -836,7 +906,7 @@ const styles = StyleSheet.create({
     minHeight: 226,
   },
   pickupIntroPanel: {
-    minHeight: 290,
+    minHeight: 226,
   },
   pickupDetailPanel: {
     minHeight: 432,

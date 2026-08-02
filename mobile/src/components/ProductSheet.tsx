@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
+  InteractionManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +20,9 @@ import type {
   SelectedModifier,
 } from "../types";
 import { QuantityControl } from "./QuantityControl";
+import { NumberTicker } from "./NumberTicker";
 import { Sheet } from "./Sheet";
+import { SwipeDismissScrollView } from "./SwipeDismiss";
 
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
 
@@ -110,13 +113,21 @@ export function ProductSheet({
   const [selection, setSelection] = useState<ModifierSelection>({});
   const [detailView, setDetailView] = useState<"composition" | "equipment" | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [sheetVisible, setSheetVisible] = useState(Boolean(product));
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!product) return;
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setSheetVisible(true);
     setQuantity(1);
     setSelection(initialModifierSelections(product));
     setDetailView(null);
   }, [product]);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
 
   useEffect(() => {
     if (!product) {
@@ -125,27 +136,30 @@ export function ProductSheet({
     }
     setRelatedProducts([]);
     let ignore = false;
-    catalogApi.categories(store.regionSlug)
-      .then((categories) => {
-        if (ignore) return;
-        const accessoryCategories = categories.filter((category) => (
-          /соус|добав|напит|десерт|закуск/i.test(category.title)
-        ));
-        const candidates = (
-          accessoryCategories.length ? accessoryCategories : categories
-        ).flatMap((category) => category.products);
-        const unique = candidates.filter((candidate, index, items) => (
-          candidate.id !== product.id
-          && candidate.available !== false
-          && items.findIndex((item) => item.id === candidate.id) === index
-        ));
-        setRelatedProducts(unique.slice(0, 8));
-      })
-      .catch(() => {
-        if (!ignore) setRelatedProducts([]);
-      });
+    const task = InteractionManager.runAfterInteractions(() => {
+      catalogApi.categories(store.regionSlug)
+        .then((categories) => {
+          if (ignore) return;
+          const accessoryCategories = categories.filter((category) => (
+            /соус|добав|напит|десерт|закуск/i.test(category.title)
+          ));
+          const candidates = (
+            accessoryCategories.length ? accessoryCategories : categories
+          ).flatMap((category) => category.products);
+          const unique = candidates.filter((candidate, index, items) => (
+            candidate.id !== product.id
+            && candidate.available !== false
+            && items.findIndex((item) => item.id === candidate.id) === index
+          ));
+          setRelatedProducts(unique.slice(0, 8));
+        })
+        .catch(() => {
+          if (!ignore) setRelatedProducts([]);
+        });
+    });
     return () => {
       ignore = true;
+      task.cancel();
     };
   }, [product, store.regionSlug]);
 
@@ -202,8 +216,14 @@ export function ProductSheet({
 
   const add = () => {
     store.addCartLine(product, quantity, modifiers);
-    onClose();
+    close();
     onAdded?.();
+  };
+  const close = () => {
+    if (!sheetVisible) return;
+    setDetailView(null);
+    setSheetVisible(false);
+    closeTimer.current = setTimeout(onClose, 210);
   };
   const heroHeight = Math.min(width, height * 0.58);
 
@@ -234,8 +254,8 @@ export function ProductSheet({
       <Sheet
         fullScreen
         height="83%"
-        visible={Boolean(product)}
-        onClose={onClose}
+        visible={sheetVisible}
+        onClose={close}
         footer={(
           <View style={styles.footerRow}>
             <QuantityControl
@@ -258,12 +278,20 @@ export function ProductSheet({
               <Text style={styles.addButtonLabel}>
                 {valid ? "Добавить" : "Выберите модификации"}
               </Text>
-              {valid ? <Text style={styles.addButtonPrice}>{money(total)}</Text> : null}
+              {valid ? (
+                <NumberTicker
+                  accessibilityLabel={`Стоимость: ${money(total)}`}
+                  format={money}
+                  height={20}
+                  style={styles.addButtonPrice}
+                  value={total}
+                />
+              ) : null}
             </Pressable>
           </View>
         )}
       >
-        <ScrollView
+        <SwipeDismissScrollView
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
@@ -484,7 +512,7 @@ export function ProductSheet({
             </View>
           );
           })}
-        </ScrollView>
+        </SwipeDismissScrollView>
       </Sheet>
       <Sheet
         height={detailView === "equipment" ? "39%" : "60%"}
@@ -503,7 +531,7 @@ export function ProductSheet({
         <View style={styles.detailHeader}>
           <Text style={styles.detailTitle}>{detailTitle}</Text>
         </View>
-        <ScrollView
+        <SwipeDismissScrollView
           contentContainerStyle={styles.detailContent}
           showsVerticalScrollIndicator={false}
         >
@@ -537,7 +565,7 @@ export function ProductSheet({
           ) : (
             <Text style={styles.detailCopy}>{detailCopy}</Text>
           )}
-        </ScrollView>
+        </SwipeDismissScrollView>
       </Sheet>
     </>
   );

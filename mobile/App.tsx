@@ -17,8 +17,9 @@ import {
 import * as Notifications from "expo-notifications";
 import { useFonts } from "expo-font";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { catalogApi } from "./src/api";
 import { CartSheet } from "./src/components/CartSheet";
 import { DeliveryInfoSheet } from "./src/components/DeliveryInfoSheet";
@@ -29,6 +30,7 @@ import { NotificationPermissionPrompt } from "./src/components/NotificationPermi
 import { ProductSheet } from "./src/components/ProductSheet";
 import { PromotionViewer } from "./src/components/PromotionViewer";
 import { SearchSheet } from "./src/components/SearchSheet";
+import { preloadYandexMapKit } from "./src/components/YandexMap";
 import {
   registerOrderPush,
   syncChangedOrderPushToken,
@@ -91,6 +93,11 @@ function CatalogRoute({ navigation }: CatalogProps) {
   const [promotionVisible, setPromotionVisible] = useState(false);
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [promotionIndex, setPromotionIndex] = useState(0);
+
+  const openProductFromSearch = useCallback((product: Product) => {
+    setSearchVisible(false);
+    setSelectedProduct(product);
+  }, []);
 
   useEffect(() => {
     if (!store.location) setLocationVisible(true);
@@ -172,10 +179,7 @@ function CatalogRoute({ navigation }: CatalogProps) {
       <SearchSheet
         onClose={() => setSearchVisible(false)}
         onOpenCart={() => setCartVisible(true)}
-        onOpenProduct={(product) => {
-          setSearchVisible(false);
-          setSelectedProduct(product);
-        }}
+        onOpenProduct={openProductFromSearch}
         visible={searchVisible}
       />
       <ProductSheet
@@ -458,7 +462,7 @@ function Splash() {
   );
 }
 
-function AppWithFonts() {
+function IosAppWithFonts() {
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -466,21 +470,42 @@ function AppWithFonts() {
     Inter_700Bold,
     Inter_900Black,
   });
+
   if (!fontsLoaded) return <Splash />;
   return <MobileApp />;
 }
 
+function AppWithFonts() {
+  useEffect(() => {
+    // Start native library loading while persisted state and onboarding are
+    // being prepared. Android fonts are registered from native resources.
+    void preloadYandexMapKit().catch(() => undefined);
+  }, []);
+
+  // Runtime font loading can remain pending indefinitely on some Xiaomi
+  // Android 12 devices. The same Inter files are embedded in the APK via the
+  // expo-font config plugin, so Android can render the complete interface
+  // immediately without a degraded or fallback application state.
+  if (Platform.OS === "android") return <MobileApp />;
+  return <IosAppWithFonts />;
+}
+
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <StoreProvider>
-        <AppWithFonts />
-      </StoreProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.appRoot}>
+      <SafeAreaProvider>
+        <StoreProvider>
+          <AppWithFonts />
+        </StoreProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+  },
   splash: {
     flex: 1,
     alignItems: "center",
