@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -40,25 +40,39 @@ type Props = {
 
 function OrderCard({
   order,
+  address,
   onPress,
 }: {
   order: ProfileOrder;
+  address?: string;
   onPress: () => void;
 }) {
   const completed = order.status === "completed";
   const cancelled = order.status === "cancelled";
-  const previewIcons = ["fish", "rice", "food-fork-drink"] as const;
 
   return (
-    <View style={styles.orderWrap}>
-      <Pressable
-        accessibilityLabel={`Заказ №${order.id.slice(0, 6).toUpperCase()}`}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.orderCard,
-          pressed && styles.orderPressed,
+    <Pressable
+      accessibilityLabel={`Заказ №${order.id.slice(0, 6).toUpperCase()}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.orderCard, pressed && styles.orderPressed]}
+    >
+      <View
+        style={[
+          styles.statusPill,
+          completed && styles.statusCompleted,
+          cancelled && styles.statusCancelled,
         ]}
       >
+        <Text style={[
+          styles.statusText,
+          completed && styles.statusTextCompleted,
+          cancelled && styles.statusTextCancelled,
+        ]}>
+          {statuses[order.status]}
+        </Text>
+      </View>
+      <View style={styles.orderMainRow}>
+        <View style={styles.orderMainCopy}>
         <Text style={styles.orderTitle}>
           Заказ №{order.id.slice(0, 6).toUpperCase()}
         </Text>
@@ -72,34 +86,31 @@ function OrderCard({
           {" · "}
           {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}
         </Text>
-        <View style={styles.orderPreview}>
-          {previewIcons.map((icon) => (
-            <View key={icon} style={styles.previewIcon}>
-              <MaterialCommunityIcons
-                name={icon}
-                size={22}
-                color={colors.orange}
-              />
-            </View>
-          ))}
+        </View>
+        <View style={styles.orderAmountRow}>
           <Text style={styles.orderTotal}>{money(order.total)}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#77797E" />
+        </View>
+      </View>
+
+      <View style={styles.deliveryPreview}>
+        <View style={styles.deliveryPreviewIcon}>
           <MaterialCommunityIcons
-            name="chevron-right"
-            size={24}
-            color="#999999"
+            name={order.deliveryType === "pickup" ? "shopping-outline" : "shopping-outline"}
+            size={19}
+            color={colors.orange}
           />
         </View>
-      </Pressable>
-      <View
-        style={[
-          styles.statusPill,
-          completed && styles.statusCompleted,
-          cancelled && styles.statusCancelled,
-        ]}
-      >
-        <Text style={styles.statusText}>{statuses[order.status]}</Text>
+        <View style={styles.deliveryPreviewCopy}>
+          <Text style={styles.deliveryPreviewTitle}>
+            {order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}
+          </Text>
+          <Text numberOfLines={1} style={styles.deliveryPreviewAddress}>
+            {address || order.address || "Загружаем адрес…"}
+          </Text>
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -142,6 +153,9 @@ export function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [orderTab, setOrderTab] = useState<"active" | "history">("active");
+  const [orderAddresses, setOrderAddresses] = useState<Record<string, string>>({});
+  const addressRequests = useRef(new Set<string>());
 
   const load = useCallback(async (refresh = false) => {
     if (!store.session) return;
@@ -165,12 +179,40 @@ export function ProfileScreen({
   }, [load]);
 
   const orders = useMemo(
-    () => [
-      ...(profile?.currentOrders ?? []),
-      ...(profile?.orderHistory ?? []),
-    ],
-    [profile],
+    () => orderTab === "active"
+      ? profile?.currentOrders ?? []
+      : profile?.orderHistory ?? [],
+    [orderTab, profile],
   );
+
+  useEffect(() => {
+    if (!store.session) return;
+    const missing = orders.filter((order) => (
+      !order.address
+      && !orderAddresses[order.id]
+      && !addressRequests.current.has(order.id)
+    ));
+    if (!missing.length) return;
+
+    missing.forEach((order) => addressRequests.current.add(order.id));
+    let cancelled = false;
+    void Promise.all(missing.map(async (order) => {
+      try {
+        const detail = await authApi.order(store.session!, order.id);
+        return [order.id, detail.address] as const;
+      } catch {
+        return [order.id, "Адрес не указан"] as const;
+      }
+    })).then((entries) => {
+      if (!cancelled) {
+        setOrderAddresses((current) => ({ ...current, ...Object.fromEntries(entries) }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orderAddresses, orders, store.session]);
   const backgroundColor = section === "balance" ? "#F8F8F8" : colors.white;
 
   const refreshControl = (
@@ -217,9 +259,32 @@ export function ProfileScreen({
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.screenTitle}>Мои заказы</Text>
+          <View style={styles.orderTabs}>
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: orderTab === "active" }}
+              onPress={() => setOrderTab("active")}
+              style={[styles.orderTab, orderTab === "active" && styles.orderTabSelected]}
+            >
+              <Text style={[styles.orderTabText, orderTab === "active" && styles.orderTabTextSelected]}>
+                Активные
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="tab"
+              accessibilityState={{ selected: orderTab === "history" }}
+              onPress={() => setOrderTab("history")}
+              style={[styles.orderTab, orderTab === "history" && styles.orderTabSelected]}
+            >
+              <Text style={[styles.orderTabText, orderTab === "history" && styles.orderTabTextSelected]}>
+                История
+              </Text>
+            </Pressable>
+          </View>
           {orders.length ? (
             orders.map((order) => (
               <OrderCard
+                address={orderAddresses[order.id]}
                 key={order.id}
                 onPress={() => onOpenOrder(order.id)}
                 order={order}
@@ -378,85 +443,156 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     color: "#000000",
     fontFamily: "Inter_700Bold",
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 27,
+    lineHeight: 34,
     fontWeight: "700",
   },
-  orderWrap: {
-    marginTop: 28,
+  orderTabs: {
+    height: 48,
+    marginTop: 14,
     marginHorizontal: 16,
+    padding: 4,
+    borderRadius: 16,
+    flexDirection: "row",
+    backgroundColor: "#F3F3F3",
+  },
+  orderTab: {
+    flex: 1,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  orderTabSelected: {
+    backgroundColor: colors.white,
+    elevation: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  orderTabText: {
+    color: colors.muted,
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+  },
+  orderTabTextSelected: {
+    color: colors.orange,
+    fontFamily: "Inter_600SemiBold",
   },
   orderCard: {
-    minHeight: 148,
-    paddingTop: 28,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    backgroundColor: "#F8F8F8",
+    marginTop: 14,
+    marginHorizontal: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    backgroundColor: colors.white,
+    elevation: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
   },
   orderPressed: {
     opacity: 0.82,
   },
+  orderMainRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 10,
+  },
+  orderMainCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   orderTitle: {
     color: "#000000",
     fontFamily: "Inter_700Bold",
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: "700",
   },
   orderSubtitle: {
-    marginTop: 8,
+    marginTop: 4,
     color: "#999999",
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  orderPreview: {
-    height: 44,
-    marginTop: 20,
-    marginBottom: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  previewIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-  },
-  orderTotal: {
-    marginLeft: "auto",
-    color: "#000000",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  statusPill: {
-    position: "absolute",
-    zIndex: 2,
-    top: -12,
-    left: 24,
-    minHeight: 28,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.orange,
-  },
-  statusCompleted: {
-    backgroundColor: "#45A160",
-  },
-  statusCancelled: {
-    backgroundColor: colors.danger,
-  },
-  statusText: {
-    color: colors.white,
-    fontFamily: "Inter_700Bold",
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: "700",
+  },
+  orderAmountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  orderTotal: {
+    color: "#000000",
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+  },
+  statusPill: {
+    alignSelf: "flex-start",
+    minHeight: 27,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0E9",
+  },
+  statusCompleted: {
+    backgroundColor: "#ECF7EF",
+  },
+  statusCancelled: {
+    backgroundColor: "#FFF0F0",
+  },
+  statusText: {
+    color: colors.orange,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  statusTextCompleted: {
+    color: colors.success,
+  },
+  statusTextCancelled: {
+    color: colors.danger,
+  },
+  deliveryPreview: {
+    minHeight: 63,
+    marginTop: 14,
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#FCFCFC",
+  },
+  deliveryPreviewIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0E9",
+  },
+  deliveryPreviewCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  deliveryPreviewTitle: {
+    color: colors.ink,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  deliveryPreviewAddress: {
+    marginTop: 2,
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 10,
+    lineHeight: 14,
   },
   empty: {
     alignItems: "center",

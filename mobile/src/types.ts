@@ -193,6 +193,7 @@ export type ProfileOrder = {
   status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
   deliveryType: DeliveryType;
   createdAt: string;
+  address?: string;
 };
 
 export type ProfileData = {

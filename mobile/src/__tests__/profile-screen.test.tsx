@@ -6,6 +6,7 @@ import type { ProfileData } from "../types";
 
 jest.mock("../api", () => ({
   authApi: {
+    order: jest.fn(),
     profile: jest.fn(),
   },
 }));
@@ -73,6 +74,7 @@ describe("ProfileScreen order history", () => {
         status: "preparing",
         deliveryType: "delivery",
         createdAt: "2026-07-31T08:00:00.000Z",
+        address: "переулок Токолдош, 61",
       }],
       orderHistory: [{
         id: "fedcba-history",
@@ -80,6 +82,7 @@ describe("ProfileScreen order history", () => {
         status: "completed",
         deliveryType: "pickup",
         createdAt: "2026-07-25T08:00:00.000Z",
+        address: "улица 7 Апреля, 2Б",
       }],
     } satisfies ProfileData);
     const onOpenOrder = jest.fn();
@@ -94,6 +97,11 @@ describe("ProfileScreen order history", () => {
 
     await fireEvent.press(await screen.findByLabelText("Заказ №ABCDEF"));
     expect(onOpenOrder).toHaveBeenCalledWith("abcdef-current");
+    expect(screen.getByText("переулок Токолдош, 61")).toBeTruthy();
+
+    await fireEvent.press(screen.getByText("История"));
     expect(screen.getByText("Выполнен")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("Заказ №FEDCBA"));
+    expect(onOpenOrder).toHaveBeenCalledWith("fedcba-history");
   });
 });
