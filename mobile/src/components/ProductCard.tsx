@@ -8,14 +8,14 @@ import {
 } from "react-native";
 import { resolveImageUrl } from "../api";
 import { colors } from "../theme";
-import { formatNumber } from "../money";
+import { formatMoney, formatNumber } from "../money";
 import type { Product } from "../types";
 import { useOptimisticNumber } from "../useOptimisticNumber";
 import { NumberTicker } from "./NumberTicker";
 import { ImmediatePressable } from "./ImmediatePressable";
 import { RipplePressable as Pressable } from "./RipplePressable";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 type Props = {
   product: Product;
@@ -39,7 +39,7 @@ export const ProductCard = memo(function ProductCard({
   layout = "rail",
 }: Props) {
   const cardHeight = layout === "rail" ? 266 : Math.max(246, width + 78);
-  const imageHeight = layout === "rail" ? 156 : width;
+  const imageHeight = layout === "rail" ? 156 : Math.max(124, width - 24);
   const [displayQuantity, setDisplayQuantity] = useOptimisticNumber(quantity);
 
   const add = () => {

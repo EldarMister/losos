@@ -16,19 +16,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi, resolveImageUrl } from "../api";
+import { CatalogCartDock } from "../components/CatalogCartDock";
 import { ProductCard } from "../components/ProductCard";
-import { NumberTicker } from "../components/NumberTicker";
-import {
-  deliveryEtaLabel,
-  deliveryFeeFor,
-  freeDeliveryRemaining,
-} from "../delivery";
+import { deliveryEtaLabel } from "../delivery";
 import { useStore } from "../store";
-import { formatMoney } from "../money";
-import { colors, radii, shadow } from "../theme";
+import { colors, radii } from "../theme";
 import type { Category, Product, Promotion } from "../types";
-
-const money = formatMoney;
 
 type Props = {
   onOpenMenu: () => void;
@@ -66,10 +59,7 @@ export function CatalogScreen({
   const sectionsOffset = useRef(0);
   const catalogNavOffset = useRef(260);
   const scrollY = useRef(new Animated.Value(0)).current;
-  const region = store.activeRegion;
-  const etaLabel = deliveryEtaLabel(region);
-  const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
-  const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
+  const etaLabel = deliveryEtaLabel(store.activeRegion);
   const productCardWidth = 172;
 
   const load = useCallback(async (refresh = false) => {
@@ -100,21 +90,6 @@ export function CatalogScreen({
     () => categories.filter((category) => category.products.some((product) => product.available !== false)),
     [categories],
   );
-
-  const cartPreviewProducts = useMemo(() => {
-    const seen = new Set<number>();
-    return store.cart.flatMap((line) => {
-      if (seen.has(line.product.id)) return [];
-      seen.add(line.product.id);
-      return [line.product];
-    });
-  }, [store.cart]);
-  const previewOverflow = cartPreviewProducts.length > 4
-    ? cartPreviewProducts.length - 3
-    : 0;
-  const visibleCartPreviews = previewOverflow
-    ? cartPreviewProducts.slice(0, 3)
-    : cartPreviewProducts.slice(0, 4);
 
   const addProduct = useCallback((product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {
@@ -458,83 +433,10 @@ export function CatalogScreen({
         {renderCategoryChips()}
       </Animated.View>
 
-      {store.cartCount ? (
-        <View
-          style={[
-            styles.cartDock,
-            { paddingBottom: Math.max(insets.bottom, 10) },
-          ]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Подробные условия доставки"
-            hitSlop={6}
-            onPress={onOpenDeliveryInfo}
-            style={styles.cartStatusButton}
-          >
-            <View style={styles.cartStatus}>
-              {store.deliveryType === "pickup"
-                ? <Text style={styles.cartStatusText}>Самовывоз • бесплатно ›</Text>
-                : <>
-                    <Text style={styles.cartStatusText}>Доставка </Text>
-                    <NumberTicker format={money} height={16} style={styles.cartStatusText} value={deliveryFee} />
-                    <Text style={styles.cartStatusText}> • </Text>
-                    {remainingForFreeDelivery > 0 ? <>
-                      <Text style={styles.cartStatusText}>До бесплатной </Text>
-                      <NumberTicker format={money} height={16} style={styles.cartStatusText} value={remainingForFreeDelivery} />
-                    </> : <Text style={styles.cartStatusText}>Бесплатная доставка</Text>}
-                    <Text style={styles.cartStatusText}> ›</Text>
-                  </>}
-            </View>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
-            onPress={onOpenCart}
-            style={styles.cartBar}
-          >
-            <View style={styles.cartPriceWrap}>
-              <NumberTicker
-                accessibilityLabel={`Сумма корзины: ${money(store.cartTotal)}`}
-                format={money}
-                height={22}
-                style={styles.cartPrice}
-                value={store.cartTotal}
-              />
-            </View>
-            <View style={styles.cartMiddle}>
-              <Text
-                numberOfLines={1}
-                style={styles.cartTime}
-              >
-                {store.deliveryType === "pickup"
-                  ? "Самовывоз"
-                  : etaLabel}
-              </Text>
-            </View>
-            <View style={styles.cartPreviews}>
-              {visibleCartPreviews.map((product) => (
-                <Image
-                  key={product.id}
-                  resizeMode="cover"
-                  source={{ uri: resolveImageUrl(product.image) }}
-                  style={styles.cartPreviewImage}
-                />
-              ))}
-              {previewOverflow ? (
-                <View style={styles.cartPreviewOverflow}>
-                  <NumberTicker
-                    format={(value) => `+${value}`}
-                    height={15}
-                    style={styles.cartPreviewOverflowText}
-                    value={previewOverflow}
-                  />
-                </View>
-              ) : null}
-            </View>
-          </Pressable>
-        </View>
-      ) : null}
+      <CatalogCartDock
+        onOpenCart={onOpenCart}
+        onOpenDeliveryInfo={onOpenDeliveryInfo}
+      />
     </View>
   );
 }
@@ -795,95 +697,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 14,
     gap: 12,
-  },
-  cartDock: {
-    position: "absolute",
-    zIndex: 20,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    paddingTop: 9,
-    paddingHorizontal: 16,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    backgroundColor: colors.white,
-    ...shadow,
-    elevation: 30,
-  },
-  cartStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  cartStatusText: {
-    color: colors.muted,
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  cartStatusButton: {
-    minHeight: 24,
-    paddingBottom: 8,
-    justifyContent: "center",
-  },
-  cartBar: {
-    height: 60,
-    paddingLeft: 16,
-    paddingRight: 2,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.orange,
-  },
-  cartPriceWrap: {
-    width: 108,
-  },
-  cartPrice: {
-    color: colors.white,
-    fontFamily: "Inter_700Bold",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  cartMiddle: {
-    flex: 1,
-    alignItems: "center",
-  },
-  cartTime: {
-    color: colors.white,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  cartPreviews: {
-    minWidth: 50,
-    height: 44,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "flex-start",
-  },
-  cartPreviewImage: {
-    width: 38,
-    height: 44,
-    marginLeft: -19,
-    borderWidth: 2,
-    borderColor: colors.white,
-    borderRadius: 10,
-    backgroundColor: colors.white,
-  },
-  cartPreviewOverflow: {
-    width: 38,
-    height: 44,
-    marginLeft: -19,
-    borderWidth: 2,
-    borderColor: colors.white,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-  },
-  cartPreviewOverflowText: {
-    color: colors.orange,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
   },
 });

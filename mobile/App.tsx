@@ -180,6 +180,7 @@ function CatalogRoute({ navigation }: CatalogProps) {
       <SearchSheet
         onClose={() => setSearchVisible(false)}
         onOpenCart={() => setCartVisible(true)}
+        onOpenDeliveryInfo={() => setDeliveryInfoVisible(true)}
         onOpenProduct={openProductFromSearch}
         visible={searchVisible}
       />
@@ -229,15 +230,24 @@ type CheckoutProps = NativeStackScreenProps<RootStackParamList, "Checkout">;
 
 function CheckoutRoute({ navigation }: CheckoutProps) {
   const store = useStore();
+  const [locationVisible, setLocationVisible] = useState(false);
   useEffect(() => {
     if (!store.session) navigation.replace("Auth", { next: "checkout" });
   }, [navigation, store.session]);
   if (!store.session) return null;
   return (
-    <CheckoutScreen
-      onBack={() => navigation.goBack()}
-      onSuccess={(order) => navigation.replace("Success", { order })}
-    />
+    <>
+      <CheckoutScreen
+        onBack={() => navigation.goBack()}
+        onOpenLocation={() => setLocationVisible(true)}
+        onSuccess={(order) => navigation.replace("Success", { order })}
+      />
+      <LocationSheet
+        onClose={() => setLocationVisible(false)}
+        required={!store.location}
+        visible={locationVisible}
+      />
+    </>
   );
 }
 

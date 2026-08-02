@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import {
   DEFAULT_DELIVERY_FEE,
   deliveryEtaLabel,
@@ -14,7 +14,9 @@ import { useStore } from "../store";
 import { colors } from "../theme";
 import { formatMoney } from "../money";
 import { NumberTicker } from "./NumberTicker";
+import { PrimaryButton } from "./PrimaryButton";
 import { Sheet } from "./Sheet";
+import { SwipeDismissScrollView } from "./SwipeDismiss";
 
 type Props = {
   visible: boolean;
@@ -33,8 +35,23 @@ export function DeliveryInfoSheet({ visible, onClose }: Props) {
   const threshold = freeDeliveryThreshold(region);
 
   return (
-    <Sheet height={pickup ? "43%" : "61%"} onClose={onClose} visible={visible}>
-      <View style={styles.content}>
+    <Sheet
+      height={pickup ? "52%" : "60%"}
+      onClose={onClose}
+      visible={visible}
+      footer={(
+        <PrimaryButton
+          label="Понятно"
+          onPress={onClose}
+          style={styles.closeButton}
+          tone="soft"
+        />
+      )}
+    >
+      <SwipeDismissScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.deliveryHeader}>
           <View style={styles.deliveryIcon}>
             <MaterialCommunityIcons
@@ -84,14 +101,7 @@ export function DeliveryInfoSheet({ visible, onClose }: Props) {
           </View>
         ) : null}
 
-        <Pressable
-          accessibilityLabel="Закрыть информацию о доставке"
-          onPress={onClose}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
-        >
-          <Text style={styles.closeText}>Понятно</Text>
-        </Pressable>
-      </View>
+      </SwipeDismissScrollView>
     </Sheet>
   );
 }
@@ -107,9 +117,9 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   content: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 28,
+    paddingBottom: 24,
   },
   deliveryHeader: {
     flexDirection: "row",
@@ -203,18 +213,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   closeButton: {
-    height: 60,
-    marginTop: "auto",
-    marginBottom: 8,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-  },
-  closeButtonPressed: { opacity: 0.74 },
-  closeText: {
-    color: colors.ink,
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 16,
+    marginBottom: 2,
   },
 });

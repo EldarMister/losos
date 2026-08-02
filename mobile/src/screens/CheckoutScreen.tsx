@@ -7,18 +7,16 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ordersApi } from "../api";
-import { createOrderIdempotencyKey } from "../navigationRules";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { NumberTicker } from "../components/NumberTicker";
-import { QuantityControl } from "../components/QuantityControl";
 import { formatMoney } from "../money";
+import { createOrderIdempotencyKey } from "../navigationRules";
 import { useStore } from "../store";
 import { colors, radii, shadow } from "../theme";
 import type { CreatedOrder, OrderPayload } from "../types";
@@ -27,78 +25,77 @@ const money = formatMoney;
 
 type Props = {
   onBack: () => void;
+  onOpenLocation: () => void;
   onSuccess: (order: CreatedOrder) => void;
 };
 
-type FieldProps = {
+type AddressDetailProps = {
+  icon: "office-building-outline" | "door-open" | "stairs";
   label: string;
-  value: string;
   onChangeText: (value: string) => void;
-  placeholder: string;
-  keyboardType?: "default" | "phone-pad" | "number-pad";
-  multiline?: boolean;
-  editable?: boolean;
+  value: string;
 };
 
-function FormField({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = "default",
-  multiline,
-  editable = true,
-}: FieldProps) {
+function AddressDetail({ icon, label, onChangeText, value }: AddressDetailProps) {
   return (
-    <View style={styles.field}>
+    <View style={styles.addressDetail}>
+      <MaterialCommunityIcons name={icon} size={22} color="#96989D" />
       <TextInput
         accessibilityLabel={label}
-        keyboardType={keyboardType}
-        editable={editable}
-        multiline={multiline}
+        allowFontScaling={false}
+        keyboardType="number-pad"
+        multiline={false}
+        numberOfLines={1}
         onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#A0A0A0"
-        style={[styles.input, multiline && styles.inputMultiline]}
+        placeholder={label}
+        placeholderTextColor="#93959A"
+        style={styles.addressDetailInput}
         value={value}
       />
     </View>
   );
 }
 
-export function CheckoutScreen({ onBack, onSuccess }: Props) {
+function formatPhoneForDisplay(phone: string) {
+  const normalized = phone.replace(/\D/g, "");
+  if (normalized.startsWith("996") && normalized.length === 12) {
+    return `+996 ${normalized.slice(3, 6)} ${normalized.slice(6, 8)} ${normalized.slice(8, 10)} ${normalized.slice(10, 12)}`;
+  }
+  if (normalized.startsWith("7") && normalized.length === 11) {
+    return `+7 ${normalized.slice(1, 4)} ${normalized.slice(4, 7)} ${normalized.slice(7, 9)} ${normalized.slice(9, 11)}`;
+  }
+  return phone;
+}
+
+export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
   const [customerName, setCustomerName] = useState("");
-  const phone = store.session?.phone ?? "";
-  const [address, setAddress] = useState(store.location?.address ?? "");
+  const [phone, setPhone] = useState(() => formatPhoneForDisplay(store.session?.phone ?? ""));
+  const address = store.location?.address ?? "";
   const [apartment, setApartment] = useState("");
   const [entrance, setEntrance] = useState("");
   const [floor, setFloor] = useState("");
-  const [intercom, setIntercom] = useState("");
   const [comment, setComment] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [idempotencyKey] = useState(
-    () => createOrderIdempotencyKey(),
-  );
+  const [idempotencyKey] = useState(() => createOrderIdempotencyKey());
 
   const normalizedPhone = phone.replace(/[\s()-]/g, "");
   const validPhone = /^\+(?:7\d{10}|996\d{9})$/.test(normalizedPhone);
   const canSubmit = (
-    customerName.trim().length >= 2 &&
-    validPhone &&
-    address.trim().length >= 5 &&
-    store.cart.length > 0 &&
-    Boolean(store.session)
+    customerName.trim().length >= 2
+    && validPhone
+    && address.trim().length >= 5
+    && store.cart.length > 0
+    && Boolean(store.session)
   );
 
   const deliveryLabel = useMemo(
     () => store.deliveryType === "delivery" ? "Доставка" : "Самовывоз",
     [store.deliveryType],
   );
-
   const submit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
@@ -114,7 +111,7 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
       apartment: apartment.trim(),
       entrance: entrance.trim(),
       floor: floor.trim(),
-      intercom: intercom.trim(),
+      intercom: "",
       comment: comment.trim(),
       paymentMethod,
       utensilsCount: store.noUtensils ? 0 : store.utensilsCount,
@@ -144,13 +141,13 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+      <StatusBar backgroundColor={colors.white} style="dark" />
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 8 }]}>
         <Pressable
           accessibilityLabel="Назад в корзину"
-          hitSlop={9}
+          hitSlop={8}
           onPress={onBack}
-          style={styles.backButton}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
           <MaterialCommunityIcons name="arrow-left" size={27} color={colors.ink} />
         </Pressable>
@@ -165,80 +162,113 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: 118 + Math.max(insets.bottom, 10) },
+            { paddingBottom: 132 + Math.max(insets.bottom, 10) },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          >
-          <View style={styles.section}>
-            <FormField
-              label={store.deliveryType === "delivery" ? "Адрес" : "Кухня"}
-              onChangeText={setAddress}
-              placeholder="Улица и дом"
-              value={address}
-            />
+        >
+          <View style={styles.addressCard}>
+            <Pressable
+              accessibilityLabel="Выбрать адрес на карте"
+              accessibilityRole="button"
+              onPress={onOpenLocation}
+              style={({ pressed }) => [styles.addressRow, pressed && styles.pressed]}
+            >
+              <MaterialCommunityIcons name="map-marker" size={28} color={colors.orange} />
+              <Text numberOfLines={1} style={[styles.addressText, !address && styles.placeholder]}>
+                {address || (store.deliveryType === "delivery" ? "Улица и дом" : "Адрес кухни")}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={27} color={colors.ink} />
+            </Pressable>
+
             {store.deliveryType === "delivery" ? (
-              <View style={styles.inlineFields}>
-                <View style={styles.inlineField}>
-                  <FormField label="Квартира" onChangeText={setApartment} placeholder="Квартира" value={apartment} />
-                </View>
-                <View style={styles.inlineField}>
-                  <FormField label="Подъезд" onChangeText={setEntrance} placeholder="Подъезд" value={entrance} />
-                </View>
-              </View>
-            ) : null}
-            {store.deliveryType === "delivery" ? (
-              <View style={styles.inlineFields}>
-                <View style={styles.inlineField}>
-                  <FormField label="Этаж" onChangeText={setFloor} placeholder="Этаж" value={floor} />
-                </View>
-                <View style={styles.inlineField}>
-                  <FormField label="Домофон" onChangeText={setIntercom} placeholder="Домофон" value={intercom} />
-                </View>
+              <View style={styles.addressDetails}>
+                <AddressDetail
+                  icon="office-building-outline"
+                  label="Квартира"
+                  onChangeText={setApartment}
+                  value={apartment}
+                />
+                <AddressDetail
+                  icon="door-open"
+                  label="Подъезд"
+                  onChangeText={setEntrance}
+                  value={entrance}
+                />
+                <AddressDetail
+                  icon="stairs"
+                  label="Этаж"
+                  onChangeText={setFloor}
+                  value={floor}
+                />
               </View>
             ) : null}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Получатель</Text>
-            <FormField
-              label="Имя"
-              onChangeText={setCustomerName}
-              placeholder="Как к вам обращаться"
-              value={customerName}
-            />
-            <FormField
-              keyboardType="phone-pad"
-              editable={false}
-              label="Телефон"
-              onChangeText={() => undefined}
-              placeholder="+996 555 123 456"
-              value={phone}
-            />
-            {phone.length > 4 && !validPhone ? (
-              <Text style={styles.validation}>Введите номер Кыргызстана или России полностью.</Text>
-            ) : null}
+          <Text style={styles.sectionTitle}>Получатель</Text>
+          <View style={styles.recipientCard}>
+            <View style={[styles.recipientPart, styles.recipientNamePart]}>
+              <MaterialCommunityIcons name="account-outline" size={29} color={colors.ink} />
+              <TextInput
+                accessibilityLabel="Имя"
+                allowFontScaling={false}
+                multiline={false}
+                numberOfLines={1}
+                onChangeText={setCustomerName}
+                placeholder="Как к вам обращаться"
+                placeholderTextColor="#93959A"
+                style={styles.recipientInput}
+                value={customerName}
+              />
+            </View>
+            <View style={styles.recipientDivider} />
+            <View style={[styles.recipientPart, styles.recipientPhonePart]}>
+              <MaterialCommunityIcons name="phone-outline" size={24} color={colors.orange} />
+              <TextInput
+                accessibilityLabel="Телефон"
+                allowFontScaling={false}
+                keyboardType="phone-pad"
+                maxLength={18}
+                multiline={false}
+                numberOfLines={1}
+                onChangeText={setPhone}
+                placeholder="+996 000 00 00 00"
+                placeholderTextColor="#93959A"
+                style={styles.phoneInput}
+                value={phone}
+              />
+            </View>
           </View>
+          {phone.length > 4 && !validPhone ? (
+            <Text style={styles.validation}>Введите номер Кыргызстана или России полностью.</Text>
+          ) : null}
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Оплата</Text>
+          <Text style={styles.sectionTitle}>Оплата</Text>
+          <View style={styles.paymentRow}>
             {([
               ["cash", "Наличными", "cash-multiple"],
-              ["card", "Картой при получении", "credit-card-outline"],
+              ["card", "Картой", "credit-card-outline"],
             ] as const).map(([value, label, icon]) => {
               const selected = paymentMethod === value;
               return (
                 <Pressable
+                  accessibilityLabel={label}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
                   key={value}
                   onPress={() => setPaymentMethod(value)}
-                  style={[styles.choice, selected && styles.choiceSelected]}
+                  style={({ pressed }) => [
+                    styles.paymentChoice,
+                    selected && styles.paymentChoiceSelected,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <MaterialCommunityIcons
                     name={icon}
-                    size={23}
-                    color={selected ? colors.orange : colors.muted}
+                    size={27}
+                    color={selected ? colors.orange : colors.ink}
                   />
-                  <Text style={styles.choiceLabel}>{label}</Text>
+                  <Text style={styles.paymentLabel}>{label}</Text>
                   <View style={[styles.radio, selected && styles.radioSelected]}>
                     {selected ? <View style={styles.radioInner} /> : null}
                   </View>
@@ -247,43 +277,20 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
             })}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Комплектация</Text>
-            <View style={styles.utensilsRow}>
-              <View style={styles.utensilsCopy}>
-                <Text style={styles.choiceLabel}>Палочки и салфетки</Text>
-                <Text style={styles.sectionSubtitle}>
-                  {store.noUtensils ? "Без приборов" : `${store.utensilsCount} комплект`}
-                </Text>
-              </View>
-              {!store.noUtensils ? (
-                <QuantityControl
-                  bare
-                  compact
-                  maximum={10}
-                  minimum={1}
-                  onChange={store.setUtensilsCount}
-                  value={store.utensilsCount}
-                />
-              ) : null}
-            </View>
-            <View style={styles.utensilsRow}>
-              <Text style={styles.choiceLabel}>Не класть приборы</Text>
-              <Switch
-                onValueChange={store.setNoUtensils}
-                thumbColor={colors.white}
-                trackColor={{ false: "#DADADA", true: colors.orange }}
-                value={store.noUtensils}
-              />
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <FormField
-              label="Комментарий"
+          <View style={styles.commentField}>
+            <MaterialCommunityIcons
+              name="message-text-outline"
+              size={23}
+              color="#96989D"
+              style={styles.commentIcon}
+            />
+            <TextInput
+              accessibilityLabel="Комментарий"
               multiline
               onChangeText={setComment}
               placeholder="Пожелания к заказу"
+              placeholderTextColor="#93959A"
+              style={styles.commentInput}
               value={comment}
             />
           </View>
@@ -296,18 +303,21 @@ export function CheckoutScreen({ onBack, onSuccess }: Props) {
           ) : null}
         </ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <View>
+        <View style={[
+          styles.footer,
+          { bottom: Math.max(insets.bottom, 8) },
+        ]}>
+          <View style={styles.totalBlock}>
             <Text style={styles.totalLabel}>Итого</Text>
             <NumberTicker
               accessibilityLabel={`Итого: ${money(store.cartTotal)}`}
               format={money}
+              height={29}
               style={styles.total}
               value={store.cartTotal}
             />
           </View>
           <PrimaryButton
-            disabled={!canSubmit}
             label="Заказать"
             loading={submitting}
             onPress={() => void submit()}
@@ -328,16 +338,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingLeft: 2,
-    paddingRight: 16,
-    paddingBottom: 10,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.white,
   },
   backButton: {
-    width: 48,
-    height: 48,
+    width: 50,
+    height: 50,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -345,101 +357,156 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.ink,
     fontFamily: "Inter_700Bold",
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
+    textAlign: "center",
   },
   headerSpacer: {
-    width: 16,
+    width: 50,
   },
   content: {
-    paddingBottom: 12,
+    paddingHorizontal: 16,
   },
-  section: {
-    padding: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+  addressCard: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 24,
     backgroundColor: colors.white,
   },
-  sectionTitleRow: {
-    marginBottom: 5,
+  addressRow: {
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.orangeSoft,
-  },
-  sectionTitle: {
-    color: colors.ink,
-    fontFamily: "Inter_700Bold",
-    fontSize: 20,
-  },
-  sectionSubtitle: {
-    marginTop: 2,
-    color: colors.muted,
-    fontSize: 11,
-  },
-  field: {
-    marginTop: 8,
-  },
-  input: {
-    height: 52,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+  addressText: {
+    flex: 1,
     color: colors.ink,
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
-    backgroundColor: colors.surface,
+    fontSize: 17,
   },
-  inputMultiline: {
-    minHeight: 92,
-    paddingTop: 16,
-    textAlignVertical: "top",
+  placeholder: {
+    color: "#93959A",
   },
-  inlineFields: {
+  addressDetails: {
+    marginTop: 12,
     flexDirection: "row",
+    gap: 9,
+  },
+  addressDetail: {
+    flex: 1,
+    height: 58,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  addressDetailInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 56,
+    paddingHorizontal: 0,
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
+  sectionTitle: {
+    marginTop: 34,
+    marginBottom: 14,
+    marginLeft: 2,
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 21,
+    lineHeight: 27,
+  },
+  recipientCard: {
+    minHeight: 88,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+  },
+  recipientPart: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
-  inlineField: {
+  recipientNamePart: {
+    flex: 1.15,
+  },
+  recipientPhonePart: {
     flex: 1,
   },
+  recipientInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 70,
+    paddingHorizontal: 0,
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+  },
+  recipientDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 58,
+    marginHorizontal: 9,
+    backgroundColor: colors.border,
+  },
+  phoneInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 70,
+    paddingHorizontal: 0,
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
   validation: {
-    marginTop: 6,
+    marginTop: 8,
+    marginHorizontal: 4,
     color: colors.danger,
     fontSize: 11,
   },
-  choice: {
-    minHeight: 56,
-    marginTop: 10,
-    paddingHorizontal: 13,
+  paymentRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  paymentChoice: {
+    flex: 1,
+    height: 72,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    backgroundColor: colors.white,
   },
-  choiceSelected: {
+  paymentChoiceSelected: {
     borderColor: colors.orange,
-    backgroundColor: colors.orangeSoft,
+    backgroundColor: "#FFF9F5",
   },
-  choiceLabel: {
+  paymentLabel: {
     flex: 1,
     color: colors.ink,
+    fontFamily: "Inter_500Medium",
     fontSize: 14,
-    fontWeight: "600",
   },
   radio: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderWidth: 2,
-    borderColor: "#D0D0D0",
-    borderRadius: 11,
+    borderColor: "#D2D3D6",
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -447,26 +514,39 @@ const styles = StyleSheet.create({
     borderColor: colors.orange,
   },
   radioInner: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: colors.orange,
   },
-  utensilsRow: {
-    minHeight: 56,
-    marginTop: 10,
-    paddingVertical: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+  commentField: {
+    minHeight: 76,
+    marginTop: 26,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: 10,
+    backgroundColor: colors.white,
   },
-  utensilsCopy: {
+  commentIcon: {
+    marginTop: 24,
+  },
+  commentInput: {
     flex: 1,
+    minHeight: 74,
+    paddingTop: 25,
+    paddingBottom: 18,
+    paddingHorizontal: 0,
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    textAlignVertical: "top",
   },
   errorBox: {
+    marginTop: 14,
     padding: 13,
     borderRadius: 14,
     flexDirection: "row",
@@ -482,31 +562,41 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    minHeight: 92,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    borderTopLeftRadius: radii.large,
-    borderTopRightRadius: radii.large,
+    right: 16,
+    left: 16,
+    minHeight: 96,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 14,
     backgroundColor: colors.white,
     ...shadow,
   },
+  totalBlock: {
+    minWidth: 112,
+  },
   totalLabel: {
     color: colors.muted,
-    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
   },
   total: {
     marginTop: 2,
     color: colors.ink,
-    fontSize: 17,
-    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    fontSize: 21,
+    lineHeight: 29,
   },
   submit: {
     flex: 1,
+    minHeight: 62,
+    borderRadius: radii.medium,
+    backgroundColor: colors.orange,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

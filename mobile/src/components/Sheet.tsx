@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -30,7 +31,13 @@ type Props = PropsWithChildren<{
   footer?: ReactNode;
   height?: ViewStyle["height"];
   swipeToDismiss?: boolean;
+  backdropVisible?: boolean;
 }>;
+
+const OPEN_DURATION = 420;
+const CLOSE_DURATION = 360;
+const OPEN_EASING = Easing.bezier(0.22, 1, 0.36, 1);
+const CLOSE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
 export function Sheet({
   visible,
@@ -40,12 +47,14 @@ export function Sheet({
   footer,
   height,
   swipeToDismiss = true,
+  backdropVisible = true,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(visible);
   const openOffset = useSharedValue(visible ? 0 : 900);
   const openProgress = useSharedValue(visible ? 1 : 0);
+  const backdropVisibility = useSharedValue(backdropVisible ? 1 : 0);
   const swipe = useSwipeToDismiss({
     enabled: swipeToDismiss && !edgeToEdge,
     onDismiss: onClose,
@@ -58,8 +67,14 @@ export function Sheet({
     openOffset.value = 900;
     openProgress.value = 0;
     const frame = requestAnimationFrame(() => {
-      openOffset.value = withTiming(0, { duration: 240 });
-      openProgress.value = withTiming(1, { duration: 240 });
+      openOffset.value = withTiming(0, {
+        duration: OPEN_DURATION,
+        easing: OPEN_EASING,
+      });
+      openProgress.value = withTiming(1, {
+        duration: OPEN_DURATION,
+        easing: OPEN_EASING,
+      });
     });
     return () => cancelAnimationFrame(frame);
   }, [openOffset, openProgress, swipe.reset, visible]);
@@ -68,13 +83,23 @@ export function Sheet({
     if (!mounted || visible) return;
     openOffset.value = withTiming(
       Math.max(swipe.surfaceHeight.value, 900),
-      { duration: 190 },
+      { duration: CLOSE_DURATION, easing: CLOSE_EASING },
       (finished) => {
         if (finished) runOnJS(setMounted)(false);
       },
     );
-    openProgress.value = withTiming(0, { duration: 190 });
+    openProgress.value = withTiming(0, {
+      duration: CLOSE_DURATION,
+      easing: CLOSE_EASING,
+    });
   }, [mounted, openOffset, openProgress, swipe.surfaceHeight, visible]);
+
+  useEffect(() => {
+    backdropVisibility.value = withTiming(backdropVisible ? 1 : 0, {
+      duration: CLOSE_DURATION,
+      easing: OPEN_EASING,
+    });
+  }, [backdropVisibility, backdropVisible]);
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: openOffset.value + swipe.translationY.value }],
@@ -84,7 +109,11 @@ export function Sheet({
       1,
       swipe.translationY.value / Math.max(swipe.surfaceHeight.value, 1),
     );
-    return { opacity: openProgress.value * (1 - dragProgress) };
+    return {
+      opacity: openProgress.value
+        * backdropVisibility.value
+        * (1 - dragProgress),
+    };
   });
 
   if (!mounted) return null;

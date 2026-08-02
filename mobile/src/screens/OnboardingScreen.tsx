@@ -2,16 +2,15 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Image,
-  Platform,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { NotificationPermissionPrompt } from "../components/NotificationPermissionPrompt";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RipplePressable } from "../components/RipplePressable";
+import { requestOrderNotificationPermission } from "../pushNotifications";
 import { useStore } from "../store";
 
 type Props = {
@@ -82,7 +81,6 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
   const { setOnboarded, setNotificationsAsked } = useStore();
   const [page, setPage] = useState(0);
   const [requestingPermission, setRequestingPermission] = useState(false);
-  const [permissionPromptVisible, setPermissionPromptVisible] = useState(false);
   const pageIndex = Math.min(Math.max(page, 0), pages.length - 1);
   const current = pages[pageIndex];
   const compact = height < 820 || width <= 360;
@@ -112,25 +110,14 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
   };
 
   const allowNotifications = async () => {
-    setRequestingPermission(true);
-    setNotificationsAsked(true);
-    try {
-      if (Platform.OS !== "web") {
-        const Notifications = await import("expo-notifications");
-        await Notifications.requestPermissionsAsync();
-      }
-    } finally {
-      setRequestingPermission(false);
-      setPermissionPromptVisible(false);
-      next();
-    }
-  };
-
-  const denyNotifications = () => {
     if (requestingPermission) return;
-    setNotificationsAsked(true);
-    setPermissionPromptVisible(false);
-    next();
+    setRequestingPermission(true);
+    try {
+      await requestOrderNotificationPermission();
+    } finally {
+      setNotificationsAsked(true);
+      setRequestingPermission(false);
+    }
   };
 
   return (
@@ -186,7 +173,11 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
             compact && styles.titleCompact,
             isNotificationPage && styles.notificationTitle,
             isNotificationPage && compact && styles.notificationTitleCompact,
-          ]}>
+          ]}
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+            numberOfLines={2}
+          >
             {current.title}
           </Text>
           <Text style={[
@@ -204,7 +195,8 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
             <PrimaryButton
               label="Включить пуш-уведомления"
               labelStyle={[styles.buttonLabel, compact && styles.buttonLabelCompact]}
-              onPress={() => setPermissionPromptVisible(true)}
+              loading={requestingPermission}
+              onPress={() => void allowNotifications()}
               style={[
                 styles.actionButton,
                 styles.notificationButton,
@@ -241,12 +233,6 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
           ) : null}
         </View>
       </View>
-      <NotificationPermissionPrompt
-        busy={requestingPermission}
-        onAllow={() => void allowNotifications()}
-        onDeny={denyNotifications}
-        visible={permissionPromptVisible}
-      />
     </View>
   );
 }
@@ -302,43 +288,43 @@ const styles = StyleSheet.create({
   title: {
     color: "#FFFFFF",
     fontFamily: "Inter_800ExtraBold",
-    fontSize: 44,
-    lineHeight: 48,
-    letterSpacing: -0.7,
-  },
-  titleCompact: {
-    fontSize: 40,
-    lineHeight: 44,
-  },
-  notificationTitle: {
     fontSize: 38,
     lineHeight: 42,
+    letterSpacing: -0.55,
+  },
+  titleCompact: {
+    fontSize: 34,
+    lineHeight: 38,
+  },
+  notificationTitle: {
+    fontSize: 34,
+    lineHeight: 38,
   },
   notificationTitleCompact: {
-    fontSize: 36,
-    lineHeight: 40,
+    fontSize: 32,
+    lineHeight: 36,
   },
   copy: {
     maxWidth: 350,
     marginTop: 22,
     color: "rgba(255,255,255,0.92)",
     fontFamily: "Inter_400Regular",
-    fontSize: 19,
-    lineHeight: 26,
-  },
-  copyCompact: {
-    marginTop: 18,
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  notificationCopy: {
-    marginTop: 16,
     fontSize: 17,
     lineHeight: 23,
   },
-  notificationCopyCompact: {
+  copyCompact: {
+    marginTop: 18,
     fontSize: 16,
     lineHeight: 22,
+  },
+  notificationCopy: {
+    marginTop: 16,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  notificationCopyCompact: {
+    fontSize: 15,
+    lineHeight: 20,
   },
   actions: {
     marginTop: 24,

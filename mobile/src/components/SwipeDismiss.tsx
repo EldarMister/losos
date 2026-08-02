@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Gesture } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -20,6 +21,8 @@ import Animated, {
 const DISMISS_DISTANCE_FRACTION = 0.25;
 const DISMISS_VELOCITY = 900;
 const DRAG_ACTIVATION_DISTANCE = 8;
+const DISMISS_DURATION = 360;
+const DISMISS_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
 export function shouldActivateSheetDrag(
   deltaX: number,
@@ -109,7 +112,7 @@ export function useSwipeToDismiss({
         dismissing.value = true;
         translationY.value = withTiming(
           Math.max(surfaceHeight.value, 480),
-          { duration: 190 },
+          { duration: DISMISS_DURATION, easing: DISMISS_EASING },
           (finished) => {
             if (finished) runOnJS(onDismiss)();
           },

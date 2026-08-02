@@ -12,11 +12,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { authApi } from "../api";
+import { formatMoney } from "../money";
 import { useStore } from "../store";
 import { colors } from "../theme";
 import type { ProfileData, ProfileOrder } from "../types";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 const statuses: Record<ProfileOrder["status"], string> = {
   new: "Принят",

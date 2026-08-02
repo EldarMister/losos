@@ -183,12 +183,16 @@ export function NumberTicker({
   const flatStyle = StyleSheet.flatten(resolvedTextStyle) || {};
   const drumTextStyle = useMemo(() => glyphStyle(flatStyle), [flatStyle]);
   const fontSize = typeof flatStyle.fontSize === "number" ? flatStyle.fontSize : 16;
-  const digitHeight = height
+  const requestedDigitHeight = height
     ?? (typeof flatStyle.lineHeight === "number" ? flatStyle.lineHeight : Math.ceil(fontSize * 1.25));
+  // Android clips glyphs when a Text line is exactly as high as its font box.
+  // Keep the reel's mask a little taller so rounded digits remain intact while
+  // the strip is animated.
+  const digitHeight = Math.max(requestedDigitHeight, Math.ceil(fontSize * 1.3));
   // Inter supports tabular figures. The explicit width is a safe fallback on Android fonts.
   // A compact tabular cell: enough room for Inter's widest digit on Android,
   // without turning a normal amount into visibly spaced-out characters.
-  const digitWidth = Math.max(1, Math.round(fontSize * 0.625));
+  const digitWidth = Math.max(1, Math.ceil(fontSize * 0.64));
   const digitCount = (formatted.match(/\d/g) || []).length;
   const justifyContent = flatStyle.textAlign === "center"
     ? "center"
@@ -261,9 +265,11 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     fontVariant: ["tabular-nums"],
     textAlign: "center",
+    textAlignVertical: "center",
   },
   staticCharacter: {
     includeFontPadding: false,
     fontVariant: ["tabular-nums"],
+    textAlignVertical: "center",
   },
 });

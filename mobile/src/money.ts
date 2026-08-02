@@ -8,7 +8,7 @@ const numberFormatter = new Intl.NumberFormat("ru-RU", {
 
 /** Formats an amount using the single currency representation used by the app. */
 export function formatMoney(value: number) {
-  return `${moneyFormatter.format(value)} сом`;
+  return `${moneyFormatter.format(value)} С`;
 }
 
 /** Use this with NumberTicker when animating a quantity rather than an amount. */

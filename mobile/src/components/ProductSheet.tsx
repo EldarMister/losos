@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { catalogApi, resolveImageUrl } from "../api";
+import { formatMoney } from "../money";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
 import type {
@@ -24,7 +25,7 @@ import { RipplePressable as Pressable } from "./RipplePressable";
 import { Sheet } from "./Sheet";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
 
-const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
+const money = formatMoney;
 
 type Props = {
   product: Product | null;
@@ -223,7 +224,7 @@ export function ProductSheet({
     if (!sheetVisible) return;
     setDetailView(null);
     setSheetVisible(false);
-    closeTimer.current = setTimeout(onClose, 210);
+    closeTimer.current = setTimeout(onClose, 390);
   };
   const heroHeight = Math.min(width, height * 0.58);
 
@@ -421,7 +422,7 @@ export function ProductSheet({
                           groupCount === 0 && styles.modifierPriceActive,
                         ]}
                       >
-                        0 сом
+                        {money(0)}
                       </Text>
                     </Pressable>
                   ) : null}
@@ -450,7 +451,7 @@ export function ProductSheet({
                           {item.name}
                         </Text>
                         <Text style={[styles.modifierPrice, active && styles.modifierPriceActive]}>
-                          {item.price ? `+${money(item.price)}` : "0 сом"}
+                          {item.price ? `+${money(item.price)}` : money(0)}
                         </Text>
                       </Pressable>
                     );

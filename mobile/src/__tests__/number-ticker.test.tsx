@@ -13,7 +13,7 @@ describe("NumberTicker", () => {
   it("uses the app money formatter by default", async () => {
     const screen = await render(<NumberTicker value={1250} />);
 
-    expect(screen.getByLabelText("1 250 сом")).toBeTruthy();
+    expect(screen.getByLabelText("1 250 С")).toBeTruthy();
   });
 
   it("keeps the formatted result accessible after a digit update", async () => {
@@ -25,7 +25,7 @@ describe("NumberTicker", () => {
 
     await screen.rerender(<NumberTicker format={formatMoney} value={1000} />);
 
-    expect(screen.getByLabelText("1 000 сом")).toBeTruthy();
+    expect(screen.getByLabelText("1 000 С")).toBeTruthy();
     expect(screen.getByTestId("number-ticker-digit-0")).toBe(unitsReel);
     expect(screen.getByTestId("number-ticker-digit-1")).toBe(tensReel);
     expect(screen.getByTestId("number-ticker-digit-2")).toBe(hundredsReel);
@@ -45,13 +45,13 @@ describe("NumberTicker", () => {
 
     const reel = screen.getByTestId("number-ticker-digit-0");
     expect(StyleSheet.flatten(reel.parent?.props.style)).toMatchObject({
-      height: 20,
-      width: 10,
+      height: 21,
+      width: 11,
     });
     const suffix = screen.getByTestId("number-ticker-character-3");
     expect(StyleSheet.flatten(suffix.props.style)).toMatchObject({
-      height: 20,
-      lineHeight: 20,
+      height: 21,
+      lineHeight: 21,
     });
   });
 
@@ -61,7 +61,7 @@ describe("NumberTicker", () => {
       <NumberTicker duration={600} format={formatNumber} height={20} value={9} />,
     );
     const initialReel = screen.getByTestId("number-ticker-digit-0");
-    expect(getAnimatedStyle(initialReel).transform).toEqual([{ translateY: -180 }]);
+    expect(getAnimatedStyle(initialReel).transform).toEqual([{ translateY: -189 }]);
 
     await screen.rerender(
       <NumberTicker duration={600} format={formatNumber} height={20} value={0} />,
@@ -72,7 +72,7 @@ describe("NumberTicker", () => {
       screen.getByTestId("number-ticker-digit-0"),
     ) as { transform?: Array<{ translateY?: number }> };
     const animatedTranslateY = animatedStyle.transform?.[0]?.translateY;
-    expect(animatedTranslateY).toBeGreaterThan(-180);
+    expect(animatedTranslateY).toBeGreaterThan(-189);
     expect(animatedTranslateY).toBeLessThan(0);
   });
 
@@ -92,7 +92,7 @@ describe("NumberTicker", () => {
     await act(async () => jest.advanceTimersByTime(600));
 
     expect(getAnimatedStyle(screen.getByTestId("number-ticker-digit-0")).transform)
-      .toEqual([{ translateY: -40 }]);
+      .toEqual([{ translateY: -42 }]);
   });
 
   it("moves directly to the new value when Reduce Motion is enabled", async () => {
@@ -109,6 +109,6 @@ describe("NumberTicker", () => {
     );
 
     expect(getAnimatedStyle(screen.getByTestId("number-ticker-digit-0")).transform)
-      .toEqual([{ translateY: -80 }]);
+      .toEqual([{ translateY: -84 }]);
   });
 });

@@ -27,6 +27,33 @@ function pushIsAvailable() {
     && Constants.appOwnership !== "expo";
 }
 
+async function ensureOrderNotificationChannel() {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync("orders", {
+    name: "Статусы заказов",
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 250, 180, 250],
+    lightColor: "#FF4D00",
+  });
+}
+
+export async function requestOrderNotificationPermission() {
+  if (Platform.OS === "web") {
+    return { granted: false as const, status: "unsupported" as const };
+  }
+
+  await ensureOrderNotificationChannel();
+  let permission = await Notifications.getPermissionsAsync();
+  if (permission.status !== "granted") {
+    permission = await Notifications.requestPermissionsAsync();
+  }
+
+  return {
+    granted: permission.status === "granted",
+    status: permission.status,
+  };
+}
+
 async function saveExpoPushToken(
   session: AuthSession,
   devicePushToken?: Notifications.DevicePushToken,
@@ -56,14 +83,7 @@ export async function registerOrderPush(session: AuthSession, askPermission = tr
     return { registered: false as const, reason: "development-build-required" as const };
   }
 
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync("orders", {
-      name: "Статусы заказов",
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 180, 250],
-      lightColor: "#FF4D00",
-    });
-  }
+  await ensureOrderNotificationChannel();
 
   let permissions = await Notifications.getPermissionsAsync();
   if (askPermission && permissions.status !== "granted") {

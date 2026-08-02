@@ -53,7 +53,14 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={foreground} />
       ) : (
-        <Text style={[styles.label, { color: foreground }, labelStyle]}>{label}</Text>
+        <Text
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+          numberOfLines={1}
+          style={[styles.label, { color: foreground }, labelStyle]}
+        >
+          {label}
+        </Text>
       )}
     </RipplePressable>
   );

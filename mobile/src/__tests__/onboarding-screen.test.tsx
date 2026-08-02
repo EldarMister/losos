@@ -15,6 +15,15 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 24, right: 0, bottom: 24, left: 0 }),
 }));
 
+const mockRequestOrderNotificationPermission = jest.fn(() => Promise.resolve({
+  granted: true,
+  status: "granted",
+}));
+
+jest.mock("../pushNotifications", () => ({
+  requestOrderNotificationPermission: () => mockRequestOrderNotificationPermission(),
+}));
+
 const setOnboarded = jest.fn();
 const setNotificationsAsked = jest.fn();
 
@@ -41,19 +50,26 @@ describe("OnboardingScreen", () => {
       <OnboardingScreen onComplete={onComplete} onLogin={onLogin} />,
     );
 
-    expect(screen.getByText("Много вкусного\nв одном месте")).toBeTruthy();
+    const firstTitle = screen.getByText("Много вкусного\nв одном месте");
+    expect(firstTitle).toBeTruthy();
+    expect(firstTitle.props.numberOfLines).toBe(2);
+    expect(firstTitle.props.adjustsFontSizeToFit).toBe(true);
     expect(screen.getByLabelText("Пакет с блюдами Накта суши").props.source)
       .toBe(require("../../assets/pickup.png"));
     expect(activeProgress(screen)).toEqual([true, false, false, false]);
 
     await fireEvent.press(screen.getByText("Далее"));
-    expect(screen.getByText("Качественно\nи вкусно")).toBeTruthy();
+    const secondTitle = screen.getByText("Качественно\nи вкусно");
+    expect(secondTitle).toBeTruthy();
+    expect(secondTitle.props.numberOfLines).toBe(2);
     expect(screen.getByLabelText("Иконка приложения NAKTASUSHI").props.source)
       .toBe(require("../../assets/app-icon.png"));
     expect(activeProgress(screen)).toEqual([true, true, false, false]);
 
     await fireEvent.press(screen.getByText("Далее"));
-    expect(screen.getByText("Пришлём пуш\nо статусе заказа")).toBeTruthy();
+    const notificationTitle = screen.getByText("Пришлём пуш\nо статусе заказа");
+    expect(notificationTitle).toBeTruthy();
+    expect(notificationTitle.props.numberOfLines).toBe(2);
     expect(screen.getByLabelText("Термосумка Накта суши").props.source)
       .toBe(require("../../assets/delivery.png"));
     expect(activeProgress(screen)).toEqual([true, true, true, false]);
@@ -72,7 +88,7 @@ describe("OnboardingScreen", () => {
     expect(onLogin).not.toHaveBeenCalled();
   });
 
-  test("moves to the final page after the notification decision", async () => {
+  test("opens the system notification request and keeps the next step explicit", async () => {
     const onComplete = jest.fn();
     const onLogin = jest.fn();
     const screen = await render(
@@ -82,9 +98,12 @@ describe("OnboardingScreen", () => {
     await fireEvent.press(screen.getByText("Далее"));
 
     await fireEvent.press(screen.getByText("Включить пуш-уведомления"));
-    await fireEvent.press(screen.getByText("Не разрешать"));
 
+    expect(mockRequestOrderNotificationPermission).toHaveBeenCalledTimes(1);
     expect(setNotificationsAsked).toHaveBeenCalledWith(true);
+    expect(screen.getByText("Пришлём пуш\nо статусе заказа")).toBeTruthy();
+
+    await fireEvent.press(screen.getByText("Далее"));
     expect(screen.getByText("Выбрать адрес доставки")).toBeTruthy();
     expect(setOnboarded).not.toHaveBeenCalled();
     expect(onComplete).not.toHaveBeenCalled();

@@ -324,7 +324,12 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         )}
       </Sheet>
 
-      <Sheet height="84%" visible={kitVisible} onClose={() => setKitVisible(false)}>
+      <Sheet
+        backdropVisible={!extrasVisible}
+        height="84%"
+        visible={kitVisible}
+        onClose={() => setKitVisible(false)}
+      >
         <View style={styles.kitContent}>
           <Text style={styles.kitTitle}>Комплектация</Text>
           <Text style={styles.freeTitle}>Бесплатно</Text>
@@ -764,13 +769,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   freeRow: {
-    minHeight: 62,
+    minHeight: 68,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
   kitSectionHeader: {
-    marginTop: 12,
+    marginTop: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -794,7 +799,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   kitRow: {
-    minHeight: 66,
+    minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -824,7 +829,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   extraTitle: {
-    marginTop: 8,
+    marginTop: 14,
   },
   kitPlus: {
     width: 40,
@@ -869,20 +874,20 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   extraCard: {
-    width: 180,
-    height: 306,
+    width: 156,
+    height: 266,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: colors.surface,
   },
   extraImage: {
     width: "100%",
-    height: 180,
+    height: 156,
     backgroundColor: colors.white,
   },
   extraName: {
-    minHeight: 42,
-    marginTop: 12,
+    minHeight: 38,
+    marginTop: 10,
     marginHorizontal: 16,
     color: colors.ink,
     fontSize: 14,

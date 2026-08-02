@@ -15,25 +15,18 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
-import {
-  deliveryEtaLabel,
-  deliveryFeeFor,
-  freeDeliveryRemaining,
-} from "../delivery";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
-import { formatMoney, formatNumber } from "../money";
 import type { Category, Product } from "../types";
+import { CatalogCartDock } from "./CatalogCartDock";
 import { ProductCard } from "./ProductCard";
-import { NumberTicker } from "./NumberTicker";
 import { Sheet } from "./Sheet";
-
-const money = formatMoney;
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onOpenCart: () => void;
+  onOpenDeliveryInfo: () => void;
   onOpenProduct: (product: Product) => void;
 };
 
@@ -41,14 +34,20 @@ export function SearchSheet({
   visible,
   onClose,
   onOpenCart,
+  onOpenDeliveryInfo,
   onOpenProduct,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const store = useStore();
   const inputRef = useRef<TextInput>(null);
+  const categoryRailRef = useRef<ScrollView>(null);
+  const resultsScrollRef = useRef<ScrollView>(null);
+  const categoryChipLayouts = useRef<Record<string, { width: number; x: number }>>({});
+  const resultSectionLayouts = useRef<Record<string, { y: number }>>({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState("");
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<string | null>(null);
   const [results, setResults] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,6 +55,7 @@ export function SearchSheet({
   useEffect(() => {
     if (!visible) {
       setQuery("");
+      setSelectedCategorySlug(null);
       setResults([]);
       setError("");
       return undefined;
@@ -82,6 +82,12 @@ export function SearchSheet({
 
   useEffect(() => {
     const normalized = query.trim();
+    if (selectedCategorySlug) {
+      setResults([]);
+      setLoading(false);
+      setError("");
+      return;
+    }
     if (normalized.length < 2) {
       setResults([]);
       setLoading(false);
@@ -106,7 +112,7 @@ export function SearchSheet({
         .finally(() => setLoading(false));
     }, 320);
     return () => clearTimeout(timer);
-  }, [categories, query, store.regionSlug]);
+  }, [categories, query, selectedCategorySlug, store.regionSlug]);
 
   const add = useCallback((product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {
@@ -126,20 +132,21 @@ export function SearchSheet({
     }
     return quantities;
   }, [store.cart]);
-  const region = store.activeRegion;
-  const etaLabel = deliveryEtaLabel(region);
-  const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
-  const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
   const productCardWidth = Math.min(
     206,
     Math.max(148, (width - 46) / 2),
   );
+  const visibleCategories = useMemo(() => (
+    categories.flatMap((category) => {
+      const products = category.products.filter((product) => product.available !== false);
+      return products.length ? [{ ...category, products }] : [];
+    })
+  ), [categories]);
   const groupedResults = useMemo(() => {
+    if (selectedCategorySlug) return visibleCategories;
     const resultIds = new Set(results.map((product) => product.id));
-    const groups = categories.flatMap((category) => {
-      const products = category.products.filter((product) => (
-        product.available !== false && resultIds.has(product.id)
-      ));
+    const groups = visibleCategories.flatMap((category) => {
+      const products = category.products.filter((product) => resultIds.has(product.id));
       return products.length ? [{ ...category, products }] : [];
     });
     const groupedIds = new Set(
@@ -154,14 +161,69 @@ export function SearchSheet({
           slug: "search-results",
           title: "Результаты",
           products: uncategorized,
-        }]
+      }]
       : groups;
-  }, [categories, results]);
+  }, [results, selectedCategorySlug, visibleCategories]);
+
+  const hasCatalogResults = selectedCategorySlug !== null || query.trim().length >= 2;
+
+  const revealSelectedCategory = useCallback(() => {
+    if (!selectedCategorySlug) return;
+    const chip = categoryChipLayouts.current[selectedCategorySlug];
+    if (!chip) return;
+    categoryRailRef.current?.scrollTo({
+      animated: true,
+      x: Math.max(0, chip.x - (width - chip.width) / 2),
+    });
+  }, [selectedCategorySlug, width]);
+
+  const revealCategorySection = useCallback((categorySlug: string) => {
+    const section = resultSectionLayouts.current[categorySlug];
+    if (!section) return;
+    resultsScrollRef.current?.scrollTo({
+      animated: true,
+      y: Math.max(0, section.y - 11),
+    });
+  }, []);
+
+  const revealSelectedSection = useCallback(() => {
+    if (!selectedCategorySlug) return;
+    revealCategorySection(selectedCategorySlug);
+  }, [revealCategorySection, selectedCategorySlug]);
 
   const chooseCategory = (category: Category) => {
     Keyboard.dismiss();
-    setQuery(category.title);
+
+    // Opening the category catalog replaces the current search results, so its
+    // section positions must be measured again. Once the full catalog is open,
+    // keep those measurements: the sections stay mounted between chip presses.
+    const openingCatalog = selectedCategorySlug === null;
+    if (openingCatalog) resultSectionLayouts.current = {};
+
+    setQuery("");
+    setSelectedCategorySlug(category.slug);
+
+    // React ignores a state update to the already selected slug. Scroll here as
+    // well so tapping the active chip always returns to its section.
+    if (!openingCatalog) {
+      requestAnimationFrame(() => revealCategorySection(category.slug));
+    }
   };
+
+  useEffect(() => {
+    if (!selectedCategorySlug) return undefined;
+    const frame = requestAnimationFrame(() => {
+      revealSelectedCategory();
+      revealSelectedSection();
+    });
+    const layoutTimer = setTimeout(revealSelectedSection, 140);
+    const keyboardTimer = setTimeout(revealSelectedSection, 420);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(layoutTimer);
+      clearTimeout(keyboardTimer);
+    };
+  }, [revealSelectedCategory, revealSelectedSection, selectedCategorySlug]);
 
   return (
     <Sheet
@@ -169,46 +231,6 @@ export function SearchSheet({
       fullScreen
       visible={visible}
       onClose={onClose}
-      footer={store.cartCount ? (
-        <View>
-          <View style={styles.deliveryHint}>
-            {store.deliveryType === "pickup"
-              ? <Text style={styles.deliveryHintText}>Самовывоз из выбранной кухни</Text>
-              : remainingForFreeDelivery > 0
-                ? <>
-                    <Text style={styles.deliveryHintText}>Доставка </Text>
-                    <NumberTicker format={money} height={15} style={styles.deliveryHintText} value={deliveryFee} />
-                    <Text style={styles.deliveryHintText}> • До бесплатной </Text>
-                    <NumberTicker format={money} height={15} style={styles.deliveryHintText} value={remainingForFreeDelivery} />
-                  </>
-                : <Text style={styles.deliveryHintText}>Бесплатная доставка</Text>}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Открыть корзину, ${money(store.cartTotal)}`}
-            onPress={() => {
-              onClose();
-              onOpenCart();
-            }}
-            style={({ pressed }) => [styles.cartBar, pressed && styles.pressed]}
-          >
-            <NumberTicker
-              accessibilityLabel={`Сумма корзины: ${money(store.cartTotal)}`}
-              format={money}
-              height={22}
-              style={styles.cartPrice}
-              value={store.cartTotal}
-            />
-            <Text style={styles.cartTime}>
-              {store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
-            </Text>
-            <View style={styles.cartPreview}>
-              <MaterialCommunityIcons name="shopping-outline" size={21} color={colors.orange} />
-              <NumberTicker format={formatNumber} height={16} style={styles.cartCount} value={store.cartCount} />
-            </View>
-          </Pressable>
-        </View>
-      ) : undefined}
     >
       <StatusBar style="light" translucent />
       <View
@@ -228,7 +250,11 @@ export function SearchSheet({
           <MaterialCommunityIcons name="magnify" size={21} color={colors.ink} />
           <TextInput
             ref={inputRef}
-            onChangeText={setQuery}
+            onChangeText={(value) => {
+              resultSectionLayouts.current = {};
+              setSelectedCategorySlug(null);
+              setQuery(value);
+            }}
             onSubmitEditing={() => Keyboard.dismiss()}
             placeholder="Поиск по блюдам"
             placeholderTextColor="#A0A0A0"
@@ -240,7 +266,9 @@ export function SearchSheet({
             accessibilityLabel="Очистить поиск"
             hitSlop={8}
             onPress={() => {
+              resultSectionLayouts.current = {};
               setQuery("");
+              setSelectedCategorySlug(null);
               inputRef.current?.focus();
             }}
           >
@@ -249,14 +277,54 @@ export function SearchSheet({
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {!query.trim() ? (
+      <View style={styles.resultsBody}>
+        {!loading && !error && groupedResults.length ? (
+          <ScrollView
+            ref={categoryRailRef}
+            contentContainerStyle={styles.categoryRail}
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={revealSelectedCategory}
+            showsHorizontalScrollIndicator={false}
+          >
+            {visibleCategories.map((category) => {
+              const active = category.slug === selectedCategorySlug;
+              return (
+                <Pressable
+                  key={category.slug}
+                  onLayout={(event) => {
+                    categoryChipLayouts.current[category.slug] = event.nativeEvent.layout;
+                    if (active) revealSelectedCategory();
+                  }}
+                  onPress={() => chooseCategory(category)}
+                  style={[styles.suggestion, active && styles.suggestionActive]}
+                >
+                  <Text
+                    style={[
+                      styles.suggestionText,
+                      active && styles.suggestionTextActive,
+                    ]}
+                  >
+                    {category.title}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+        <ScrollView
+          ref={resultsScrollRef}
+          contentContainerStyle={[
+            styles.content,
+            store.cartCount ? styles.contentWithCart : null,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={revealSelectedSection}
+          showsVerticalScrollIndicator={false}
+        >
+        {!query.trim() && selectedCategorySlug === null ? (
           <View style={styles.suggestions}>
-            {categories.map((category) => (
+            {visibleCategories.map((category) => (
               <Pressable
                 key={category.slug}
                 onPress={() => chooseCategory(category)}
@@ -277,34 +345,15 @@ export function SearchSheet({
           </View>
         ) : groupedResults.length ? (
           <>
-            <ScrollView
-              contentContainerStyle={styles.categoryRail}
-              horizontal
-              keyboardShouldPersistTaps="handled"
-              showsHorizontalScrollIndicator={false}
-            >
-              {categories.map((category) => {
-                const active = category.title === query.trim();
-                return (
-                  <Pressable
-                    key={category.slug}
-                    onPress={() => chooseCategory(category)}
-                    style={[styles.suggestion, active && styles.suggestionActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.suggestionText,
-                        active && styles.suggestionTextActive,
-                      ]}
-                    >
-                      {category.title}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
             {groupedResults.map((category) => (
-              <View key={category.slug} style={styles.resultSection}>
+              <View
+                key={category.slug}
+                onLayout={(event) => {
+                  resultSectionLayouts.current[category.slug] = event.nativeEvent.layout;
+                  if (category.slug === selectedCategorySlug) revealSelectedSection();
+                }}
+                style={styles.resultSection}
+              >
                 <Text style={styles.heading}>{category.title}</Text>
                 <View style={styles.results}>
                   {category.products.map((product) => (
@@ -324,14 +373,25 @@ export function SearchSheet({
               </View>
             ))}
           </>
-        ) : query.trim().length >= 2 ? (
+        ) : hasCatalogResults ? (
           <View style={styles.center}>
             <MaterialCommunityIcons name="food-off-outline" size={40} color={colors.muted} />
             <Text style={styles.emptyTitle}>Ничего не нашли</Text>
             <Text style={styles.helper}>Попробуйте другое название блюда.</Text>
           </View>
         ) : null}
-      </ScrollView>
+        </ScrollView>
+        <CatalogCartDock
+          onOpenCart={() => {
+            onClose();
+            onOpenCart();
+          }}
+          onOpenDeliveryInfo={() => {
+            onClose();
+            onOpenDeliveryInfo();
+          }}
+        />
+      </View>
     </Sheet>
   );
 }
@@ -381,6 +441,12 @@ const styles = StyleSheet.create({
     paddingTop: 11,
     paddingBottom: 50,
   },
+  contentWithCart: {
+    paddingBottom: 150,
+  },
+  resultsBody: {
+    flex: 1,
+  },
   heading: {
     marginBottom: 12,
     color: colors.ink,
@@ -400,7 +466,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   suggestionActive: {
-    backgroundColor: colors.ink,
+    backgroundColor: "#E1E1E1",
   },
   suggestionText: {
     color: colors.ink,
@@ -408,7 +474,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   suggestionTextActive: {
-    color: colors.white,
+    color: colors.ink,
     fontWeight: "700",
   },
   center: {
@@ -439,58 +505,13 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   categoryRail: {
+    paddingHorizontal: 16,
     paddingTop: 2,
-    paddingBottom: 20,
+    paddingBottom: 12,
     gap: 8,
   },
   resultSection: {
     marginBottom: 24,
-  },
-  deliveryHint: {
-    marginBottom: 9,
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  deliveryHintText: {
-    color: "#777777",
-    fontSize: 12,
-  },
-  cartBar: {
-    minHeight: 64,
-    paddingHorizontal: 18,
-    borderRadius: 19,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.orange,
-  },
-  cartPrice: {
-    flex: 1,
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  cartTime: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  cartPreview: {
-    minWidth: 48,
-    height: 42,
-    marginLeft: 18,
-    paddingHorizontal: 8,
-    borderRadius: 13,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-    backgroundColor: colors.white,
-  },
-  cartCount: {
-    color: colors.orange,
-    fontSize: 12,
-    fontWeight: "800",
   },
   pressed: {
     opacity: 0.82,
