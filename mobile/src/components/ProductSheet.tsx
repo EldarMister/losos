@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   InteractionManager,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,6 +20,7 @@ import type {
 } from "../types";
 import { QuantityControl } from "./QuantityControl";
 import { NumberTicker } from "./NumberTicker";
+import { RipplePressable as Pressable } from "./RipplePressable";
 import { Sheet } from "./Sheet";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
 
@@ -654,6 +654,7 @@ const styles = StyleSheet.create({
     padding: 13,
     borderRadius: 14,
     backgroundColor: colors.surface,
+    overflow: "hidden",
   },
   compositionTitle: {
     color: colors.ink,
@@ -683,6 +684,7 @@ const styles = StyleSheet.create({
     padding: 9,
     borderRadius: radii.medium,
     backgroundColor: colors.white,
+    overflow: "hidden",
   },
   relatedImage: {
     width: "100%",
@@ -716,6 +718,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
+    overflow: "hidden",
   },
   detailHeader: {
     paddingHorizontal: 20,
@@ -777,6 +780,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
+    overflow: "hidden",
   },
   detailButtonText: {
     color: colors.ink,
@@ -919,6 +923,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.orange,
+    overflow: "hidden",
   },
   addButtonDisabled: {
     backgroundColor: "#FF8B5B",

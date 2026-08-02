@@ -188,7 +188,7 @@ export function NumberTicker({
   // Inter supports tabular figures. The explicit width is a safe fallback on Android fonts.
   // A compact tabular cell: enough room for Inter's widest digit on Android,
   // without turning a normal amount into visibly spaced-out characters.
-  const digitWidth = Math.ceil(fontSize * 0.67);
+  const digitWidth = Math.max(1, Math.round(fontSize * 0.625));
   const digitCount = (formatted.match(/\d/g) || []).length;
   const justifyContent = flatStyle.textAlign === "center"
     ? "center"
@@ -230,7 +230,16 @@ export function NumberTicker({
         }
 
         return (
-          <Text key={`character-${index}-${character}`} accessible={false} style={[styles.staticCharacter, drumTextStyle]}>
+          <Text
+            key={`character-${index}-${character}`}
+            accessible={false}
+            testID={`number-ticker-character-${index}`}
+            style={[
+              styles.staticCharacter,
+              drumTextStyle,
+              { height: digitHeight, lineHeight: digitHeight },
+            ]}
+          >
             {character}
           </Text>
         );

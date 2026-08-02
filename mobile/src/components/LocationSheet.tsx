@@ -6,7 +6,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type PropsWithChildren,
 } from "react";
 import {
   ActivityIndicator,
@@ -22,12 +21,7 @@ import {
   Text,
   TextInput,
   View,
-  type LayoutChangeEvent,
-  type StyleProp,
-  type ViewStyle,
 } from "react-native";
-import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
 import {
@@ -40,11 +34,6 @@ import { useStore } from "../store";
 import { colors, shadow } from "../theme";
 import type { DeliveryType, PickupLocation, Region } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
-import {
-  SwipeDismissScrollProvider,
-  SwipeDismissScrollView,
-  useSwipeToDismiss,
-} from "./SwipeDismiss";
 import { YandexMap } from "./YandexMap";
 import {
   getDeliveryZone,
@@ -63,46 +52,6 @@ type PickupOption = {
   region: Region;
   pickup: PickupLocation;
 };
-
-type SwipePanelProps = PropsWithChildren<{
-  dismissEnabled?: boolean;
-  onDismiss: () => void;
-  onLayout?: (event: LayoutChangeEvent) => void;
-  resetKey?: string | number | boolean | null;
-  style?: StyleProp<ViewStyle>;
-}>;
-
-function SwipePanel({
-  children,
-  dismissEnabled = true,
-  onDismiss,
-  onLayout,
-  resetKey,
-  style,
-}: SwipePanelProps) {
-  const swipe = useSwipeToDismiss({ dismissEnabled, onDismiss });
-
-  useEffect(() => {
-    swipe.reset();
-  }, [resetKey, swipe.reset]);
-
-  return (
-    <SwipeDismissScrollProvider scrollOffsetY={swipe.scrollOffsetY}>
-      <GestureDetector gesture={swipe.gesture}>
-        <Animated.View
-          collapsable={false}
-          onLayout={(event) => {
-            swipe.onLayout(event.nativeEvent.layout.height);
-            onLayout?.(event);
-          }}
-          style={[style, swipe.animatedStyle]}
-        >
-          {children}
-        </Animated.View>
-      </GestureDetector>
-    </SwipeDismissScrollProvider>
-  );
-}
 
 export function regionPickupLocations(region: Region): PickupLocation[] {
   const available = [...(region.pickupLocations || [])]
@@ -476,11 +425,10 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       visible={visible}
     >
       <StatusBar style="light" translucent />
-      <GestureHandlerRootView style={styles.root}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.root}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.root}
+      >
         <View style={styles.map}>
           <YandexMap
             deliveryZone={deliveryZone}
@@ -557,11 +505,9 @@ export function LocationSheet({ visible, required, onClose }: Props) {
           </Pressable>
         ) : null}
 
-        <SwipePanel
-          dismissEnabled={!required}
-          onDismiss={close}
+        <View
+          testID="location-main-panel"
           onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
-          resetKey={`${type}:${selectedPickupId ?? "intro"}`}
           style={[
             styles.panel,
             type === "delivery"
@@ -678,7 +624,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               </>
             )
           )}
-        </SwipePanel>
+        </View>
 
         {pickupListVisible ? (
           <View style={styles.pickupOverlay}>
@@ -687,16 +633,15 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               onPress={() => setPickupListVisible(false)}
               style={styles.pickupBackdrop}
             />
-            <SwipePanel
-              onDismiss={() => setPickupListVisible(false)}
-              resetKey={pickupListVisible}
+            <View
+              testID="pickup-list-panel"
               style={[
                 styles.pickupSheet,
                 { paddingBottom: Math.max(insets.bottom, 12) },
               ]}
             >
               <Text style={styles.pickupSheetTitle}>Выберите кухню для самовывоза</Text>
-              <SwipeDismissScrollView
+              <ScrollView
                 showsVerticalScrollIndicator={false}
                 style={styles.pickupSheetList}
               >
@@ -738,7 +683,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                     </Pressable>
                   );
                 })}
-              </SwipeDismissScrollView>
+              </ScrollView>
               <PrimaryButton
                 disabled={!selectedPickup}
                 label="Выбрать"
@@ -754,7 +699,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                 tone="soft"
                 style={[styles.primary, styles.pickupBackButton]}
               />
-            </SwipePanel>
+            </View>
           </View>
         ) : null}
 
@@ -834,8 +779,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
             </View>
           </View>
         ) : null}
-        </KeyboardAvoidingView>
-      </GestureHandlerRootView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

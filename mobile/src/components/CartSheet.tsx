@@ -4,7 +4,6 @@ import {
   Alert,
   Image,
   InteractionManager,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
@@ -24,6 +23,7 @@ import type { Category, Product } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
 import { NumberTicker } from "./NumberTicker";
 import { QuantityControl } from "./QuantityControl";
+import { RipplePressable as Pressable } from "./RipplePressable";
 import { Sheet } from "./Sheet";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
 
@@ -93,6 +93,26 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
       .flatMap((category) => category.products)
       .filter((product) => product.available !== false)
   ), [categories]);
+  const freeEquipment = useMemo(() => {
+    const products = categories.flatMap((category) => category.products);
+    return [
+      {
+        name: "Васаби",
+        quantity: 1,
+        product: products.find((product) => /^васаби$/i.test(product.name)),
+      },
+      {
+        name: "Соус соевый",
+        quantity: 2,
+        product: products.find((product) => /^соус соевый$/i.test(product.name)),
+      },
+      {
+        name: "Имбирь",
+        quantity: 1,
+        product: products.find((product) => /имбир/i.test(product.name)),
+      },
+    ];
+  }, [categories]);
 
   const clear = () => {
     Alert.alert(
@@ -304,13 +324,42 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         )}
       </Sheet>
 
-      <Sheet height="67%" visible={kitVisible} onClose={() => setKitVisible(false)}>
+      <Sheet height="84%" visible={kitVisible} onClose={() => setKitVisible(false)}>
         <View style={styles.kitContent}>
           <Text style={styles.kitTitle}>Комплектация</Text>
+          <Text style={styles.freeTitle}>Бесплатно</Text>
+          <View style={styles.freeList}>
+            {freeEquipment.map((item) => (
+              <View key={item.name} style={styles.freeRow}>
+                {item.product ? (
+                  <Image
+                    resizeMethod="resize"
+                    resizeMode="cover"
+                    source={{ uri: resolveImageUrl(item.product.image) }}
+                    style={styles.kitIcon}
+                  />
+                ) : (
+                  <View style={styles.kitIcon}>
+                    <MaterialCommunityIcons name="bowl-mix-outline" size={25} color="#A2A2A2" />
+                  </View>
+                )}
+                <View style={styles.kitCopy}>
+                  <Text style={styles.kitItemTitle}>{item.name}</Text>
+                  <Text style={styles.kitItemSubtitle}>{item.quantity} шт</Text>
+                </View>
+                <View style={styles.lockButton}>
+                  <MaterialCommunityIcons name="lock" size={18} color="#9C9C9C" />
+                </View>
+              </View>
+            ))}
+          </View>
           <View style={styles.kitSectionHeader}>
             <Text style={styles.kitSectionTitle}>Приборы</Text>
             <View style={styles.noUtensils}>
-              <Text style={styles.noUtensilsText}>Без приборов</Text>
+              <Text style={[
+                styles.noUtensilsText,
+                draftNoUtensils && styles.noUtensilsTextActive,
+              ]}>Без приборов</Text>
               <Switch
                 onValueChange={setDraftNoUtensils}
                 thumbColor={colors.white}
@@ -325,22 +374,47 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             </View>
             <View style={styles.kitCopy}>
               <Text style={styles.kitItemTitle}>Палочки</Text>
-              <Text style={styles.kitItemSubtitle}>и салфетки</Text>
+              <Text style={styles.kitItemSubtitle}>
+                {draftNoUtensils ? "0 шт" : "и салфетки"}
+              </Text>
             </View>
-            <QuantityControl
-              bare
-              compact
-              maximum={10}
-              minimum={1}
-              onChange={setDraftUtensilsCount}
-              value={draftUtensilsCount}
-            />
+            {draftNoUtensils ? (
+              <Pressable
+                accessibilityLabel="Добавить приборы"
+                accessibilityRole="button"
+                onPress={() => {
+                  setDraftNoUtensils(false);
+                  setDraftUtensilsCount(Math.max(1, draftUtensilsCount));
+                }}
+                style={styles.kitPlus}
+              >
+                <MaterialCommunityIcons name="plus" size={24} color="#A2A2A2" />
+              </Pressable>
+            ) : (
+              <QuantityControl
+                bare
+                compact
+                maximum={10}
+                minimum={1}
+                onChange={setDraftUtensilsCount}
+                value={draftUtensilsCount}
+              />
+            )}
           </View>
 
           <Text style={[styles.kitSectionTitle, styles.extraTitle]}>Дополнительно</Text>
           <View style={styles.kitRow}>
             <View style={styles.kitIcon}>
-              <MaterialCommunityIcons name="bowl-mix-outline" size={27} color={colors.ink} />
+              {freeEquipment[1]?.product ? (
+                <Image
+                  resizeMethod="resize"
+                  resizeMode="cover"
+                  source={{ uri: resolveImageUrl(freeEquipment[1].product.image) }}
+                  style={styles.kitIconImage}
+                />
+              ) : (
+                <MaterialCommunityIcons name="bowl-mix-outline" size={27} color={colors.ink} />
+              )}
             </View>
             <View style={styles.kitCopy}>
               <Text style={styles.kitItemTitle}>Топпинги</Text>
@@ -350,7 +424,6 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Открыть дополнения"
               onPress={() => {
-                setKitVisible(false);
                 setExtrasVisible(true);
               }}
               style={({ pressed }) => [styles.kitPlus, pressed && styles.pressed]}
@@ -378,7 +451,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         </View>
       </Sheet>
 
-      <Sheet height="70%" visible={extrasVisible} onClose={() => setExtrasVisible(false)}>
+      <Sheet height="57%" visible={extrasVisible} onClose={() => setExtrasVisible(false)}>
         <View style={styles.extrasContent}>
           <Text style={styles.extrasTitle}>Дополнительно</Text>
           <Text style={styles.extrasSubtitle}>Будет сразу добавлено в корзину</Text>
@@ -447,6 +520,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
+    overflow: "hidden",
   },
   disabled: {
     opacity: 0.35,
@@ -539,6 +613,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
+    overflow: "hidden",
   },
   optionActionText: {
     color: colors.ink,
@@ -598,6 +673,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
+    overflow: "hidden",
   },
   footer: {
     paddingBottom: 2,
@@ -619,6 +695,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.orange,
+    overflow: "hidden",
   },
   checkoutSide: {
     width: "28%",
@@ -666,17 +743,34 @@ const styles = StyleSheet.create({
   },
   kitContent: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 26,
-    paddingBottom: 6,
+    paddingHorizontal: 16,
+    paddingTop: 22,
+    paddingBottom: 4,
   },
   kitTitle: {
     color: colors.ink,
     fontFamily: "Inter_700Bold",
     fontSize: 30,
+    lineHeight: 36,
+  },
+  freeTitle: {
+    marginTop: 22,
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 19,
+    lineHeight: 24,
+  },
+  freeList: {
+    marginTop: 8,
+  },
+  freeRow: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   kitSectionHeader: {
-    marginTop: 24,
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -696,19 +790,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  noUtensilsTextActive: {
+    color: colors.ink,
+  },
   kitRow: {
-    minHeight: 72,
+    minHeight: 66,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
   kitIcon: {
-    width: 54,
-    height: 54,
+    width: 52,
+    height: 52,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
+    overflow: "hidden",
+  },
+  kitIconImage: {
+    width: "100%",
+    height: "100%",
   },
   kitCopy: {
     flex: 1,
@@ -722,7 +824,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   extraTitle: {
-    marginTop: 14,
+    marginTop: 8,
   },
   kitPlus: {
     width: 40,
@@ -731,16 +833,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
+    overflow: "hidden",
+  },
+  lockButton: {
+    width: 42,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
   },
   kitActions: {
     marginTop: "auto",
-    gap: 12,
+    gap: 10,
   },
   extrasContent: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 6,
+    paddingTop: 22,
+    paddingBottom: 4,
   },
   extrasTitle: {
     color: colors.ink,
@@ -753,25 +864,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   extrasRow: {
-    paddingTop: 16,
-    paddingBottom: 14,
-    gap: 10,
+    paddingTop: 18,
+    paddingBottom: 18,
+    gap: 14,
   },
   extraCard: {
-    width: 156,
-    height: 266,
+    width: 180,
+    height: 306,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: colors.surface,
   },
   extraImage: {
     width: "100%",
-    height: 156,
+    height: 180,
     backgroundColor: colors.white,
   },
   extraName: {
-    minHeight: 38,
-    marginTop: 10,
+    minHeight: 42,
+    marginTop: 12,
     marginHorizontal: 16,
     color: colors.ink,
     fontSize: 14,

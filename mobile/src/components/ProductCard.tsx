@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { memo, startTransition } from "react";
 import {
   Image,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -14,6 +13,7 @@ import type { Product } from "../types";
 import { useOptimisticNumber } from "../useOptimisticNumber";
 import { NumberTicker } from "./NumberTicker";
 import { ImmediatePressable } from "./ImmediatePressable";
+import { RipplePressable as Pressable } from "./RipplePressable";
 
 const money = (value: number) => `${new Intl.NumberFormat("ru-RU").format(value)} сом`;
 
@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
+    overflow: "hidden",
   },
   addPressed: {
     backgroundColor: colors.orangeSoft,
@@ -214,6 +215,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.white,
+    overflow: "hidden",
   },
   quantity: {
     minWidth: 28,

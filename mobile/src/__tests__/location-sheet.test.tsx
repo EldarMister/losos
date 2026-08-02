@@ -119,6 +119,8 @@ describe("LocationSheet delivery address workflow", () => {
     expect(screen.getByLabelText("Корзина самовывоза").props.source).toBe(
       require("../../assets/корзина.png"),
     );
+    expect(screen.getByTestId("location-main-panel").props.onGestureHandlerEvent)
+      .toBeUndefined();
   });
 
   test("filters and sorts pickup locations from the API", () => {
@@ -217,6 +219,9 @@ describe("LocationSheet delivery address workflow", () => {
 
     fireEvent.press(screen.getByLabelText("Список"));
     expect(await screen.findByText("Выберите кухню для самовывоза")).toBeTruthy();
+    expect(
+      screen.getByTestId("pickup-list-panel").props.onGestureHandlerEvent,
+    ).toBeUndefined();
 
     fireEvent.press(screen.getByLabelText("улица Медерова, 41"));
     fireEvent.press(screen.getByLabelText("Выбрать"));

@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { StatusBar } from "expo-status-bar";
 import type { ComponentProps } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -13,10 +13,18 @@ import {
   Text,
   View,
 } from "react-native";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { authApi, WEB_URL } from "../api";
 import { useStore } from "../store";
 import { colors } from "../theme";
+import { useDrawerDismiss } from "./DrawerGesture";
 
 type Props = {
   visible: boolean;
@@ -46,6 +54,50 @@ export function MenuSheet({
   const store = useStore();
   const version = Constants.expoConfig?.version || "1.0.0";
   const [naktaCoins, setNaktaCoins] = useState(0);
+  const [mounted, setMounted] = useState(visible);
+  const openOffset = useSharedValue(visible ? 0 : -360);
+  const backdropProgress = useSharedValue(visible ? 1 : 0);
+  const handleSwipeDismiss = useCallback(() => onClose(), [onClose]);
+  const drawerGesture = useDrawerDismiss({ onDismiss: handleSwipeDismiss });
+
+  useEffect(() => {
+    if (!visible) return;
+    setMounted(true);
+    drawerGesture.reset();
+    openOffset.value = -360;
+    backdropProgress.value = 0;
+    const frame = requestAnimationFrame(() => {
+      openOffset.value = withTiming(0, { duration: 240 });
+      backdropProgress.value = withTiming(1, { duration: 240 });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [backdropProgress, drawerGesture.reset, openOffset, visible]);
+
+  useEffect(() => {
+    if (!mounted || visible) return;
+    openOffset.value = withTiming(
+      -Math.max(drawerGesture.drawerWidth.value, 360),
+      { duration: 190 },
+      (finished) => {
+        if (finished) runOnJS(setMounted)(false);
+      },
+    );
+    backdropProgress.value = withTiming(0, { duration: 190 });
+  }, [backdropProgress, drawerGesture.drawerWidth, mounted, openOffset, visible]);
+
+  const drawerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{
+      translateX: openOffset.value + drawerGesture.translationX.value,
+    }],
+  }));
+  const backdropAnimatedStyle = useAnimatedStyle(() => {
+    const dragProgress = Math.min(
+      1,
+      Math.abs(drawerGesture.translationX.value)
+        / Math.max(drawerGesture.drawerWidth.value, 1),
+    );
+    return { opacity: backdropProgress.value * (1 - dragProgress) };
+  });
 
   useEffect(() => {
     if (!visible || !store.session) {
@@ -70,30 +122,40 @@ export function MenuSheet({
     await Linking.openURL(`${WEB_URL}${path}`);
   };
 
+  if (!mounted) return null;
+
   return (
     <Modal
-      animationType="fade"
+      animationType="none"
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
-      visible={visible}
+      visible={mounted}
     >
       <StatusBar backgroundColor={colors.white} style="dark" translucent />
-      <View style={styles.root}>
+      <GestureHandlerRootView style={styles.root}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.backdrop, backdropAnimatedStyle]}
+        />
         <Pressable
           accessibilityLabel="Закрыть меню"
           onPress={onClose}
-          style={styles.backdrop}
+          style={StyleSheet.absoluteFill}
         />
-        <View
-          style={[
-            styles.drawer,
-            {
-              paddingTop: insets.top,
-              paddingBottom: Math.max(insets.bottom, 14),
-            },
-          ]}
-        >
+        <GestureDetector gesture={drawerGesture.gesture}>
+          <Animated.View
+            collapsable={false}
+            onLayout={(event) => drawerGesture.onLayout(event.nativeEvent.layout.width)}
+            style={[
+              styles.drawer,
+              {
+                paddingTop: insets.top,
+                paddingBottom: Math.max(insets.bottom, 14),
+              },
+              drawerAnimatedStyle,
+            ]}
+          >
           <Pressable
             accessibilityLabel="Назад"
             hitSlop={4}
@@ -169,8 +231,9 @@ export function MenuSheet({
             <Text style={styles.legalText}>Правовая информация</Text>
           </Pressable>
           <Text style={styles.version}>Версия {version}</Text>
-        </View>
-      </View>
+          </Animated.View>
+        </GestureDetector>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

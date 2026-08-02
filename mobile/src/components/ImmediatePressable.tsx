@@ -1,13 +1,15 @@
 import { useEffect, useRef } from "react";
 import {
-  Pressable,
   type GestureResponderEvent,
   type PressableProps,
 } from "react-native";
+import { RipplePressable } from "./RipplePressable";
 
 type Props = Omit<PressableProps, "onPress"> & {
   onPress: (event: GestureResponderEvent) => void;
 };
+
+const PRESS_DEDUPLICATION_WINDOW_MS = 250;
 
 export function ImmediatePressable({
   onPress,
@@ -43,11 +45,11 @@ export function ImmediatePressable({
     resetTimer.current = setTimeout(() => {
       firedOnPressIn.current = false;
       resetTimer.current = null;
-    }, 0);
+    }, PRESS_DEDUPLICATION_WINDOW_MS);
   };
 
   return (
-    <Pressable
+    <RipplePressable
       {...props}
       onPress={handlePress}
       onPressIn={handlePressIn}

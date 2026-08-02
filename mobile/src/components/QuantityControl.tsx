@@ -119,6 +119,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   controlBare: {
     backgroundColor: colors.surface,

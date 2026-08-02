@@ -70,7 +70,12 @@ describe("CartSheet configuration draft", () => {
     );
 
     await fireEvent.press(screen.getByText("Управлять"));
+    expect(screen.getByText("Бесплатно")).toBeTruthy();
+    expect(screen.getByText("Васаби")).toBeTruthy();
+    expect(screen.getByText("Соус соевый")).toBeTruthy();
+    expect(screen.getByText("Имбирь")).toBeTruthy();
     await fireEvent(screen.getByRole("switch"), "valueChange", true);
+    expect(screen.getByText("0 шт")).toBeTruthy();
     await fireEvent.press(screen.getByText("Отмена"));
 
     expect(store.setNoUtensils).not.toHaveBeenCalled();
@@ -82,5 +87,24 @@ describe("CartSheet configuration draft", () => {
 
     expect(store.setNoUtensils).toHaveBeenCalledWith(true);
     expect(store.setUtensilsCount).toHaveBeenCalledWith(1);
+  });
+
+  test("opens toppings above the configuration sheet", async () => {
+    const store = makeStore();
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(
+      <CartSheet
+        onCheckout={jest.fn()}
+        onClose={jest.fn()}
+        visible
+      />,
+    );
+
+    await fireEvent.press(screen.getByText("Управлять"));
+    await fireEvent.press(screen.getByLabelText("Открыть дополнения"));
+
+    expect(screen.getByText("Будет сразу добавлено в корзину")).toBeTruthy();
+    expect(screen.getByText("Бесплатно")).toBeTruthy();
+    expect(screen.getByText("Назад")).toBeTruthy();
   });
 });

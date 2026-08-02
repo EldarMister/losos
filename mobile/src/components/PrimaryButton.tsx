@@ -1,6 +1,5 @@
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   type StyleProp,
@@ -8,6 +7,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { colors, radii } from "../theme";
+import { RipplePressable } from "./RipplePressable";
 
 type Props = {
   label: string;
@@ -37,7 +37,7 @@ export function PrimaryButton({
   const foreground = tone === "soft" || tone === "white" ? colors.ink : colors.white;
 
   return (
-    <Pressable
+    <RipplePressable
       accessibilityRole="button"
       accessibilityLabel={label}
       disabled={disabled || loading}
@@ -55,7 +55,7 @@ export function PrimaryButton({
       ) : (
         <Text style={[styles.label, { color: foreground }, labelStyle]}>{label}</Text>
       )}
-    </Pressable>
+    </RipplePressable>
   );
 }
 
@@ -66,6 +66,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
+    overflow: "hidden",
   },
   label: {
     fontSize: 16,

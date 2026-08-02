@@ -1,5 +1,5 @@
 import { act, render } from "@testing-library/react-native";
-import { AccessibilityInfo } from "react-native";
+import { AccessibilityInfo, StyleSheet } from "react-native";
 import { getAnimatedStyle } from "react-native-reanimated";
 import { formatMoney, formatNumber } from "../money";
 import { NumberTicker } from "../components/NumberTicker";
@@ -36,6 +36,23 @@ describe("NumberTicker", () => {
     const screen = await render(<NumberTicker format={formatNumber} value={3} />);
 
     expect(screen.getByLabelText("3")).toBeTruthy();
+  });
+
+  it("keeps adjacent digits compact and aligns suffixes to the reel", async () => {
+    const screen = await render(
+      <NumberTicker format={formatMoney} height={20} style={{ fontSize: 16 }} value={90} />,
+    );
+
+    const reel = screen.getByTestId("number-ticker-digit-0");
+    expect(StyleSheet.flatten(reel.parent?.props.style)).toMatchObject({
+      height: 20,
+      width: 10,
+    });
+    const suffix = screen.getByTestId("number-ticker-character-3");
+    expect(StyleSheet.flatten(suffix.props.style)).toMatchObject({
+      height: 20,
+      lineHeight: 20,
+    });
   });
 
   it("keeps a digit reel mounted and moves it between values", async () => {

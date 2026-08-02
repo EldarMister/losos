@@ -1,18 +1,17 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
   Image,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PrimaryButton } from "../components/PrimaryButton";
 import { NotificationPermissionPrompt } from "../components/NotificationPermissionPrompt";
-import { colors, radii } from "../theme";
+import { PrimaryButton } from "../components/PrimaryButton";
+import { RipplePressable } from "../components/RipplePressable";
 import { useStore } from "../store";
 
 type Props = {
@@ -20,47 +19,84 @@ type Props = {
   onLogin: () => void;
 };
 
-const pages = [
+type Page = {
+  assetLabel: string;
+  backgroundColor: string;
+  copy: string;
+  image: number;
+  imageStyle: "basket" | "brand" | "bag" | "heart";
+  title: string;
+};
+
+const PROGRESS_SEGMENTS = 4;
+
+const pages: Page[] = [
   {
-    colors: ["#FF5207", "#FF4B00"] as const,
-    title: "Качественно\nи вкусно",
-    copy: "Делаем выбор в пользу лучших продуктов, технологичных процессов и заботы о клиентах. В Бишкеке и Оше.",
-    image: require("../../assets/app-icon.png"),
-    imageStyle: "brand" as const,
-  },
-  {
-    colors: ["#FF6D0A", "#FF4C00"] as const,
+    assetLabel: "Пакет с блюдами Накта суши",
+    backgroundColor: "#FF5A00",
     title: "Много вкусного\nв одном месте",
     copy: "Собрали роллы, поке, супы и горячие блюда. Готовим после оформления заказа.",
     image: require("../../assets/pickup.png"),
-    imageStyle: "basket" as const,
+    imageStyle: "basket",
   },
   {
-    colors: ["#D59AF5", "#C47BEF"] as const,
+    assetLabel: "Иконка приложения NAKTASUSHI",
+    backgroundColor: "#FF5A00",
+    title: "Качественно\nи вкусно",
+    copy: "Делаем выбор в пользу лучших продуктов, технологичных процессов и заботы о клиентах. В Бишкеке и Оше.",
+    image: require("../../assets/app-icon.png"),
+    imageStyle: "brand",
+  },
+  {
+    assetLabel: "Термосумка Накта суши",
+    backgroundColor: "#C894F2",
     title: "Пришлём пуш\nо статусе заказа",
     copy: "Сами доставляем заказы и следим за скоростью. Покажем статус заказа в режиме реального времени.",
     image: require("../../assets/delivery.png"),
-    imageStyle: "bag" as const,
+    imageStyle: "bag",
   },
   {
-    colors: ["#FF5907", "#FF4B00"] as const,
+    assetLabel: "Сердце из лосося",
+    backgroundColor: "#FF5A00",
     title: "Приятного вам аппетита!",
     copy: "",
     image: require("../../assets/heart.png"),
-    imageStyle: "heart" as const,
+    imageStyle: "heart",
   },
 ];
 
+function clampAssetWidth(
+  windowWidth: number,
+  horizontalPadding: number,
+  ratio: number,
+  minimum: number,
+  maximum: number,
+) {
+  const desired = Math.min(maximum, Math.max(minimum, windowWidth * ratio));
+  return Math.min(desired, windowWidth - horizontalPadding * 2);
+}
+
 export function OnboardingScreen({ onComplete, onLogin }: Props) {
   const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
   const { setOnboarded, setNotificationsAsked } = useStore();
   const [page, setPage] = useState(0);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [permissionPromptVisible, setPermissionPromptVisible] = useState(false);
   const pageIndex = Math.min(Math.max(page, 0), pages.length - 1);
   const current = pages[pageIndex];
-  const buttonLabel = pageIndex === pages.length - 1 ? "Выбрать адрес доставки" : "Далее";
+  const compact = height < 820 || width <= 360;
+  const horizontalPadding = compact ? 24 : 28;
+  const assetWidth = current.imageStyle === "brand"
+    ? clampAssetWidth(width, horizontalPadding, 0.56, 205, 225)
+    : current.imageStyle === "bag"
+      ? clampAssetWidth(width, horizontalPadding, 0.62, 230, 255)
+      : current.imageStyle === "heart"
+        ? clampAssetWidth(width, horizontalPadding, 0.9, 300, 380)
+      : clampAssetWidth(width, horizontalPadding, 0.74, 285, 300);
+  const assetHeight = current.imageStyle === "bag" ? assetWidth * 1.053 : assetWidth;
   const isNotificationPage = current.imageStyle === "bag";
+  const isFinalPage = current.imageStyle === "heart";
 
   const complete = () => {
     setOnboarded(true);
@@ -68,8 +104,11 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
   };
 
   const next = () => {
-    if (pageIndex < pages.length - 1) setPage((value) => Math.min(value + 1, pages.length - 1));
-    else complete();
+    if (pageIndex < pages.length - 1) {
+      setPage((value) => Math.min(value + 1, pages.length - 1));
+      return;
+    }
+    complete();
   };
 
   const allowNotifications = async () => {
@@ -95,66 +134,101 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
   };
 
   return (
-    <LinearGradient colors={current.colors} style={styles.root}>
-      <StatusBar style="light" />
+    <View
+      testID={`onboarding-page-${pageIndex + 1}`}
+      style={[styles.root, { backgroundColor: current.backgroundColor }]}
+    >
+      <StatusBar
+        backgroundColor={current.backgroundColor}
+        style="light"
+        translucent
+      />
       <View
         style={[
           styles.safe,
           {
-            paddingTop: Math.max(insets.top, 16),
-            paddingBottom: Math.max(insets.bottom, 18),
+            paddingHorizontal: horizontalPadding,
+            paddingTop: insets.top + (compact ? 18 : 22),
+            paddingBottom: Math.max(insets.bottom + 18, 22),
           },
         ]}
       >
         <View style={styles.progressRow}>
-          {pages.map((_, index) => (
+          {Array.from({ length: PROGRESS_SEGMENTS }, (_, index) => (
             <View
               key={index}
-              style={[styles.progress, index <= pageIndex && styles.progressActive]}
+              testID={`onboarding-progress-${index + 1}`}
+              style={[
+                styles.progress,
+                index <= pageIndex && styles.progressActive,
+              ]}
             />
           ))}
         </View>
 
-        <View style={[styles.visual, current.imageStyle === "heart" && styles.heartVisual]}>
-          {current.imageStyle === "brand" ? (
-            <Image resizeMode="cover" source={current.image} style={styles.brandTile} />
-          ) : current.imageStyle === "heart" ? (
-            <Image resizeMode="contain" source={current.image} style={styles.heartImage} />
-          ) : (
-            <Image
-              resizeMode="contain"
-              source={current.image}
-              style={current.imageStyle === "bag" ? styles.bagImage : styles.basketImage}
-            />
-          )}
+        <View style={[
+          styles.visual,
+          compact && styles.visualCompact,
+          isNotificationPage && styles.notificationVisual,
+          isFinalPage && styles.finalVisual,
+        ]}>
+          <Image
+            accessibilityLabel={current.assetLabel}
+            resizeMode="contain"
+            source={current.image}
+            style={{ width: assetWidth, height: assetHeight }}
+          />
         </View>
 
-        {current.imageStyle !== "heart" ? (
-          <View style={styles.copyBlock}>
-            <Text style={styles.title}>{current.title}</Text>
-            {current.copy ? <Text style={styles.copy}>{current.copy}</Text> : null}
-          </View>
-        ) : null}
+        {!isFinalPage ? <View style={styles.copyBlock}>
+          <Text style={[
+            styles.title,
+            compact && styles.titleCompact,
+            isNotificationPage && styles.notificationTitle,
+            isNotificationPage && compact && styles.notificationTitleCompact,
+          ]}>
+            {current.title}
+          </Text>
+          <Text style={[
+            styles.copy,
+            compact && styles.copyCompact,
+            isNotificationPage && styles.notificationCopy,
+            isNotificationPage && compact && styles.notificationCopyCompact,
+          ]}>
+            {current.copy}
+          </Text>
+        </View> : null}
 
-        <View style={styles.actions}>
+        <View style={[styles.actions, compact && styles.actionsCompact]}>
           {isNotificationPage ? (
             <PrimaryButton
               label="Включить пуш-уведомления"
-              labelStyle={styles.onboardingButtonLabel}
+              labelStyle={[styles.buttonLabel, compact && styles.buttonLabelCompact]}
               onPress={() => setPermissionPromptVisible(true)}
-              style={styles.translucentButton}
+              style={[
+                styles.actionButton,
+                styles.notificationButton,
+                compact && styles.actionButtonCompact,
+                styles.notificationActionButton,
+              ]}
               tone="white"
             />
           ) : null}
           <PrimaryButton
-            label={buttonLabel}
-            labelStyle={styles.onboardingButtonLabel}
+            label={isFinalPage ? "Выбрать адрес доставки" : "Далее"}
+            labelStyle={[styles.buttonLabel, compact && styles.buttonLabelCompact]}
             onPress={next}
-            style={styles.translucentButton}
+            style={[
+              styles.actionButton,
+              isNotificationPage ? styles.purpleButton : styles.orangeButton,
+              compact && styles.actionButtonCompact,
+              isNotificationPage && styles.notificationActionButton,
+            ]}
             tone="white"
           />
-          {pageIndex === pages.length - 1 ? (
-            <Pressable
+          {isFinalPage ? (
+            <RipplePressable
+              accessibilityLabel="Войти"
               accessibilityRole="button"
               onPress={() => {
                 setOnboarded(true);
@@ -163,7 +237,7 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
               style={styles.loginButton}
             >
               <Text style={styles.loginText}>Войти</Text>
-            </Pressable>
+            </RipplePressable>
           ) : null}
         </View>
       </View>
@@ -173,7 +247,7 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
         onDeny={denyNotifications}
         visible={permissionPromptVisible}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -183,83 +257,139 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 22,
   },
   progressRow: {
+    height: 6,
     flexDirection: "row",
-    gap: 7,
+    gap: 8,
   },
   progress: {
     flex: 1,
-    height: 4,
+    height: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.3)",
+    backgroundColor: "rgba(255,255,255,0.35)",
   },
   progressActive: {
-    backgroundColor: colors.white,
+    backgroundColor: "#FFFFFF",
   },
   visual: {
-    flex: 1.18,
+    flex: 1,
+    minHeight: 250,
+    paddingTop: 28,
+    paddingBottom: 24,
     alignItems: "center",
     justifyContent: "center",
   },
-  brandTile: {
-    width: 176,
-    height: 176,
-    borderRadius: 49,
+  visualCompact: {
+    minHeight: 224,
+    paddingTop: 16,
+    paddingBottom: 14,
   },
-  bagImage: {
-    width: 230,
-    height: 230,
+  notificationVisual: {
+    minHeight: 214,
+    paddingTop: 22,
+    paddingBottom: 18,
   },
-  basketImage: {
-    width: 300,
-    height: 300,
-  },
-  heartVisual: {
-    flex: 1,
-    marginHorizontal: -8,
-  },
-  heartImage: {
-    width: "100%",
-    maxWidth: 380,
-    aspectRatio: 1,
+  finalVisual: {
+    minHeight: 320,
+    marginHorizontal: -12,
+    paddingTop: 18,
+    paddingBottom: 8,
   },
   copyBlock: {
-    minHeight: 188,
+    width: "100%",
   },
   title: {
-    color: colors.white,
-    fontSize: 34,
-    lineHeight: 37,
-    fontWeight: "800",
+    color: "#FFFFFF",
+    fontFamily: "Inter_800ExtraBold",
+    fontSize: 44,
+    lineHeight: 48,
     letterSpacing: -0.7,
+  },
+  titleCompact: {
+    fontSize: 40,
+    lineHeight: 44,
+  },
+  notificationTitle: {
+    fontSize: 38,
+    lineHeight: 42,
+  },
+  notificationTitleCompact: {
+    fontSize: 36,
+    lineHeight: 40,
   },
   copy: {
     maxWidth: 350,
+    marginTop: 22,
+    color: "rgba(255,255,255,0.92)",
+    fontFamily: "Inter_400Regular",
+    fontSize: 19,
+    lineHeight: 26,
+  },
+  copyCompact: {
+    marginTop: 18,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  notificationCopy: {
     marginTop: 16,
-    color: "rgba(255,255,255,0.9)",
+    fontSize: 17,
+    lineHeight: 23,
+  },
+  notificationCopyCompact: {
     fontSize: 16,
-    lineHeight: 21,
+    lineHeight: 22,
   },
   actions: {
-    gap: 10,
+    marginTop: 24,
+    gap: 15,
   },
-  translucentButton: {
-    borderRadius: radii.large,
-    backgroundColor: "rgba(255,255,255,0.24)",
+  actionsCompact: {
+    marginTop: 18,
+    gap: 14,
   },
-  onboardingButtonLabel: {
-    color: colors.white,
+  actionButton: {
+    height: 68,
+    minHeight: 68,
+    borderRadius: 26,
+  },
+  actionButtonCompact: {
+    height: 64,
+    minHeight: 64,
+  },
+  notificationActionButton: {
+    height: 60,
+    minHeight: 60,
+  },
+  orangeButton: {
+    backgroundColor: "rgba(255,196,160,0.55)",
+  },
+  notificationButton: {
+    backgroundColor: "rgba(232,204,255,0.52)",
+  },
+  purpleButton: {
+    backgroundColor: "#B96BF2",
+  },
+  buttonLabel: {
+    color: "#FFFFFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 19,
+    lineHeight: 24,
+  },
+  buttonLabelCompact: {
+    fontSize: 18,
+    lineHeight: 22,
   },
   loginButton: {
     minHeight: 52,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   loginText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: "800",
+    color: "#FFFFFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
   },
 });

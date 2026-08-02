@@ -47,6 +47,9 @@ describe("MenuSheet account states", () => {
     expect(screen.getByText("Поддержка")).toBeTruthy();
     expect(screen.getByText("О нас")).toBeTruthy();
     expect(screen.queryByText("Хочу в команду")).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("Закрыть меню"));
+    expect(callbacks.onClose).toHaveBeenCalledTimes(1);
   });
 
   test("shows account, orders, addresses, balance and settings after login", async () => {
