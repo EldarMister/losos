@@ -28,6 +28,10 @@ import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
+import {
+  assertYandexMapUrl,
+  pickupCoordinatesFromYandexUrl,
+} from "../src/catalog/pickup-map-link";
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
@@ -120,6 +124,21 @@ test("region delivery settings validate time, days, and free-delivery threshold"
     deliveryZone: [{ latitude: 200, longitude: 300 }],
   });
   assert.ok(validateSync(invalid).length >= 9);
+});
+
+test("pickup coordinates are extracted from full Yandex Maps links", () => {
+  assert.deepEqual(
+    pickupCoordinatesFromYandexUrl("https://yandex.com/maps/?ll=74.635034%2C42.891111&z=16"),
+    { latitude: 42.891111, longitude: 74.635034 },
+  );
+  assert.deepEqual(
+    pickupCoordinatesFromYandexUrl("https://yandex.ru/maps/10309/bishkek/@74.635034,42.891111,16z"),
+    { latitude: 42.891111, longitude: 74.635034 },
+  );
+  assert.throws(
+    () => assertYandexMapUrl("https://example.com/maps/?ll=74.6,42.8"),
+    /Яндекс Карт/,
+  );
 });
 
 test("pickup locations and device push tokens reject invalid shared-contract data", () => {

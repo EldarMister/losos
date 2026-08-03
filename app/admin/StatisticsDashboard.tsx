@@ -23,10 +23,10 @@ const periodLabels: Record<StatisticsPeriod, string> = {
 };
 
 const ordersLabels: Record<StatisticsPeriod, string> = {
-  today: "Заказов сегодня",
-  week: "Заказов за неделю",
-  month: "Заказов за месяц",
-  all: "Заказов за всё время",
+  today: "Завершено сегодня",
+  week: "Завершено за неделю",
+  month: "Завершено за месяц",
+  all: "Завершено за всё время",
 };
 
 const preparedLabels: Record<StatisticsPeriod, string> = {
@@ -83,7 +83,7 @@ export function StatisticsDashboard({
       <section className="admin-stat-revenue">
         <header>
           <h2>Выручка за период</h2>
-          <div><span>{data.orders} заказов</span><strong>{formatSom(data.revenue)}</strong></div>
+          <div><span>{data.orders} завершено</span><strong>{formatSom(data.revenue)}</strong></div>
         </header>
         <RevenueChart data={data.chart} />
       </section>
@@ -94,34 +94,34 @@ export function StatisticsDashboard({
             headers={["Способ", "Сумма"]}
             rows={data.payments.map((item) => [item.name, formatSom(item.amount)])}
             footer={["Итого", formatSom(data.payments.reduce((sum, item) => sum + item.amount, 0))]}
-            empty="Нет оплат за период"
+            empty="Нет завершённых оплат за период"
           />
         </StatisticsPanel>
         <StatisticsPanel title="Топ блюд">
           <MiniTable
             headers={["Блюдо", "Кол-во", "Выручка"]}
             rows={data.products.slice(0, 6).map((item) => [item.name, `${item.count} шт`, formatSom(item.revenue)])}
-            empty="Нет продаж за период"
+            empty="Нет завершённых заказов за период"
           />
         </StatisticsPanel>
         <StatisticsPanel title="Статусы заказов">
           <MiniTable
             headers={["Статус", "Заказы"]}
             rows={data.statuses.map((item) => [item.name, String(item.count)])}
-            empty="Нет заказов за период"
+            empty="Нет завершённых заказов за период"
           />
         </StatisticsPanel>
         <StatisticsPanel title="Часы пик">
           <MiniTable
             headers={["Время", "Выручка"]}
             rows={data.peaks.slice(0, 5).map((item) => [item.label, formatSom(item.amount)])}
-            empty="Нет оплаченных заказов"
+            empty="Нет завершённых заказов"
           />
         </StatisticsPanel>
       </div>
 
       <div className="admin-stat-summary-grid">
-        <StatisticsPanel title="Заказано блюд">
+        <StatisticsPanel title="Приготовлено блюд">
           <dl className="admin-stat-summary-list">
             <div><dt>Всего позиций</dt><dd>{prepared.total} шт</dd></div>
             <div><dt>В среднем за день</dt><dd>{prepared.average} шт</dd></div>
@@ -133,10 +133,10 @@ export function StatisticsDashboard({
           <MiniTable
             headers={["Блюдо", "Кол-во"]}
             rows={data.products.slice(0, 6).map((item) => [item.name, `${item.count} шт`])}
-            empty="Нет заказанных блюд"
+            empty="Нет приготовленных блюд"
           />
         </StatisticsPanel>
-        <StatisticsPanel title="Динамика заказов">
+        <StatisticsPanel title="Динамика завершений">
           <MiniTable
             headers={["Дата", "Выручка"]}
             rows={data.chart.slice(-6).reverse().map((item) => [formatAxisLabel(item.label), formatSom(item.amount)])}

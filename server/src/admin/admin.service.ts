@@ -10,6 +10,7 @@ import { Product } from "../catalog/product.entity";
 import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
 import { PickupLocation } from "../catalog/pickup-location.entity";
+import { resolvePickupMapLink } from "../catalog/pickup-map-link";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { PhoneAccount } from "../auth/phone-account.entity";
@@ -138,6 +139,7 @@ export class AdminService {
         throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
       }
       order.status = nextStatus;
+      if (nextStatus === OrderStatus.COMPLETED) order.completedAt = new Date();
       const saved = await orders.save(order);
       if (nextStatus === OrderStatus.COMPLETED) {
         const naktaCoins = order.items.reduce((sum, item) => sum + item.naktaCoins, 0);
@@ -161,6 +163,16 @@ export class AdminService {
       region,
     });
     return this.pickupLocations.save(location);
+  }
+
+  async resolvePickupMapLink(yandexUrl: string) {
+    try {
+      return await resolvePickupMapLink(yandexUrl);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : "Не удалось определить координаты",
+      );
+    }
   }
 
   async updatePickupLocation(id: number, dto: UpdatePickupLocationDto) {

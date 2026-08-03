@@ -51,6 +51,8 @@ export class CreateRegionDto {
   @IsOptional() @IsString() @MaxLength(40) contactPhone = "";
   @IsOptional() @IsString() @MaxLength(160) contactEmail = "";
   @IsOptional() @IsString() @MaxLength(240) contactAddress = "";
+  @IsOptional() @IsString() @MaxLength(40) supportPhone = "";
+  @IsOptional() @IsString() @MaxLength(500) @ValidateIf((_, value) => value !== "") @IsUrl({ require_protocol: true }) supportUrl = "";
   @IsOptional() @IsString() @MaxLength(240) pickupAddress = "";
   @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl = "";
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours = "";
@@ -75,6 +77,8 @@ export class UpdateRegionDto {
   @IsOptional() @IsString() @MaxLength(40) contactPhone?: string;
   @IsOptional() @IsString() @MaxLength(160) contactEmail?: string;
   @IsOptional() @IsString() @MaxLength(240) contactAddress?: string;
+  @IsOptional() @IsString() @MaxLength(40) supportPhone?: string;
+  @IsOptional() @IsString() @MaxLength(500) @ValidateIf((_, value) => value !== "") @IsUrl({ require_protocol: true }) supportUrl?: string;
   @IsOptional() @IsString() @MaxLength(240) pickupAddress?: string;
   @IsOptional() @IsString() @MaxLength(500) pickupYandexUrl?: string;
   @IsOptional() @IsString() @MaxLength(120) pickupWorkingHours?: string;
@@ -117,6 +121,14 @@ export class UpdatePickupLocationDto {
   @IsOptional() @IsString() @MaxLength(500) @ValidateIf((_, value) => value !== "") @IsUrl({ require_protocol: true }) yandexUrl?: string;
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
+}
+
+export class ResolvePickupMapLinkDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  @IsUrl({ require_protocol: true })
+  yandexUrl!: string;
 }
 
 export class ProductModifierItemDto {

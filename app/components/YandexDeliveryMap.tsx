@@ -190,6 +190,8 @@ type MapCredentials = {
 type YandexPickupMapProps = {
   region: RegionSlug;
   yandexUrl?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   selected: boolean;
 };
 
@@ -197,8 +199,16 @@ const pickupShortLinkCoordinates: Record<string, [number, number]> = {
   "https://yandex.com/maps/-/CTfwi-O-": [42.857126, 74.605106],
 };
 
-function pickupCoordinates(yandexUrl: string | undefined, region: RegionSlug): [number, number] {
+function pickupCoordinates(
+  yandexUrl: string | undefined,
+  region: RegionSlug,
+  latitude?: number | null,
+  longitude?: number | null,
+): [number, number] {
   const fallback = getRegionMapConfig(region).center;
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    return [latitude as number, longitude as number];
+  }
   const normalizedUrl = yandexUrl?.trim().replace(/\/$/, "");
   if (normalizedUrl && pickupShortLinkCoordinates[normalizedUrl]) return pickupShortLinkCoordinates[normalizedUrl];
 
@@ -708,13 +718,19 @@ export function YandexDeliveryMap({
   );
 }
 
-export function YandexPickupMap({ region, yandexUrl, selected }: YandexPickupMapProps) {
+export function YandexPickupMap({
+  region,
+  yandexUrl,
+  latitude,
+  longitude,
+  selected,
+}: YandexPickupMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [credentials, setCredentials] = useState<MapCredentials | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("Настраиваем карту…");
   const config = regionMapConfig[region];
-  const point = pickupCoordinates(yandexUrl, region);
+  const point = pickupCoordinates(yandexUrl, region, latitude, longitude);
   const mapsApiKey = credentials?.mapsApiKey || "";
   const suggestApiKey = credentials?.suggestApiKey || mapsApiKey;
 

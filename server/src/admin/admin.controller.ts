@@ -22,6 +22,7 @@ import {
   UpdatePromotionDto,
   UpdateRegionDto,
   CreatePickupLocationDto,
+  ResolvePickupMapLinkDto,
   UpdatePickupLocationDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
@@ -55,6 +56,11 @@ export class AdminController {
   @Post("pickup-locations")
   createPickupLocation(@Body() dto: CreatePickupLocationDto) {
     return this.admin.createPickupLocation(dto);
+  }
+
+  @Post("pickup-locations/resolve-map-link")
+  resolvePickupMapLink(@Body() dto: ResolvePickupMapLinkDto) {
+    return this.admin.resolvePickupMapLink(dto.yandexUrl);
   }
 
   @Patch("pickup-locations/:id")

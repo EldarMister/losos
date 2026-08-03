@@ -31,6 +31,12 @@ export class Region {
   contactAddress!: string;
 
   @Column({ default: "" })
+  supportPhone!: string;
+
+  @Column({ type: "text", default: "" })
+  supportUrl!: string;
+
+  @Column({ default: "" })
   pickupAddress!: string;
 
   @Column({ default: "" })

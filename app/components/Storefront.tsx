@@ -49,6 +49,8 @@ type RegionOption = {
   slug: string;
   name: string;
   contactPhone?: string;
+  supportPhone?: string;
+  supportUrl?: string;
   contactEmail?: string;
   contactAddress?: string;
   pickupAddress?: string;
@@ -454,6 +456,7 @@ const deliveryTimeMinutes = (value: string, fallback: string) => {
 };
 const allDeliveryWeekdays = [0, 1, 2, 3, 4, 5, 6];
 const deliveryWeekdayLabels = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const deliveryWeekdayOpenLabels = ["в воскресенье", "в понедельник", "во вторник", "в среду", "в четверг", "в пятницу", "в субботу"];
 const normalizedDeliveryDays = (value: number[] | undefined) => {
   if (!Array.isArray(value)) return allDeliveryWeekdays;
   return [...new Set(value.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
@@ -495,7 +498,18 @@ const getDeliveryAvailability = (
       : opensAt < closesAt
         ? days.has(today) && currentMinutes >= opensAt && currentMinutes < closesAt
         : currentMinutes >= opensAt ? days.has(today) : currentMinutes < closesAt && days.has(yesterday);
-  return { isOpen, opensLabel: is24Hours ? "Откроемся в следующий рабочий день" : `Откроемся в ${openTime}` };
+  if (isOpen) return { isOpen: true, opensLabel: "Кухня открыта" };
+  const nextOpenTime = is24Hours ? "00:00" : openTime;
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const candidateDay = (today + offset) % 7;
+    if (!days.has(candidateDay)) continue;
+    if (offset === 0 && !is24Hours && currentMinutes >= opensAt) continue;
+    const dayLabel = offset === 0
+      ? "сегодня"
+      : offset === 1 ? "завтра" : deliveryWeekdayOpenLabels[candidateDay];
+    return { isOpen: false, opensLabel: `Откроемся ${dayLabel} в ${nextOpenTime}` };
+  }
+  return { isOpen: false, opensLabel: "Кухня временно закрыта" };
 };
 
 const writeOverlayQuery = (name: "product" | "storyInspect", value: string | null, mode: "push" | "replace") => {
@@ -621,7 +635,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const selectedPickupLocation = pickupLocations.find((location) => location.id === selectedPickupLocationId)
     || pickupLocations[0];
   const pickupAddress = selectedPickupLocation?.address || "Выберите доступную кухню";
-  const pickupHours = selectedPickupLocation?.workingHours || "Часы работы уточняются";
   const deliveryOpenTime = selectedRegion?.deliveryOpenTime || "11:30";
   const deliveryCloseTime = selectedRegion?.deliveryCloseTime || "22:30";
   const deliveryIs24Hours = selectedRegion?.deliveryIs24Hours === true;
@@ -635,6 +648,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const maximumOrderAmount = Math.max(minimumOrderAmount, selectedRegion?.maximumOrderAmount ?? 30000);
   const pickupYandexUrl = selectedPickupLocation?.yandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
   const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
+  const supportPhone = selectedRegion?.supportPhone?.trim() || selectedRegion?.contactPhone?.trim();
+  const supportHref = selectedRegion?.supportUrl?.trim()
+    || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
   const footerEmail = selectedRegion?.contactEmail || "musaev.janybek.kg@gmail.com";
   const footerCompanyName = selectedRegion?.footerCompanyName || "Накта суши";
   const footerLegalInfo = selectedRegion?.footerLegalInfo || "Сервис доставки «Накта суши», Кыргызская Республика. Реквизиты и условия обслуживания доступны в разделе «Правовая информация».";
@@ -718,7 +734,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     deliveryWorkingDays,
     scheduleTimestamp,
   );
-  const deliveryClosed = deliveryType === "delivery" && !deliveryAvailability.isOpen;
+  const orderingClosed = !deliveryAvailability.isOpen;
   const profileLoading = Boolean(verifiedPhone && phoneVerificationToken && !profileData);
   const openSearch = () => {
     const nav = categoryNavRef.current;
@@ -1201,7 +1217,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   };
 
   const beginCheckout = () => {
-    if (deliveryClosed) {
+    if (orderingClosed) {
       setDeliveryInfoOpen(true);
       return;
     }
@@ -1503,8 +1519,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const submitOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!cart.length || checkoutSubmitting) return;
-    if (deliveryClosed) {
-      setCheckoutError(`Доставка сейчас закрыта. ${deliveryAvailability.opensLabel}.`);
+    if (orderingClosed) {
+      setCheckoutError(`Кухня сейчас закрыта. ${deliveryAvailability.opensLabel}.`);
       return;
     }
     const orderApiUrl = STOREFRONT_API_URL;
@@ -1961,14 +1977,23 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </div> : null}
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
-            <div className="delivery-mode" aria-label={deliveryType === "pickup" ? "Самовывоз примерно 40 минут" : deliveryClosed ? `Доставка закрыта. ${deliveryAvailability.opensLabel}` : "Доставка примерно 45 минут"}>
+            <div className="delivery-mode" aria-label={orderingClosed ? `Кухня закрыта. ${deliveryAvailability.opensLabel}` : deliveryType === "pickup" ? "Самовывоз примерно 40 минут" : "Доставка примерно 45 минут"}>
               <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button></div>
               <span className="delivery-connector" aria-hidden="true" />
-              <div className={`delivery-status${deliveryClosed ? " closed" : ""}`}><strong>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Закрыто" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "от ~45 минут"}</small></div>
+              <div className={`delivery-status${orderingClosed ? " closed" : ""}`}><strong>{orderingClosed ? "Закрыто" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "~40 минут" : "от ~45 минут"}</small></div>
             </div>
           </div>
           <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? <> <NumberTicker value={cartTotal} format={money} /></> : ""}</button>
         </header>
+
+        {orderingClosed ? (
+          <section className="closed-kitchen-card" aria-live="polite">
+            <h2>Мы откроемся<br />в {deliveryOpenTime}</h2>
+            <p>Сейчас кухня не работает. Немного отдохнём и откроемся снова.</p>
+            <small>{deliveryAvailability.opensLabel}</small>
+            <button type="button" onClick={() => setDeliveryInfoOpen(true)}>График работы</button>
+          </section>
+        ) : null}
 
         <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
           {regionalPromotions
@@ -2077,9 +2102,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <section className="profile-coins"><span>Баланс NAKTA Coin</span><strong>{profileData?.naktaCoins ?? 0}</strong><small>coin</small></section>
               <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Активных заказов нет</p>}</section>
               <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Заказов пока нет</p>}</section>
-              <a className="profile-support" href={`/support?region=${encodeURIComponent(regionSlug)}`}><span aria-hidden="true">💬</span>Поддержка</a>
+              <a className="profile-support" href={supportHref}><span aria-hidden="true">💬</span>Поддержка</a>
               <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля</button>
-            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href={`/support?region=${encodeURIComponent(regionSlug)}`}><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>}
+            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href={supportHref}><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>}
             <button className="profile-login" onClick={() => { if (verifiedPhone) { setMenuOpen(false); return; } setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setPhoneAuthOpen(true); }}>{verifiedPhone ? "Готово" : "Войти"}</button>
           </section>
         </div>
@@ -2199,6 +2224,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               ) : <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexPickupMap
                 region={regionSlug}
                 yandexUrl={pickupYandexUrl}
+                latitude={selectedPickupLocation?.latitude}
+                longitude={selectedPickupLocation?.longitude}
                 selected={pickupLocationSelected}
               /></Suspense>}
             </div>
@@ -2318,7 +2345,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
                   </div>
                   <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
-                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"}</b><small>{deliveryType === "pickup" ? "Примерно через 40 минут" : deliveryClosed ? deliveryAvailability.opensLabel : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{deliveryType === "pickup" ? "Самовывоз" : deliveryClosed ? "Доставка закрыта" : "Доставка"} ›</span></button><button className={`checkout${deliveryClosed ? " closed" : ""}`} disabled={deliveryClosed} onClick={beginCheckout}><span>{deliveryClosed ? "Закрыто" : "Далее"}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"} ›</span></button><button className={`checkout${orderingClosed ? " closed" : ""}`} disabled={orderingClosed} onClick={beginCheckout}><span>{orderingClosed ? "Закрыто" : "Далее"}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
                 </section>
               </div>
             </>}
@@ -2348,7 +2375,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <>
                 <small>Самовывоз</small>
                 <h2>{pickupAddress}</h2>
-                <p className="delivery-info-hours">{pickupHours}</p>
+                <p className={`delivery-info-hours${orderingClosed ? " closed" : ""}`}>{orderingClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
                 <div className="delivery-info-details">
                   <h3>Детали</h3>
                   <div><span>Время приготовления</span><b>~40 мин</b></div>
@@ -2359,7 +2386,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <>
                 <small>{freeDeliveryThreshold > 0 ? `Бесплатная доставка от ${money(freeDeliveryThreshold)}` : "Бесплатная доставка"}</small>
                 <h2>{address || `Доставка в город ${city}`}</h2>
-                <p className={`delivery-info-hours${deliveryClosed ? " closed" : ""}`}>{deliveryClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
+                <p className={`delivery-info-hours${orderingClosed ? " closed" : ""}`}>{orderingClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
                 <div className="delivery-info-details">
                   <h3>Детали</h3>
                   <div><span>Время доставки</span><b>~{estimatedDeliveryMinutes} мин</b></div>
@@ -2504,8 +2531,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
               <footer className="checkout-footer">
                 {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
-                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || deliveryClosed || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
-                  <span>{checkoutSubmitting ? "Отправляем заказ…" : deliveryClosed ? "Доставка закрыта" : "Заказать"}</span>
+                <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || orderingClosed || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
+                  <span>{checkoutSubmitting ? "Отправляем заказ…" : orderingClosed ? "Кухня закрыта" : "Заказать"}</span>
                   <b><NumberTicker value={cartTotal} format={money} /></b>
                 </button>
                 <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>

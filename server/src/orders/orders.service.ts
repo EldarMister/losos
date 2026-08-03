@@ -126,11 +126,8 @@ export class OrdersService {
         }
 
         const deliveryType = dto.deliveryType || DeliveryType.DELIVERY;
-        if (
-          deliveryType === DeliveryType.DELIVERY
-          && !isDeliveryOpenAt(products[0].category.region)
-        ) {
-          throw new BadRequestException("Доставка сейчас закрыта. Оформить заказ можно в рабочее время.");
+        if (!isDeliveryOpenAt(products[0].category.region)) {
+          throw new BadRequestException("Кухня сейчас закрыта. Оформить заказ можно в рабочее время.");
         }
 
         await this.phoneAuth.consumeVerification(dto.phone, dto.verificationToken, manager);

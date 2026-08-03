@@ -11,6 +11,7 @@ import { DevicePushToken } from "./auth/device-push-token.entity";
 import { PickupLocation } from "./catalog/pickup-location.entity";
 import { AddPickupLocationsAndPushTokens1784996000000 } from "./migrations/1784996000000-AddPickupLocationsAndPushTokens";
 import { AddRegionDeliveryDetailsAndZone1784997000000 } from "./migrations/1784997000000-AddRegionDeliveryDetailsAndZone";
+import { AddOrderCompletionAndSupportContact1784998000000 } from "./migrations/1784998000000-AddOrderCompletionAndSupportContact";
 import { BootstrapSchema1784978000000 } from "./migrations/1784978000000-BootstrapSchema";
 import { AddProductCustomization1784979000000 } from "./migrations/1784979000000-AddProductCustomization";
 import { AddProductionOrders1784980000000 } from "./migrations/1784980000000-AddProductionOrders";
@@ -65,6 +66,7 @@ export default new DataSource({
     AddProductNaktaCoins1784995000000,
     AddPickupLocationsAndPushTokens1784996000000,
     AddRegionDeliveryDetailsAndZone1784997000000,
+    AddOrderCompletionAndSupportContact1784998000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

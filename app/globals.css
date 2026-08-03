@@ -66,6 +66,11 @@ a { color: inherit; text-decoration: none; }
 .delivery-status { min-width: 140px; height: 52px; padding: 8px 16px; border-radius: 27px; background: #fff; text-align: center; }
 .delivery-status.closed { background: #111; color: #fff; }
 .delivery-status.closed small { color: #c7c7cb; }
+.closed-kitchen-card { margin: 22px 32px 0; padding: 28px; border-radius: 28px; background: #f3f3f1; }
+.closed-kitchen-card h2 { margin: 0; color: #111; font-size: clamp(30px, 3vw, 46px); line-height: 1.03; letter-spacing: -.04em; }
+.closed-kitchen-card p { max-width: 520px; margin: 20px 0 5px; color: #303033; font-size: 16px; line-height: 1.35; }
+.closed-kitchen-card small { display: block; color: #77777c; font-size: 13px; }
+.closed-kitchen-card button { margin-top: 20px; min-height: 52px; padding: 0 20px; border-radius: 16px; background: #111; color: #fff; font-size: 15px; font-weight: 700; }
 .delivery-mode strong, .delivery-mode small { display: block; }
 .delivery-mode strong { font-size: 15px; }
 .delivery-mode small { color: #7f7f85; font-size: 12px; margin-top: 2px; }
@@ -689,6 +694,10 @@ a { color: inherit; text-decoration: none; }
   .delivery-connector { display: none; }
   .delivery-status { width: 100%; min-width: 0; height: 60px; padding: 8px 12px; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .address-button { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 42px; border-radius: 20px; background: var(--soft); text-align: center; }
+  .closed-kitchen-card { margin: 14px 14px 10px; padding: 22px; border-radius: 20px; }
+  .closed-kitchen-card h2 { font-size: 30px; line-height: 35px; }
+  .closed-kitchen-card p { margin-top: 18px; font-size: 15px; }
+  .closed-kitchen-card button { min-height: 50px; margin-top: 18px; }
   .promo-row { padding: 8px 8px 19.725px; gap: 12px; }
   .promo-card { flex-basis: 120px; width: 120px; height: 130.275px; padding: 2px; border-radius: 12px; }
   .category-nav { top: 146px; height: 44px; padding: 0 0 8px 8px; align-items: flex-start; gap: 10px; background: #fff; box-shadow: 0 -8px 0 #fff; }

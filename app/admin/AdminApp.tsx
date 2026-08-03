@@ -6,7 +6,7 @@ import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
 type PickupLocation = { id: number; title: string; address: string; workingHours: string; latitude: number | null; longitude: number | null; yandexUrl: string; enabled: boolean; sortOrder: number };
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; supportPhone: string; supportUrl: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -96,6 +96,7 @@ type AdminOrder = {
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string | null;
   items: AdminOrderItem[];
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
@@ -115,6 +116,11 @@ type PickupLocationEditor = {
   enabled: boolean;
   sortOrder: string;
 };
+type PickupCoordinatesResponse = {
+  latitude: number;
+  longitude: number;
+  resolvedUrl: string;
+};
 type RegionEditor = {
   id?: number;
   values: Record<string, string | boolean | number[]>;
@@ -132,8 +138,8 @@ const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
   osh: [[40.59, 72.75], [40.6, 72.84], [40.565, 72.9], [40.505, 72.91], [40.46, 72.86], [40.445, 72.78], [40.475, 72.72], [40.535, 72.7]].map(([latitude, longitude]) => ({ latitude, longitude })),
 };
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
 ];
 
 function formatDeliveryZone(points: DeliveryZonePoint[] | undefined) {
@@ -164,6 +170,20 @@ const deliveryWeekdays = [
   { value: 1, label: "Пн" }, { value: 2, label: "Вт" }, { value: 3, label: "Ср" },
   { value: 4, label: "Чт" }, { value: 5, label: "Пт" }, { value: 6, label: "Сб" }, { value: 0, label: "Вс" },
 ];
+function globalScheduleText(values: RegionEditor["values"]) {
+  const days = Array.isArray(values.deliveryWorkingDays)
+    ? values.deliveryWorkingDays as number[]
+    : [0, 1, 2, 3, 4, 5, 6];
+  const dayLabel = days.length === 7
+    ? "Ежедневно, без выходных"
+    : days.length
+      ? deliveryWeekdays.filter((day) => days.includes(day.value)).map((day) => day.label).join(", ")
+      : "Нет рабочих дней";
+  const hours = values.deliveryIs24Hours
+    ? "Круглосуточно"
+    : `${String(values.deliveryOpenTime || "11:30")} – ${String(values.deliveryCloseTime || "22:30")}`;
+  return `${dayLabel}, ${hours}`;
+}
 const defaultRegionByTab: Record<Tab, string> = {
   statistics: "bishkek",
   orders: "bishkek",
@@ -278,6 +298,7 @@ export function AdminApp() {
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
   const [deletedPickupLocationIds, setDeletedPickupLocationIds] = useState<number[]>([]);
+  const [pickupResolvingIndex, setPickupResolvingIndex] = useState<number | null>(null);
   const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
   const orderControlsRef = useRef<HTMLDivElement>(null);
   const region = regionByTab[tab];
@@ -309,6 +330,41 @@ export function AdminApp() {
     }
     return response.json();
   }, [token]);
+
+  const requestPickupCoordinates = useCallback((yandexUrl: string) => request(
+    "/admin/pickup-locations/resolve-map-link",
+    {
+      method: "POST",
+      body: JSON.stringify({ yandexUrl: yandexUrl.trim() }),
+    },
+  ) as Promise<PickupCoordinatesResponse>, [request]);
+
+  const fillPickupCoordinates = useCallback(async (index: number) => {
+    const location = regionEditor?.pickupLocations[index];
+    if (!location?.yandexUrl.trim() || pickupResolvingIndex !== null) return;
+    setPickupResolvingIndex(index);
+    setMessage("");
+    try {
+      const resolved = await requestPickupCoordinates(location.yandexUrl);
+      setRegionEditor((current) => current ? {
+        ...current,
+        pickupLocations: current.pickupLocations.map((item, locationIndex) => (
+          locationIndex === index
+            ? {
+                ...item,
+                latitude: String(resolved.latitude),
+                longitude: String(resolved.longitude),
+              }
+            : item
+        )),
+      } : current);
+      setMessage("Координаты кухни определены по ссылке");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось определить координаты");
+    } finally {
+      setPickupResolvingIndex(null);
+    }
+  }, [pickupResolvingIndex, regionEditor?.pickupLocations, requestPickupCoordinates]);
 
   const loadSettings = useCallback(async () => {
     if (!token) return;
@@ -464,15 +520,16 @@ export function AdminApp() {
     if (statisticsPeriod === "week") { from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 6); }
     if (statisticsPeriod === "month") { from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 29); }
     if (statisticsPeriod === "all") from.setTime(0);
-    const paidOrders = statisticsOrders.filter((order) => order.status !== "cancelled" && new Date(order.createdAt) >= from);
-    const revenue = paidOrders.reduce((sum, order) => sum + order.total, 0);
+    const completionDate = (order: AdminOrder) => new Date(order.completedAt || order.updatedAt || order.createdAt);
+    const completedOrders = statisticsOrders.filter((order) => order.status === "completed" && completionDate(order) >= from);
+    const revenue = completedOrders.reduce((sum, order) => sum + order.total, 0);
     const byProduct = new Map<string, { name: string; count: number; revenue: number }>();
     const byPayment = new Map<string, number>();
     const byHour = new Map<number, number>();
     const byStatus = new Map<OrderStatus, number>();
-    for (const order of paidOrders) {
+    for (const order of completedOrders) {
       byPayment.set(order.paymentMethod, (byPayment.get(order.paymentMethod) || 0) + order.total);
-      const hour = new Date(order.createdAt).getHours();
+      const hour = completionDate(order).getHours();
       byHour.set(hour, (byHour.get(hour) || 0) + order.total);
       byStatus.set(order.status, (byStatus.get(order.status) || 0) + 1);
       for (const item of order.items) {
@@ -492,14 +549,14 @@ export function AdminApp() {
       const day = new Date(now);
       if (statisticsPeriod === "today") { day.setHours(index * 4, 0, 0, 0); }
       else { day.setHours(0, 0, 0, 0); day.setDate(day.getDate() - (days - 1 - index)); }
-      const amount = paidOrders.filter((order) => {
-        const date = new Date(order.createdAt);
+      const amount = completedOrders.filter((order) => {
+        const date = completionDate(order);
         return statisticsPeriod === "today" ? date.getHours() >= index * 4 && date.getHours() < (index + 1) * 4 : date.toDateString() === day.toDateString();
       }).reduce((sum, order) => sum + order.total, 0);
       return { label: statisticsPeriod === "today" ? `${String(index * 4).padStart(2, "0")}:00` : new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(day), amount };
     });
     const chartMax = Math.max(...chart.map((point) => point.amount), 1);
-    return { orders: paidOrders.length, revenue, average: paidOrders.length ? revenue / paidOrders.length : 0, products: productRows, payments, peaks, statuses, chart: chart.map((point) => ({ ...point, percent: Math.max(4, (point.amount / chartMax) * 100) })) };
+    return { orders: completedOrders.length, revenue, average: completedOrders.length ? revenue / completedOrders.length : 0, products: productRows, payments, peaks, statuses, chart: chart.map((point) => ({ ...point, percent: Math.max(4, (point.amount / chartMax) * 100) })) };
   }, [statisticsOrders, statisticsPeriod]);
 
   const openProduct = (product?: Product & { categoryId: number }) => {
@@ -659,6 +716,7 @@ export function AdminApp() {
         body: JSON.stringify({ status }),
       }) as AdminOrder;
       setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setStatisticsOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
       setSelectedOrder(updated);
       setMessage(`${formatOrderNumber(updated.id)}: ${orderStatusLabels[updated.status]}`);
     } catch (error) {
@@ -680,6 +738,8 @@ export function AdminApp() {
         contactPhone: item.contactPhone || "",
         contactEmail: item.contactEmail || "",
         contactAddress: item.contactAddress || "",
+        supportPhone: item.supportPhone || "",
+        supportUrl: item.supportUrl || "",
         pickupAddress: item.pickupAddress || "",
         pickupYandexUrl: item.pickupYandexUrl || "",
         pickupWorkingHours: item.pickupWorkingHours || "",
@@ -716,6 +776,8 @@ export function AdminApp() {
         contactPhone: "",
         contactEmail: "",
         contactAddress: "",
+        supportPhone: "",
+        supportUrl: "",
         pickupAddress: "",
         pickupYandexUrl: "",
         pickupWorkingHours: "",
@@ -789,14 +851,24 @@ export function AdminApp() {
     setLoading(true);
     setMessage("");
     try {
-      const firstPickup = regionEditor.pickupLocations.find((location) => location.enabled)
-        ?? regionEditor.pickupLocations[0];
+      const pickupLocations = await Promise.all(regionEditor.pickupLocations.map(async (location) => {
+        if (!location.yandexUrl.trim()) return location;
+        const resolved = await requestPickupCoordinates(location.yandexUrl);
+        return {
+          ...location,
+          latitude: String(resolved.latitude),
+          longitude: String(resolved.longitude),
+        };
+      }));
+      const schedule = globalScheduleText(regionEditor.values);
+      const firstPickup = pickupLocations.find((location) => location.enabled)
+        ?? pickupLocations[0];
       const { deliveryZone: deliveryZoneValue, ...values } = regionEditor.values;
       const payload = {
         ...values,
         pickupAddress: firstPickup?.address.trim() || "",
         pickupYandexUrl: firstPickup?.yandexUrl.trim() || "",
-        pickupWorkingHours: firstPickup?.workingHours.trim() || "",
+        pickupWorkingHours: firstPickup ? schedule : "",
         sortOrder: Number(regionEditor.values.sortOrder),
         freeDeliveryThreshold: Number(regionEditor.values.freeDeliveryThreshold),
         deliveryFee: Number(regionEditor.values.deliveryFee),
@@ -811,7 +883,7 @@ export function AdminApp() {
         body: JSON.stringify(payload),
       }) as Region;
       await Promise.all([
-        ...regionEditor.pickupLocations
+        ...pickupLocations
           .filter((location) => location.address.trim())
           .map((location) => request(
             `/admin/pickup-locations${location.id ? `/${location.id}` : ""}`,
@@ -821,7 +893,7 @@ export function AdminApp() {
                 ...(!location.id ? { regionId: saved.id } : {}),
                 title: location.title.trim(),
                 address: location.address.trim(),
-                workingHours: location.workingHours.trim(),
+                workingHours: schedule,
                 latitude: location.latitude === "" ? undefined : Number(location.latitude),
                 longitude: location.longitude === "" ? undefined : Number(location.longitude),
                 yandexUrl: location.yandexUrl.trim(),
@@ -1108,6 +1180,13 @@ export function AdminApp() {
         </div>
         <label>Адрес для страницы поддержки<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Бишкек, улица …" /></label>
         <div className="admin-region-block">
+          <b>Поддержка в приложении и на сайте</b><small>Ссылка открывается первой. Если её нет, кнопка поддержки позвонит на указанный номер.</small>
+          <div className="admin-two-fields">
+            <label>Номер поддержки<input value={String(regionEditor.values.supportPhone)} onChange={(event) => updateRegionValue("supportPhone", event.target.value)} placeholder="+996 555 123 456" /></label>
+            <label>Ссылка на поддержку<input type="url" value={String(regionEditor.values.supportUrl)} onChange={(event) => updateRegionValue("supportUrl", event.target.value)} placeholder="https://t.me/your_support" /></label>
+          </div>
+        </div>
+        <div className="admin-region-block">
           <b>Доставка</b><small>График действует по времени Бишкека. В нерабочие дни и после закрытия новые заказы не принимаются.</small>
           <label className="admin-switch"><span><b>Круглосуточно</b><small>Доставка доступна 24 часа в выбранные дни</small></span><input type="checkbox" checked={Boolean(regionEditor.values.deliveryIs24Hours)} onChange={(event) => updateRegionValue("deliveryIs24Hours", event.target.checked)} /></label>
           <div className="admin-working-days" role="group" aria-label="Рабочие дни доставки">
@@ -1153,12 +1232,19 @@ export function AdminApp() {
                 <label>Порядок<input type="number" min="0" value={location.sortOrder} onChange={(event) => updatePickupLocation(index, "sortOrder", event.target.value)} /></label>
               </div>
               <label>Адрес<input required value={location.address} onChange={(event) => updatePickupLocation(index, "address", event.target.value)} placeholder="Бишкек, проспект Чуй, 155" /></label>
-              <div className="admin-two-fields">
-                <label>Широта<input type="number" step="any" min="-90" max="90" value={location.latitude} onChange={(event) => updatePickupLocation(index, "latitude", event.target.value)} placeholder="42.8746" /></label>
-                <label>Долгота<input type="number" step="any" min="-180" max="180" value={location.longitude} onChange={(event) => updatePickupLocation(index, "longitude", event.target.value)} placeholder="74.5698" /></label>
+              <div className="admin-pickup-map-link">
+                <label>Ссылка на Яндекс Карты<input type="url" value={location.yandexUrl} onBlur={() => void fillPickupCoordinates(index)} onChange={(event) => updatePickupLocation(index, "yandexUrl", event.target.value)} placeholder="https://yandex.ru/maps/-/..." /></label>
+                <button type="button" disabled={!location.yandexUrl.trim() || pickupResolvingIndex !== null} onClick={() => void fillPickupCoordinates(index)}>{pickupResolvingIndex === index ? "Определяем…" : "Определить точку"}</button>
               </div>
-              <label>Время работы<input value={location.workingHours} onChange={(event) => updatePickupLocation(index, "workingHours", event.target.value)} placeholder="Ежедневно, 11:30 – 22:30" /></label>
-              <label>Ссылка на Яндекс Карты<input type="url" value={location.yandexUrl} onChange={(event) => updatePickupLocation(index, "yandexUrl", event.target.value)} placeholder="https://yandex.ru/maps/..." /></label>
+              <small className="admin-pickup-coordinate-status">{location.latitude && location.longitude ? `Координаты: ${location.latitude}, ${location.longitude}` : "Координаты автоматически заполнятся по ссылке"}</small>
+              <details className="admin-zone-coordinates">
+                <summary>Координаты вручную</summary>
+                <div className="admin-two-fields">
+                  <label>Широта<input type="number" step="any" min="-90" max="90" value={location.latitude} onChange={(event) => updatePickupLocation(index, "latitude", event.target.value)} placeholder="42.8746" /></label>
+                  <label>Долгота<input type="number" step="any" min="-180" max="180" value={location.longitude} onChange={(event) => updatePickupLocation(index, "longitude", event.target.value)} placeholder="74.5698" /></label>
+                </div>
+              </details>
+              <small className="admin-pickup-coordinate-status">Для кухни используется глобальный график города, указанный выше.</small>
               <label className="admin-switch"><span><b>Доступна для заказа</b><small>Показывается клиентам</small></span><input type="checkbox" checked={location.enabled} onChange={(event) => updatePickupLocation(index, "enabled", event.target.checked)} /></label>
             </section>) : <p className="admin-pickup-empty">Добавьте хотя бы одну кухню, чтобы включить самовывоз.</p>}
           </div>

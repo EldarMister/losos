@@ -84,6 +84,10 @@ export class Order {
   @UpdateDateColumn()
   updatedAt!: Date;
 
+  @Index()
+  @Column({ type: "timestamp with time zone", nullable: true })
+  completedAt!: Date | null;
+
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items!: OrderItem[];
 }
