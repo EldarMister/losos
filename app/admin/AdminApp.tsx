@@ -277,13 +277,14 @@ export function AdminApp() {
   const [tokenDraft, setTokenDraft] = useState("");
   const [regionByTab, setRegionByTab] = useState<Record<Tab, string>>(defaultRegionByTab);
   const [availableRegions, setAvailableRegions] = useState<Region[]>(defaultRegions);
-  const [tab, setTab] = useState<Tab>("orders");
+  const [tab, setTab] = useState<Tab>("statistics");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition">("main");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -297,6 +298,7 @@ export function AdminApp() {
   const [orderPage, setOrderPage] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
+  const [regionEditorSection, setRegionEditorSection] = useState<"main" | "delivery" | "pickup" | "footer">("main");
   const [deletedPickupLocationIds, setDeletedPickupLocationIds] = useState<number[]>([]);
   const [pickupResolvingIndex, setPickupResolvingIndex] = useState<number | null>(null);
   const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
@@ -570,6 +572,7 @@ export function AdminApp() {
   }, [statisticsOrders, statisticsPeriod]);
 
   const openProduct = (product?: Product & { categoryId: number }) => {
+    setEditorSection("main");
     if (!product) {
       setEditor(emptyProduct(productCategoryFilter === "all" ? String(dashboard?.categories[0]?.id || "") : productCategoryFilter));
       return;
@@ -600,30 +603,36 @@ export function AdminApp() {
     });
   };
 
-  const openPromotion = (promotion?: Promotion) => setEditor(promotion ? {
-    kind: "promotion",
-    id: promotion.id,
-    values: {
-      title: promotion.title,
-      image: promotion.image,
-      cta: promotion.cta,
-      ctaUrl: promotion.ctaUrl,
-      enabled: promotion.enabled,
-      sortOrder: String(promotion.sortOrder),
-    },
-  } : {
-    kind: "promotion",
-    values: { title: "", image: "", cta: "", ctaUrl: "", enabled: true, sortOrder: "0" },
-  });
+  const openPromotion = (promotion?: Promotion) => {
+    setEditorSection("main");
+    setEditor(promotion ? {
+      kind: "promotion",
+      id: promotion.id,
+      values: {
+        title: promotion.title,
+        image: promotion.image,
+        cta: promotion.cta,
+        ctaUrl: promotion.ctaUrl,
+        enabled: promotion.enabled,
+        sortOrder: String(promotion.sortOrder),
+      },
+    } : {
+      kind: "promotion",
+      values: { title: "", image: "", cta: "", ctaUrl: "", enabled: true, sortOrder: "0" },
+    });
+  };
 
-  const openCategory = (category?: Category) => setEditor(category ? {
-    kind: "category",
-    id: category.id,
-    values: { title: category.title, slug: category.slug, image: category.image || "", sortOrder: String(category.sortOrder) },
-  } : {
-    kind: "category",
-    values: { title: "", slug: "", image: "", sortOrder: "0" },
-  });
+  const openCategory = (category?: Category) => {
+    setEditorSection("main");
+    setEditor(category ? {
+      kind: "category",
+      id: category.id,
+      values: { title: category.title, slug: category.slug, image: category.image || "", sortOrder: String(category.sortOrder) },
+    } : {
+      kind: "category",
+      values: { title: "", slug: "", image: "", sortOrder: "0" },
+    });
+  };
 
   const updateValue = (name: string, value: EditorValue) => {
     setEditor((current) => current ? { ...current, values: { ...current.values, [name]: value } } : current);
@@ -737,6 +746,7 @@ export function AdminApp() {
   };
 
   const openRegion = (item?: Region) => {
+    setRegionEditorSection("main");
     setDeletedPickupLocationIds([]);
     setRegionEditor(item ? {
       id: item.id,
@@ -988,16 +998,7 @@ export function AdminApp() {
   const selectedStatus = statusOptions.find((option) => option.value === orderFilter) || statusOptions[0];
   const selectedPeriod = periodOptions.find((option) => option.value === orderPeriod) || periodOptions[0];
   const activeOrderCount = (statusCounts.confirmed || 0) + (statusCounts.preparing || 0) + (statusCounts.ready || 0) + (statusCounts.delivering || 0);
-  const tabDescriptions: Record<Tab, { title: string; text: string }> = {
-    statistics: { title: "Результаты заведений", text: "Выручка, завершённые заказы и популярные блюда." },
-    orders: { title: "Операционная лента", text: "Следите за заказами и меняйте их статус без лишних переходов." },
-    products: { title: "Каталог блюд", text: "Цены, доступность, состав и варианты выбора для гостей." },
-    promotions: { title: "Витрина акций", text: "Баннеры и предложения, которые видят гости на сайте и в приложении." },
-    categories: { title: "Структура меню", text: "Порядок и группировка блюд в каталоге." },
-    settings: { title: "Заведения и доставка", text: "Контакты, график, кухни, зоны и условия доставки." },
-  };
-  const mainNavigation = ["statistics", "orders"] as Tab[];
-  const catalogNavigation = ["products", "promotions"] as Tab[];
+  const navigation = ["statistics", "orders", "products", "promotions", "settings"] as Tab[];
   const navigationLabel = (item: Tab) => item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : item === "promotions" ? "Акции" : "Настройки";
   const renderNavigationButton = (item: Tab) => <button
     key={item}
@@ -1008,16 +1009,11 @@ export function AdminApp() {
   >{renderTabIcon(item)}<span>{navigationLabel(item)}</span></button>;
   const renderSidebar = (mobile = false) => <aside className={`admin-sidebar${mobile ? " admin-sidebar-mobile" : ""}`} aria-label="Навигация администратора">
     <div className="admin-sidebar-brand">
-      <img src="/logo.webp" alt="" />
-      <span><b>Накта суши</b><small>Управление</small></span>
-      {mobile ? <button type="button" className="admin-sidebar-close" onClick={() => setMobileNavOpen(false)} aria-label="Закрыть меню">×</button> : null}
+      <img src="/logo.webp" alt="Накта суши" />
+      <b>НАКТА СУШИ</b>
     </div>
-    <div className="admin-sidebar-navigation">
-      <section><small>Обзор</small><nav>{mainNavigation.map(renderNavigationButton)}</nav></section>
-      <section><small>Каталог</small><nav>{catalogNavigation.map(renderNavigationButton)}</nav></section>
-    </div>
+    <nav className="admin-sidebar-navigation">{navigation.map(renderNavigationButton)}</nav>
     <div className="admin-sidebar-footer">
-      {renderNavigationButton("settings")}
       <button type="button" className="admin-logout" onClick={logout}><i aria-hidden="true">↪</i><span>Выйти</span></button>
       <small>NAKTA CONTROL · 2026</small>
     </div>
@@ -1037,32 +1033,17 @@ export function AdminApp() {
       <header className="admin-topbar">
         <div className="admin-topbar-title">
           <button type="button" className="admin-menu-toggle" onClick={() => setMobileNavOpen(true)} aria-label="Открыть меню"><span /><span /><span /></button>
-          <span><small>Накта суши</small><h1>{tabTitle}</h1></span>
+          <h1>{tabTitle}</h1>
         </div>
         <div className="admin-topbar-actions">
-          <div className="admin-topbar-regions" aria-label="Город">
-            {availableRegions.filter((item) => item.enabled).map((item) => <button type="button" key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => selectRegion(item.slug)}>{item.name}</button>)}
-          </div>
           <select className="admin-topbar-region-select" aria-label="Город" value={region} onChange={(event) => selectRegion(event.target.value)}>
             {availableRegions.filter((item) => item.enabled).map((item) => <option value={item.slug} key={item.slug}>{item.name}</option>)}
           </select>
-          <span className="admin-sync-status"><i />Обновляется автоматически</span>
+          <span className="admin-sync-status"><i />Онлайн</span>
         </div>
       </header>
 
       <section className="admin-content">
-      <div className="admin-section-title">
-        <div>
-          <h2>{tabDescriptions[tab].title}</h2>
-          <p>{tabDescriptions[tab].text}</p>
-        </div>
-        {tab === "statistics" || tab === "orders" ? null : tab === "settings"
-          ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
-          : tab === "products" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={openCategoryManager}>Категории</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
-          : tab === "categories" ? <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("products")}>← К меню</button><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
-          : <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>}
-      </div>
-
       {tab === "statistics" ? <StatisticsDashboard data={statistics} period={statisticsPeriod} loading={statisticsLoading} onPeriodChange={setStatisticsPeriod} /> : null}
 
       {tab === "orders" ? <>
@@ -1117,19 +1098,22 @@ export function AdminApp() {
         </> : null}</footer>
       </div></> : null}
 
-      {tab !== "statistics" && tab !== "orders" && tab !== "settings" ? <div className="admin-list-tools">
-        <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === "products" ? "Поиск по названию блюда" : tab === "promotions" ? "Поиск по акциям" : "Поиск по категориям"} /></label>
-      </div> : null}
-
-      {tab === "products" ? <div className="admin-mobile-menu-actions"><button type="button" className="admin-category-add" onClick={openCategoryManager}>Категории</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div> : null}
-      {tab === "categories" ? <div className="admin-mobile-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("products")}>← К меню</button><button className="admin-add" onClick={() => openCategory()}>＋ Категория</button></div> : null}
-
-      {tab === "products" ? <div className="admin-menu-categories" aria-label="Категории меню">
-        <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
-        {(dashboard?.categories || []).map((category) => <button type="button" key={category.id} className={productCategoryFilter === String(category.id) ? "active" : ""} onClick={() => setProductCategoryFilter(String(category.id))}>{category.title} <span>{category.products.length}</span></button>)}
-      </div> : null}
-
-      {tab === "products" ? <div className="admin-products-table">
+      {tab === "products" ? <>
+        <div className="admin-page-summary">
+          <span>Всего блюд: <b>{products.length}</b></span><i />
+          <span>Категорий: <b>{dashboard?.categories.length || 0}</b></span><i />
+          <span>В продаже: <b>{products.filter((product) => product.available).length}</b></span>
+        </div>
+        <div className="admin-catalog-card">
+          <div className="admin-catalog-toolbar">
+            <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию блюда" /></label>
+            <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+          </div>
+          <div className="admin-menu-categories" aria-label="Категории меню">
+            <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
+            {(dashboard?.categories || []).map((category) => <button type="button" key={category.id} className={productCategoryFilter === String(category.id) ? "active" : ""} onClick={() => setProductCategoryFilter(String(category.id))}>{category.title} <span>{category.products.length}</span></button>)}
+          </div>
+          <div className="admin-products-table">
         <div className="admin-products-head"><span>Блюдо</span><span>Категория</span><span>Цена</span><span>Статус</span><span>Действия</span></div>
         {visibleProducts.map((product) => <article className="admin-product" key={product.id} role="button" tabIndex={0} onClick={() => openProduct(product)} onKeyDown={(event) => {
           if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
@@ -1143,23 +1127,46 @@ export function AdminApp() {
           <i className={product.available ? "available" : ""}>{product.available ? "В продаже" : "Недоступно"}</i>
           <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} aria-expanded={openProductActions === product.id} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
         </article>)}
-      </div> : null}
+          {!visibleProducts.length && !loading ? <div className="admin-empty"><span>Блюда не найдены</span></div> : null}
+          </div>
+        </div>
+      </> : null}
 
-      {tab === "promotions" ? <div className="admin-grid admin-promotions">
-        {visiblePromotions.map((promotion) => <button className="admin-promotion" key={promotion.id} onClick={() => openPromotion(promotion)}>
-          <img src={promotion.image} alt="" />
-          <span><b>{promotion.title}</b><small>{promotion.enabled ? "Показывается на сайте" : "Скрыта"}</small><strong>Изменить →</strong></span>
-        </button>)}
-      </div> : null}
+      {tab === "promotions" ? <>
+        <div className="admin-page-summary"><span>Всего акций: <b>{dashboard?.promotions.length || 0}</b></span><i /><span>Активных: <b>{dashboard?.promotions.filter((item) => item.enabled).length || 0}</b></span></div>
+        <div className="admin-catalog-card">
+          <div className="admin-catalog-toolbar">
+            <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по акциям" /></label>
+            <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>
+          </div>
+          <div className="admin-grid admin-promotions">
+            {visiblePromotions.map((promotion) => <button className="admin-promotion" key={promotion.id} onClick={() => openPromotion(promotion)}>
+              <img src={promotion.image} alt="" />
+              <span><b>{promotion.title}</b><small>{promotion.enabled ? "Показывается на сайте" : "Скрыта"}</small><strong>Изменить →</strong></span>
+            </button>)}
+            {!visiblePromotions.length && !loading ? <div className="admin-empty"><span>Акции не найдены</span></div> : null}
+          </div>
+        </div>
+      </> : null}
 
-      {tab === "categories" ? <div className="admin-categories">
-        <div className="admin-categories-head"><span>Фото</span><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
-        {visibleCategories.map((category) => <button key={category.id} onClick={() => openCategory(category)}>
-          <i>⁙</i><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">Изменить →</span>
-        </button>)}
-      </div> : null}
+      {tab === "categories" ? <>
+        <div className="admin-page-summary"><span>Категорий: <b>{dashboard?.categories.length || 0}</b></span><i /><span>Блюд: <b>{products.length}</b></span></div>
+        <div className="admin-catalog-card">
+          <div className="admin-catalog-toolbar">
+            <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по категориям" /></label>
+            <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("products")}>← К меню</button><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
+          </div>
+          <div className="admin-categories">
+            <div className="admin-categories-head"><span>Фото</span><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
+            {visibleCategories.map((category) => <button key={category.id} onClick={() => openCategory(category)}>
+              <i>⁙</i><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">Изменить →</span>
+            </button>)}
+          </div>
+        </div>
+      </> : null}
 
       {tab === "settings" ? <div className="admin-settings">
+        <div className="admin-settings-toolbar"><span>Управляйте городами, графиком, доставкой и контактами</span><button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button></div>
         <section>
           <div className="admin-settings-title"><span><b>Города и контакты</b><small>Города, доступные на витрине, и данные для связи с клиентами.</small></span></div>
           <div className="admin-settings-list">
@@ -1188,36 +1195,64 @@ export function AdminApp() {
           <button type="button" onClick={() => setEditor(null)} aria-label="Закрыть">×</button>
         </div>
 
-        <label>Название<input required value={String(editor.values.title || editor.values.name || "")} onChange={(event) => updateValue(editor.kind === "product" ? "name" : "title", event.target.value)} /></label>
-        {editor.kind !== "promotion" ? <p className="admin-slug-hint">Адрес страницы на сайте сформируется автоматически из названия.</p> : null}
         {editor.kind === "product" ? <>
-          <div className="admin-two-fields">
-            <label>Категория<select value={String(editor.values.categoryId || "")} onChange={(event) => updateValue("categoryId", event.target.value)}>{dashboard?.categories.map((category) => <option value={category.id} key={category.id}>{category.title}</option>)}</select></label>
-            <label>Цена, сом<input required type="number" min="0" value={String(editor.values.price)} onChange={(event) => updateValue("price", event.target.value)} /></label>
-            <label>Старая цена, сом<input type="number" min="0" value={String(editor.values.oldPrice || "")} onChange={(event) => updateValue("oldPrice", event.target.value)} placeholder="Без скидки" /></label>
-            <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins ?? "")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
+          <nav className="admin-editor-tabs" aria-label="Разделы блюда">
+            <button type="button" className={editorSection === "main" ? "active" : ""} onClick={() => setEditorSection("main")}>Основное</button>
+            <button type="button" className={editorSection === "modifiers" ? "active" : ""} onClick={() => setEditorSection("modifiers")}>Модификаторы</button>
+            <button type="button" className={editorSection === "nutrition" ? "active" : ""} onClick={() => setEditorSection("nutrition")}>Пищевая ценность</button>
+          </nav>
+          <div className="admin-editor-body">
+            {editorSection === "main" ? <div className="admin-product-editor-grid">
+              <section className="admin-editor-section">
+                <h3>Карточка блюда</h3>
+                <label>Название<input required value={String(editor.values.name || "")} onChange={(event) => updateValue("name", event.target.value)} /></label>
+                <p className="admin-slug-hint">Адрес страницы сформируется автоматически из названия.</p>
+                <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
+              </section>
+              <section className="admin-editor-section">
+                <h3>Продажа и описание</h3>
+                <div className="admin-two-fields">
+                  <label>Категория<select value={String(editor.values.categoryId || "")} onChange={(event) => updateValue("categoryId", event.target.value)}>{dashboard?.categories.map((category) => <option value={category.id} key={category.id}>{category.title}</option>)}</select></label>
+                  <label>Цена, сом<input required type="number" min="0" value={String(editor.values.price)} onChange={(event) => updateValue("price", event.target.value)} /></label>
+                  <label>Старая цена, сом<input type="number" min="0" value={String(editor.values.oldPrice || "")} onChange={(event) => updateValue("oldPrice", event.target.value)} placeholder="Без скидки" /></label>
+                  <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins ?? "")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
+                </div>
+                <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
+                <label>Состав<textarea className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
+                <div className="admin-editor-inline-row">
+                  <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
+                  <label className="admin-switch"><span><b>В продаже</b><small>Можно заказать на сайте</small></span><input type="checkbox" checked={Boolean(editor.values.available)} onChange={(event) => updateValue("available", event.target.checked)} /></label>
+                </div>
+              </section>
+            </div> : null}
+            {editorSection === "modifiers" ? <section className="admin-editor-section admin-editor-section-wide">
+              <div className="admin-editor-section-heading"><span><h3>Модификаторы блюда</h3><p>Добавки и варианты выбора, которые увидит клиент.</p></span></div>
+              <ModifierGroupsEditor value={editor.values.modifierGroups as ModifierGroup[] || []} onChange={(value) => updateValue("modifierGroups", value)} />
+            </section> : null}
+            {editorSection === "nutrition" ? <section className="admin-editor-section admin-editor-section-wide">
+              <div className="admin-editor-section-heading"><span><h3>Пищевая ценность</h3><p>Значения указываются для одной порции блюда.</p></span></div>
+              <div className="admin-nutrition">
+                {[["weight", "Граммы"], ["calories", "Ккал"], ["protein", "Белки"], ["fat", "Жиры"], ["carbs", "Углеводы"]].map(([name, label]) => <label key={name}>{label}<input type="number" min="0" value={String(editor.values[name])} onChange={(event) => updateValue(name, event.target.value)} /></label>)}
+              </div>
+            </section> : null}
           </div>
+        </> : <div className="admin-editor-body admin-editor-simple-body">
+          <label>Название<input required value={String(editor.values.title || "")} onChange={(event) => updateValue("title", event.target.value)} /></label>
+          {editor.kind === "category" ? <p className="admin-slug-hint">Адрес страницы сформируется автоматически из названия.</p> : null}
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
-          <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
-          <label>Состав<textarea className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
-          <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
-          <ModifierGroupsEditor value={editor.values.modifierGroups as ModifierGroup[] || []} onChange={(value) => updateValue("modifierGroups", value)} />
-          <div className="admin-nutrition">
-            {[["weight", "Граммы"], ["calories", "Ккал"], ["protein", "Белки"], ["fat", "Жиры"], ["carbs", "Углеводы"]].map(([name, label]) => <label key={name}>{label}<input type="number" min="0" value={String(editor.values[name])} onChange={(event) => updateValue(name, event.target.value)} /></label>)}
-          </div>
-          <label className="admin-switch"><span><b>В продаже</b><small>Можно заказать на сайте</small></span><input type="checkbox" checked={Boolean(editor.values.available)} onChange={(event) => updateValue("available", event.target.checked)} /></label>
-        </> : null}
-        {editor.kind === "promotion" ? <>
-          <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
-          <label>Ссылка кнопки<input type="url" required={Boolean(editor.values.cta)} value={String(editor.values.ctaUrl || "")} onChange={(event) => updateValue("ctaUrl", event.target.value)} placeholder="https://t.me/..." /></label>
-          <div className="admin-two-fields"><label>Текст кнопки<input value={String(editor.values.cta || "")} onChange={(event) => updateValue("cta", event.target.value)} placeholder="Подробнее" /></label><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
-          <label className="admin-switch"><span><b>Показывать акцию</b><small>В ленте выбранного города</small></span><input type="checkbox" checked={Boolean(editor.values.enabled)} onChange={(event) => updateValue("enabled", event.target.checked)} /></label>
-        </> : null}
-        {editor.kind === "category" ? <><ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} /><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></> : null}
+          {editor.kind === "promotion" ? <>
+            <label>Ссылка кнопки<input type="url" required={Boolean(editor.values.cta)} value={String(editor.values.ctaUrl || "")} onChange={(event) => updateValue("ctaUrl", event.target.value)} placeholder="https://t.me/..." /></label>
+            <div className="admin-two-fields"><label>Текст кнопки<input value={String(editor.values.cta || "")} onChange={(event) => updateValue("cta", event.target.value)} placeholder="Подробнее" /></label><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
+            <label className="admin-switch"><span><b>Показывать акцию</b><small>В ленте выбранного города</small></span><input type="checkbox" checked={Boolean(editor.values.enabled)} onChange={(event) => updateValue("enabled", event.target.checked)} /></label>
+          </> : <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>}
+        </div>}
 
         <div className="admin-editor-actions">
           {editor.id ? <button type="button" className="admin-delete" onClick={deleteEditor}>Удалить</button> : <span />}
-          <button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button>
+          <div className="admin-editor-action-buttons">
+            <button type="button" className="admin-cancel" onClick={() => setEditor(null)}>Отмена</button>
+            <button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button>
+          </div>
         </div>
       </form>
     </div> : null}
@@ -1228,6 +1263,14 @@ export function AdminApp() {
           <span><small>Настройки</small><b>{regionEditor.id ? "Редактирование города" : "Новый город"}</b></span>
           <button type="button" onClick={() => setRegionEditor(null)} aria-label="Закрыть">×</button>
         </div>
+        <nav className="admin-editor-tabs admin-region-tabs" aria-label="Разделы города">
+          <button type="button" className={regionEditorSection === "main" ? "active" : ""} onClick={() => setRegionEditorSection("main")}>Основное</button>
+          <button type="button" className={regionEditorSection === "delivery" ? "active" : ""} onClick={() => setRegionEditorSection("delivery")}>Доставка</button>
+          <button type="button" className={regionEditorSection === "pickup" ? "active" : ""} onClick={() => setRegionEditorSection("pickup")}>Самовывоз</button>
+          <button type="button" className={regionEditorSection === "footer" ? "active" : ""} onClick={() => setRegionEditorSection("footer")}>Витрина</button>
+        </nav>
+        <div className="admin-region-editor-body">
+        {regionEditorSection === "main" ? <div className="admin-region-panel admin-region-panel-main">
         <div className="admin-two-fields">
           <label>Название города<input required value={String(regionEditor.values.name)} onChange={(event) => updateRegionValue("name", event.target.value)} placeholder="Бишкек" /></label>
           <label>Адрес в ссылке<input required disabled={Boolean(regionEditor.id)} value={String(regionEditor.values.slug)} onChange={(event) => updateRegionValue("slug", event.target.value.toLowerCase().replace(/\s+/g, "-"))} placeholder="bishkek" /></label>
@@ -1244,7 +1287,8 @@ export function AdminApp() {
             <label>Ссылка на поддержку<input type="url" value={String(regionEditor.values.supportUrl)} onChange={(event) => updateRegionValue("supportUrl", event.target.value)} placeholder="https://t.me/your_support" /></label>
           </div>
         </div>
-        <div className="admin-region-block">
+        </div> : null}
+        {regionEditorSection === "delivery" ? <div className="admin-region-panel"><div className="admin-region-block">
           <b>Доставка</b><small>График действует по времени Бишкека. В нерабочие дни и после закрытия новые заказы не принимаются.</small>
           <label className="admin-switch"><span><b>Круглосуточно</b><small>Доставка доступна 24 часа в выбранные дни</small></span><input type="checkbox" checked={Boolean(regionEditor.values.deliveryIs24Hours)} onChange={(event) => updateRegionValue("deliveryIs24Hours", event.target.checked)} /></label>
           <div className="admin-working-days" role="group" aria-label="Рабочие дни доставки">
@@ -1279,8 +1323,8 @@ export function AdminApp() {
             <summary>Координаты вручную</summary>
             <label><small>Одна точка «широта, долгота» в строке.</small><textarea required rows={6} value={String(regionEditor.values.deliveryZone)} onChange={(event) => updateRegionValue("deliveryZone", event.target.value)} placeholder={"42.90, 74.50\n42.90, 74.70\n42.80, 74.60"} /></label>
           </details>
-        </div>
-        <div className="admin-region-block">
+        </div></div> : null}
+        {regionEditorSection === "pickup" ? <div className="admin-region-panel"><div className="admin-region-block">
           <div className="admin-pickup-heading"><span><b>Кухни самовывоза</b><small>Список синхронно используется сайтом и приложением.</small></span><button type="button" onClick={addPickupLocation}>+ Добавить кухню</button></div>
           <div className="admin-pickup-list">
             {regionEditor.pickupLocations.length ? regionEditor.pickupLocations.map((location, index) => <section key={location.id ?? `new-${index}`}>
@@ -1306,8 +1350,8 @@ export function AdminApp() {
               <label className="admin-switch"><span><b>Доступна для заказа</b><small>Показывается клиентам</small></span><input type="checkbox" checked={location.enabled} onChange={(event) => updatePickupLocation(index, "enabled", event.target.checked)} /></label>
             </section>) : <p className="admin-pickup-empty">Добавьте хотя бы одну кухню, чтобы включить самовывоз.</p>}
           </div>
-        </div>
-        <div className="admin-region-block">
+        </div></div> : null}
+        {regionEditorSection === "footer" ? <div className="admin-region-panel"><div className="admin-region-block">
           <b>Футер сайта</b><small>Контакты внизу витрины для выбранного города.</small>
           <label>Название компании<input value={String(regionEditor.values.footerCompanyName)} onChange={(event) => updateRegionValue("footerCompanyName", event.target.value)} placeholder="Накта суши" /></label>
           <label>Юридическая информация<textarea value={String(regionEditor.values.footerLegalInfo)} onChange={(event) => updateRegionValue("footerLegalInfo", event.target.value)} placeholder="Реквизиты, адрес и условия обслуживания" /></label>
@@ -1316,7 +1360,9 @@ export function AdminApp() {
           <label>Порядок<input type="number" min="0" value={String(regionEditor.values.sortOrder)} onChange={(event) => updateRegionValue("sortOrder", event.target.value)} /></label>
           <label className="admin-switch"><span><b>Город активен</b><small>Показывается на витрине</small></span><input type="checkbox" checked={Boolean(regionEditor.values.enabled)} onChange={(event) => updateRegionValue("enabled", event.target.checked)} /></label>
         </div>
-        <div className="admin-editor-actions"><span /><button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button></div>
+        </div> : null}
+        </div>
+        <div className="admin-editor-actions"><span /><div className="admin-editor-action-buttons"><button type="button" className="admin-cancel" onClick={() => setRegionEditor(null)}>Отмена</button><button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button></div></div>
       </form>
     </div> : null}
 

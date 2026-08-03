@@ -252,10 +252,10 @@ test("includes the product, cart and address flows", async () => {
 
 test("admin menu exposes category management without a statistics search", async () => {
   const admin = await readFile(new URL("../app/admin/AdminApp.tsx", import.meta.url), "utf8");
-  assert.match(admin, /onClick=\{openCategoryManager\}>Категории/);
+  assert.match(admin, /onClick=\{openCategoryManager\}>＋ Категория/);
   assert.match(admin, /tab === "categories"[\s\S]*?＋ Добавить категорию/);
   assert.match(admin, /openCategory\(category\)/);
-  assert.match(admin, /tab !== "statistics" && tab !== "orders" && tab !== "settings"/);
+  assert.match(admin, /tab === "products" \? <>[\s\S]*?admin-search-field/);
   assert.match(admin, /Начало рабочего дня/);
   assert.match(admin, /Бесплатная доставка от, сом/);
 });
