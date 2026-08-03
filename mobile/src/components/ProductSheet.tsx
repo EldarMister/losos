@@ -312,11 +312,6 @@ export function ProductSheet({
             {product.naktaCoins ? (
               <NaktaCoinBadge amount={product.naktaCoins} style={styles.heroCoinBadge} />
             ) : null}
-            {product.isNew ? (
-              <View style={styles.newBadge}>
-                <Text style={styles.newText}>НОВИНКА</Text>
-              </View>
-            ) : null}
           </View>
 
           <View style={styles.infoCard}>
@@ -595,20 +590,6 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
-  },
-  newBadge: {
-    position: "absolute",
-    left: 13,
-    top: 13,
-    paddingVertical: 6,
-    paddingHorizontal: 9,
-    borderRadius: 9,
-    backgroundColor: colors.orange,
-  },
-  newText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: "900",
   },
   infoCard: {
     margin: 16,

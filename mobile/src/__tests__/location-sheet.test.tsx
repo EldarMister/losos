@@ -72,6 +72,7 @@ type StoreMock = {
     pickupAddress?: string;
     pickupWorkingHours?: string;
     pickupYandexUrl?: string;
+    deliveryIs24Hours?: boolean;
   }>;
   regionSlug: string;
   setDeliveryType: jest.Mock;
@@ -92,6 +93,7 @@ function makeStore(address: string): StoreMock {
       id: 1,
       slug: "bishkek",
       name: "Бишкек",
+      deliveryIs24Hours: true,
       pickupLocations: [],
     }],
     regionSlug: "bishkek",
@@ -240,7 +242,7 @@ describe("LocationSheet delivery address workflow", () => {
 
     fireEvent.press(screen.getByLabelText("улица Медерова, 41"));
     fireEvent.press(screen.getByLabelText("Выбрать"));
-    expect(await screen.findByText("Ежедневно, 11:00–23:00")).toBeTruthy();
+    expect(await screen.findByText("Ежедневно, без выходных\nКруглосуточно")).toBeTruthy();
     expect(screen.getByLabelText("Маршрут")).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText("Заберу здесь"));

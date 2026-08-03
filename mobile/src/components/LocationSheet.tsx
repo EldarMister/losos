@@ -17,21 +17,22 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GestureDetector } from "react-native-gesture-handler";
+import { GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   FadeIn,
   FadeOut,
+  LinearTransition,
   SlideInDown,
   SlideOutDown,
 } from "react-native-reanimated";
 import { catalogApi } from "../api";
+import { kitchenSchedule, orderingAvailability } from "../delivery";
 import {
   isSpecificDeliveryAddress,
   resolveAddressSuggestion,
@@ -155,6 +156,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
   const closeSearch = useCallback(() => {
     setSearchVisible(false);
     Keyboard.dismiss();
@@ -262,6 +264,13 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   ]);
 
   useEffect(() => {
+    if (!visible) return undefined;
+    setScheduleNow(Date.now());
+    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [visible]);
+
+  useEffect(() => {
     if (!visible || type !== "pickup") return;
     void refreshDeviceLocation(true);
   }, [refreshDeviceLocation, type, visible]);
@@ -310,6 +319,10 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     item.region.slug === selectedRegion && item.pickup.id === selectedPickupId
   ));
   const selectedPickup = selectedPickupOption?.pickup;
+  const pickupAvailability = orderingAvailability(
+    selectedPickupOption?.region ?? selectedRegionData,
+    new Date(scheduleNow),
+  );
   const selectedPickupDistance = selectedPickup
     ? distanceBetween(
         deviceLocation?.latitude,
@@ -328,7 +341,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       : []
   )), [pickupOptions]);
   const canSubmit = type === "pickup"
-    ? Boolean(selectedPickup)
+    ? Boolean(selectedPickup) && pickupAvailability.isOpen
     : addressComplete
       && Number.isFinite(latitude)
       && Number.isFinite(longitude);
@@ -412,6 +425,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   };
 
   const save = () => {
+    if (type === "pickup" && !pickupAvailability.isOpen) return;
     store.setDeliveryType(type);
     store.setRegionSlug(selectedRegion);
     store.setLocation({
@@ -420,7 +434,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       longitude: type === "delivery" ? longitude : selectedPickup?.longitude ?? undefined,
       pickupLocationId: type === "pickup" ? selectedPickup?.id : undefined,
       title: type === "pickup" ? selectedPickup?.title : undefined,
-      workingHours: type === "pickup" ? selectedPickup?.workingHours : undefined,
+      workingHours: type === "pickup" ? kitchenSchedule(selectedPickupOption?.region) : undefined,
       yandexUrl: type === "pickup" ? selectedPickup?.yandexUrl : undefined,
     });
     onClose();
@@ -488,7 +502,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     queueMicrotask(() => void locateMe(true));
   }, [locateMe, store.location?.address, store.location?.latitude, store.location?.longitude, type, visible]);
 
-  const close = () => {
+  const close = useCallback(() => {
     if (pickupListVisible) {
       setPickupListVisible(false);
       return;
@@ -498,7 +512,23 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       return;
     }
     if (!required) onClose();
-  };
+  }, [closeSearch, onClose, pickupListVisible, required, searchVisible]);
+  const mainSwipe = useSwipeToDismiss({
+    enabled: contentVisible && !required && !pickupListVisible && !searchVisible,
+    onDismiss: close,
+  });
+  const pickupListSwipe = useSwipeToDismiss({
+    enabled: pickupListVisible,
+    onDismiss: () => setPickupListVisible(false),
+  });
+
+  useEffect(() => {
+    if (contentVisible) mainSwipe.reset();
+  }, [contentVisible, mainSwipe.reset, selectedPickupId, type]);
+
+  useEffect(() => {
+    if (pickupListVisible) pickupListSwipe.reset();
+  }, [pickupListSwipe.reset, pickupListVisible]);
 
   return (
     <Modal
@@ -509,11 +539,12 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       statusBarTranslucent
       visible={modalMounted}
     >
-      <StatusBar style="light" translucent />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.root}
-      >
+      <GestureHandlerRootView style={styles.root}>
+        <StatusBar style="light" translucent />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.root}
+        >
         <View style={styles.map}>
           <YandexMap
             deliveryZone={deliveryZone}
@@ -593,26 +624,33 @@ export function LocationSheet({ visible, required, onClose }: Props) {
         ) : null}
 
         {contentVisible ? (
-          <Animated.View
-            entering={SlideInDown.duration(420)}
-            exiting={SlideOutDown.duration(320)}
-          testID="location-main-panel"
-          onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
-          style={[
-            styles.panel,
-            type === "delivery"
-              ? styles.deliveryPanel
-              : selectedPickup
-                ? styles.pickupDetailPanel
-                : styles.pickupIntroPanel,
-            {
-              paddingBottom: Math.max(
-                insets.bottom,
-                16,
-              ),
-            },
-          ]}
-        >
+          <GestureDetector gesture={mainSwipe.gesture}>
+            <Animated.View
+              entering={SlideInDown.duration(420)}
+              exiting={SlideOutDown.duration(320)}
+              layout={LinearTransition.duration(300)}
+              testID="location-main-panel"
+              onLayout={(event) => {
+                const height = event.nativeEvent.layout.height;
+                setPanelHeight(height);
+                mainSwipe.onLayout(height);
+              }}
+              style={[
+                styles.panel,
+                type === "delivery"
+                  ? styles.deliveryPanel
+                  : selectedPickup
+                    ? styles.pickupDetailPanel
+                    : styles.pickupIntroPanel,
+                {
+                  paddingBottom: Math.max(
+                    insets.bottom,
+                    16,
+                  ),
+                },
+                mainSwipe.animatedStyle,
+              ]}
+            >
           {type === "delivery" ? (
             <>
               <Text style={styles.title}>Адрес доставки</Text>
@@ -644,6 +682,9 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                 <Text numberOfLines={2} style={[styles.title, styles.pickupDetailTitle]}>
                   {selectedPickup.address}
                 </Text>
+                {!pickupAvailability.isOpen ? (
+                  <Text style={styles.pickupClosed}>Закрыто · {pickupAvailability.nextOpenLabel}</Text>
+                ) : null}
                 {selectedPickupDistance ? (
                   <View style={styles.pickupDistanceRow}>
                     <MaterialCommunityIcons
@@ -655,13 +696,14 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                   </View>
                 ) : null}
                 <Text style={styles.pickupDetailHours}>
-                  {selectedPickup.workingHours || "Часы работы уточняются"}
+                  {kitchenSchedule(selectedPickupOption?.region)}
                 </Text>
                 {selectedPickup.title && selectedPickup.title !== "Кухня" ? (
                   <Text style={styles.pickupDetailDescription}>{selectedPickup.title}</Text>
                 ) : null}
                 <View style={styles.pickupActionRow}>
                   <PrimaryButton
+                    disabled={!pickupAvailability.isOpen}
                     label="Заберу здесь"
                     labelStyle={styles.primaryLabel}
                     onPress={save}
@@ -714,7 +756,8 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               </>
             )
           )}
-          </Animated.View>
+            </Animated.View>
+          </GestureDetector>
         ) : null}
 
         {pickupListVisible ? (
@@ -728,20 +771,24 @@ export function LocationSheet({ visible, required, onClose }: Props) {
               onPress={() => setPickupListVisible(false)}
               style={styles.pickupBackdrop}
             />
-            <Animated.View
-              entering={SlideInDown.duration(380)}
-              exiting={SlideOutDown.duration(300)}
-              testID="pickup-list-panel"
-              style={[
-                styles.pickupSheet,
-                { paddingBottom: Math.max(insets.bottom, 12) },
-              ]}
-            >
-              <Text style={styles.pickupSheetTitle}>Выберите кухню для самовывоза</Text>
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                style={styles.pickupSheetList}
+            <GestureDetector gesture={pickupListSwipe.gesture}>
+              <Animated.View
+                entering={SlideInDown.duration(380)}
+                exiting={SlideOutDown.duration(300)}
+                testID="pickup-list-panel"
+                onLayout={(event) => pickupListSwipe.onLayout(event.nativeEvent.layout.height)}
+                style={[
+                  styles.pickupSheet,
+                  { paddingBottom: Math.max(insets.bottom, 12) },
+                  pickupListSwipe.animatedStyle,
+                ]}
               >
+              <Text style={styles.pickupSheetTitle}>Выберите кухню для самовывоза</Text>
+              <SwipeDismissScrollProvider scrollOffsetY={pickupListSwipe.scrollOffsetY}>
+                <SwipeDismissScrollView
+                  showsVerticalScrollIndicator={false}
+                  style={styles.pickupSheetList}
+                >
                 {pickupOptions.map((option) => {
                   const active = option.region.slug === selectedRegion
                     && option.pickup.id === selectedPickupId;
@@ -751,6 +798,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                     option.pickup.latitude,
                     option.pickup.longitude,
                   );
+                  const optionAvailability = orderingAvailability(option.region, new Date(scheduleNow));
                   return (
                     <Pressable
                       accessibilityLabel={option.pickup.address}
@@ -768,7 +816,9 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                           {option.pickup.address}
                         </Text>
                         <Text style={styles.pickupRowHours}>
-                          {option.pickup.workingHours || "Часы работы уточняются"}
+                          {optionAvailability.isOpen
+                            ? kitchenSchedule(option.region)
+                            : `Закрыто · ${optionAvailability.nextOpenLabel}`}
                         </Text>
                       </View>
                       {optionDistance ? (
@@ -780,7 +830,8 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                     </Pressable>
                   );
                 })}
-              </ScrollView>
+                </SwipeDismissScrollView>
+              </SwipeDismissScrollProvider>
               <PrimaryButton
                 disabled={!selectedPickup}
                 label="Выбрать"
@@ -796,7 +847,8 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                 tone="soft"
                 style={[styles.primary, styles.pickupBackButton]}
               />
-            </Animated.View>
+              </Animated.View>
+            </GestureDetector>
           </Animated.View>
         ) : null}
 
@@ -894,7 +946,8 @@ export function LocationSheet({ visible, required, onClose }: Props) {
             </GestureDetector>
           </Animated.View>
         ) : null}
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -1060,6 +1113,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
+  },
+  pickupClosed: {
+    marginTop: 10,
+    color: colors.orange,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "700",
   },
   pickupDistance: {
     color: colors.orange,

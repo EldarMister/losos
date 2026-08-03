@@ -20,7 +20,6 @@ import {
 import { MapCenterMarker } from "./MapCenterMarker";
 
 const mapKitApiKey = process.env.EXPO_PUBLIC_YANDEX_MAPKIT_API_KEY?.trim() || "";
-const pickupMarkerImage = require("../../assets/pickup-marker.png");
 
 type GeocodingResponse = {
   suggestions?: Array<{
@@ -123,6 +122,24 @@ export function YandexMap({
   const initialPoint = hasInitialPoint
     ? { latitude: initialLatitude as number, longitude: initialLongitude as number }
     : { latitude: region.center[0], longitude: region.center[1] };
+  const focusMarkers = useCallback(() => {
+    if (markers.length === 1) {
+      mapRef.current?.setCenter(
+        { lat: markers[0].latitude, lon: markers[0].longitude },
+        16.5,
+        0,
+        0,
+        0.32,
+      );
+      return;
+    }
+    if (markers.length > 1) {
+      mapRef.current?.fitMarkers(markers.map((marker) => ({
+        lat: marker.latitude,
+        lon: marker.longitude,
+      })));
+    }
+  }, [markers]);
 
   useEffect(() => {
     let active = true;
@@ -160,11 +177,8 @@ export function YandexMap({
 
   useEffect(() => {
     if (!ready || !markers.length) return;
-    mapRef.current?.fitMarkers(markers.map((marker) => ({
-      lat: marker.latitude,
-      lon: marker.longitude,
-    })));
-  }, [markers, ready]);
+    focusMarkers();
+  }, [focusMarkers, markers.length, ready]);
 
   useEffect(() => {
     if (!showCenterMarker) setError("");
@@ -307,7 +321,7 @@ export function YandexMap({
   }, [effectiveDeliveryZone, onLocationChange, region.city, regionSlug]);
 
   useEffect(() => {
-    if (!ready || !hasInitialPoint) return;
+    if (!ready || !hasInitialPoint || markers.length) return;
     mapRef.current?.setCenter(
       { lat: initialPoint.latitude, lon: initialPoint.longitude },
       17,
@@ -323,6 +337,7 @@ export function YandexMap({
     hasInitialPoint,
     initialPoint.latitude,
     initialPoint.longitude,
+    markers.length,
     ready,
     resolveAddress,
   ]);
@@ -339,9 +354,16 @@ export function YandexMap({
       key={marker.id}
       onPress={() => onMarkerPress?.(marker.id)}
       point={{ lat: marker.latitude, lon: marker.longitude }}
-      scale={0.14}
-      source={pickupMarkerImage}
-    />
+      scale={1}
+      zIndex={20}
+    >
+      <View collapsable={false} style={styles.pickupMarker}>
+        <View style={styles.pickupMarkerHead}>
+          <View style={styles.pickupMarkerDiamond} />
+        </View>
+        <View style={styles.pickupMarkerStem} />
+      </View>
+    </Marker>
   ));
 
   if (!ready) {
@@ -362,10 +384,7 @@ export function YandexMap({
           setMapLoaded(true);
           setError("");
           if (markers.length) {
-            mapRef.current?.fitMarkers(markers.map((marker) => ({
-              lat: marker.latitude,
-              lon: marker.longitude,
-            })));
+            focusMarkers();
           } else if (showCenterMarker && hasInitialPoint) {
             void resolveAddress(initialPoint.latitude, initialPoint.longitude);
           }
@@ -408,6 +427,38 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
     backgroundColor: "#ECEBE7",
+  },
+  pickupMarker: {
+    width: 56,
+    height: 84,
+    alignItems: "center",
+  },
+  pickupMarkerHead: {
+    zIndex: 2,
+    width: 56,
+    height: 56,
+    borderWidth: 4,
+    borderColor: colors.white,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.orange,
+  },
+  pickupMarkerDiamond: {
+    width: 20,
+    height: 20,
+    borderWidth: 4,
+    borderColor: colors.white,
+    backgroundColor: "#FFB400",
+    transform: [{ rotate: "45deg" }],
+  },
+  pickupMarkerStem: {
+    position: "absolute",
+    top: 52,
+    width: 6,
+    height: 32,
+    borderRadius: 3,
+    backgroundColor: colors.orange,
   },
   state: {
     flex: 1,

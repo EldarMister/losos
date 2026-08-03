@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   Pressable,
@@ -12,6 +12,7 @@ import {
   deliveryEtaLabel,
   deliveryFeeFor,
   freeDeliveryRemaining,
+  orderingAvailability,
 } from "../delivery";
 import { formatMoney } from "../money";
 import { useStore } from "../store";
@@ -28,7 +29,9 @@ type Props = {
 export function CatalogCartDock({ onOpenCart, onOpenDeliveryInfo }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
   const region = store.activeRegion;
+  const availability = orderingAvailability(region, new Date(scheduleNow));
   const etaLabel = deliveryEtaLabel(region);
   const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
   const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
@@ -47,6 +50,11 @@ export function CatalogCartDock({ onOpenCart, onOpenDeliveryInfo }: Props) {
     ? cartPreviewProducts.slice(0, 3)
     : cartPreviewProducts.slice(0, 4);
 
+  useEffect(() => {
+    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
   if (!store.cartCount) return null;
 
   return (
@@ -64,7 +72,9 @@ export function CatalogCartDock({ onOpenCart, onOpenDeliveryInfo }: Props) {
         style={styles.cartStatusButton}
       >
         <View style={styles.cartStatus}>
-          {store.deliveryType === "pickup"
+          {!availability.isOpen
+            ? <Text style={styles.cartStatusText}>Кухня закрыта. {availability.nextOpenLabel} ›</Text>
+            : store.deliveryType === "pickup"
             ? <Text style={styles.cartStatusText}>Самовывоз • бесплатно ›</Text>
             : <>
                 <Text style={styles.cartStatusText}>Доставка </Text>
@@ -95,7 +105,9 @@ export function CatalogCartDock({ onOpenCart, onOpenDeliveryInfo }: Props) {
         </View>
         <View style={styles.cartMiddle}>
           <Text numberOfLines={1} style={styles.cartTime}>
-            {store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
+            {!availability.isOpen
+              ? "Закрыто"
+              : store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
           </Text>
         </View>
         <View style={styles.cartPreviews}>

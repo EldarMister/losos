@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi, resolveImageUrl } from "../api";
 import { CatalogCartDock } from "../components/CatalogCartDock";
 import { ProductCard } from "../components/ProductCard";
-import { deliveryEtaLabel } from "../delivery";
+import { deliveryEtaLabel, orderingAvailability } from "../delivery";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
 import type { Category, Product, Promotion } from "../types";
@@ -55,11 +55,13 @@ export function CatalogScreen({
   const [activeCategory, setActiveCategory] = useState("");
   const [showStickyNav, setShowStickyNav] = useState(false);
   const [catalogNavY, setCatalogNavY] = useState(260);
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
   const sectionOffsets = useRef<Record<string, number>>({});
   const sectionsOffset = useRef(0);
   const catalogNavOffset = useRef(260);
   const scrollY = useRef(new Animated.Value(0)).current;
   const etaLabel = deliveryEtaLabel(store.activeRegion);
+  const availability = orderingAvailability(store.activeRegion, new Date(scheduleNow));
   const productCardWidth = 172;
 
   const load = useCallback(async (refresh = false) => {
@@ -85,6 +87,11 @@ export function CatalogScreen({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const visibleCategories = useMemo(
     () => categories.filter((category) => category.products.some((product) => product.available !== false)),
@@ -173,10 +180,10 @@ export function CatalogScreen({
             onPress={onOpenDeliveryInfo}
             style={({ pressed }) => [styles.timeChip, pressed && styles.chipPressed]}
           >
-            <Text style={styles.timeText}>
-              {store.deliveryType === "pickup"
-                ? "Самовывоз"
-                : etaLabel}
+            <Text style={[styles.timeText, !availability.isOpen && styles.timeTextClosed]}>
+              {!availability.isOpen
+                ? "Закрыто"
+                : store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
             </Text>
           </Pressable>
           <Pressable
@@ -319,6 +326,19 @@ export function CatalogScreen({
           showsVerticalScrollIndicator={false}
         >
           {header}
+
+          {!availability.isOpen ? (
+            <View style={styles.closedCard}>
+              <Text style={styles.closedTitle}>Мы откроемся{"\n"}в {availability.nextOpenTime}</Text>
+              <Text style={styles.closedText}>
+                Сейчас кухня не работает. Немного отдохнём и откроемся снова.
+              </Text>
+              <Text style={styles.closedNext}>{availability.nextOpenLabel}</Text>
+              <Pressable onPress={onOpenDeliveryInfo} style={styles.scheduleButton}>
+                <Text style={styles.scheduleButtonText}>График работы</Text>
+              </Pressable>
+            </View>
+          ) : null}
 
           <View style={styles.promotionsBlock}>
             {promotions.length ? (
@@ -544,6 +564,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
   },
+  timeTextClosed: {
+    color: "#E23D35",
+  },
   addressChip: {
     flex: 1,
     height: 44,
@@ -594,6 +617,47 @@ const styles = StyleSheet.create({
   },
   content: {
     backgroundColor: colors.white,
+  },
+  closedCard: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    padding: 22,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+  },
+  closedTitle: {
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 30,
+    lineHeight: 35,
+  },
+  closedText: {
+    marginTop: 18,
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  closedNext: {
+    marginTop: 6,
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+  },
+  scheduleButton: {
+    alignSelf: "flex-start",
+    minHeight: 52,
+    marginTop: 18,
+    paddingHorizontal: 18,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.ink,
+  },
+  scheduleButtonText: {
+    color: colors.white,
+    fontFamily: "Inter_700Bold",
+    fontSize: 15,
   },
   promotionsBlock: {
     minHeight: 168,

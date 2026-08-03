@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import { Platform } from "react-native";
+import { PermissionsAndroid, Platform } from "react-native";
 import { authApi } from "./api";
 import { getDeviceId } from "./session";
 import type { AuthSession } from "./types";
@@ -44,7 +44,19 @@ export async function requestOrderNotificationPermission() {
 
   await ensureOrderNotificationChannel();
   let permission = await Notifications.getPermissionsAsync();
-  if (permission.status !== "granted") {
+  if (
+    Platform.OS === "android"
+    && Number(Platform.Version) >= 33
+    && permission.status !== "granted"
+  ) {
+    // On Android 13+ request the runtime permission directly. In some
+    // development/release builds expo-notifications returned the current
+    // state without opening the native system dialog.
+    await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    );
+    permission = await Notifications.getPermissionsAsync();
+  } else if (permission.status !== "granted") {
     permission = await Notifications.requestPermissionsAsync();
   }
 

@@ -15,6 +15,7 @@ import {
   deliveryEtaLabel,
   deliveryFeeFor,
   freeDeliveryRemaining,
+  orderingAvailability,
 } from "../delivery";
 import { lineTotal, useStore } from "../store";
 import { colors } from "../theme";
@@ -42,6 +43,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
   const [extrasVisible, setExtrasVisible] = useState(false);
   const [draftNoUtensils, setDraftNoUtensils] = useState(store.noUtensils);
   const [draftUtensilsCount, setDraftUtensilsCount] = useState(store.utensilsCount);
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -58,6 +60,13 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
       task.cancel();
     };
   }, [store.regionSlug, visible]);
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    setScheduleNow(Date.now());
+    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [visible]);
 
   useEffect(() => {
     if (!kitVisible) return;
@@ -132,6 +141,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
   const etaLabel = deliveryEtaLabel(region);
   const deliveryFee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
   const remainingForFreeDelivery = freeDeliveryRemaining(region, store.cartTotal);
+  const availability = orderingAvailability(region, new Date(scheduleNow));
 
   return (
     <>
@@ -142,7 +152,9 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
         footer={store.cart.length ? (
           <View style={styles.footer}>
             <View style={styles.deliveryHint}>
-              {store.deliveryType === "pickup"
+              {!availability.isOpen
+                ? <Text style={styles.deliveryHintText}>Кухня закрыта. {availability.nextOpenLabel}</Text>
+                : store.deliveryType === "pickup"
                 ? <Text style={styles.deliveryHintText}>Самовывоз из выбранной кухни</Text>
                 : remainingForFreeDelivery > 0
                   ? <>
@@ -156,8 +168,13 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`К оформлению, ${money(store.cartTotal)}`}
+              disabled={!availability.isOpen}
               onPress={onCheckout}
-              style={({ pressed }) => [styles.checkoutBar, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.checkoutBar,
+                !availability.isOpen && styles.checkoutBarDisabled,
+                pressed && styles.pressed,
+              ]}
             >
               <NumberTicker
                 accessibilityLabel={`Сумма корзины: ${money(store.cartTotal)}`}
@@ -166,7 +183,9 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
                 style={styles.checkoutSide}
                 value={store.cartTotal}
               />
-              <Text style={styles.checkoutLabel}>К оформлению</Text>
+              <Text style={styles.checkoutLabel}>
+                {availability.isOpen ? "К оформлению" : "Кухня закрыта"}
+              </Text>
               <Text style={styles.checkoutSide}>
                 {store.deliveryType === "pickup" ? "Самовывоз" : etaLabel}
               </Text>
@@ -701,6 +720,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.orange,
     overflow: "hidden",
+  },
+  checkoutBarDisabled: {
+    backgroundColor: colors.ink,
+    opacity: 0.55,
   },
   checkoutSide: {
     width: "28%",

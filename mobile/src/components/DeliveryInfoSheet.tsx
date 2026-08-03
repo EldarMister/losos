@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
   DEFAULT_DELIVERY_FEE,
@@ -9,6 +10,7 @@ import {
   kitchenSchedule,
   maximumOrderAmount,
   minimumOrderAmount,
+  orderingAvailability,
 } from "../delivery";
 import { useStore } from "../store";
 import { colors } from "../theme";
@@ -33,6 +35,15 @@ export function DeliveryInfoSheet({ visible, onClose }: Props) {
   const fee = deliveryFeeFor(region, store.cartTotal, store.deliveryType);
   const remaining = freeDeliveryRemaining(region, store.cartTotal);
   const threshold = freeDeliveryThreshold(region);
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
+  const availability = orderingAvailability(region, new Date(scheduleNow));
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    setScheduleNow(Date.now());
+    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [visible]);
 
   return (
     <Sheet
@@ -83,6 +94,9 @@ export function DeliveryInfoSheet({ visible, onClose }: Props) {
         <Text style={styles.address}>
           {[region?.name, address].filter(Boolean).join(", ")}
         </Text>
+        {!availability.isOpen ? (
+          <Text style={styles.closedStatus}>Закрыто · {availability.nextOpenLabel}</Text>
+        ) : null}
         <Text style={styles.schedule}>{kitchenSchedule(region)}</Text>
 
         {!pickup ? (
@@ -173,6 +187,13 @@ const styles = StyleSheet.create({
     marginTop: 14,
     color: colors.muted,
     fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  closedStatus: {
+    marginTop: 10,
+    color: colors.orange,
+    fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     lineHeight: 19,
   },

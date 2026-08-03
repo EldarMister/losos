@@ -18,8 +18,10 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-const DISMISS_DISTANCE_FRACTION = 0.25;
-const DISMISS_VELOCITY = 900;
+const DISMISS_DISTANCE_FRACTION = 0.42;
+const DISMISS_VELOCITY = 1_500;
+const MIN_FLING_DISTANCE = 96;
+const MIN_FLING_DISTANCE_FRACTION = 0.14;
 const DRAG_ACTIVATION_DISTANCE = 8;
 const DISMISS_DURATION = 360;
 const DISMISS_EASING = Easing.bezier(0.4, 0, 0.2, 1);
@@ -42,8 +44,12 @@ export function shouldDismissSheet(
   velocityY: number,
 ) {
   "worklet";
-  return velocityY > DISMISS_VELOCITY
-    || translationY > Math.max(1, height) * DISMISS_DISTANCE_FRACTION;
+  const safeHeight = Math.max(1, height);
+  return translationY > safeHeight * DISMISS_DISTANCE_FRACTION
+    || (
+      velocityY > DISMISS_VELOCITY
+      && translationY > Math.max(MIN_FLING_DISTANCE, safeHeight * MIN_FLING_DISTANCE_FRACTION)
+    );
 }
 
 type Options = {
@@ -63,6 +69,9 @@ export function useSwipeToDismiss({
   const touchStartX = useSharedValue(0);
   const touchStartY = useSharedValue(0);
   const dismissing = useSharedValue(false);
+  const finishDismiss = useCallback(() => {
+    setTimeout(onDismiss, DISMISS_DURATION - 40);
+  }, [onDismiss]);
 
   const reset = useCallback(() => {
     translationY.value = 0;
@@ -113,10 +122,11 @@ export function useSwipeToDismiss({
         translationY.value = withTiming(
           Math.max(surfaceHeight.value, 480),
           { duration: DISMISS_DURATION, easing: DISMISS_EASING },
-          (finished) => {
-            if (finished) runOnJS(onDismiss)();
-          },
         );
+        // The native timing callback can be cancelled when the sheet layout changes
+        // during the gesture. Schedule the state change on JS so an off-screen sheet
+        // never remains mounted above the map.
+        runOnJS(finishDismiss)();
         return;
       }
       translationY.value = withSpring(0, {
@@ -139,7 +149,7 @@ export function useSwipeToDismiss({
     dismissing,
     dismissEnabled,
     enabled,
-    onDismiss,
+    finishDismiss,
     scrollOffsetY,
     surfaceHeight,
     touchStartX,

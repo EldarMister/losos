@@ -5,6 +5,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from "react-native";
@@ -51,8 +52,9 @@ export function Sheet({
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
-  const openOffset = useSharedValue(visible ? 0 : 900);
+  const openOffset = useSharedValue(visible ? 0 : windowHeight);
   const openProgress = useSharedValue(visible ? 1 : 0);
   const backdropVisibility = useSharedValue(backdropVisible ? 1 : 0);
   const swipe = useSwipeToDismiss({
@@ -64,33 +66,27 @@ export function Sheet({
     if (!visible) return;
     setMounted(true);
     swipe.reset();
-    openOffset.value = 900;
+    openOffset.value = windowHeight;
     openProgress.value = 0;
-    let secondFrame = 0;
     const frame = requestAnimationFrame(() => {
-      // The second frame guarantees that Android has painted the off-screen
-      // start position before the iOS-like slide animation begins.
-      secondFrame = requestAnimationFrame(() => {
-        openOffset.value = withTiming(0, {
-          duration: OPEN_DURATION,
-          easing: OPEN_EASING,
-        });
-        openProgress.value = withTiming(1, {
-          duration: OPEN_DURATION,
-          easing: OPEN_EASING,
-        });
+      openOffset.value = withTiming(0, {
+        duration: OPEN_DURATION,
+        easing: OPEN_EASING,
+      });
+      openProgress.value = withTiming(1, {
+        duration: OPEN_DURATION,
+        easing: OPEN_EASING,
       });
     });
     return () => {
       cancelAnimationFrame(frame);
-      cancelAnimationFrame(secondFrame);
     };
-  }, [openOffset, openProgress, swipe.reset, visible]);
+  }, [openOffset, openProgress, swipe.reset, visible, windowHeight]);
 
   useEffect(() => {
     if (!mounted || visible) return;
     openOffset.value = withTiming(
-      Math.max(swipe.surfaceHeight.value, 900),
+      Math.max(swipe.surfaceHeight.value, windowHeight),
       { duration: CLOSE_DURATION, easing: CLOSE_EASING },
       (finished) => {
         if (finished) runOnJS(setMounted)(false);
@@ -100,7 +96,7 @@ export function Sheet({
       duration: CLOSE_DURATION,
       easing: CLOSE_EASING,
     });
-  }, [mounted, openOffset, openProgress, swipe.surfaceHeight, visible]);
+  }, [mounted, openOffset, openProgress, swipe.surfaceHeight, visible, windowHeight]);
 
   useEffect(() => {
     backdropVisibility.value = withTiming(backdropVisible ? 1 : 0, {
@@ -157,6 +153,8 @@ export function Sheet({
           <GestureDetector gesture={swipe.gesture}>
             <Animated.View
               onLayout={(event) => swipe.onLayout(event.nativeEvent.layout.height)}
+              renderToHardwareTextureAndroid
+              shouldRasterizeIOS
               style={[
                 styles.sheet,
                 fullScreen && styles.fullScreen,

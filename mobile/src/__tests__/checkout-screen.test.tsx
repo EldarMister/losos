@@ -44,6 +44,12 @@ describe("CheckoutScreen", () => {
         longitude: 74.61,
       },
       noUtensils: false,
+      activeRegion: {
+        id: 1,
+        slug: "bishkek",
+        name: "Бишкек",
+        deliveryIs24Hours: true,
+      },
       regionSlug: "bishkek",
       session: {
         phone: "+996220203021",

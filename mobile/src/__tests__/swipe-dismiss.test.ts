@@ -4,14 +4,15 @@ import {
 } from "../components/SwipeDismiss";
 
 describe("swipe-to-dismiss thresholds", () => {
-  test("dismisses after a quarter of the panel height", () => {
-    expect(shouldDismissSheet(201, 800, 0)).toBe(true);
-    expect(shouldDismissSheet(199, 800, 0)).toBe(false);
+  test("dismisses only after the panel is pulled well below a light swipe", () => {
+    expect(shouldDismissSheet(337, 800, 0)).toBe(true);
+    expect(shouldDismissSheet(335, 800, 0)).toBe(false);
   });
 
-  test("dismisses a short but fast downward swipe", () => {
-    expect(shouldDismissSheet(40, 800, 901)).toBe(true);
-    expect(shouldDismissSheet(40, 800, 899)).toBe(false);
+  test("requires meaningful distance even for a fast downward swipe", () => {
+    expect(shouldDismissSheet(113, 800, 1_501)).toBe(true);
+    expect(shouldDismissSheet(111, 800, 2_000)).toBe(false);
+    expect(shouldDismissSheet(113, 800, 1_499)).toBe(false);
   });
 
   test("never dismisses for upward velocity or translation", () => {

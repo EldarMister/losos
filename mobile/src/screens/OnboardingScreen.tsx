@@ -113,7 +113,8 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
     if (requestingPermission) return;
     setRequestingPermission(true);
     try {
-      await requestOrderNotificationPermission();
+      const permission = await requestOrderNotificationPermission();
+      if (permission.granted) next();
     } finally {
       setNotificationsAsked(true);
       setRequestingPermission(false);

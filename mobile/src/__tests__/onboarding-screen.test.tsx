@@ -88,7 +88,7 @@ describe("OnboardingScreen", () => {
     expect(onLogin).not.toHaveBeenCalled();
   });
 
-  test("opens the system notification request and keeps the next step explicit", async () => {
+  test("opens the system notification request and advances after permission is granted", async () => {
     const onComplete = jest.fn();
     const onLogin = jest.fn();
     const screen = await render(
@@ -101,9 +101,6 @@ describe("OnboardingScreen", () => {
 
     expect(mockRequestOrderNotificationPermission).toHaveBeenCalledTimes(1);
     expect(setNotificationsAsked).toHaveBeenCalledWith(true);
-    expect(screen.getByText("Пришлём пуш\nо статусе заказа")).toBeTruthy();
-
-    await fireEvent.press(screen.getByText("Далее"));
     expect(screen.getByText("Выбрать адрес доставки")).toBeTruthy();
     expect(setOnboarded).not.toHaveBeenCalled();
     expect(onComplete).not.toHaveBeenCalled();

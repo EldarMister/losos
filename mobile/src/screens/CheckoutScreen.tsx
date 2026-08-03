@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ordersApi } from "../api";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { NumberTicker } from "../components/NumberTicker";
+import { orderingAvailability } from "../delivery";
 import { formatMoney } from "../money";
 import { createOrderIdempotencyKey } from "../navigationRules";
 import { useStore } from "../store";
@@ -81,6 +82,13 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [idempotencyKey] = useState(() => createOrderIdempotencyKey());
+  const [scheduleNow, setScheduleNow] = useState(() => Date.now());
+  const availability = orderingAvailability(store.activeRegion, new Date(scheduleNow));
+
+  useEffect(() => {
+    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const normalizedPhone = phone.replace(/[\s()-]/g, "");
   const validPhone = /^\+(?:7\d{10}|996\d{9})$/.test(normalizedPhone);
@@ -90,6 +98,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
     && address.trim().length >= 5
     && store.cart.length > 0
     && Boolean(store.session)
+    && availability.isOpen
   );
 
   const deliveryLabel = useMemo(
@@ -301,6 +310,14 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
+          {!availability.isOpen ? (
+            <View style={styles.closedBox}>
+              <MaterialCommunityIcons name="clock-alert-outline" size={21} color={colors.orange} />
+              <Text style={styles.closedText}>
+                Кухня сейчас закрыта. {availability.nextOpenLabel}.
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         <View style={[
@@ -318,7 +335,8 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
             />
           </View>
           <PrimaryButton
-            label="Заказать"
+            disabled={!canSubmit}
+            label={availability.isOpen ? "Заказать" : "Кухня закрыта"}
             loading={submitting}
             onPress={() => void submit()}
             style={styles.submit}
@@ -557,6 +575,21 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     color: colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  closedBox: {
+    marginTop: 14,
+    padding: 13,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 9,
+    backgroundColor: "#FFF3EC",
+  },
+  closedText: {
+    flex: 1,
+    color: colors.ink,
     fontSize: 12,
     lineHeight: 17,
   },
