@@ -300,6 +300,7 @@ export function AdminApp() {
   const [deletedPickupLocationIds, setDeletedPickupLocationIds] = useState<number[]>([]);
   const [pickupResolvingIndex, setPickupResolvingIndex] = useState<number | null>(null);
   const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const orderControlsRef = useRef<HTMLDivElement>(null);
   const region = regionByTab[tab];
 
@@ -410,6 +411,15 @@ export function AdminApp() {
     document.addEventListener("pointerdown", closeActions);
     return () => document.removeEventListener("pointerdown", closeActions);
   }, [openProductActions]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileNavOpen]);
 
   const loadDashboard = useCallback(async () => {
     if (!token) return;
@@ -921,7 +931,9 @@ export function AdminApp() {
   if (!token) {
     return <main className="admin-login">
       <form onSubmit={authorize}>
-        <h1>Вход в систему</h1>
+        <div className="admin-login-brand"><img src="/logo.webp" alt="Накта суши" /><span><b>Накта суши</b><small>Кабинет управления</small></span></div>
+        <h1>Добро пожаловать</h1>
+        <p>Управляйте заказами, меню и работой заведений в одном месте.</p>
         <label>Код администратора
           <span className="admin-login-input"><input type="password" name="admin-code" autoComplete="current-password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Введите код" autoFocus /></span>
         </label>
@@ -948,6 +960,7 @@ export function AdminApp() {
     setTab(item);
     setSearch("");
     setEditor(null);
+    setMobileNavOpen(false);
   };
   const openCategoryManager = () => {
     setRegionByTab((current) => ({ ...current, categories: region }));
@@ -974,43 +987,74 @@ export function AdminApp() {
   const totalStatusCount = Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0);
   const selectedStatus = statusOptions.find((option) => option.value === orderFilter) || statusOptions[0];
   const selectedPeriod = periodOptions.find((option) => option.value === orderPeriod) || periodOptions[0];
+  const activeOrderCount = (statusCounts.confirmed || 0) + (statusCounts.preparing || 0) + (statusCounts.ready || 0) + (statusCounts.delivering || 0);
+  const tabDescriptions: Record<Tab, { title: string; text: string }> = {
+    statistics: { title: "Результаты заведений", text: "Выручка, завершённые заказы и популярные блюда." },
+    orders: { title: "Операционная лента", text: "Следите за заказами и меняйте их статус без лишних переходов." },
+    products: { title: "Каталог блюд", text: "Цены, доступность, состав и варианты выбора для гостей." },
+    promotions: { title: "Витрина акций", text: "Баннеры и предложения, которые видят гости на сайте и в приложении." },
+    categories: { title: "Структура меню", text: "Порядок и группировка блюд в каталоге." },
+    settings: { title: "Заведения и доставка", text: "Контакты, график, кухни, зоны и условия доставки." },
+  };
+  const mainNavigation = ["statistics", "orders"] as Tab[];
+  const catalogNavigation = ["products", "promotions"] as Tab[];
+  const navigationLabel = (item: Tab) => item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : item === "promotions" ? "Акции" : "Настройки";
+  const renderNavigationButton = (item: Tab) => <button
+    key={item}
+    type="button"
+    aria-current={tab === item || (item === "products" && tab === "categories") ? "page" : undefined}
+    className={tab === item || (item === "products" && tab === "categories") ? "active" : ""}
+    onClick={() => switchTab(item)}
+  >{renderTabIcon(item)}<span>{navigationLabel(item)}</span></button>;
+  const renderSidebar = (mobile = false) => <aside className={`admin-sidebar${mobile ? " admin-sidebar-mobile" : ""}`} aria-label="Навигация администратора">
+    <div className="admin-sidebar-brand">
+      <img src="/logo.webp" alt="" />
+      <span><b>Накта суши</b><small>Управление</small></span>
+      {mobile ? <button type="button" className="admin-sidebar-close" onClick={() => setMobileNavOpen(false)} aria-label="Закрыть меню">×</button> : null}
+    </div>
+    <div className="admin-sidebar-navigation">
+      <section><small>Обзор</small><nav>{mainNavigation.map(renderNavigationButton)}</nav></section>
+      <section><small>Каталог</small><nav>{catalogNavigation.map(renderNavigationButton)}</nav></section>
+    </div>
+    <div className="admin-sidebar-footer">
+      {renderNavigationButton("settings")}
+      <button type="button" className="admin-logout" onClick={logout}><i aria-hidden="true">↪</i><span>Выйти</span></button>
+      <small>NAKTA CONTROL · 2026</small>
+    </div>
+  </aside>;
 
-  return <main className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
+  return <div className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
+    {renderSidebar()}
+    {mobileNavOpen ? <div className="admin-mobile-drawer open">
+      <button type="button" className="admin-mobile-backdrop" aria-label="Закрыть меню" onClick={() => setMobileNavOpen(false)} />
+      {renderSidebar(true)}
+    </div> : null}
 
-    <aside className="admin-sidebar">
-      <nav>
-        {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
-          <button key={item} className={tab === item || (item === "products" && tab === "categories") ? "active" : ""} onClick={() => switchTab(item)}>
-            {renderTabIcon(item)}<span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
-          </button>)}
-      </nav>
-      <div>
-        <button className={tab === "settings" ? "active" : ""} onClick={() => switchTab("settings")}>{renderTabIcon("settings")}<span>Настройки</span></button>
-      </div>
-    </aside>
+    {message ? <div className="admin-message" role="status">{message}</div> : null}
+    {loading && !dashboard ? <div className="admin-loading" role="status">Загружаем…</div> : null}
 
-    <nav className="admin-mobile-nav">
-      {(["statistics", "orders", "products", "promotions"] as Tab[]).map((item) =>
-        <button key={item} className={tab === item || (item === "products" && tab === "categories") ? "active" : ""} onClick={() => switchTab(item)}>
-          {renderTabIcon(item)}<span>{item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : "Акции"}</span>
-        </button>)}
-      <button className={tab === "settings" ? "active" : ""} onClick={() => switchTab("settings")}>{renderTabIcon("settings")}<span>Настройки</span></button>
-    </nav>
+    <div className="admin-workspace">
+      <header className="admin-topbar">
+        <div className="admin-topbar-title">
+          <button type="button" className="admin-menu-toggle" onClick={() => setMobileNavOpen(true)} aria-label="Открыть меню"><span /><span /><span /></button>
+          <span><small>Накта суши</small><h1>{tabTitle}</h1></span>
+        </div>
+        <div className="admin-topbar-actions">
+          <div className="admin-topbar-regions" aria-label="Город">
+            {availableRegions.filter((item) => item.enabled).map((item) => <button type="button" key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => selectRegion(item.slug)}>{item.name}</button>)}
+          </div>
+          <select className="admin-topbar-region-select" aria-label="Город" value={region} onChange={(event) => selectRegion(event.target.value)}>
+            {availableRegions.filter((item) => item.enabled).map((item) => <option value={item.slug} key={item.slug}>{item.name}</option>)}
+          </select>
+          <span className="admin-sync-status"><i />Обновляется автоматически</span>
+        </div>
+      </header>
 
-    {message ? <div className="admin-message">{message}</div> : null}
-    {loading && !dashboard ? <div className="admin-loading">Загружаем…</div> : null}
-
-    <section className="admin-content">
-      <div className="admin-mobile-title">
-        <h1>{tabTitle}</h1>
-      </div>
-      <div className="admin-regions" aria-label="Регион">
-        {availableRegions.filter((item) => item.enabled).map((item) => <button key={item.slug} className={region === item.slug ? "active" : ""} onClick={() => selectRegion(item.slug)}>{item.name}</button>)}
-      </div>
+      <section className="admin-content">
       <div className="admin-section-title">
         <div>
-          <h1>{tabTitle}</h1>
-          {tab === "orders" ? <p>{ordersTotal} заказов в выбранном городе</p> : null}
+          <h2>{tabDescriptions[tab].title}</h2>
+          <p>{tabDescriptions[tab].text}</p>
         </div>
         {tab === "statistics" || tab === "orders" ? null : tab === "settings"
           ? <button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button>
@@ -1022,6 +1066,15 @@ export function AdminApp() {
       {tab === "statistics" ? <StatisticsDashboard data={statistics} period={statisticsPeriod} loading={statisticsLoading} onPeriodChange={setStatisticsPeriod} /> : null}
 
       {tab === "orders" ? <>
+        <div className="admin-order-overview" aria-label="Сводка заказов">
+          <span><small>Всего</small><strong>{ordersTotal}</strong></span>
+          <i />
+          <span><small>Новые</small><strong>{statusCounts.new || 0}</strong></span>
+          <i />
+          <span><small>В работе</small><strong>{activeOrderCount}</strong></span>
+          <i />
+          <span><small>Завершены</small><strong>{statusCounts.completed || 0}</strong></span>
+        </div>
         <div className="admin-list-tools">
           <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по № заказа, клиенту или адресу..." /></label>
           <div className="admin-order-selects" ref={orderControlsRef}>
@@ -1078,13 +1131,17 @@ export function AdminApp() {
 
       {tab === "products" ? <div className="admin-products-table">
         <div className="admin-products-head"><span>Блюдо</span><span>Категория</span><span>Цена</span><span>Статус</span><span>Действия</span></div>
-        {visibleProducts.map((product) => <article className="admin-product" key={product.id} onClick={() => openProduct(product)}>
+        {visibleProducts.map((product) => <article className="admin-product" key={product.id} role="button" tabIndex={0} onClick={() => openProduct(product)} onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+          event.preventDefault();
+          openProduct(product);
+        }}>
           <img src={product.image} alt="" />
           <span><b>{product.name}</b><small>ID: {product.id}</small></span>
           <span className="admin-product-category">{product.categoryTitle}</span>
           <strong>{product.price} сом{product.oldPrice && product.oldPrice > product.price ? <small> {product.oldPrice} сом</small> : null}</strong>
           <i className={product.available ? "available" : ""}>{product.available ? "В продаже" : "Недоступно"}</i>
-          <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
+          <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} aria-expanded={openProductActions === product.id} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
         </article>)}
       </div> : null}
 
@@ -1121,7 +1178,8 @@ export function AdminApp() {
           <button onClick={logout}>Выйти</button>
         </section>
       </div> : null}
-    </section>
+      </section>
+    </div>
 
     {editor ? <div className={`admin-editor-overlay admin-editor-page${editor.kind === "category" ? " admin-category-overlay" : ""}`} role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditor(null); }}>
       <form className={`admin-editor admin-editor-${editor.kind}`} onSubmit={saveEditor}>
@@ -1323,7 +1381,7 @@ export function AdminApp() {
         </div> : null}
       </section>
     </div> : null}
-  </main>;
+  </div>;
 }
 
 function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onChange: (groups: ModifierGroup[]) => void }) {

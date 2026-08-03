@@ -2087,7 +2087,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
         <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Приложение Накта суши"><strong>НАКТА СУШИ</strong><small>мобильное приложение</small></a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
-        <div className="footer-links"><a href="/legal">Правовая информация</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
+        <div className="footer-links"><a href="/privacy">Конфиденциальность</a><span>•</span><a href="/terms">Условия</a><span>•</span><a href="/delete-account">Удаление аккаунта</a><span>•</span><a href="/legal">Все документы</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
         <p className="footer-legal">{footerLegalInfo}</p>
       </footer>
 
@@ -2535,7 +2535,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <span>{checkoutSubmitting ? "Отправляем заказ…" : orderingClosed ? "Кухня закрыта" : "Заказать"}</span>
                   <b><NumberTicker value={cartTotal} format={money} /></b>
                 </button>
-                <small>Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных</small>
+                <small>Нажимая кнопку, вы соглашаетесь с <a href="/terms">условиями заказа</a> и <a href="/privacy">политикой конфиденциальности</a></small>
               </footer>
             </form>}
           </aside>

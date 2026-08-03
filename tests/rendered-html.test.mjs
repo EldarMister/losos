@@ -31,6 +31,18 @@ test("server-renders the storefront", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 
+test("renders the public legal documents", async () => {
+  for (const [pathname, heading] of [
+    ["/privacy", "Политика конфиденциальности"],
+    ["/terms", "Условия использования и заказа"],
+    ["/delete-account", "Удаление аккаунта"],
+  ]) {
+    const response = await render(pathname);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), new RegExp(`<h1[^>]*>${heading}</h1>`, "i"));
+  }
+});
+
 test("includes the product, cart and address flows", async () => {
   const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson, robots, sitemap, seo] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
@@ -111,13 +123,13 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /WHATSAPP_AUTH_STORAGE_KEY/);
   assert.match(storefront, /PHONE_AUTH_SESSION_STORAGE_KEY/);
   assert.match(storefront, /className="cart-kit-modal"/);
-  assert.match(storefront, /deliveryClosed \? "Закрыто" : "Далее"/);
+  assert.match(storefront, /orderingClosed \? "Закрыто" : "Далее"/);
   assert.match(storefront, /className="delivery-info-sheet"/);
   assert.match(storefront, /setDeliveryInfoOpen\(true\)/);
   assert.match(storefront, /freeDeliveryThreshold/);
   assert.match(storefront, /address-panel-expanded/);
   assert.ok(
-    storefront.indexOf('deliveryClosed ? "Закрыто" : "Далее"') < storefront.indexOf('className="phone-auth-modal"'),
+    storefront.indexOf('orderingClosed ? "Закрыто" : "Далее"') < storefront.indexOf('className="phone-auth-modal"'),
     "SMS authorization must follow the cart",
   );
   assert.ok(
