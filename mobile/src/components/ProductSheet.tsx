@@ -20,6 +20,7 @@ import type {
   SelectedModifier,
 } from "../types";
 import { QuantityControl } from "./QuantityControl";
+import { ImmediatePressable } from "./ImmediatePressable";
 import { NumberTicker } from "./NumberTicker";
 import { NaktaCoinBadge } from "./NaktaCoinBadge";
 import { RipplePressable as Pressable } from "./RipplePressable";
@@ -120,6 +121,7 @@ export function ProductSheet({
   const [selection, setSelection] = useState<ModifierSelection>({});
   const [detailView, setDetailView] = useState<"composition" | "equipment" | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [equipmentProducts, setEquipmentProducts] = useState<Product[]>([]);
   const [sheetVisible, setSheetVisible] = useState(Boolean(product));
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -139,16 +141,27 @@ export function ProductSheet({
   useEffect(() => {
     if (!product) {
       setRelatedProducts([]);
+      setEquipmentProducts([]);
       return undefined;
     }
     setRelatedProducts([]);
+    setEquipmentProducts([]);
     let ignore = false;
     const task = InteractionManager.runAfterInteractions(() => {
       catalogApi.categories(store.regionSlug)
         .then((categories) => {
           if (ignore) return;
+          const allProducts = categories
+            .flatMap((category) => category.products)
+            .filter((candidate, index, items) => (
+              candidate.id !== product.id
+              && candidate.available !== false
+              && items.findIndex((item) => item.id === candidate.id) === index
+            ));
           const accessoryCategories = categories.filter((category) => (
-            /соус|добав|напит|десерт|закуск/i.test(category.title)
+            /соус|добав|топпинг|васаби|имбир|напит|десерт|закуск/i.test(
+              `${category.slug} ${category.title}`,
+            )
           ));
           const candidates = (
             accessoryCategories.length ? accessoryCategories : categories
@@ -159,9 +172,13 @@ export function ProductSheet({
             && items.findIndex((item) => item.id === candidate.id) === index
           ));
           setRelatedProducts(unique.slice(0, 8));
+          setEquipmentProducts(allProducts);
         })
         .catch(() => {
-          if (!ignore) setRelatedProducts([]);
+          if (!ignore) {
+            setRelatedProducts([]);
+            setEquipmentProducts([]);
+          }
         });
     });
     return () => {
@@ -238,21 +255,26 @@ export function ProductSheet({
     && !/соус|васаби|имбир|напит|кола|фанта|вода|морс|сок|чай/i.test(product.name);
   const detailTitle = detailView === "equipment" ? "Комплектация" : "Состав";
   const detailCopy = product.composition || product.description || "Состав уточняется.";
+  const normalizedEquipmentName = (value: string) => value.trim().toLocaleLowerCase("ru-RU");
+  const findEquipmentProduct = (exactName: string, fallback: RegExp) => (
+    equipmentProducts.find((item) => normalizedEquipmentName(item.name) === exactName)
+    ?? equipmentProducts.find((item) => fallback.test(normalizedEquipmentName(item.name)))
+  );
   const equipment = [
     {
       name: "Васаби",
       quantity: 1,
-      product: relatedProducts.find((item) => /^васаби$/i.test(item.name)),
+      product: findEquipmentProduct("васаби", /васаби/),
     },
     {
       name: "Соус соевый",
       quantity: 2,
-      product: relatedProducts.find((item) => /^соус соевый$/i.test(item.name)),
+      product: findEquipmentProduct("соус соевый", /соус.*соев|соев.*соус/),
     },
     {
       name: "Имбирь",
       quantity: 1,
-      product: relatedProducts.find((item) => /имбир/i.test(item.name)),
+      product: findEquipmentProduct("имбирь", /имбир/),
     },
   ];
 
@@ -360,32 +382,6 @@ export function ProductSheet({
             </View>
           ) : null}
 
-          {relatedProducts.length ? (
-            <View style={styles.relatedSection}>
-              <Text style={styles.relatedTitle}>Вместе вкуснее</Text>
-              <ScrollView
-                contentContainerStyle={styles.relatedRow}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-              >
-                {relatedProducts.map((relatedProduct) => (
-                  <RelatedProductCard
-                    key={relatedProduct.id}
-                    onAdd={() => {
-                      if (relatedProduct.modifierGroups?.some((group) => group.required)) {
-                        onOpenProduct?.(relatedProduct);
-                      } else {
-                        store.addCartLine(relatedProduct, 1, []);
-                      }
-                    }}
-                    onPress={() => onOpenProduct?.(relatedProduct)}
-                    product={relatedProduct}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
-
           {(product.modifierGroups ?? []).map((group) => {
           const groupCount = selectionCount(group, selection);
           return (
@@ -469,35 +465,39 @@ export function ProductSheet({
                       item.maxQuantity ?? (group.selectionType === "single" ? 1 : 20),
                       group.maxSelections ?? 99,
                     );
-                    return (
+                    return group.selectionType === "single" ? (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`${current ? "Убрать" : "Выбрать"} ${item.name}`}
                         key={item.id}
-                        onPress={() => setModifier(
-                          group,
-                          item.id,
-                          current && !group.required ? 0 : 1,
-                        )}
+                        onPress={() => setModifier(group, item.id, 1)}
                         style={styles.modifierRow}
                       >
-                        <Image
-                          resizeMode="cover"
-                          resizeMethod="resize"
-                          source={{ uri: resolveImageUrl(item.image) }}
-                          style={styles.modifierRowImage}
-                        />
+                        <Image resizeMode="cover" resizeMethod="resize" source={{ uri: resolveImageUrl(item.image) }} style={styles.modifierRowImage} />
                         <View style={styles.modifierRowCopy}>
                           <Text style={styles.modifierRowName}>{item.name}</Text>
-                          <Text style={styles.modifierRowPrice}>
-                            {item.price ? `+${money(item.price)}` : "Без доплаты"}
-                          </Text>
+                          <Text style={styles.modifierRowPrice}>{item.price ? `+${money(item.price)}` : "Без доплаты"}</Text>
                         </View>
-                        {group.selectionType === "single" ? (
                           <View style={[styles.radio, current > 0 && styles.radioActive]}>
                             {current > 0 ? <View style={styles.radioInner} /> : null}
                           </View>
-                        ) : current > 0 ? (
+                      </Pressable>
+                    ) : (
+                      <View key={item.id} style={styles.modifierRow}>
+                        <ImmediatePressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Добавить ${item.name}`}
+                          disabled={current >= maximum}
+                          onPress={() => setModifier(group, item.id, Math.min(maximum, current + 1))}
+                          style={styles.modifierRowMain}
+                        >
+                          <Image resizeMode="cover" resizeMethod="resize" source={{ uri: resolveImageUrl(item.image) }} style={styles.modifierRowImage} />
+                          <View style={styles.modifierRowCopy}>
+                            <Text style={styles.modifierRowName}>{item.name}</Text>
+                            <Text style={styles.modifierRowPrice}>{item.price ? `+${money(item.price)}` : "Без доплаты"}</Text>
+                          </View>
+                        </ImmediatePressable>
+                        {current > 0 ? (
                           <QuantityControl
                             compact
                             maximum={maximum}
@@ -505,11 +505,16 @@ export function ProductSheet({
                             value={current}
                           />
                         ) : (
-                          <View style={styles.plus}>
+                          <ImmediatePressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Добавить ${item.name}`}
+                            onPress={() => setModifier(group, item.id, 1)}
+                            style={styles.plus}
+                          >
                             <MaterialCommunityIcons name="plus" size={21} color={colors.muted} />
-                          </View>
+                          </ImmediatePressable>
                         )}
-                      </Pressable>
+                      </View>
                     );
                   })}
                 </View>
@@ -517,6 +522,32 @@ export function ProductSheet({
             </View>
           );
           })}
+
+          {relatedProducts.length ? (
+            <View style={styles.relatedSection}>
+              <Text style={styles.relatedTitle}>Вместе вкуснее</Text>
+              <ScrollView
+                contentContainerStyle={styles.relatedRow}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+              >
+                {relatedProducts.map((relatedProduct) => (
+                  <RelatedProductCard
+                    key={relatedProduct.id}
+                    onAdd={() => {
+                      if (relatedProduct.modifierGroups?.some((group) => group.required)) {
+                        onOpenProduct?.(relatedProduct);
+                      } else {
+                        store.addCartLine(relatedProduct, 1, []);
+                      }
+                    }}
+                    onPress={() => onOpenProduct?.(relatedProduct)}
+                    product={relatedProduct}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </SwipeDismissScrollView>
       </Sheet>
       <Sheet
@@ -546,6 +577,7 @@ export function ProductSheet({
                 <View key={item.name} style={styles.equipmentRow}>
                   {item.product ? (
                     <Image
+                      accessibilityLabel={`Фото: ${item.name}`}
                       resizeMode="cover"
                       resizeMethod="resize"
                       source={{ uri: resolveImageUrl(item.product.image) }}
@@ -916,12 +948,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  modifierRowMain: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    overflow: "hidden",
+  },
   productQuantity: {
     width: 144,
+    height: 56,
     justifyContent: "space-between",
   },
   addButton: {
     flex: 1,
+    height: 56,
     minHeight: 56,
     paddingHorizontal: 18,
     borderRadius: radii.medium,

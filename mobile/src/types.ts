@@ -55,6 +55,8 @@ export type Region = {
   slug: string;
   name: string;
   contactPhone?: string;
+  supportPhone?: string;
+  supportUrl?: string;
   contactEmail?: string;
   contactAddress?: string;
   pickupAddress?: string;

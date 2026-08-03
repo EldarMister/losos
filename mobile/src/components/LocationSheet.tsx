@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -116,6 +117,7 @@ export function pickupIntroCopy(count: number) {
 
 export function LocationSheet({ visible, required, onClose }: Props) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const store = useStore();
   const [modalMounted, setModalMounted] = useState(visible);
   const [contentVisible, setContentVisible] = useState(visible);
@@ -315,6 +317,10 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       }))
     ));
   }, [regions]);
+  const pickupListHeight = Math.min(
+    windowHeight * 0.78,
+    276 + Math.min(pickupOptions.length, 5) * 74,
+  );
   const selectedPickupOption = pickupOptions.find((item) => (
     item.region.slug === selectedRegion && item.pickup.id === selectedPickupId
   ));
@@ -779,6 +785,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                 onLayout={(event) => pickupListSwipe.onLayout(event.nativeEvent.layout.height)}
                 style={[
                   styles.pickupSheet,
+                  { height: pickupListHeight },
                   { paddingBottom: Math.max(insets.bottom, 12) },
                   pickupListSwipe.animatedStyle,
                 ]}
@@ -1180,7 +1187,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(24,24,24,0.23)",
   },
   pickupSheet: {
-    height: "78%",
     paddingTop: 32,
     paddingHorizontal: 20,
     borderTopLeftRadius: 30,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Platform, StyleSheet, Text, View } from "react-native";
 import YaMap, {
   Marker,
   Polyline,
@@ -20,6 +20,27 @@ import {
 import { MapCenterMarker } from "./MapCenterMarker";
 
 const mapKitApiKey = process.env.EXPO_PUBLIC_YANDEX_MAPKIT_API_KEY?.trim() || "";
+const deliveryMarkerImage = require("../../assets/delivery.png");
+
+function PickupMapMarker() {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  return (
+    <View
+      collapsable={false}
+      style={[styles.pickupMarker, imageLoaded && styles.pickupMarkerLoaded]}
+    >
+      <View style={styles.pickupMarkerHead}>
+        <Image
+          onLoadEnd={() => setImageLoaded(true)}
+          resizeMode="contain"
+          source={deliveryMarkerImage}
+          style={styles.pickupMarkerImage}
+        />
+      </View>
+      <View style={styles.pickupMarkerStem} />
+    </View>
+  );
+}
 
 type GeocodingResponse = {
   suggestions?: Array<{
@@ -357,12 +378,7 @@ export function YandexMap({
       scale={1}
       zIndex={20}
     >
-      <View collapsable={false} style={styles.pickupMarker}>
-        <View style={styles.pickupMarkerHead}>
-          <View style={styles.pickupMarkerDiamond} />
-        </View>
-        <View style={styles.pickupMarkerStem} />
-      </View>
+      <PickupMapMarker />
     </Marker>
   ));
 
@@ -429,34 +445,32 @@ const styles = StyleSheet.create({
     backgroundColor: "#ECEBE7",
   },
   pickupMarker: {
-    width: 56,
-    height: 84,
+    width: 48,
+    height: 65,
     alignItems: "center",
+  },
+  pickupMarkerLoaded: {
+    height: 66,
   },
   pickupMarkerHead: {
     zIndex: 2,
-    width: 56,
-    height: 56,
-    borderWidth: 4,
-    borderColor: colors.white,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.orange,
+    backgroundColor: colors.white,
+    elevation: 4,
   },
-  pickupMarkerDiamond: {
-    width: 20,
-    height: 20,
-    borderWidth: 4,
-    borderColor: colors.white,
-    backgroundColor: "#FFB400",
-    transform: [{ rotate: "45deg" }],
+  pickupMarkerImage: {
+    width: 31,
+    height: 31,
   },
   pickupMarkerStem: {
     position: "absolute",
-    top: 52,
-    width: 6,
-    height: 32,
+    top: 46,
+    width: 3,
+    height: 18,
     borderRadius: 3,
     backgroundColor: colors.orange,
   },

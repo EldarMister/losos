@@ -1,5 +1,6 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import * as Location from "expo-location";
+import { StyleSheet } from "react-native";
 import { catalogApi } from "../api";
 import {
   LocationSheet,
@@ -236,6 +237,11 @@ describe("LocationSheet delivery address workflow", () => {
 
     fireEvent.press(screen.getByLabelText("Список"));
     expect(await screen.findByText("Выберите кухню для самовывоза")).toBeTruthy();
+    const pickupPanelStyle = StyleSheet.flatten(
+      screen.getByTestId("pickup-list-panel").props.style,
+    );
+    expect(typeof pickupPanelStyle.height).toBe("number");
+    expect(pickupPanelStyle.height).toBeLessThanOrEqual(350);
     expect(
       screen.getByTestId("pickup-list-panel").props.onGestureHandlerEvent,
     ).toBeUndefined();

@@ -22,6 +22,7 @@ import { colors } from "../theme";
 import { formatMoney } from "../money";
 import type { Category, Product } from "../types";
 import { PrimaryButton } from "./PrimaryButton";
+import { ImmediatePressable } from "./ImmediatePressable";
 import { NumberTicker } from "./NumberTicker";
 import { QuantityControl } from "./QuantityControl";
 import { RipplePressable as Pressable } from "./RipplePressable";
@@ -484,31 +485,53 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             horizontal
             showsHorizontalScrollIndicator={false}
           >
-            {extraProducts.map((product) => (
-              <View key={product.id} style={styles.extraCard}>
-                <Image
-                  resizeMode="cover"
-                  resizeMethod="resize"
-                  source={{ uri: resolveImageUrl(product.image) }}
-                  style={styles.extraImage}
-                />
-                <Text numberOfLines={2} style={styles.extraName}>{product.name}</Text>
-                <View style={styles.recommendationBottom}>
-                  <Text style={styles.recommendationPrice}>{money(product.price)}</Text>
-                  <Pressable
+            {extraProducts.map((product) => {
+              const cartLine = store.cart.find((line) => (
+                line.product.id === product.id && line.modifiers.length === 0
+              ));
+              return (
+                <View key={product.id} style={styles.extraCard}>
+                  <ImmediatePressable
                     accessibilityRole="button"
                     accessibilityLabel={`Добавить ${product.name}`}
                     onPress={() => store.addCartLine(product, 1, [])}
-                    style={({ pressed }) => [
-                      styles.recommendationAdd,
-                      pressed && styles.pressed,
-                    ]}
+                    style={styles.extraCardBody}
                   >
-                    <MaterialCommunityIcons name="plus" size={23} color="#A6A6A6" />
-                  </Pressable>
+                    <Image
+                      resizeMode="cover"
+                      resizeMethod="resize"
+                      source={{ uri: resolveImageUrl(product.image) }}
+                      style={styles.extraImage}
+                    />
+                    <Text numberOfLines={2} style={styles.extraName}>{product.name}</Text>
+                  </ImmediatePressable>
+                  {cartLine ? (
+                    <QuantityControl
+                      bare
+                      compact
+                      onChange={(value) => store.setCartQuantity(cartLine.key, value)}
+                      style={styles.extraQuantity}
+                      value={cartLine.quantity}
+                    />
+                  ) : (
+                    <View style={styles.recommendationBottom}>
+                      <Text style={styles.recommendationPrice}>{money(product.price)}</Text>
+                      <ImmediatePressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Добавить ${product.name}`}
+                        onPress={() => store.addCartLine(product, 1, [])}
+                        style={({ pressed }) => [
+                          styles.recommendationAdd,
+                          pressed && styles.pressed,
+                        ]}
+                      >
+                        <MaterialCommunityIcons name="plus" size={23} color="#A6A6A6" />
+                      </ImmediatePressable>
+                    </View>
+                  )}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
           <PrimaryButton
             label="Назад"
@@ -903,6 +926,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: colors.surface,
   },
+  extraCardBody: {
+    flexShrink: 1,
+  },
   extraImage: {
     width: "100%",
     height: 156,
@@ -915,5 +941,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontSize: 14,
     lineHeight: 18,
+  },
+  extraQuantity: {
+    width: 124,
+    marginTop: "auto",
+    marginHorizontal: 16,
+    marginBottom: 12,
+    justifyContent: "space-between",
   },
 });

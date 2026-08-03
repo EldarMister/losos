@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { catalogApi } from "../api";
 import { CartSheet } from "../components/CartSheet";
 import { useStore } from "../store";
 
@@ -30,6 +31,14 @@ const product = {
   image: "https://example.com/roll.png",
 };
 
+const topping = {
+  id: 2,
+  slug: "sweet-chili",
+  name: "Соус сладкий чили",
+  price: 90,
+  image: "https://example.com/sauce.png",
+};
+
 function makeStore() {
   return {
     activeRegion: {
@@ -58,6 +67,10 @@ function makeStore() {
 }
 
 describe("CartSheet configuration draft", () => {
+  beforeEach(() => {
+    (catalogApi.categories as jest.Mock).mockResolvedValue([]);
+  });
+
   test("does not persist kit changes on cancel and saves them explicitly", async () => {
     const store = makeStore();
     (useStore as jest.Mock).mockReturnValue(store);
@@ -106,5 +119,54 @@ describe("CartSheet configuration draft", () => {
     expect(screen.getByText("Будет сразу добавлено в корзину")).toBeTruthy();
     expect(screen.getByText("Бесплатно")).toBeTruthy();
     expect(screen.getByText("Назад")).toBeTruthy();
+  });
+
+  test("adds an extra product immediately from the extras sheet", async () => {
+    (catalogApi.categories as jest.Mock).mockResolvedValue([{
+      id: 7,
+      slug: "toppings",
+      title: "Топпинги",
+      products: [topping],
+    }]);
+    const store = makeStore();
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(
+      <CartSheet onCheckout={jest.fn()} onClose={jest.fn()} visible />,
+    );
+
+    await fireEvent.press(screen.getByText("Управлять"));
+    await fireEvent.press(screen.getByLabelText("Открыть дополнения"));
+    expect((await screen.findAllByText("Соус сладкий чили")).length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getAllByLabelText("Добавить Соус сладкий чили").at(-1)!);
+
+    expect(store.addCartLine).toHaveBeenCalledWith(topping, 1, []);
+  });
+
+  test("shows quantity controls for an extra already added to the cart", async () => {
+    (catalogApi.categories as jest.Mock).mockResolvedValue([{
+      id: 7,
+      slug: "toppings",
+      title: "Топпинги",
+      products: [topping],
+    }]);
+    const store = makeStore();
+    store.cart.push({
+      key: "2",
+      product: topping,
+      quantity: 2,
+      modifiers: [],
+    });
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(
+      <CartSheet onCheckout={jest.fn()} onClose={jest.fn()} visible />,
+    );
+
+    await fireEvent.press(screen.getByText("Управлять"));
+    await fireEvent.press(screen.getByLabelText("Открыть дополнения"));
+    expect((await screen.findAllByText("Соус сладкий чили")).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText("Количество: 2").length).toBeGreaterThan(0);
+
+    await fireEvent.press(screen.getAllByLabelText("Увеличить количество").at(-1)!);
+    expect(store.setCartQuantity).toHaveBeenCalledWith("2", 3);
   });
 });
