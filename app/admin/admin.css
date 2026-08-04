@@ -658,13 +658,6 @@ button { cursor: pointer; }
 .admin-sidebar-footer .admin-logout {
   color: #64748b;
 }
-.admin-sidebar-footer > small {
-  padding: 6px 12px 0;
-  color: #b0b8c5;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .08em;
-}
 .admin-sidebar-close { display: none !important; }
 .admin-workspace {
   min-width: 0;
@@ -736,21 +729,6 @@ button { cursor: pointer; }
   box-shadow: 0 1px 3px #0f172a16;
 }
 .admin-topbar-region-select { display: none; }
-.admin-sync-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #64748b;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.admin-sync-status i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 4px #dcfce7;
-}
 .admin-menu-toggle {
   width: 40px;
   height: 40px;
@@ -975,7 +953,6 @@ button { cursor: pointer; }
 .admin-login form > button { margin-top: 24px; box-shadow: none; }
 
 @media (max-width: 1080px) {
-  .admin-sync-status { display: none; }
   .admin-content, .has-order .admin-content { padding-right: 22px; padding-left: 22px; }
   .admin-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1164,12 +1141,6 @@ button { cursor: pointer; }
   padding: 12px;
   border-color: #e2e8f0;
 }
-.admin-sidebar-footer > small {
-  padding: 8px 12px 0;
-  color: #94a3b8;
-  font-size: 9px;
-  text-align: center;
-}
 .admin-topbar {
   height: 64px;
   min-height: 64px;
@@ -1197,16 +1168,6 @@ button { cursor: pointer; }
   color: #0f172a;
   font-size: 14px;
   font-weight: 500;
-}
-.admin-sync-status {
-  gap: 8px;
-  color: #475569;
-  font-size: 14px;
-}
-.admin-sync-status i {
-  width: 8px;
-  height: 8px;
-  box-shadow: none;
 }
 .admin-content,
 .has-order .admin-content {
@@ -1538,7 +1499,6 @@ button { cursor: pointer; }
   }
   .admin-topbar-title h1 { font-size: 20px; line-height: 26px; }
   .admin-topbar-region-select { min-width: 104px; max-width: 120px; height: 38px; }
-  .admin-sync-status { display: none; }
   .admin-content,
   .has-order .admin-content { padding: 16px; }
   .admin-order-overview { margin: 0 0 12px; padding: 0; overflow: visible; border: 0; }

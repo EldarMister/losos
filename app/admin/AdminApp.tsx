@@ -1015,7 +1015,6 @@ export function AdminApp() {
     <nav className="admin-sidebar-navigation">{navigation.map(renderNavigationButton)}</nav>
     <div className="admin-sidebar-footer">
       <button type="button" className="admin-logout" onClick={logout}><i aria-hidden="true">↪</i><span>Выйти</span></button>
-      <small>NAKTA CONTROL · 2026</small>
     </div>
   </aside>;
 
@@ -1039,7 +1038,6 @@ export function AdminApp() {
           <select className="admin-topbar-region-select" aria-label="Город" value={region} onChange={(event) => selectRegion(event.target.value)}>
             {availableRegions.filter((item) => item.enabled).map((item) => <option value={item.slug} key={item.slug}>{item.name}</option>)}
           </select>
-          <span className="admin-sync-status"><i />Онлайн</span>
         </div>
       </header>
 
@@ -1218,7 +1216,6 @@ export function AdminApp() {
                   <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins ?? "")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
                 </div>
                 <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
-                <label>Состав<textarea className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
                 <div className="admin-editor-inline-row">
                   <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
                   <label className="admin-switch"><span><b>В продаже</b><small>Можно заказать на сайте</small></span><input type="checkbox" checked={Boolean(editor.values.available)} onChange={(event) => updateValue("available", event.target.checked)} /></label>
@@ -1231,6 +1228,7 @@ export function AdminApp() {
             </section> : null}
             {editorSection === "nutrition" ? <section className="admin-editor-section admin-editor-section-wide">
               <div className="admin-editor-section-heading"><span><h3>Пищевая ценность</h3><p>Значения указываются для одной порции блюда.</p></span></div>
+              <label>Состав<textarea className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
               <div className="admin-nutrition">
                 {[["weight", "Граммы"], ["calories", "Ккал"], ["protein", "Белки"], ["fat", "Жиры"], ["carbs", "Углеводы"]].map(([name, label]) => <label key={name}>{label}<input type="number" min="0" value={String(editor.values[name])} onChange={(event) => updateValue(name, event.target.value)} /></label>)}
               </div>
