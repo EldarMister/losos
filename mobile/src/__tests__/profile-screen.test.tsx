@@ -1,7 +1,7 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { Alert } from "react-native";
 import { authApi } from "../api";
-import { ProfileScreen } from "../screens/ProfileScreen";
+import { ProfileScreen, profileCoinHistory } from "../screens/ProfileScreen";
 import { useStore } from "../store";
 import type { ProfileData } from "../types";
 
@@ -19,6 +19,10 @@ jest.mock("../store", () => ({
 
 jest.mock("expo-status-bar", () => ({
   StatusBar: () => null,
+}));
+
+jest.mock("expo-notifications", () => ({
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -45,6 +49,39 @@ describe("ProfileScreen order history", () => {
         expiresAt: Date.now() + 60_000,
       },
     });
+  });
+
+  test("normalizes server coin transactions and never hides a positive balance", () => {
+    expect(profileCoinHistory({
+      ...emptyProfile,
+      naktaCoins: 42,
+      naktaCoinHistory: [{
+        id: "coin-1",
+        amount: 9,
+        createdAt: "2026-08-01T10:00:00.000Z",
+        description: "Заказ №ABCDEF",
+        orderId: "abcdef",
+      }],
+    })).toEqual([expect.objectContaining({ amount: 9, orderId: "abcdef" })]);
+    expect(profileCoinHistory({ ...emptyProfile, naktaCoins: 42 })).toEqual([
+      expect.objectContaining({ amount: 42, description: "Начислено за предыдущие заказы" }),
+    ]);
+  });
+
+  test("shows coin accrual history for a positive balance", async () => {
+    (authApi.profile as jest.Mock).mockResolvedValue({ ...emptyProfile, naktaCoins: 42 });
+    const screen = await render(
+      <ProfileScreen
+        onBack={jest.fn()}
+        onLogout={jest.fn()}
+        onOpenOrder={jest.fn()}
+        section="balance"
+      />,
+    );
+
+    expect(await screen.findByText("Начислено за предыдущие заказы")).toBeTruthy();
+    expect(screen.getByText("+42")).toBeTruthy();
+    expect(screen.queryByText("История операций пока пуста.")).toBeNull();
   });
 
   test("uses the original empty-order structure and returns to the menu", async () => {

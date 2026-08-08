@@ -16,7 +16,9 @@ import {
 import {
   createYandexMapHtml,
   getDeliveryZone,
+  isPointInRegionBounds,
   isPointInDeliveryZone,
+  isUsableInitialMapPoint,
   parseMapMessage,
 } from "../components/yandexMapShared";
 import { lineTotal, restorePersistedState } from "../store";
@@ -179,6 +181,17 @@ describe("mobile state and routing", () => {
       geometry: { coordinates: [37.6176, 55.7558] },
       properties: { street: "Тверская улица", city: "Москва" },
     }, "bishkek")).toBeNull();
+  });
+
+  test("does not reuse a saved point from another city on the map", () => {
+    expect(isPointInRegionBounds("osh", 40.513, 72.8161)).toBe(true);
+    expect(isPointInRegionBounds("osh", 42.851968, 74.624326)).toBe(false);
+    expect(isPointInRegionBounds("bishkek", 40.513, 72.8161)).toBe(false);
+  });
+
+  test("allows a live device point outside the selected delivery region", () => {
+    expect(isUsableInitialMapPoint("osh", 42.851968, 74.624326)).toBe(false);
+    expect(isUsableInitialMapPoint("osh", 42.851968, 74.624326, true)).toBe(true);
   });
 
   test("requires a house-level address before the delivery flow can continue", () => {

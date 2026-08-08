@@ -1,4 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 import { ordersApi } from "../api";
 import { CheckoutScreen } from "../screens/CheckoutScreen";
 import { useStore } from "../store";
@@ -82,7 +83,11 @@ describe("CheckoutScreen", () => {
     expect(screen.getByLabelText("Подъезд")).toBeTruthy();
     expect(screen.getByLabelText("Этаж")).toBeTruthy();
     expect(screen.getByDisplayValue("+996 220 20 30 21")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Имя")).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByLabelText("Имя").props.style).fontSize).toBe(16);
+    expect(StyleSheet.flatten(screen.getByLabelText("Телефон").props.style).fontSize).toBe(16);
     expect(screen.getByLabelText("Наличными").props.accessibilityState.checked).toBe(true);
+    expect(screen.getByText("Наличными").props.numberOfLines).toBe(1);
     expect(screen.queryByText("Комплектация")).toBeNull();
 
     await fireEvent.press(screen.getByLabelText("Выбрать адрес на карте"));
@@ -112,5 +117,22 @@ describe("CheckoutScreen", () => {
       expect(store.clearCart).toHaveBeenCalledTimes(1);
       expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }));
     });
+  });
+
+  test("keeps the +996 country prefix while the customer edits the number", async () => {
+    const screen = await render(
+      <CheckoutScreen
+        onBack={jest.fn()}
+        onOpenLocation={jest.fn()}
+        onSuccess={jest.fn()}
+      />,
+    );
+
+    const phone = screen.getByLabelText("Телефон");
+    await fireEvent.changeText(phone, "");
+    expect(screen.getByDisplayValue("+996 ")).toBeTruthy();
+
+    await fireEvent.changeText(phone, "555123456");
+    expect(screen.getByDisplayValue("+996 555 12 34 56")).toBeTruthy();
   });
 });

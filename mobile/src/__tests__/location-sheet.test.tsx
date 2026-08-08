@@ -4,7 +4,9 @@ import { StyleSheet } from "react-native";
 import { catalogApi } from "../api";
 import {
   LocationSheet,
+  deliveryRegionAtPoint,
   pickupIntroCopy,
+  pickupListPanelHeight,
   regionPickupLocations,
 } from "../components/LocationSheet";
 import { useStore } from "../store";
@@ -51,8 +53,9 @@ type StoreMock = {
   deliveryType: "delivery" | "pickup";
   location: {
     address: string;
-    latitude: number;
-    longitude: number;
+    regionSlug?: string;
+    latitude?: number;
+    longitude?: number;
     pickupLocationId?: number;
   };
   regions: Array<{
@@ -74,6 +77,7 @@ type StoreMock = {
     pickupWorkingHours?: string;
     pickupYandexUrl?: string;
     deliveryIs24Hours?: boolean;
+    deliveryZone?: Array<{ latitude: number; longitude: number }>;
   }>;
   regionSlug: string;
   setDeliveryType: jest.Mock;
@@ -106,6 +110,28 @@ function makeStore(address: string): StoreMock {
 }
 
 describe("LocationSheet delivery address workflow", () => {
+  test("sizes the pickup list to its content and caps long lists", () => {
+    expect(pickupListPanelHeight(900, 1)).toBe(414);
+    expect(pickupListPanelHeight(600, 10)).toBe(492);
+  });
+
+  test("finds future admin-configured cities by their delivery polygons", () => {
+    const regions = [{
+      id: 9,
+      slug: "karakol",
+      name: "Каракол",
+      deliveryZone: [
+        { latitude: 42.52, longitude: 78.36 },
+        { latitude: 42.52, longitude: 78.43 },
+        { latitude: 42.46, longitude: 78.43 },
+        { latitude: 42.46, longitude: 78.36 },
+      ],
+    }] as Region[];
+
+    expect(deliveryRegionAtPoint(regions, 42.49, 78.39)?.slug).toBe("karakol");
+    expect(deliveryRegionAtPoint(regions, 41.2, 74.4)).toBeUndefined();
+  });
+
   test("shows an honest unavailable state instead of six hardcoded kitchens", async () => {
     const store = makeStore("улица Медерова, 41");
     (catalogApi.regions as jest.Mock).mockResolvedValue(store.regions);
@@ -214,6 +240,129 @@ describe("LocationSheet delivery address workflow", () => {
     });
   });
 
+  test("keeps the delivery marker and zone visible before geolocation resolves", async () => {
+    const store = makeStore("");
+    store.regionSlug = "osh";
+    store.location = {
+      address: "",
+      latitude: undefined,
+      longitude: undefined,
+    };
+    store.regions = [{
+      id: 2,
+      slug: "osh",
+      name: "Ош",
+      deliveryIs24Hours: true,
+      deliveryZone: [
+        { latitude: 40.59, longitude: 72.75 },
+        { latitude: 40.6, longitude: 72.84 },
+        { latitude: 40.565, longitude: 72.9 },
+      ],
+      pickupLocations: [],
+    }];
+    (catalogApi.regions as jest.Mock).mockResolvedValue(store.regions);
+    (useStore as jest.Mock).mockReturnValue(store);
+
+    await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    await waitFor(() => {
+      const props = mockYandexMap.mock.calls.at(-1)?.[0] as {
+        regionSlug?: string;
+        regionName?: string;
+        showCenterMarker?: boolean;
+        deliveryZone?: unknown[];
+      };
+      expect(props).toMatchObject({
+        regionSlug: "osh",
+        regionName: "Ош",
+        showCenterMarker: true,
+      });
+      expect(props.deliveryZone).toHaveLength(3);
+    });
+  });
+
+  test("does not reuse pickup coordinates as a delivery address", async () => {
+    const store = makeStore("улица Курманжан Датки, 207");
+    store.deliveryType = "pickup";
+    store.regionSlug = "osh";
+    store.location = {
+      address: "улица Курманжан Датки, 207",
+      regionSlug: "osh",
+      latitude: 40.513,
+      longitude: 72.8161,
+      pickupLocationId: 7,
+    };
+    store.regions = [{
+      id: 2,
+      slug: "osh",
+      name: "Ош",
+      deliveryIs24Hours: true,
+      deliveryZone: [
+        { latitude: 40.59, longitude: 72.75 },
+        { latitude: 40.6, longitude: 72.84 },
+        { latitude: 40.565, longitude: 72.9 },
+      ],
+      pickupLocations: [],
+    }];
+    (catalogApi.regions as jest.Mock).mockResolvedValue(store.regions);
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    fireEvent.press(screen.getByText("Доставка"));
+
+    await waitFor(() => {
+      const props = mockYandexMap.mock.calls.at(-1)?.[0] as {
+        regionSlug?: string;
+        showCenterMarker?: boolean;
+        initialLatitude?: number;
+        initialLongitude?: number;
+      };
+      expect(props).toMatchObject({
+        regionSlug: "osh",
+        showCenterMarker: true,
+        initialLatitude: undefined,
+        initialLongitude: undefined,
+      });
+    });
+  });
+
+  test("switches the delivery map and zone when Osh is selected", async () => {
+    const store = makeStore("Московская улица, 123");
+    store.regions.push({
+      id: 2,
+      slug: "osh",
+      name: "Ош",
+      deliveryIs24Hours: true,
+      deliveryZone: [
+        { latitude: 40.59, longitude: 72.75 },
+        { latitude: 40.6, longitude: 72.84 },
+        { latitude: 40.565, longitude: 72.9 },
+      ],
+      pickupLocations: [],
+    });
+    (catalogApi.regions as jest.Mock).mockResolvedValue(store.regions);
+    (useStore as jest.Mock).mockReturnValue(store);
+    const screen = await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    fireEvent.press(await screen.findByLabelText("Город Ош"));
+
+    await waitFor(() => {
+      const props = mockYandexMap.mock.calls.at(-1)?.[0] as {
+        regionSlug?: string;
+        deliveryZone?: unknown[];
+        initialLatitude?: number;
+        initialLongitude?: number;
+      };
+      expect(props).toMatchObject({
+        regionSlug: "osh",
+        initialLatitude: undefined,
+        initialLongitude: undefined,
+      });
+      expect(props.deliveryZone).toHaveLength(3);
+    });
+    expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
+  });
+
   test("uses the original pickup flow: intro, kitchen list, then details", async () => {
     const store = makeStore("улица Медерова, 41");
     store.regions[0].pickupLocations = [{
@@ -241,7 +390,8 @@ describe("LocationSheet delivery address workflow", () => {
       screen.getByTestId("pickup-list-panel").props.style,
     );
     expect(typeof pickupPanelStyle.height).toBe("number");
-    expect(pickupPanelStyle.height).toBeLessThanOrEqual(350);
+    expect(pickupPanelStyle.height).toBeGreaterThan(350);
+    expect(pickupPanelStyle.height).toBeLessThan(700);
     expect(
       screen.getByTestId("pickup-list-panel").props.onGestureHandlerEvent,
     ).toBeUndefined();
@@ -397,25 +547,36 @@ describe("LocationSheet delivery address workflow", () => {
     (useStore as jest.Mock).mockReturnValue(store);
     (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: "granted" });
     (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(null);
-    (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue({
-      coords: { latitude: 42.8761, longitude: 74.6054 },
-    });
+    let resolvePosition!: (position: { coords: { latitude: number; longitude: number } }) => void;
+    (Location.getCurrentPositionAsync as jest.Mock).mockReturnValue(new Promise((resolve) => {
+      resolvePosition = resolve;
+    }));
     mockYandexMap.mockClear();
 
-    await render(<LocationSheet visible onClose={jest.fn()} />);
+    const screen = await render(<LocationSheet visible onClose={jest.fn()} />);
+
+    await waitFor(() => expect(Location.getCurrentPositionAsync).toHaveBeenCalled());
+    expect(screen.getByText("Определяем ваше местоположение…")).toBeTruthy();
+    expect(mockYandexMap).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolvePosition({ coords: { latitude: 42.8761, longitude: 74.6054 } });
+    });
 
     await waitFor(() => {
-      expect(Location.getCurrentPositionAsync).toHaveBeenCalled();
       const props = mockYandexMap.mock.calls.at(-1)?.[0] as {
+        allowOutOfRegionInitialPoint: boolean;
         focusRequest: number;
         initialLatitude: number;
         initialLongitude: number;
       };
       expect(props).toMatchObject({
+        allowOutOfRegionInitialPoint: true,
         focusRequest: 1,
         initialLatitude: 42.8761,
         initialLongitude: 74.6054,
       });
+      expect(screen.queryByText("Определяем ваше местоположение…")).toBeNull();
     });
   });
 });

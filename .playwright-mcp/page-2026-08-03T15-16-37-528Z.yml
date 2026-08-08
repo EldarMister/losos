@@ -1,0 +1,70 @@
+- generic [ref=e15]:
+  - complementary "Навигация администратора" [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e19]: Накта суши
+      - generic [ref=e20]: Управление
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - generic [ref=e23]: Обзор
+        - navigation [ref=e24]:
+          - button "Статистика" [ref=e25] [cursor=pointer]
+          - button "Заказы" [ref=e28] [cursor=pointer]
+      - generic [ref=e31]:
+        - generic [ref=e32]: Каталог
+        - navigation [ref=e33]:
+          - button "Меню" [ref=e34] [cursor=pointer]
+          - button "Акции" [ref=e37] [cursor=pointer]:
+            - generic [ref=e38]: ✦
+    - generic [ref=e40]:
+      - button "Настройки" [ref=e41] [cursor=pointer]
+      - button "Выйти" [ref=e44] [cursor=pointer]:
+        - generic [ref=e45]: ↪
+      - generic [ref=e47]: NAKTA CONTROL · 2026
+  - status [ref=e48]: Failed to fetch
+  - generic [ref=e49]:
+    - banner [ref=e50]:
+      - heading "Заказы" [level=1] [ref=e53]
+      - generic [ref=e54]:
+        - generic "Город" [ref=e55]:
+          - button "Бишкек" [ref=e56] [cursor=pointer]
+          - button "Ош" [ref=e57] [cursor=pointer]
+        - generic [ref=e58]: Обновляется автоматически
+    - generic [ref=e60]:
+      - generic [ref=e62]:
+        - heading "Операционная лента" [level=2] [ref=e63]
+        - paragraph [ref=e64]: Следите за заказами и меняйте их статус без лишних переходов.
+      - generic "Сводка заказов" [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]: Всего
+          - strong [ref=e68]: "0"
+        - generic [ref=e70]:
+          - generic [ref=e71]: Новые
+          - strong [ref=e72]: "0"
+        - generic [ref=e74]:
+          - generic [ref=e75]: В работе
+          - strong [ref=e76]: "0"
+        - generic [ref=e78]:
+          - generic [ref=e79]: Завершены
+          - strong [ref=e80]: "0"
+      - generic [ref=e81]:
+        - generic [ref=e82]:
+          - generic [ref=e83]: ⌕
+          - textbox "⌕" [ref=e84]:
+            - /placeholder: Поиск по № заказа, клиенту или адресу...
+        - generic [ref=e85]:
+          - button "Все статусы 0" [ref=e87] [cursor=pointer]:
+            - generic [ref=e88]: Все статусы
+            - emphasis [ref=e89]: "0"
+          - button "Всё время" [ref=e91] [cursor=pointer]
+      - generic [ref=e93]:
+        - generic [ref=e94]:
+          - generic [ref=e95]: Заказ
+          - generic [ref=e96]: Клиент
+          - generic [ref=e97]: Адрес
+          - generic [ref=e98]: Статус
+          - generic [ref=e99]: Сумма
+          - generic [ref=e100]: Время
+        - generic [ref=e101]:
+          - generic [ref=e102]: Заказов пока нет
+          - generic [ref=e103]: Новые заказы появятся здесь автоматически.
+        - generic [ref=e104]: Показано 0 из 0

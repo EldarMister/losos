@@ -15,8 +15,16 @@ jest.mock("../store", () => ({
   useStore: jest.fn(),
 }));
 
+jest.mock("../pushNotifications", () => ({
+  presentPolledOrderStatus: jest.fn(),
+}));
+
 jest.mock("expo-status-bar", () => ({
   StatusBar: () => null,
+}));
+
+jest.mock("expo-notifications", () => ({
+  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock("react-native-safe-area-context", () => ({

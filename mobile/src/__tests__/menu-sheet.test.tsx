@@ -31,7 +31,6 @@ function props() {
     onClose: jest.fn(),
     onOpenProfile: jest.fn(),
     onOpenOrders: jest.fn(),
-    onOpenAddresses: jest.fn(),
     onOpenBalance: jest.fn(),
     onLogout: jest.fn(),
   };
@@ -64,11 +63,10 @@ describe("MenuSheet account states", () => {
     await fireEvent.press(screen.getByText("+996555123456"));
     expect(callbacks.onOpenProfile).not.toHaveBeenCalled();
     await fireEvent.press(screen.getByText("Мои заказы"));
-    await fireEvent.press(screen.getByText("Мои адреса"));
     await fireEvent.press(screen.getByText("NAKTA Coin"));
 
     expect(callbacks.onOpenOrders).toHaveBeenCalledTimes(1);
-    expect(callbacks.onOpenAddresses).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Мои адреса")).toBeNull();
     expect(callbacks.onOpenBalance).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Настройки")).toBeTruthy();
   });

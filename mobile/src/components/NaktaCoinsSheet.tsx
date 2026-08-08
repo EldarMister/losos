@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { authApi } from "../api";
 import { useStore } from "../store";
 import { colors } from "../theme";
-import { Sheet } from "./Sheet";
+import { BottomSheet } from "./BottomSheet";
 
 type Props = {
   visible: boolean;
@@ -38,7 +38,7 @@ export function NaktaCoinsSheet({ visible, onClose }: Props) {
   }, [store.session, visible]);
 
   return (
-    <Sheet height={420} onClose={onClose} visible={visible}>
+    <BottomSheet height={356} onClose={onClose} visible={visible}>
       <View style={styles.content}>
         <Text style={styles.title}>NAKTA Coin</Text>
         <Text style={styles.balanceLabel}>Ваш баланс NAKTA Coin</Text>
@@ -62,7 +62,7 @@ export function NaktaCoinsSheet({ visible, onClose }: Props) {
           <Text style={styles.closeText}>Понятно</Text>
         </Pressable>
       </View>
-    </Sheet>
+    </BottomSheet>
   );
 }
 
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 22,
-    paddingTop: 28,
+    paddingTop: 20,
   },
   title: {
     color: colors.ink,
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   balanceLabel: {
-    marginTop: 30,
+    marginTop: 16,
     color: colors.muted,
     fontFamily: "Inter_400Regular",
     fontSize: 16,
@@ -103,16 +103,15 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   copy: {
-    marginTop: 18,
+    marginTop: 10,
     color: "#3E3E3E",
     fontFamily: "Inter_400Regular",
     fontSize: 15,
     lineHeight: 20,
   },
   closeButton: {
-    height: 60,
-    marginTop: "auto",
-    marginBottom: 10,
+    height: 54,
+    marginTop: 16,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",

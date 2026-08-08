@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
-  ImageBackground,
   Linking,
   Modal,
   Pressable,
@@ -13,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { resolveImageUrl, WEB_URL } from "../api";
 import { colors, radii } from "../theme";
 import type { Promotion } from "../types";
+import { RemoteImage } from "./RemoteImage";
 
 type Props = {
   promotions: Promotion[];
@@ -65,13 +65,15 @@ export function PromotionViewer({
       statusBarTranslucent
       visible={visible}
     >
-      <ImageBackground
-        resizeMode="cover"
-        resizeMethod="resize"
-        source={{ uri: resolveImageUrl(promotion.image) }}
-        style={styles.root}
-      >
-        <View style={[styles.safe, { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 18) }]}>
+      <View style={styles.root}>
+        <RemoteImage
+          accessibilityLabel={`Изображение акции: ${promotion.title}`}
+          priority="high"
+          resizeMode="cover"
+          source={resolveImageUrl(promotion.image)}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.safe, { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 18) }]}> 
           <View style={styles.progressRow}>
             {promotions.map((item, itemIndex) => (
               <View
@@ -99,7 +101,7 @@ export function PromotionViewer({
             </Pressable>
           ) : null}
         </View>
-      </ImageBackground>
+      </View>
     </Modal>
   );
 }

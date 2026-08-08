@@ -15,9 +15,11 @@ export function preloadYandexMapKit() {
 
 export function YandexMap({
   regionSlug,
+  regionName,
   deliveryZone,
   initialLatitude,
   initialLongitude,
+  allowOutOfRegionInitialPoint = false,
   focusRequest = 0,
   onLocationChange,
   showCenterMarker = true,
@@ -58,9 +60,20 @@ export function YandexMap({
           initialLatitude,
           initialLongitude,
           deliveryZone,
+          allowOutOfRegionInitialPoint,
+          regionName,
         )
       : ""
-  ), [credentials, deliveryZone, focusRequest, initialLatitude, initialLongitude, regionSlug]);
+  ), [
+    allowOutOfRegionInitialPoint,
+    credentials,
+    deliveryZone,
+    focusRequest,
+    initialLatitude,
+    initialLongitude,
+    regionSlug,
+    regionName,
+  ]);
 
   if (error) {
     return (

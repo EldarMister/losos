@@ -115,6 +115,40 @@ export function pickupIntroCopy(count: number) {
   return `Сейчас самовывоз доступен в ${count} ${kitchenWord}. Вы можете выбрать кухню на карте или из списка.`;
 }
 
+export function pickupListPanelHeight(
+  windowHeight: number,
+  optionCount: number,
+  bottomInset = 12,
+) {
+  const visibleRows = Math.min(Math.max(optionCount, 0), 5);
+  // One kitchen needs a compact panel; longer lists grow until five rows and
+  // then scroll instead of leaving a large empty gap above the actions.
+  return Math.round(Math.min(
+    windowHeight * 0.82,
+    Math.max(
+      windowHeight * 0.46,
+      292 + Math.max(bottomInset, 12) + visibleRows * 88,
+    ),
+  ));
+}
+
+export function deliveryRegionAtPoint(
+  regions: Region[],
+  latitude?: number,
+  longitude?: number,
+) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
+  return regions.find((region) => {
+    const hasConfiguredZone = (region.deliveryZone?.length ?? 0) >= 3;
+    if (!hasConfiguredZone && region.slug !== "bishkek" && region.slug !== "osh") return false;
+    return isPointInDeliveryZone(
+      latitude as number,
+      longitude as number,
+      getDeliveryZone(region.slug, region.deliveryZone),
+    );
+  });
+}
+
 export function LocationSheet({ visible, required, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -173,23 +207,18 @@ export function LocationSheet({ visible, required, onClose }: Props) {
   }, [searchSwipe.reset, searchVisible]);
 
   useEffect(() => {
-    let frame = 0;
-    let secondFrame = 0;
     let closeTimer: ReturnType<typeof setTimeout> | undefined;
     if (visible) {
       setModalMounted(true);
-      if (!contentVisible) {
-        frame = requestAnimationFrame(() => {
-          secondFrame = requestAnimationFrame(() => setContentVisible(true));
-        });
-      }
+      // The former two-frame delay occasionally left this panel empty after
+      // changing delivery mode. A fresh modal mount still runs the entering
+      // animation, without relying on queued animation frames.
+      setContentVisible(true);
     } else {
       setContentVisible(false);
       closeTimer = setTimeout(() => setModalMounted(false), 340);
     }
     return () => {
-      cancelAnimationFrame(frame);
-      cancelAnimationFrame(secondFrame);
       if (closeTimer) clearTimeout(closeTimer);
     };
   }, [visible]);
@@ -235,17 +264,29 @@ export function LocationSheet({ visible, required, onClose }: Props) {
 
   useEffect(() => {
     if (!visible) return;
+    const currentRegion = store.regions.find((region) => region.slug === store.regionSlug);
+    const locationBelongsToRegion = (!store.location?.regionSlug
+      || store.location.regionSlug === store.regionSlug)
+      && (
+        store.deliveryType === "pickup"
+        || deliveryRegionAtPoint(
+          currentRegion ? [currentRegion] : store.regions,
+          store.location?.latitude,
+          store.location?.longitude,
+        )?.slug === store.regionSlug
+      );
+    const savedLocation = locationBelongsToRegion ? store.location : null;
     setType(store.deliveryType);
-    setAddress(store.location?.address ?? "");
-    setAddressComplete(isSpecificDeliveryAddress(store.location?.address ?? ""));
-    setLatitude(store.location?.latitude);
-    setLongitude(store.location?.longitude);
+    setAddress(savedLocation?.address ?? "");
+    setAddressComplete(isSpecificDeliveryAddress(savedLocation?.address ?? ""));
+    setLatitude(savedLocation?.latitude);
+    setLongitude(savedLocation?.longitude);
     setMapInitialPoint({
-      latitude: store.location?.latitude,
-      longitude: store.location?.longitude,
+      latitude: savedLocation?.latitude,
+      longitude: savedLocation?.longitude,
     });
     setSelectedRegion(store.regionSlug);
-    setSelectedPickupId(store.location?.pickupLocationId ?? null);
+    setSelectedPickupId(savedLocation?.pickupLocationId ?? null);
     setPickupListVisible(false);
     setSearchVisible(false);
     setSearchQuery("");
@@ -317,14 +358,24 @@ export function LocationSheet({ visible, required, onClose }: Props) {
       }))
     ));
   }, [regions]);
-  const pickupListHeight = Math.min(
-    windowHeight * 0.78,
-    276 + Math.min(pickupOptions.length, 5) * 74,
+  const pickupListHeight = pickupListPanelHeight(
+    windowHeight,
+    pickupOptions.length,
+    insets.bottom,
   );
   const selectedPickupOption = pickupOptions.find((item) => (
     item.region.slug === selectedRegion && item.pickup.id === selectedPickupId
   ));
   const selectedPickup = selectedPickupOption?.pickup;
+  const savedDeliveryLocation = useMemo(() => {
+    if (store.deliveryType !== "delivery") return null;
+    if (store.location?.regionSlug && store.location.regionSlug !== selectedRegion) return null;
+    return deliveryRegionAtPoint(
+      regions.filter((region) => region.slug === selectedRegion),
+      store.location?.latitude,
+      store.location?.longitude,
+    )?.slug === selectedRegion ? store.location : null;
+  }, [regions, selectedRegion, store.deliveryType, store.location]);
   const pickupAvailability = orderingAvailability(
     selectedPickupOption?.region ?? selectedRegionData,
     new Date(scheduleNow),
@@ -350,7 +401,8 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     ? Boolean(selectedPickup) && pickupAvailability.isOpen
     : addressComplete
       && Number.isFinite(latitude)
-      && Number.isFinite(longitude);
+      && Number.isFinite(longitude)
+      && isPointInDeliveryZone(latitude as number, longitude as number, deliveryZone);
 
   const handleMapLocation = useCallback((point: MapPoint) => {
     setAddress(point.address);
@@ -362,6 +414,37 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     setLongitude(point.longitude);
     setLocationError("");
   }, []);
+
+  const chooseDeliveryRegion = (regionSlug: string) => {
+    if (regionSlug === selectedRegion) return;
+    const nextSavedLocation = store.deliveryType === "delivery"
+      && (!store.location?.regionSlug || store.location.regionSlug === regionSlug)
+      && deliveryRegionAtPoint(
+        regions.filter((region) => region.slug === regionSlug),
+        store.location?.latitude,
+        store.location?.longitude,
+      )?.slug === regionSlug
+      ? store.location
+      : null;
+    setSelectedRegion(regionSlug);
+    setSelectedPickupId(null);
+    setAddress(nextSavedLocation?.address ?? "");
+    setAddressComplete(isSpecificDeliveryAddress(nextSavedLocation?.address ?? ""));
+    setLatitude(nextSavedLocation?.latitude);
+    setLongitude(nextSavedLocation?.longitude);
+    setMapInitialPoint({
+      latitude: nextSavedLocation?.latitude,
+      longitude: nextSavedLocation?.longitude,
+    });
+    setLocationError("");
+    setSearchQuery("");
+    setSuggestions([]);
+    // GPS is used only when the sheet first opens. A deliberate city choice
+    // must keep the map on that city's admin-configured polygon.
+    setLocating(false);
+    automaticLocationAttempted.current = true;
+    setMapFocusRequest((value) => value + 1);
+  };
 
   const choosePickup = (option: PickupOption) => {
     setSelectedRegion(option.region.slug);
@@ -436,6 +519,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     store.setRegionSlug(selectedRegion);
     store.setLocation({
       address: type === "pickup" ? selectedPickup?.address || "" : address.trim(),
+      regionSlug: selectedRegion,
       latitude: type === "delivery" ? latitude : selectedPickup?.latitude ?? undefined,
       longitude: type === "delivery" ? longitude : selectedPickup?.longitude ?? undefined,
       pickupLocationId: type === "pickup" ? selectedPickup?.id : undefined,
@@ -460,6 +544,11 @@ export function LocationSheet({ visible, required, onClose }: Props) {
         return;
       }
       const focusPoint = (point: { latitude: number; longitude: number }) => {
+        const detectedRegion = deliveryRegionAtPoint(regions, point.latitude, point.longitude);
+        if (detectedRegion && detectedRegion.slug !== selectedRegion) {
+          setSelectedRegion(detectedRegion.slug);
+          setSelectedPickupId(null);
+        }
         setDeviceLocation(point);
         setLatitude(point.latitude);
         setLongitude(point.longitude);
@@ -491,22 +580,34 @@ export function LocationSheet({ visible, required, onClose }: Props) {
     } finally {
       setLocating(false);
     }
-  }, [locating]);
+  }, [locating, regions, selectedRegion]);
 
   useEffect(() => {
     if (!visible) {
       automaticLocationAttempted.current = false;
       return;
     }
-    const hasSelectedAddress = Boolean(store.location?.address)
-      && Number.isFinite(store.location?.latitude)
-      && Number.isFinite(store.location?.longitude);
+    const hasSelectedAddress = Boolean(savedDeliveryLocation?.address)
+      && Number.isFinite(savedDeliveryLocation?.latitude)
+      && Number.isFinite(savedDeliveryLocation?.longitude);
     if (type !== "delivery" || hasSelectedAddress || automaticLocationAttempted.current) return;
     automaticLocationAttempted.current = true;
     // Open the map on the customer instead of reverse-geocoding a city-center fallback.
-    setLocating(false);
     queueMicrotask(() => void locateMe(true));
-  }, [locateMe, store.location?.address, store.location?.latitude, store.location?.longitude, type, visible]);
+  }, [locateMe, savedDeliveryLocation, type, visible]);
+
+  const mapInitialPointIsDeviceLocation = Boolean(
+    deviceLocation
+      && mapInitialPoint.latitude === deviceLocation.latitude
+      && mapInitialPoint.longitude === deviceLocation.longitude,
+  );
+  const hasMapInitialPoint = Number.isFinite(mapInitialPoint.latitude)
+    && Number.isFinite(mapInitialPoint.longitude);
+  const waitingForInitialDeviceLocation = visible
+    && type === "delivery"
+    && !savedDeliveryLocation
+    && !hasMapInitialPoint
+    && (!automaticLocationAttempted.current || locating);
 
   const close = useCallback(() => {
     if (pickupListVisible) {
@@ -552,24 +653,31 @@ export function LocationSheet({ visible, required, onClose }: Props) {
           style={styles.root}
         >
         <View style={styles.map}>
-          <YandexMap
-            deliveryZone={deliveryZone}
-            focusRequest={mapFocusRequest}
-            initialLatitude={mapInitialPoint.latitude}
-            initialLongitude={mapInitialPoint.longitude}
-            markers={type === "pickup" ? pickupMarkers : []}
-            onMarkerPress={(key) => {
-              const option = pickupOptions.find((item) => item.key === key);
-              if (option) choosePickup(option);
-            }}
-            onLocationChange={handleMapLocation}
-            regionSlug={selectedRegion}
-            showCenterMarker={type === "delivery" && (
-              !locating || Number.isFinite(mapInitialPoint.latitude)
-            )}
-          />
+          {waitingForInitialDeviceLocation ? (
+            <View style={styles.mapLocatingState}>
+              <ActivityIndicator color={colors.orange} size="large" />
+              <Text style={styles.mapLocatingText}>Определяем ваше местоположение…</Text>
+            </View>
+          ) : (
+            <YandexMap
+              allowOutOfRegionInitialPoint={mapInitialPointIsDeviceLocation}
+              key={`${selectedRegion}:${type}`}
+              deliveryZone={deliveryZone}
+              focusRequest={mapFocusRequest}
+              initialLatitude={mapInitialPoint.latitude}
+              initialLongitude={mapInitialPoint.longitude}
+              markers={type === "pickup" ? pickupMarkers : []}
+              onMarkerPress={(key) => {
+                const option = pickupOptions.find((item) => item.key === key);
+                if (option) choosePickup(option);
+              }}
+              onLocationChange={handleMapLocation}
+              regionSlug={selectedRegion}
+              regionName={selectedRegionData?.name}
+              showCenterMarker={type === "delivery"}
+            />
+          )}
         </View>
-
         <View style={[styles.topControls, { top: insets.top + 14 }]}>
           {!required ? (
             <Pressable
@@ -594,7 +702,18 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                     setPickupListVisible(false);
                     setSearchVisible(false);
                     if (item === "delivery") {
-                      setMapInitialPoint({ latitude, longitude });
+                      setAddress(savedDeliveryLocation?.address ?? "");
+                      setAddressComplete(isSpecificDeliveryAddress(
+                        savedDeliveryLocation?.address ?? "",
+                      ));
+                      setLatitude(savedDeliveryLocation?.latitude);
+                      setLongitude(savedDeliveryLocation?.longitude);
+                      setMapInitialPoint({
+                        latitude: savedDeliveryLocation?.latitude,
+                        longitude: savedDeliveryLocation?.longitude,
+                      });
+                      setLocating(!savedDeliveryLocation);
+                      automaticLocationAttempted.current = false;
                       setMapFocusRequest((value) => value + 1);
                     }
                     Keyboard.dismiss();
@@ -660,6 +779,27 @@ export function LocationSheet({ visible, required, onClose }: Props) {
           {type === "delivery" ? (
             <>
               <Text style={styles.title}>Адрес доставки</Text>
+              {regions.length > 1 ? (
+                <View accessibilityRole="tablist" style={styles.citySwitcher}>
+                  {regions.map((item) => {
+                    const active = item.slug === selectedRegion;
+                    return (
+                      <Pressable
+                        accessibilityLabel={`Город ${item.name}`}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: active }}
+                        key={item.slug}
+                        onPress={() => chooseDeliveryRegion(item.slug)}
+                        style={[styles.citySwitchItem, active && styles.citySwitchItemActive]}
+                      >
+                        <Text style={[styles.citySwitchText, active && styles.citySwitchTextActive]}>
+                          {item.name}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
               <Pressable onPress={openSearch} style={[styles.addressField, styles.deliveryAddressField]}>
                 <Text
                   numberOfLines={1}
@@ -819,7 +959,7 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                         color={active ? colors.orange : "#F1F1F1"}
                       />
                       <View style={styles.pickupRowCopy}>
-                        <Text numberOfLines={1} style={styles.pickupRowAddress}>
+                        <Text numberOfLines={2} style={styles.pickupRowAddress}>
                           {option.pickup.address}
                         </Text>
                         <Text style={styles.pickupRowHours}>
@@ -884,7 +1024,6 @@ export function LocationSheet({ visible, required, onClose }: Props) {
                   searchSwipe.animatedStyle,
                 ]}
               >
-                <View style={styles.searchHandle} />
                 <View style={styles.searchField}>
                   <TextInput
                     autoCapitalize="sentences"
@@ -967,6 +1106,17 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
     minHeight: 300,
+  },
+  mapLocatingState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: "#ECEBE7",
+  },
+  mapLocatingText: {
+    color: colors.muted,
+    fontSize: 15,
   },
   topControls: {
     position: "absolute",
@@ -1061,7 +1211,37 @@ const styles = StyleSheet.create({
     color: "#9B9B9B",
   },
   deliveryAddressField: {
-    marginTop: 26,
+    marginTop: 14,
+  },
+  citySwitcher: {
+    minHeight: 46,
+    marginTop: 18,
+    padding: 4,
+    borderRadius: 15,
+    flexDirection: "row",
+    gap: 4,
+    backgroundColor: colors.surface,
+  },
+  citySwitchItem: {
+    minHeight: 38,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  citySwitchItemActive: {
+    backgroundColor: colors.white,
+    ...shadow,
+  },
+  citySwitchText: {
+    color: "#8D8D8D",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  citySwitchTextActive: {
+    color: colors.ink,
+    fontWeight: "700",
   },
   mapLocateButton: {
     position: "absolute",
@@ -1207,7 +1387,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   pickupRow: {
-    minHeight: 74,
+    minHeight: 88,
     paddingHorizontal: 4,
     paddingVertical: 11,
     flexDirection: "row",
@@ -1268,14 +1448,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     overflow: "hidden",
     backgroundColor: colors.white,
-  },
-  searchHandle: {
-    width: 42,
-    height: 5,
-    marginBottom: 10,
-    alignSelf: "center",
-    borderRadius: 3,
-    backgroundColor: "#D7D7D7",
   },
   searchField: {
     height: 54,

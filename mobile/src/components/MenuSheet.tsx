@@ -33,7 +33,6 @@ type Props = {
   onClose: () => void;
   onOpenProfile: () => void;
   onOpenOrders: () => void;
-  onOpenAddresses: () => void;
   onOpenBalance: () => void;
   onLogout: () => void;
 };
@@ -48,7 +47,6 @@ export function MenuSheet({
   onClose,
   onOpenProfile,
   onOpenOrders,
-  onOpenAddresses,
   onOpenBalance,
   onLogout,
 }: Props) {
@@ -204,7 +202,6 @@ export function MenuSheet({
                   </Pressable>
                 </View>
                 <MenuRow icon="shopping-outline" label="Мои заказы" onPress={onOpenOrders} />
-                <MenuRow icon="map-marker-outline" label="Мои адреса" onPress={onOpenAddresses} />
                 <MenuRow
                   icon="star-four-points-outline"
                   label="NAKTA Coin"

@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Image,
   InteractionManager,
   ScrollView,
   StyleSheet,
@@ -24,7 +23,8 @@ import { ImmediatePressable } from "./ImmediatePressable";
 import { NumberTicker } from "./NumberTicker";
 import { NaktaCoinBadge } from "./NaktaCoinBadge";
 import { RipplePressable as Pressable } from "./RipplePressable";
-import { Sheet } from "./Sheet";
+import { BottomSheet } from "./BottomSheet";
+import { RemoteImage } from "./RemoteImage";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
 
 const money = formatMoney;
@@ -81,10 +81,9 @@ function RelatedProductCard({
         onPress={onPress}
       >
         <View style={styles.relatedImageWrap}>
-          <Image
+          <RemoteImage
             resizeMode="cover"
-            resizeMethod="resize"
-            source={{ uri: resolveImageUrl(product.image) }}
+            source={product.image}
             style={styles.relatedImage}
           />
           {product.naktaCoins ? (
@@ -123,6 +122,7 @@ export function ProductSheet({
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [equipmentProducts, setEquipmentProducts] = useState<Product[]>([]);
   const [sheetVisible, setSheetVisible] = useState(Boolean(product));
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -132,6 +132,7 @@ export function ProductSheet({
     setQuantity(1);
     setSelection(initialModifierSelections(product));
     setDetailView(null);
+    setHeroImageLoaded(false);
   }, [product]);
 
   useEffect(() => () => {
@@ -250,6 +251,7 @@ export function ProductSheet({
     closeTimer.current = setTimeout(onClose, 390);
   };
   const heroHeight = Math.min(width, height * 0.58);
+  const heroImageUrl = resolveImageUrl(product.image);
 
   const hasEquipment = Boolean(product.composition)
     && !/соус|васаби|имбир|напит|кола|фанта|вода|морс|сок|чай/i.test(product.name);
@@ -280,7 +282,7 @@ export function ProductSheet({
 
   return (
     <>
-      <Sheet
+      <BottomSheet
         fullScreen
         height="83%"
         visible={sheetVisible}
@@ -325,11 +327,20 @@ export function ProductSheet({
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.hero, { height: heroHeight }]}>
-            <Image
+            {!heroImageLoaded ? (
+              <View pointerEvents="none" style={styles.heroImagePlaceholder}>
+                <MaterialCommunityIcons name="image-outline" size={48} color="#D7D7D7" />
+              </View>
+            ) : null}
+            <RemoteImage
+              accessibilityLabel={`Фото ${product.name}`}
+              onFinalError={() => setHeroImageLoaded(false)}
+              onLoaded={() => setHeroImageLoaded(true)}
+              priority="high"
               resizeMode="cover"
-              resizeMethod="resize"
-              source={{ uri: resolveImageUrl(product.image) }}
+              source={heroImageUrl}
               style={styles.heroImage}
+              testID="product-sheet-hero-image"
             />
             {product.naktaCoins ? (
               <NaktaCoinBadge amount={product.naktaCoins} style={styles.heroCoinBadge} />
@@ -441,10 +452,9 @@ export function ProductSheet({
                         )}
                         style={[styles.modifierCard, active && styles.modifierCardActive]}
                       >
-                        <Image
+                        <RemoteImage
                           resizeMode="cover"
-                          resizeMethod="resize"
-                          source={{ uri: resolveImageUrl(item.image) }}
+                          source={item.image}
                           style={styles.modifierImage}
                         />
                         <Text numberOfLines={2} style={styles.modifierCardName}>
@@ -473,7 +483,7 @@ export function ProductSheet({
                         onPress={() => setModifier(group, item.id, 1)}
                         style={styles.modifierRow}
                       >
-                        <Image resizeMode="cover" resizeMethod="resize" source={{ uri: resolveImageUrl(item.image) }} style={styles.modifierRowImage} />
+                        <RemoteImage resizeMode="cover" source={item.image} style={styles.modifierRowImage} />
                         <View style={styles.modifierRowCopy}>
                           <Text style={styles.modifierRowName}>{item.name}</Text>
                           <Text style={styles.modifierRowPrice}>{item.price ? `+${money(item.price)}` : "Без доплаты"}</Text>
@@ -491,7 +501,7 @@ export function ProductSheet({
                           onPress={() => setModifier(group, item.id, Math.min(maximum, current + 1))}
                           style={styles.modifierRowMain}
                         >
-                          <Image resizeMode="cover" resizeMethod="resize" source={{ uri: resolveImageUrl(item.image) }} style={styles.modifierRowImage} />
+                          <RemoteImage resizeMode="cover" source={item.image} style={styles.modifierRowImage} />
                           <View style={styles.modifierRowCopy}>
                             <Text style={styles.modifierRowName}>{item.name}</Text>
                             <Text style={styles.modifierRowPrice}>{item.price ? `+${money(item.price)}` : "Без доплаты"}</Text>
@@ -549,8 +559,8 @@ export function ProductSheet({
             </View>
           ) : null}
         </SwipeDismissScrollView>
-      </Sheet>
-      <Sheet
+      </BottomSheet>
+      <BottomSheet
         height={detailView === "equipment" ? "39%" : "60%"}
         onClose={() => setDetailView(null)}
         visible={detailView !== null}
@@ -576,11 +586,10 @@ export function ProductSheet({
               {equipment.map((item) => (
                 <View key={item.name} style={styles.equipmentRow}>
                   {item.product ? (
-                    <Image
+                    <RemoteImage
                       accessibilityLabel={`Фото: ${item.name}`}
                       resizeMode="cover"
-                      resizeMethod="resize"
-                      source={{ uri: resolveImageUrl(item.product.image) }}
+                      source={item.product.image}
                       style={styles.equipmentImage}
                     />
                   ) : (
@@ -603,7 +612,7 @@ export function ProductSheet({
             <Text style={styles.detailCopy}>{detailCopy}</Text>
           )}
         </SwipeDismissScrollView>
-      </Sheet>
+      </BottomSheet>
     </>
   );
 }
@@ -622,6 +631,12 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
+  },
+  heroImagePlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F4F4F2",
   },
   infoCard: {
     margin: 16,

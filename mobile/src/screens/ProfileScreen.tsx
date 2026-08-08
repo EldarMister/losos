@@ -16,7 +16,8 @@ import { authApi } from "../api";
 import { formatMoney } from "../money";
 import { useStore } from "../store";
 import { colors } from "../theme";
-import type { ProfileData, ProfileOrder } from "../types";
+import type { NaktaCoinTransaction, ProfileData, ProfileOrder } from "../types";
+import { useOrderLiveRefresh } from "../useOrderLiveRefresh";
 
 const money = formatMoney;
 
@@ -29,6 +30,65 @@ const statuses: Record<ProfileOrder["status"], string> = {
   completed: "Выполнен",
   cancelled: "Отменён",
 };
+
+function finiteCoinAmount(value: unknown) {
+  const amount = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(amount) ? Math.round(amount) : 0;
+}
+
+export function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[] {
+  if (!profile) return [];
+  const rawProfile = profile as unknown as Record<string, unknown>;
+  const serverHistory = [
+    rawProfile.naktaCoinHistory,
+    rawProfile.naktaCoinsHistory,
+    rawProfile.coinHistory,
+    rawProfile.coinTransactions,
+    rawProfile.transactions,
+  ].find(Array.isArray) as Array<Record<string, unknown>> | undefined;
+
+  const normalized = (serverHistory ?? []).flatMap((entry, index) => {
+    const amount = finiteCoinAmount(
+      entry.amount ?? entry.coins ?? entry.value ?? entry.naktaCoins,
+    );
+    if (!amount) return [];
+    const orderId = typeof entry.orderId === "string" ? entry.orderId : undefined;
+    return [{
+      id: String(entry.id ?? orderId ?? `coin-${index}`),
+      amount,
+      createdAt: typeof (entry.createdAt ?? entry.date) === "string"
+        ? String(entry.createdAt ?? entry.date)
+        : undefined,
+      description: String(
+        entry.description
+        ?? entry.title
+        ?? entry.reason
+        ?? (amount > 0 ? "Начисление NAKTA Coin" : "Списание NAKTA Coin"),
+      ),
+      orderId,
+    } satisfies NaktaCoinTransaction];
+  });
+  if (normalized.length) return normalized;
+
+  const orderEntries = profile.orderHistory.flatMap((order) => {
+    const amount = finiteCoinAmount(order.earnedNaktaCoins ?? order.naktaCoins);
+    if (!amount) return [];
+    return [{
+      id: `order-${order.id}`,
+      amount,
+      createdAt: order.createdAt,
+      description: `Заказ №${order.id.slice(0, 6).toUpperCase()}`,
+      orderId: order.id,
+    } satisfies NaktaCoinTransaction];
+  });
+  if (orderEntries.length) return orderEntries;
+
+  return profile.naktaCoins > 0 ? [{
+    id: "previous-orders",
+    amount: profile.naktaCoins,
+    description: "Начислено за предыдущие заказы",
+  }] : [];
+}
 
 type Section = "orders" | "balance" | "settings";
 
@@ -162,20 +222,26 @@ export function ProfileScreen({
   const [deleteError, setDeleteError] = useState("");
   const addressRequests = useRef(new Set<string>());
 
-  const load = useCallback(async (refresh = false) => {
+  const load = useCallback(async (refresh = false, silent = false) => {
     if (!store.session) return;
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
-    setError("");
+    if (!silent) {
+      if (refresh) setRefreshing(true);
+      else setLoading(true);
+      setError("");
+    }
     try {
       setProfile(await authApi.profile(store.session));
     } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "Не удалось загрузить профиль",
-      );
+      if (!silent) {
+        setError(
+          reason instanceof Error ? reason.message : "Не удалось загрузить профиль",
+        );
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [store.session]);
 
@@ -183,12 +249,18 @@ export function ProfileScreen({
     void load();
   }, [load]);
 
+  useOrderLiveRefresh(
+    useCallback(() => load(false, true), [load]),
+    Boolean(store.session) && (section === "orders" || section === "balance"),
+  );
+
   const orders = useMemo(
     () => orderTab === "active"
       ? profile?.currentOrders ?? []
       : profile?.orderHistory ?? [],
     [orderTab, profile],
   );
+  const coinHistory = useMemo(() => profileCoinHistory(profile), [profile]);
 
   useEffect(() => {
     if (!store.session) return;
@@ -382,9 +454,41 @@ export function ProfileScreen({
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>История начислений</Text>
-            <Text style={styles.infoText}>
-              История операций пока пуста.
-            </Text>
+            {coinHistory.length ? (
+              <View style={styles.coinHistory}>
+                {coinHistory.map((entry) => (
+                  <Pressable
+                    accessibilityRole={entry.orderId ? "button" : undefined}
+                    disabled={!entry.orderId}
+                    key={entry.id}
+                    onPress={entry.orderId ? () => onOpenOrder(entry.orderId!) : undefined}
+                    style={styles.coinHistoryRow}
+                  >
+                    <View style={styles.coinHistoryCopy}>
+                      <Text style={styles.coinHistoryTitle}>{entry.description}</Text>
+                      {entry.createdAt ? (
+                        <Text style={styles.coinHistoryDate}>
+                          {new Intl.DateTimeFormat("ru-RU", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          }).format(new Date(entry.createdAt))}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={[
+                      styles.coinHistoryAmount,
+                      entry.amount < 0 && styles.coinHistoryAmountNegative,
+                    ]}>
+                      {entry.amount > 0 ? "+" : ""}
+                      {new Intl.NumberFormat("ru-RU").format(entry.amount)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.infoText}>Начислений пока нет.</Text>
+            )}
           </View>
         </ScrollView>
       ) : (
@@ -716,10 +820,10 @@ const styles = StyleSheet.create({
   balanceValue: {
     marginTop: 8,
     color: colors.white,
-    fontFamily: "Inter_900Black",
-    fontSize: 46,
-    lineHeight: 52,
-    fontWeight: "900",
+    fontFamily: "Inter_700Bold",
+    fontSize: 44,
+    lineHeight: 50,
+    fontWeight: "700",
   },
   coinIcon: {
     width: 64,
@@ -750,6 +854,44 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     lineHeight: 20,
+  },
+  coinHistory: {
+    marginTop: 8,
+  },
+  coinHistoryRow: {
+    minHeight: 62,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  coinHistoryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  coinHistoryTitle: {
+    color: colors.ink,
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  coinHistoryDate: {
+    marginTop: 3,
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  coinHistoryAmount: {
+    color: colors.success,
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    lineHeight: 23,
+  },
+  coinHistoryAmountNegative: {
+    color: colors.danger,
   },
   settingsContent: {
     paddingHorizontal: 16,

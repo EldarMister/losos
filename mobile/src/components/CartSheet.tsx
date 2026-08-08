@@ -26,7 +26,7 @@ import { ImmediatePressable } from "./ImmediatePressable";
 import { NumberTicker } from "./NumberTicker";
 import { QuantityControl } from "./QuantityControl";
 import { RipplePressable as Pressable } from "./RipplePressable";
-import { Sheet } from "./Sheet";
+import { BottomSheet } from "./BottomSheet";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
 
 const money = formatMoney;
@@ -146,7 +146,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
 
   return (
     <>
-      <Sheet
+      <BottomSheet
         fullScreen
         visible={visible}
         onClose={onClose}
@@ -342,9 +342,9 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             ) : null}
           </SwipeDismissScrollView>
         )}
-      </Sheet>
+      </BottomSheet>
 
-      <Sheet
+      <BottomSheet
         backdropVisible={!extrasVisible}
         height="84%"
         visible={kitVisible}
@@ -474,9 +474,9 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             />
           </View>
         </View>
-      </Sheet>
+      </BottomSheet>
 
-      <Sheet height="57%" visible={extrasVisible} onClose={() => setExtrasVisible(false)}>
+      <BottomSheet height="57%" visible={extrasVisible} onClose={() => setExtrasVisible(false)}>
         <View style={styles.extrasContent}>
           <Text style={styles.extrasTitle}>Дополнительно</Text>
           <Text style={styles.extrasSubtitle}>Будет сразу добавлено в корзину</Text>
@@ -539,7 +539,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
             tone="soft"
           />
         </View>
-      </Sheet>
+      </BottomSheet>
     </>
   );
 }

@@ -20,13 +20,25 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radii, shadow } from "../theme";
 import {
+  DEFAULT_CLOSE_DISTANCE,
+  DEFAULT_CLOSE_VELOCITY,
   SwipeDismissScrollProvider,
   useSwipeToDismiss,
 } from "./SwipeDismiss";
 
-type Props = PropsWithChildren<{
+export type BottomSheetProps = PropsWithChildren<{
   visible: boolean;
   onClose: () => void;
+  closeOnBackdropPress?: boolean;
+  closeOnBackPress?: boolean;
+  enablePanDownToClose?: boolean;
+  closeDistance?: number;
+  closeVelocity?: number;
+  maxHeight?: ViewStyle["maxHeight"];
+  bottomInset?: number;
+  scrollable?: boolean;
+
+  // Compatibility flags for the sheets already used in the app.
   fullScreen?: boolean;
   edgeToEdge?: boolean;
   footer?: ReactNode;
@@ -40,9 +52,17 @@ const CLOSE_DURATION = 360;
 const OPEN_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
-export function Sheet({
+export function BottomSheet({
   visible,
   onClose,
+  closeOnBackdropPress = true,
+  closeOnBackPress = true,
+  enablePanDownToClose,
+  closeDistance = DEFAULT_CLOSE_DISTANCE,
+  closeVelocity = DEFAULT_CLOSE_VELOCITY,
+  maxHeight,
+  bottomInset = 0,
+  scrollable: _scrollable,
   fullScreen,
   edgeToEdge,
   footer,
@@ -50,7 +70,7 @@ export function Sheet({
   swipeToDismiss = true,
   backdropVisible = true,
   children,
-}: Props) {
+}: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
@@ -58,7 +78,9 @@ export function Sheet({
   const openProgress = useSharedValue(visible ? 1 : 0);
   const backdropVisibility = useSharedValue(backdropVisible ? 1 : 0);
   const swipe = useSwipeToDismiss({
-    enabled: swipeToDismiss && !edgeToEdge,
+    enabled: (enablePanDownToClose ?? swipeToDismiss) && !edgeToEdge,
+    closeDistance,
+    closeVelocity,
     onDismiss: onClose,
   });
 
@@ -130,7 +152,7 @@ export function Sheet({
       transparent
       statusBarTranslucent
       visible={mounted}
-      onRequestClose={onClose}
+      onRequestClose={closeOnBackPress ? onClose : undefined}
     >
       <GestureHandlerRootView style={styles.root}>
         <KeyboardAvoidingView
@@ -147,19 +169,21 @@ export function Sheet({
           />
           <Pressable
             accessibilityLabel="Закрыть окно"
+            accessibilityRole="button"
+            disabled={!closeOnBackdropPress}
             onPress={onClose}
+            pointerEvents={closeOnBackdropPress ? "auto" : "none"}
             style={StyleSheet.absoluteFill}
           />
           <GestureDetector gesture={swipe.gesture}>
             <Animated.View
               onLayout={(event) => swipe.onLayout(event.nativeEvent.layout.height)}
-              renderToHardwareTextureAndroid
-              shouldRasterizeIOS
               style={[
                 styles.sheet,
                 fullScreen && styles.fullScreen,
                 edgeToEdge && styles.edgeToEdge,
                 height !== undefined && { height },
+                maxHeight !== undefined && { maxHeight },
                 sheetAnimatedStyle,
               ]}
             >
@@ -172,7 +196,7 @@ export function Sheet({
                     paddingBottom: Math.max(
                       insets.bottom,
                       Platform.OS === "android" ? 24 : 12,
-                    ),
+                    ) + bottomInset,
                   },
                 ]}
               >
@@ -188,6 +212,9 @@ export function Sheet({
     </Modal>
   );
 }
+
+/** @deprecated Use BottomSheet for new sheets. */
+export const Sheet = BottomSheet;
 
 const styles = StyleSheet.create({
   root: {

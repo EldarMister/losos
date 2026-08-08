@@ -16,9 +16,11 @@ export type DeliveryZonePoint = {
 
 export type YandexMapProps = {
   regionSlug: string;
+  regionName?: string;
   deliveryZone?: DeliveryZonePoint[];
   initialLatitude?: number;
   initialLongitude?: number;
+  allowOutOfRegionInitialPoint?: boolean;
   focusRequest?: number;
   onLocationChange: (point: MapPoint) => void;
   showCenterMarker?: boolean;
@@ -74,8 +76,64 @@ const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
   ],
 };
 
-export function getRegionMapConfig(regionSlug: string) {
-  return regions[regionSlug] ?? regions.bishkek;
+export function getRegionMapConfig(
+  regionSlug: string,
+  deliveryZone?: DeliveryZonePoint[],
+  regionName?: string,
+) {
+  const fallback = regions[regionSlug] ?? regions.bishkek;
+  const validZone = deliveryZone?.filter((point) => (
+    Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
+  ));
+  if (!validZone || validZone.length < 3) {
+    return { ...fallback, city: regionName || fallback.city };
+  }
+
+  const latitudes = validZone.map((point) => point.latitude);
+  const longitudes = validZone.map((point) => point.longitude);
+  const minLatitude = Math.min(...latitudes);
+  const maxLatitude = Math.max(...latitudes);
+  const minLongitude = Math.min(...longitudes);
+  const maxLongitude = Math.max(...longitudes);
+  const latitudePadding = Math.max((maxLatitude - minLatitude) * 0.18, 0.01);
+  const longitudePadding = Math.max((maxLongitude - minLongitude) * 0.18, 0.01);
+  return {
+    city: regionName || fallback.city,
+    center: [
+      (minLatitude + maxLatitude) / 2,
+      (minLongitude + maxLongitude) / 2,
+    ] as [number, number],
+    bounds: [
+      [minLatitude - latitudePadding, minLongitude - longitudePadding],
+      [maxLatitude + latitudePadding, maxLongitude + longitudePadding],
+    ] as [[number, number], [number, number]],
+  };
+}
+
+export function isPointInRegionBounds(
+  regionSlug: string,
+  latitude?: number,
+  longitude?: number,
+  deliveryZone?: DeliveryZonePoint[],
+) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  const { bounds } = getRegionMapConfig(regionSlug, deliveryZone);
+  return (latitude as number) >= bounds[0][0]
+    && (latitude as number) <= bounds[1][0]
+    && (longitude as number) >= bounds[0][1]
+    && (longitude as number) <= bounds[1][1];
+}
+
+export function isUsableInitialMapPoint(
+  regionSlug: string,
+  latitude?: number,
+  longitude?: number,
+  allowOutOfRegion = false,
+  deliveryZone?: DeliveryZonePoint[],
+) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+  return allowOutOfRegion
+    || isPointInRegionBounds(regionSlug, latitude, longitude, deliveryZone);
 }
 
 export function getDeliveryZone(regionSlug: string, points?: DeliveryZonePoint[]) {
@@ -110,16 +168,19 @@ export function createYandexMapHtml(
   initialLatitude?: number,
   initialLongitude?: number,
   deliveryZone?: DeliveryZonePoint[],
+  allowOutOfRegionInitialPoint = false,
+  regionName?: string,
 ) {
-  const config = getRegionMapConfig(regionSlug);
+  const config = getRegionMapConfig(regionSlug, deliveryZone, regionName);
   const zone = getDeliveryZone(regionSlug, deliveryZone);
   const geocoderUrl = credentials.geocoderUrl?.trim() || "";
-  const hasInitialPoint = Number.isFinite(initialLatitude)
-    && Number.isFinite(initialLongitude)
-    && (initialLatitude as number) >= config.bounds[0][0]
-    && (initialLatitude as number) <= config.bounds[1][0]
-    && (initialLongitude as number) >= config.bounds[0][1]
-    && (initialLongitude as number) <= config.bounds[1][1];
+  const hasInitialPoint = isUsableInitialMapPoint(
+    regionSlug,
+    initialLatitude,
+    initialLongitude,
+    allowOutOfRegionInitialPoint,
+    deliveryZone,
+  );
   const center: [number, number] = hasInitialPoint
     ? [initialLatitude as number, initialLongitude as number]
     : config.center;
@@ -266,7 +327,7 @@ export function createYandexMapHtml(
         attributionControl: true,
         maxBounds: config.bounds,
         maxBoundsViscosity: 1
-      }).setView(initialCenter, ${hasInitialPoint ? 17 : 15});
+      }).setView(initialCenter, ${hasInitialPoint ? 17 : 11});
       window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         minZoom: 10,
         maxZoom: 19,
@@ -442,7 +503,7 @@ export function createYandexMapHtml(
       window.ymaps.ready(function () {
         map = new window.ymaps.Map("map", {
           center: initialCenter,
-          zoom: ${hasInitialPoint ? 17 : 15},
+          zoom: ${hasInitialPoint ? 17 : 11},
           controls: ["zoomControl"],
           type: "yandex#map"
         }, {
@@ -464,7 +525,7 @@ export function createYandexMapHtml(
           {
             fillColor: "#FF5A1F00",
             strokeColor: "#FF5A1F",
-            strokeWidth: 0.1,
+            strokeWidth: 1,
             interactivityModel: "default#transparent",
             zIndex: 1
           }

@@ -14,13 +14,14 @@ import {
   getRegionMapConfig,
   getDeliveryZone,
   isPointInDeliveryZone,
+  isUsableInitialMapPoint,
   type MapPoint,
   type YandexMapProps,
 } from "./yandexMapShared";
 import { MapCenterMarker } from "./MapCenterMarker";
 
 const mapKitApiKey = process.env.EXPO_PUBLIC_YANDEX_MAPKIT_API_KEY?.trim() || "";
-const deliveryMarkerImage = require("../../assets/delivery.png");
+const deliveryMarkerImage = require("../../assets/delivery-marker.png");
 
 function PickupMapMarker() {
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -109,9 +110,11 @@ export function preloadYandexMapKit() {
 
 export function YandexMap({
   regionSlug,
+  regionName,
   deliveryZone,
   initialLatitude,
   initialLongitude,
+  allowOutOfRegionInitialPoint = false,
   focusRequest = 0,
   onLocationChange,
   showCenterMarker = true,
@@ -124,7 +127,9 @@ export function YandexMap({
   const [ready, setReady] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState("");
-  const region = getRegionMapConfig(regionSlug);
+  const region = getRegionMapConfig(regionSlug, deliveryZone, regionName);
+  const regionLatitude = region.center[0];
+  const regionLongitude = region.center[1];
   const effectiveDeliveryZone = useMemo(
     () => getDeliveryZone(regionSlug, deliveryZone),
     [deliveryZone, regionSlug],
@@ -138,11 +143,16 @@ export function YandexMap({
       ? [...deliveryZoneMapPoints, deliveryZoneMapPoints[0]]
       : []
   ), [deliveryZoneMapPoints]);
-  const hasInitialPoint = Number.isFinite(initialLatitude)
-    && Number.isFinite(initialLongitude);
+  const hasInitialPoint = isUsableInitialMapPoint(
+    regionSlug,
+    initialLatitude,
+    initialLongitude,
+    allowOutOfRegionInitialPoint,
+    deliveryZone,
+  );
   const initialPoint = hasInitialPoint
     ? { latitude: initialLatitude as number, longitude: initialLongitude as number }
-    : { latitude: region.center[0], longitude: region.center[1] };
+    : { latitude: regionLatitude, longitude: regionLongitude };
   const focusMarkers = useCallback(() => {
     if (markers.length === 1) {
       mapRef.current?.setCenter(
@@ -161,6 +171,19 @@ export function YandexMap({
       })));
     }
   }, [markers]);
+  const focusDeliveryZone = useCallback(() => {
+    if (deliveryZoneMapPoints.length >= 3) {
+      mapRef.current?.fitMarkers(deliveryZoneMapPoints);
+      return;
+    }
+    mapRef.current?.setCenter(
+      { lat: regionLatitude, lon: regionLongitude },
+      11,
+      0,
+      0,
+      0.28,
+    );
+  }, [deliveryZoneMapPoints, regionLatitude, regionLongitude]);
 
   useEffect(() => {
     let active = true;
@@ -202,6 +225,20 @@ export function YandexMap({
   }, [focusMarkers, markers.length, ready]);
 
   useEffect(() => {
+    if (!ready || markers.length || hasInitialPoint || !showCenterMarker) return undefined;
+    // MapKit can reuse the native camera when a keyed React map is remounted
+    // for another city and may omit a second onMapLoaded event. Re-apply the
+    // admin polygon after the native view has attached, then once more after
+    // its camera restoration pass.
+    const focusTimer = setTimeout(focusDeliveryZone, 180);
+    const restoreTimer = setTimeout(focusDeliveryZone, 720);
+    return () => {
+      clearTimeout(focusTimer);
+      clearTimeout(restoreTimer);
+    };
+  }, [focusDeliveryZone, hasInitialPoint, markers.length, ready, regionSlug, showCenterMarker]);
+
+  useEffect(() => {
     if (!showCenterMarker) setError("");
   }, [showCenterMarker]);
 
@@ -212,7 +249,7 @@ export function YandexMap({
       effectiveDeliveryZone,
     );
     if (!insideDeliveryRegion) {
-      setError(`Доставка доступна только в городе ${region.city}.`);
+      setError("Доставка недоступна в вашем городе.");
     }
 
     const revision = ++geocodingRevision.current;
@@ -342,7 +379,7 @@ export function YandexMap({
   }, [effectiveDeliveryZone, onLocationChange, region.city, regionSlug]);
 
   useEffect(() => {
-    if (!ready || !hasInitialPoint || markers.length) return;
+    if (!ready || !mapLoaded || !hasInitialPoint || markers.length) return;
     mapRef.current?.setCenter(
       { lat: initialPoint.latitude, lon: initialPoint.longitude },
       17,
@@ -358,6 +395,7 @@ export function YandexMap({
     hasInitialPoint,
     initialPoint.latitude,
     initialPoint.longitude,
+    mapLoaded,
     markers.length,
     ready,
     resolveAddress,
@@ -394,7 +432,7 @@ export function YandexMap({
   return (
     <View style={styles.container}>
       <YaMap
-        initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 16 }}
+        initialRegion={{ lat: initialPoint.latitude, lon: initialPoint.longitude, zoom: hasInitialPoint ? 17 : 11 }}
         onCameraPositionChangeEnd={handleCameraPositionChangeEnd}
         onMapLoaded={() => {
           setMapLoaded(true);
@@ -403,6 +441,8 @@ export function YandexMap({
             focusMarkers();
           } else if (showCenterMarker && hasInitialPoint) {
             void resolveAddress(initialPoint.latitude, initialPoint.longitude);
+          } else if (showCenterMarker && deliveryZoneMapPoints.length >= 3) {
+            focusDeliveryZone();
           }
         }}
         ref={mapRef}
@@ -415,7 +455,7 @@ export function YandexMap({
           <Polyline
             points={deliveryZoneOutlinePoints}
             strokeColor="#FF5A1F"
-            strokeWidth={0.1}
+            strokeWidth={0.5}
             outlineColor="#FF5A1F"
             outlineWidth={0}
             zIndex={11}

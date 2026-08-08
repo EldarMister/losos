@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { memo, startTransition } from "react";
+import { memo, startTransition, useEffect, useState } from "react";
 import {
-  Image,
   StyleSheet,
   Text,
   View,
@@ -15,6 +14,7 @@ import { NumberTicker } from "./NumberTicker";
 import { ImmediatePressable } from "./ImmediatePressable";
 import { NaktaCoinBadge } from "./NaktaCoinBadge";
 import { RipplePressable as Pressable } from "./RipplePressable";
+import { RemoteImage } from "./RemoteImage";
 
 const money = formatMoney;
 
@@ -42,6 +42,12 @@ export const ProductCard = memo(function ProductCard({
   const cardHeight = layout === "rail" ? 266 : Math.max(246, width + 78);
   const imageHeight = layout === "rail" ? 156 : Math.max(124, width - 24);
   const [displayQuantity, setDisplayQuantity] = useOptimisticNumber(quantity);
+  const imageUrl = resolveImageUrl(product.image);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [imageUrl]);
 
   const add = () => {
     if (product.modifierGroups?.some((group) => group.required)) {
@@ -73,11 +79,19 @@ export const ProductCard = memo(function ProductCard({
         style={({ pressed }) => pressed && styles.pressed}
       >
         <View style={[styles.imageWrap, { height: imageHeight }]}>
-          <Image
+          {!imageLoaded ? (
+            <View pointerEvents="none" style={styles.imagePlaceholder}>
+              <MaterialCommunityIcons name="image-outline" size={32} color="#D7D7D7" />
+            </View>
+          ) : null}
+          <RemoteImage
+            accessibilityLabel={`Фото ${product.name}`}
+            onFinalError={() => setImageLoaded(false)}
+            onLoaded={() => setImageLoaded(true)}
             resizeMode="cover"
-            resizeMethod="resize"
-            source={{ uri: resolveImageUrl(product.image) }}
+            source={imageUrl}
             style={styles.image}
+            testID={`product-image-${product.id}`}
           />
           {product.naktaCoins ? (
             <NaktaCoinBadge
@@ -165,6 +179,12 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%",
+  },
+  imagePlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F4F4F2",
   },
   name: {
     minHeight: 38,

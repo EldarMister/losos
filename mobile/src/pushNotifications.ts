@@ -5,6 +5,7 @@ import { PermissionsAndroid, Platform } from "react-native";
 import { authApi } from "./api";
 import { getDeviceId } from "./session";
 import type { AuthSession } from "./types";
+import type { ProfileOrderDetail } from "./types";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -34,6 +35,36 @@ async function ensureOrderNotificationChannel() {
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 180, 250],
     lightColor: "#FF4D00",
+  });
+}
+
+const orderStatusCopy: Record<ProfileOrderDetail["status"], { title: string; body: string }> = {
+  new: { title: "Заказ принят", body: "Мы получили заказ и скоро подтвердим его." },
+  confirmed: { title: "Заказ подтверждён", body: "Кухня уже видит ваш заказ." },
+  preparing: { title: "Начали готовить", body: "Ваш заказ готовится." },
+  ready: { title: "Заказ готов", body: "Можно забирать заказ или ждать курьера." },
+  delivering: { title: "Заказ в пути", body: "Курьер уже направляется к вам." },
+  completed: { title: "Приятного аппетита!", body: "Заказ завершён. Спасибо, что выбрали Накта суши." },
+  cancelled: { title: "Заказ отменён", body: "Откройте приложение, чтобы посмотреть детали." },
+};
+
+export async function presentPolledOrderStatus(
+  orderId: string,
+  status: ProfileOrderDetail["status"],
+) {
+  if (Platform.OS === "web") return;
+  const permissions = await Notifications.getPermissionsAsync();
+  if (permissions.status !== "granted") return;
+  await ensureOrderNotificationChannel();
+  const copy = orderStatusCopy[status];
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: copy.title,
+      body: copy.body,
+      sound: "default",
+      data: { orderId, status, url: `naktasushi://orders/${orderId}` },
+    },
+    trigger: null,
   });
 }
 

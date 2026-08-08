@@ -1,13 +1,14 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Image,
+  FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,9 +16,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { catalogApi, resolveImageUrl } from "../api";
+import { catalogApi } from "../api";
 import { CatalogCartDock } from "../components/CatalogCartDock";
 import { ProductCard } from "../components/ProductCard";
+import { RemoteImage } from "../components/RemoteImage";
 import { deliveryEtaLabel, orderingAvailability } from "../delivery";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
@@ -33,6 +35,59 @@ type Props = {
   onOpenPromotion: (promotion: Promotion, index: number, all: Promotion[]) => void;
   onOpenCart: () => void;
 };
+
+type ProductRailProps = {
+  onAdd: (product: Product) => void;
+  onIncrement: (productId: number) => void;
+  onOpenProduct: (product: Product) => void;
+  onRemove: (productId: number) => void;
+  productCardWidth: number;
+  products: Product[];
+  quantityByProductId: Map<number, number>;
+};
+
+const PRODUCT_CARD_GAP = 12;
+
+const ProductRail = memo(function ProductRail({
+  onAdd,
+  onIncrement,
+  onOpenProduct,
+  onRemove,
+  productCardWidth,
+  products,
+  quantityByProductId,
+}: ProductRailProps) {
+  return (
+    <FlatList
+      contentContainerStyle={styles.productsRow}
+      data={products}
+      getItemLayout={(_, index) => ({
+        index,
+        length: productCardWidth + PRODUCT_CARD_GAP,
+        offset: index * (productCardWidth + PRODUCT_CARD_GAP),
+      })}
+      horizontal
+      initialNumToRender={3}
+      keyExtractor={(product) => String(product.id)}
+      maxToRenderPerBatch={3}
+      removeClippedSubviews={Platform.OS === "android"}
+      renderItem={({ item: product }) => (
+        <ProductCard
+          layout="rail"
+          onAdd={onAdd}
+          onIncrement={onIncrement}
+          onRemove={onRemove}
+          onPress={onOpenProduct}
+          product={product}
+          quantity={quantityByProductId.get(product.id) ?? 0}
+          width={productCardWidth}
+        />
+      )}
+      showsHorizontalScrollIndicator={false}
+      windowSize={3}
+    />
+  );
+});
 
 export function CatalogScreen({
   onOpenMenu,
@@ -278,7 +333,7 @@ export function CatalogScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" translucent />
+      <StatusBar backgroundColor={colors.white} style="dark" translucent />
       <View
         pointerEvents="none"
         style={[styles.statusBarBackdrop, { height: insets.top }]}
@@ -353,10 +408,9 @@ export function CatalogScreen({
                     onPress={() => onOpenPromotion(promotion, index, promotions)}
                     style={({ pressed }) => [styles.promoCard, pressed && styles.pressed]}
                   >
-                    <Image
+                    <RemoteImage
                       resizeMode="cover"
-                      resizeMethod="resize"
-                      source={{ uri: resolveImageUrl(promotion.image) }}
+                      source={promotion.image}
                       style={styles.promoImage}
                     />
                   </Pressable>
@@ -409,25 +463,15 @@ export function CatalogScreen({
                       />
                     ) : null}
                   </View>
-                  <ScrollView
-                    contentContainerStyle={styles.productsRow}
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                  >
-                    {products.map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        onAdd={addProduct}
-                        onIncrement={store.incrementCartProduct}
-                        onRemove={store.decrementCartProduct}
-                        onPress={onOpenProduct}
-                        product={product}
-                        quantity={quantityByProductId.get(product.id) ?? 0}
-                        width={productCardWidth}
-                        layout="rail"
-                      />
-                    ))}
-                  </ScrollView>
+                  <ProductRail
+                    onAdd={addProduct}
+                    onIncrement={store.incrementCartProduct}
+                    onOpenProduct={onOpenProduct}
+                    onRemove={store.decrementCartProduct}
+                    productCardWidth={productCardWidth}
+                    products={products}
+                    quantityByProductId={quantityByProductId}
+                  />
                 </View>
               );
             })}
@@ -472,7 +516,7 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     left: 0,
-    backgroundColor: "#9B9B9D",
+    backgroundColor: colors.white,
   },
   header: {
     paddingBottom: 10,
@@ -760,6 +804,6 @@ const styles = StyleSheet.create({
   productsRow: {
     paddingHorizontal: 16,
     paddingBottom: 14,
-    gap: 12,
+    gap: PRODUCT_CARD_GAP,
   },
 });

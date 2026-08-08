@@ -56,6 +56,10 @@ describe("ProductSheet toppings", () => {
       <ProductSheet product={product} onClose={jest.fn()} />,
     );
 
+    const hero = screen.getByTestId("product-sheet-hero-image");
+    expect(hero.props.source).toEqual({ uri: product.image });
+    expect(hero.props.resizeMethod).toBe("resize");
+
     await fireEvent.press(screen.getAllByLabelText("Добавить Сладкий чили").at(-1)!);
     await fireEvent.press(screen.getByLabelText("Добавить, 500 С"));
 

@@ -20,7 +20,7 @@ import { colors, radii } from "../theme";
 import type { Category, Product } from "../types";
 import { CatalogCartDock } from "./CatalogCartDock";
 import { ProductCard } from "./ProductCard";
-import { Sheet } from "./Sheet";
+import { BottomSheet } from "./BottomSheet";
 
 type Props = {
   visible: boolean;
@@ -226,7 +226,7 @@ export function SearchSheet({
   }, [revealSelectedCategory, revealSelectedSection, selectedCategorySlug]);
 
   return (
-    <Sheet
+    <BottomSheet
       edgeToEdge
       fullScreen
       visible={visible}
@@ -392,7 +392,7 @@ export function SearchSheet({
           }}
         />
       </View>
-    </Sheet>
+    </BottomSheet>
   );
 }
 

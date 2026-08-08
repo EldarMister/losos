@@ -17,7 +17,7 @@ import { colors } from "../theme";
 import { formatMoney } from "../money";
 import { NumberTicker } from "./NumberTicker";
 import { PrimaryButton } from "./PrimaryButton";
-import { Sheet } from "./Sheet";
+import { BottomSheet } from "./BottomSheet";
 import { SwipeDismissScrollView } from "./SwipeDismiss";
 
 type Props = {
@@ -46,7 +46,7 @@ export function DeliveryInfoSheet({ visible, onClose }: Props) {
   }, [visible]);
 
   return (
-    <Sheet
+    <BottomSheet
       height={pickup ? "52%" : "60%"}
       onClose={onClose}
       visible={visible}
@@ -116,7 +116,7 @@ export function DeliveryInfoSheet({ visible, onClose }: Props) {
         ) : null}
 
       </SwipeDismissScrollView>
-    </Sheet>
+    </BottomSheet>
   );
 }
 

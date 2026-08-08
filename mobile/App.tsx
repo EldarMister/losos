@@ -123,14 +123,6 @@ function CatalogRoute({ navigation }: CatalogProps) {
     finishMenuAction(() => navigation.navigate("Profile", { section }));
   };
 
-  const openSavedAddresses = () => {
-    setTimeout(() => {
-      setPromotionVisible(false);
-      setMenuVisible(false);
-    }, 120);
-    setTimeout(() => setLocationVisible(true), 470);
-  };
-
   return (
     <>
       <CatalogScreen
@@ -150,7 +142,6 @@ function CatalogRoute({ navigation }: CatalogProps) {
       />
       <MenuSheet
         onClose={() => setMenuVisible(false)}
-        onOpenAddresses={openSavedAddresses}
         onOpenBalance={() => openProfileSection("balance")}
         onOpenOrders={() => openProfileSection("orders")}
         onOpenProfile={openProfile}
@@ -335,7 +326,15 @@ function MobileApp() {
 
   useEffect(() => {
     if (!store.session) return;
-    void registerOrderPush(store.session, false).catch(() => undefined);
+    void registerOrderPush(store.session, false)
+      .then((result) => {
+        if (!result.registered && result.reason !== "permission-denied") {
+          console.warn("[push] order notifications were not registered", result.reason);
+        }
+      })
+      .catch((error) => {
+        console.warn("[push] order notification registration failed", error);
+      });
   }, [store.session]);
 
   useEffect(() => {
@@ -372,7 +371,8 @@ function MobileApp() {
     setRequestingNotificationPermission(true);
     try {
       await registerOrderPush(store.session, true);
-    } catch {
+    } catch (error) {
+      console.warn("[push] notification permission or registration failed", error);
       // Registration is retried on the next session when permission was granted.
     } finally {
       store.setNotificationsAsked(true);
@@ -385,7 +385,9 @@ function MobileApp() {
     if (!store.session) return;
     const session = store.session;
     const subscription = Notifications.addPushTokenListener((devicePushToken) => {
-      void syncChangedOrderPushToken(session, devicePushToken).catch(() => undefined);
+      void syncChangedOrderPushToken(session, devicePushToken).catch((error) => {
+        console.warn("[push] refreshed token registration failed", error);
+      });
     });
     return () => subscription.remove();
   }, [store.session]);
@@ -526,6 +528,7 @@ export default function App() {
 const styles = StyleSheet.create({
   appRoot: {
     flex: 1,
+    backgroundColor: colors.white,
   },
   splash: {
     flex: 1,

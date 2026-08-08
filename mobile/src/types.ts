@@ -116,6 +116,7 @@ export type CartLine = {
 
 export type DeliveryLocation = {
   address: string;
+  regionSlug?: string;
   latitude?: number;
   longitude?: number;
   pickupLocationId?: number;
@@ -196,12 +197,23 @@ export type ProfileOrder = {
   deliveryType: DeliveryType;
   createdAt: string;
   address?: string;
+  naktaCoins?: number;
+  earnedNaktaCoins?: number;
+};
+
+export type NaktaCoinTransaction = {
+  id: string;
+  amount: number;
+  createdAt?: string;
+  description: string;
+  orderId?: string;
 };
 
 export type ProfileData = {
   naktaCoins: number;
   currentOrders: ProfileOrder[];
   orderHistory: ProfileOrder[];
+  naktaCoinHistory?: NaktaCoinTransaction[];
 };
 
 export type ProfileOrderDetail = ProfileOrder & {

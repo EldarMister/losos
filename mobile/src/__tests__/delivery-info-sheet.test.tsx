@@ -9,8 +9,8 @@ jest.mock("../store", () => ({
   useStore: jest.fn(),
 }));
 
-jest.mock("../components/Sheet", () => ({
-  Sheet: ({ children, footer, ...props }: {
+jest.mock("../components/BottomSheet", () => ({
+  BottomSheet: ({ children, footer, ...props }: {
     children: React.ReactNode;
     footer?: React.ReactNode;
   }) => {

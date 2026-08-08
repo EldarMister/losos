@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -15,8 +15,10 @@ import { authApi } from "../api";
 import { formatMoney } from "../money";
 import { useStore } from "../store";
 import { supportUrl } from "../support";
+import { presentPolledOrderStatus } from "../pushNotifications";
 import { colors } from "../theme";
 import type { ProfileOrderDetail } from "../types";
+import { type OrderRefreshSource, useOrderLiveRefresh } from "../useOrderLiveRefresh";
 
 const money = formatMoney;
 const statusLabels: Record<ProfileOrderDetail["status"], string> = {
@@ -44,23 +46,43 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
   const [order, setOrder] = useState<ProfileOrderDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const lastStatus = useRef<ProfileOrderDetail["status"] | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (
+    silent = false,
+    source: OrderRefreshSource | "initial" = "initial",
+  ) => {
     if (!store.session) return;
-    setLoading(true);
-    setError("");
+    if (!silent) {
+      setLoading(true);
+      setError("");
+    }
     try {
-      setOrder(await authApi.order(store.session, orderId));
+      const nextOrder = await authApi.order(store.session, orderId);
+      const statusChanged = lastStatus.current !== null
+        && lastStatus.current !== nextOrder.status;
+      lastStatus.current = nextOrder.status;
+      setOrder(nextOrder);
+      if (statusChanged && source === "poll") {
+        void presentPolledOrderStatus(orderId, nextOrder.status).catch(() => undefined);
+      }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось загрузить заказ");
+      if (!silent) {
+        setError(reason instanceof Error ? reason.message : "Не удалось загрузить заказ");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [orderId, store.session]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useOrderLiveRefresh(
+    useCallback((source) => load(true, source), [load]),
+    Boolean(store.session),
+  );
 
   return (
     <View style={styles.root}>

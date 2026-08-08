@@ -1,0 +1,44 @@
+[     200ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:4173/admin:0
+[     274ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[     274ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     274ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[     274ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     274ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[     274ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     274ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[     274ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     287ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[     287ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     287ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[     287ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     287ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[     287ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     287ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[     287ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[     426ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:4173/node_modules/.vite/deps/react-dom_client.js?v=85f894ef:14337
+[   20406ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/settings:0
+[   20406ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/dashboard?region=bishkek:0
+[   20406ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/cyrillic @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] Failed to decode downloaded font: http://localhost:4173/api/inter/latin @ http://localhost:4173/admin:0
+[   24848ms] [WARNING] OTS parsing error: Failed to convert WOFF 2.0 font to SFNT @ http://localhost:4173/admin:0
+[   35340ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[   50368ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[   65347ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[   80355ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[   95343ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[  110365ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0
+[  125353ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4000/api/admin/orders?regionSlug=bishkek&limit=10&offset=0:0

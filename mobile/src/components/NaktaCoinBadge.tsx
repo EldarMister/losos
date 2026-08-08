@@ -72,14 +72,14 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: "#171717",
-    fontFamily: "Inter_800ExtraBold",
-    fontSize: 12,
-    lineHeight: 13,
-    letterSpacing: -0.25,
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+    lineHeight: 14,
+    letterSpacing: -0.1,
   },
   amountCompact: {
-    fontSize: 10.5,
-    lineHeight: 11,
+    fontSize: 11,
+    lineHeight: 12,
   },
   label: {
     color: "#A56B00",

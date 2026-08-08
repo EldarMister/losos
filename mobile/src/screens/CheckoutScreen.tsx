@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -68,9 +68,24 @@ function formatPhoneForDisplay(phone: string) {
   return phone;
 }
 
+function formatKyrgyzPhoneInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  // Keep the country prefix intact even when Android sends a transient value
+  // after Backspace. Only the nine local digits are editable on checkout.
+  const local = (digits.startsWith("996") ? digits.slice(3) : digits).slice(0, 9);
+  const groups = [
+    local.slice(0, 3),
+    local.slice(3, 5),
+    local.slice(5, 7),
+    local.slice(7, 9),
+  ].filter(Boolean);
+  return `+996${groups.length ? ` ${groups.join(" ")}` : " "}`;
+}
+
 export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const store = useStore();
+  const scrollRef = useRef<ScrollView>(null);
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState(() => formatPhoneForDisplay(store.session?.phone ?? ""));
   const address = store.location?.address ?? "";
@@ -84,6 +99,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
   const [idempotencyKey] = useState(() => createOrderIdempotencyKey());
   const [scheduleNow, setScheduleNow] = useState(() => Date.now());
   const availability = orderingAvailability(store.activeRegion, new Date(scheduleNow));
+  const hasKyrgyzPhone = (store.session?.phone ?? "").replace(/\D/g, "").startsWith("996");
 
   useEffect(() => {
     const timer = setInterval(() => setScheduleNow(Date.now()), 30_000);
@@ -105,6 +121,9 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
     () => store.deliveryType === "delivery" ? "Доставка" : "Самовывоз",
     [store.deliveryType],
   );
+  const changePhone = (value: string) => {
+    setPhone(hasKyrgyzPhone ? formatKyrgyzPhoneInput(value) : value);
+  };
   const submit = async () => {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
@@ -165,15 +184,17 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[
             styles.content,
             { paddingBottom: 132 + Math.max(insets.bottom, 10) },
           ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.addressCard}>
@@ -224,7 +245,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
                 multiline={false}
                 numberOfLines={1}
                 onChangeText={setCustomerName}
-                placeholder="Как к вам обращаться"
+                placeholder="Имя"
                 placeholderTextColor="#93959A"
                 style={styles.recipientInput}
                 value={customerName}
@@ -240,7 +261,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
                 maxLength={18}
                 multiline={false}
                 numberOfLines={1}
-                onChangeText={setPhone}
+                onChangeText={changePhone}
                 placeholder="+996 000 00 00 00"
                 placeholderTextColor="#93959A"
                 style={styles.phoneInput}
@@ -277,7 +298,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
                     size={27}
                     color={selected ? colors.orange : colors.ink}
                   />
-                  <Text style={styles.paymentLabel}>{label}</Text>
+                  <Text numberOfLines={1} style={styles.paymentLabel}>{label}</Text>
                   <View style={[styles.radio, selected && styles.radioSelected]}>
                     {selected ? <View style={styles.radioInner} /> : null}
                   </View>
@@ -297,6 +318,9 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
               accessibilityLabel="Комментарий"
               multiline
               onChangeText={setComment}
+              onFocus={() => {
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 180);
+              }}
               placeholder="Пожелания к заказу"
               placeholderTextColor="#93959A"
               style={styles.commentInput}
@@ -458,10 +482,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recipientNamePart: {
-    flex: 1.15,
+    flex: 0.72,
   },
   recipientPhonePart: {
-    flex: 1,
+    flex: 1.28,
   },
   recipientInput: {
     flex: 1,
@@ -470,7 +494,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     color: colors.ink,
     fontFamily: "Inter_400Regular",
-    fontSize: 11,
+    fontSize: 16,
+    lineHeight: 21,
   },
   recipientDivider: {
     width: StyleSheet.hairlineWidth,
@@ -485,7 +510,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     color: colors.ink,
     fontFamily: "Inter_400Regular",
-    fontSize: 12,
+    fontSize: 16,
+    lineHeight: 21,
   },
   validation: {
     marginTop: 8,
@@ -500,13 +526,13 @@ const styles = StyleSheet.create({
   paymentChoice: {
     flex: 1,
     height: 72,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 18,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 7,
     backgroundColor: colors.white,
   },
   paymentChoiceSelected: {
@@ -517,14 +543,16 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.ink,
     fontFamily: "Inter_500Medium",
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   radio: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderWidth: 2,
     borderColor: "#D2D3D6",
-    borderRadius: 12,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -532,9 +560,9 @@ const styles = StyleSheet.create({
     borderColor: colors.orange,
   },
   radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.orange,
   },
   commentField: {

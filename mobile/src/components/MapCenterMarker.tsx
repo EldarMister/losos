@@ -1,7 +1,9 @@
 import { Image, StyleSheet, View } from "react-native";
 import { colors } from "../theme";
 
-const deliveryMarker = require("../../assets/delivery.png");
+// The full-size artwork is 1450×1386. Using it for a 31 dp map marker can
+// fail to decode on Android while the image-heavy catalog remains mounted.
+const deliveryMarker = require("../../assets/delivery-marker.png");
 
 export function MapCenterMarker() {
   return (

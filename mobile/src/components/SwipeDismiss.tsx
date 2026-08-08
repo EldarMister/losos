@@ -18,10 +18,8 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 
-const DISMISS_DISTANCE_FRACTION = 0.42;
-const DISMISS_VELOCITY = 1_500;
-const MIN_FLING_DISTANCE = 96;
-const MIN_FLING_DISTANCE_FRACTION = 0.14;
+export const DEFAULT_CLOSE_DISTANCE = 110;
+export const DEFAULT_CLOSE_VELOCITY = 800;
 const DRAG_ACTIVATION_DISTANCE = 8;
 const DISMISS_DURATION = 360;
 const DISMISS_EASING = Easing.bezier(0.4, 0, 0.2, 1);
@@ -40,28 +38,28 @@ export function shouldActivateSheetDrag(
 
 export function shouldDismissSheet(
   translationY: number,
-  height: number,
   velocityY: number,
+  closeDistance = DEFAULT_CLOSE_DISTANCE,
+  closeVelocity = DEFAULT_CLOSE_VELOCITY,
 ) {
   "worklet";
-  const safeHeight = Math.max(1, height);
-  return translationY > safeHeight * DISMISS_DISTANCE_FRACTION
-    || (
-      velocityY > DISMISS_VELOCITY
-      && translationY > Math.max(MIN_FLING_DISTANCE, safeHeight * MIN_FLING_DISTANCE_FRACTION)
-    );
+  return translationY > closeDistance || velocityY >= closeVelocity;
 }
 
 type Options = {
   enabled?: boolean;
   dismissEnabled?: boolean;
   onDismiss: () => void;
+  closeDistance?: number;
+  closeVelocity?: number;
 };
 
 export function useSwipeToDismiss({
   enabled = true,
   dismissEnabled = true,
   onDismiss,
+  closeDistance = DEFAULT_CLOSE_DISTANCE,
+  closeVelocity = DEFAULT_CLOSE_VELOCITY,
 }: Options) {
   const translationY = useSharedValue(0);
   const surfaceHeight = useSharedValue(0);
@@ -115,8 +113,9 @@ export function useSwipeToDismiss({
     .onEnd((event) => {
       if (dismissEnabled && shouldDismissSheet(
         translationY.value,
-        surfaceHeight.value,
         event.velocityY,
+        closeDistance,
+        closeVelocity,
       )) {
         dismissing.value = true;
         translationY.value = withTiming(
@@ -149,6 +148,8 @@ export function useSwipeToDismiss({
     dismissing,
     dismissEnabled,
     enabled,
+    closeDistance,
+    closeVelocity,
     finishDismiss,
     scrollOffsetY,
     surfaceHeight,
