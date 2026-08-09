@@ -517,6 +517,10 @@ a { color: inherit; text-decoration: none; }
 .phone-auth-turnstile > span { margin-left: 3px; color: rgba(255,255,255,.86); font-size: 12px; }
 .turnstile-widget { width: 100%; min-height: 65px; overflow: hidden; border-radius: 12px; background: #fff; }
 .turnstile-config-error { margin: 0; padding: 12px 14px; border-radius: 14px; background: rgba(90,0,0,.22); color: #fff; font-size: 12px; line-height: 17px; }
+.mobile-captcha-page { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: #fff; }
+.mobile-captcha-page .turnstile-widget { max-width: 340px; }
+.mobile-captcha-page .turnstile-config-error { background: #fff0e8; color: #a63f0e; }
+.mobile-captcha-page > p { margin: 0; color: #8b8b91; font-size: 11px; line-height: 16px; text-align: center; }
 .phone-auth-legal { margin-top: 20px; }
 .phone-auth-legal > p { margin: 0; color: rgba(255,255,255,.88); font-size: 11px; line-height: 17px; text-align: center; }
 .phone-auth-legal a { color: #fff; text-decoration: underline; text-underline-offset: 2px; }

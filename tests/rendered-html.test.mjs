@@ -43,6 +43,21 @@ test("renders the public legal documents", async () => {
   }
 });
 
+test("renders the mobile CAPTCHA bridge", async () => {
+  const response = await render("/mobile-captcha");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /Проверка безопасности Накта суши/);
+
+  const source = await readFile(
+    new URL("../app/mobile-captcha/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /window\.ReactNativeWebView\?\.postMessage/);
+  assert.match(source, /type:\s*"success"/);
+});
+
 test("includes the product, cart and address flows", async () => {
   const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson, robots, sitemap, seo] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),

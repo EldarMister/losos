@@ -23,6 +23,7 @@ import { PhoneAuthController } from "../src/auth/phone-auth.controller";
 import {
   extractWhatsappAuthCode,
   PhoneAuthService,
+  smsResendDelaySeconds,
 } from "../src/auth/phone-auth.service";
 import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
@@ -132,6 +133,13 @@ test("region delivery settings validate time, days, and free-delivery threshold"
     deliveryZone: [{ latitude: 200, longitude: 300 }],
   });
   assert.ok(validateSync(invalid).length >= 9);
+});
+
+test("SMS resend delays grow from a minute to a day", () => {
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map(smsResendDelaySeconds),
+    [60, 300, 3_600, 86_400, 86_400],
+  );
 });
 
 test("pickup coordinates are extracted from full Yandex Maps links", () => {

@@ -31,11 +31,17 @@ const CODE_TTL_MS = 5 * 60_000;
 const WHATSAPP_CODE_TTL_MS = 10 * 60_000;
 const TOKEN_TTL_MS = 30 * 60_000;
 const ACCOUNT_SESSION_TTL_MS = 30 * 24 * 60 * 60_000;
-const RESEND_DELAY_MS = 60_000;
 const WHATSAPP_RESEND_DELAY_MS = 20_000;
 const MAX_ATTEMPTS = 5;
 const MAX_SENDS_PER_HOUR = 5;
 const WHATSAPP_CODE_PATTERN = /NAKTA-[A-F0-9]{48}/i;
+
+export function smsResendDelaySeconds(sendNumber: number) {
+  if (sendNumber <= 1) return 60;
+  if (sendNumber === 2) return 5 * 60;
+  if (sendNumber === 3) return 60 * 60;
+  return 24 * 60 * 60;
+}
 
 export type WhatsappWebhookPayload = {
   object?: string;
@@ -80,6 +86,14 @@ export class PhoneAuthService {
     }
     const now = new Date();
     await this.assertRequestAllowed(phone, "sms", now);
+    const sendsInLastDay = await this.challenges.count({
+      where: {
+        phone,
+        channel: "sms",
+        createdAt: MoreThan(new Date(now.getTime() - 24 * 60 * 60_000)),
+      },
+    });
+    const retryAfterSeconds = smsResendDelaySeconds(sendsInLastDay + 1);
 
     const id = randomUUID();
     const transactionId = randomBytes(16).toString("hex");
@@ -93,14 +107,14 @@ export class PhoneAuthService {
       pollTokenHash: null,
       attemptCount: 0,
       expiresAt: new Date(now.getTime() + CODE_TTL_MS),
-      nextSendAt: new Date(now.getTime() + RESEND_DELAY_MS),
+      nextSendAt: new Date(now.getTime() + retryAfterSeconds * 1_000),
       verifiedAt: null,
       verificationTokenHash: null,
       verificationTokenExpiresAt: null,
       consumedAt: null,
     }));
 
-    return { expiresInSeconds: CODE_TTL_MS / 1_000, retryAfterSeconds: RESEND_DELAY_MS / 1_000 };
+    return { expiresInSeconds: CODE_TTL_MS / 1_000, retryAfterSeconds };
   }
 
   async requestWhatsapp(phone: string) {
