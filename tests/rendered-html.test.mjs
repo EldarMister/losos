@@ -116,11 +116,13 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /line\.modifiers/);
   assert.match(storefront, /className="checkout-drawer"/);
   assert.match(storefront, /className="phone-auth-modal"/);
-  assert.match(storefront, /Подтвердить через WhatsApp/);
-  assert.match(storefront, /Не получается\? Получить код по SMS/);
-  assert.match(storefront, /\/auth\/whatsapp\/request/);
-  assert.match(storefront, /\/auth\/whatsapp\/status/);
-  assert.match(storefront, /WHATSAPP_AUTH_STORAGE_KEY/);
+  assert.match(storefront, /Войдите или зарегистрируйтесь/);
+  assert.match(storefront, /<TurnstileWidget/);
+  assert.doesNotMatch(storefront, /WhatsApp/i);
+  assert.doesNotMatch(storefront, /\/auth\/whatsapp\//);
+  assert.match(storefront, /mdiShoppingOutline/);
+  assert.match(storefront, /mdiLogout/);
+  assert.match(storefront, />Выйти /);
   assert.match(storefront, /PHONE_AUTH_SESSION_STORAGE_KEY/);
   assert.match(storefront, /className="cart-kit-modal"/);
   assert.match(storefront, /orderingClosed \? "Закрыто" : "Далее"/);

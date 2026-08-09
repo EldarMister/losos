@@ -3,6 +3,22 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import Icon from "@mdi/react";
+import {
+  mdiAccountCircleOutline,
+  mdiArrowLeft,
+  mdiChevronRight,
+  mdiClipboardTextOutline,
+  mdiCogOutline,
+  mdiFileDocumentOutline,
+  mdiInformationOutline,
+  mdiLogout,
+  mdiMessageReplyTextOutline,
+  mdiPhoneOutline,
+  mdiShieldAccountOutline,
+  mdiShoppingOutline,
+  mdiStarFourPointsOutline,
+} from "@mdi/js";
 import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
@@ -83,14 +99,7 @@ type CheckoutForm = {
   paymentMethod: "cash" | "card_on_delivery";
 };
 type PlacedOrder = { id: string; orderNumber?: number; total: number; status: string };
-type PhoneAuthMethod = "choose" | "whatsapp" | "sms";
-type PendingWhatsappAuth = {
-  challengeId: string;
-  pollToken: string;
-  phone: string;
-  whatsappUrl: string;
-  expiresAt: string;
-};
+type PhoneAuthMethod = "choose" | "sms";
 type StoredPhoneAuthSession = {
   phone: string;
   verificationToken: string;
@@ -155,7 +164,6 @@ const defaultRegions: RegionOption[] = [
 
 const STOREFRONT_STORAGE_KEY = "losos.storefront.v1";
 const CITY_SELECTION_STORAGE_KEY = "losos.city-selection.v1";
-const WHATSAPP_AUTH_STORAGE_KEY = "losos.whatsapp-auth.v1";
 const PHONE_AUTH_SESSION_STORAGE_KEY = "losos.phone-auth-session.v1";
 const STOREFRONT_STORAGE_VERSION = 1;
 const MAX_MODIFIER_ITEM_QUANTITY = 99;
@@ -166,29 +174,6 @@ const STOREFRONT_API_URL = (
     ? "http://localhost:4000/api"
     : "https://losos-production.up.railway.app/api")
 ).replace(/\/$/, "");
-const readPendingWhatsappAuth = (raw: string | null): PendingWhatsappAuth | null => {
-  if (!raw) return null;
-  try {
-    const value = JSON.parse(raw) as Partial<PendingWhatsappAuth>;
-    const whatsappUrl = new URL(value.whatsappUrl || "");
-    if (
-      typeof value.challengeId !== "string"
-      || typeof value.pollToken !== "string"
-      || value.pollToken.length !== 64
-      || typeof value.phone !== "string"
-      || typeof value.expiresAt !== "string"
-      || Number.isNaN(Date.parse(value.expiresAt))
-      || Date.parse(value.expiresAt) <= Date.now()
-      || whatsappUrl.protocol !== "https:"
-      || whatsappUrl.hostname !== "wa.me"
-    ) {
-      return null;
-    }
-    return value as PendingWhatsappAuth;
-  } catch {
-    return null;
-  }
-};
 const readPhoneAuthSession = (raw: string | null): StoredPhoneAuthSession | null => {
   if (!raw) return null;
   try {
@@ -755,8 +740,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [phoneAuthMethod, setPhoneAuthMethod] = useState<PhoneAuthMethod>("choose");
   const [turnstileToken, setTurnstileToken] = useState("");
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const [whatsappAvailable, setWhatsappAvailable] = useState(false);
-  const [whatsappAuthRequest, setWhatsappAuthRequest] = useState<PendingWhatsappAuth | null>(null);
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
@@ -773,7 +756,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const promoRowRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const citySelectRef = useRef<HTMLDivElement>(null);
-  const checkWhatsappStatusRef = useRef<() => Promise<void>>(async () => {});
   const deliveryAvailability = getDeliveryAvailability(
     deliveryOpenTime,
     deliveryCloseTime,
@@ -920,21 +902,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           setPhoneVerificationToken(session.verificationToken);
           setVerifiedPhone(session.phone);
           setCheckoutForm((current) => ({ ...current, phone: session.phone }));
-          window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
           return;
         }
         window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
-        const pending = readPendingWhatsappAuth(
-          window.localStorage.getItem(WHATSAPP_AUTH_STORAGE_KEY),
-        );
-        if (!pending) {
-          window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
-          return;
-        }
-        setWhatsappAuthRequest(pending);
-        setPhoneAuthMethod("whatsapp");
-        setCheckoutForm((current) => ({ ...current, phone: pending.phone }));
-        setPhoneAuthOpen(true);
       } catch {
         // Authentication still works for the current visit when storage is unavailable.
       }
@@ -1053,24 +1023,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }, 1_000);
     return () => window.clearInterval(timer);
   }, [phoneCodeRetryAfter]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch(`${STOREFRONT_API_URL}/auth/methods`)
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return response.json();
-      })
-      .then((body) => {
-        if (!cancelled) setWhatsappAvailable(body?.whatsapp === true);
-      })
-      .catch(() => {
-        if (!cancelled) setWhatsappAvailable(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const chooseCity = (option: RegionOption) => {
     const regionChanged = option.slug !== regionSlug;
@@ -1286,7 +1238,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       continueToCheckout();
       return;
     }
-    setPhoneAuthMethod(whatsappAuthRequest ? "whatsapp" : "choose");
+    setPhoneAuthMethod("choose");
     setPhoneAuthPurpose("checkout");
     setPhoneAuthOpen(true);
   };
@@ -1319,17 +1271,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         // The in-memory session is still cleared.
       }
     }
-    setWhatsappAuthRequest(null);
     setPhoneAuthMethod("choose");
     setPhoneCodeRequested(false);
     setPhoneCode("");
     setPhoneAuthMessage("");
     setPhoneCodeRetryAfter(0);
-    try {
-      window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
-    } catch {
-      // The pending request is still cleared in memory.
-    }
     updateCheckoutField("phone", value);
   };
 
@@ -1341,10 +1287,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setPhoneCodeRequested(false);
     setPhoneCode("");
     setPhoneAuthMessage("");
-    setWhatsappAuthRequest(null);
     try {
       window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
-      window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
     } catch {
       // The in-memory session is already cleared.
     }
@@ -1362,12 +1306,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
     const captchaToken = turnstileToken;
     setPhoneAuthMethod("sms");
-    setWhatsappAuthRequest(null);
-    try {
-      window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
-    } catch {
-      // SMS fallback can continue without storage.
-    }
     setPhoneAuthBusy(true);
     setPhoneAuthMessage("");
     try {
@@ -1403,60 +1341,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
   };
 
-  const requestWhatsappAuth = async () => {
-    const phone = normalizePhone(checkoutForm.phone);
-    if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {
-      setPhoneAuthMessage("Введите телефон в формате +996 XXX XXX XXX.");
-      return;
-    }
-
-    const whatsappTab = window.open("about:blank", "_blank");
-    if (whatsappTab) whatsappTab.opener = null;
-    setPhoneAuthMethod("whatsapp");
-    setPhoneAuthBusy(true);
-    setPhoneAuthMessage("");
-    try {
-      const response = await fetch(`${STOREFRONT_API_URL}/auth/whatsapp/request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        if (response.status === 503) setWhatsappAvailable(false);
-        throw new Error(message || "Не удалось открыть WhatsApp");
-      }
-      const pending = readPendingWhatsappAuth(JSON.stringify({
-        challengeId: body?.challengeId,
-        pollToken: body?.pollToken,
-        phone,
-        whatsappUrl: body?.whatsappUrl,
-        expiresAt: body?.expiresAt,
-      }));
-      if (!pending) throw new Error("Сервис WhatsApp вернул некорректный ответ");
-      setWhatsappAuthRequest(pending);
-      setPhoneAuthMethod("whatsapp");
-      setPhoneAuthMessage("Отправьте подготовленное сообщение боту. Номер подтвердится автоматически.");
-      try {
-        window.localStorage.setItem(WHATSAPP_AUTH_STORAGE_KEY, JSON.stringify(pending));
-      } catch {
-        // Polling remains active while this page is open.
-      }
-      if (whatsappTab && !whatsappTab.closed) {
-        whatsappTab.location.replace(pending.whatsappUrl);
-      } else {
-        window.location.assign(pending.whatsappUrl);
-      }
-    } catch (error) {
-      if (whatsappTab && !whatsappTab.closed) whatsappTab.close();
-      setPhoneAuthMethod("choose");
-      setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось открыть WhatsApp");
-    } finally {
-      setPhoneAuthBusy(false);
-    }
-  };
-
   const completePhoneVerification = (
     phone: string,
     verificationToken: string,
@@ -1464,11 +1348,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   ) => {
     setPhoneVerificationToken(verificationToken);
     setVerifiedPhone(phone);
-    setWhatsappAuthRequest(null);
     setPhoneAuthMessage("Телефон подтверждён");
     setPhoneAuthOpen(false);
     try {
-      window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
       window.localStorage.setItem(PHONE_AUTH_SESSION_STORAGE_KEY, JSON.stringify({
         phone,
         verificationToken,
@@ -1484,71 +1366,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
     continueToCheckout();
   };
-
-  const checkWhatsappStatus = async () => {
-    const pending = whatsappAuthRequest;
-    if (!pending) return;
-    try {
-      const response = await fetch(`${STOREFRONT_API_URL}/auth/whatsapp/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          challengeId: pending.challengeId,
-          pollToken: pending.pollToken,
-        }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        throw new Error(message || "Не удалось проверить WhatsApp");
-      }
-      if (body?.status === "verified" && typeof body.verificationToken === "string") {
-        completePhoneVerification(
-          normalizePhone(body.phone || pending.phone),
-          body.verificationToken,
-          Number(body.expiresInSeconds) || 1_800,
-        );
-        return;
-      }
-      if (body?.status === "expired") {
-        setWhatsappAuthRequest(null);
-        setPhoneAuthMethod("choose");
-        setPhoneAuthMessage("Время подтверждения истекло. Запросите новый код.");
-        try {
-          window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY);
-        } catch {
-          // The request is already cleared in memory.
-        }
-      }
-    } catch (error) {
-      setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось проверить WhatsApp");
-    }
-  };
-  useEffect(() => {
-    checkWhatsappStatusRef.current = checkWhatsappStatus;
-  });
-
-  useEffect(() => {
-    if (!whatsappAuthRequest) return;
-    let stopped = false;
-    const poll = () => {
-      if (!stopped) void checkWhatsappStatusRef.current();
-    };
-    poll();
-    const interval = window.setInterval(poll, 2_000);
-    const onFocus = () => poll();
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") poll();
-    };
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      stopped = true;
-      window.clearInterval(interval);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [whatsappAuthRequest]);
 
   const verifyPhoneCode = async () => {
     const phone = normalizePhone(checkoutForm.phone);
@@ -1596,7 +1413,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       return;
     }
     if (!phoneVerificationToken || verifiedPhone !== phone) {
-      setCheckoutError("Сначала подтвердите номер через WhatsApp или SMS.");
+      setCheckoutError("Сначала подтвердите номер кодом из SMS.");
       return;
     }
 
@@ -2161,22 +1978,26 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {menuOpen ? (
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
           <section className="profile-modal">
-            <button className="profile-close" onClick={() => setMenuOpen(false)} aria-label="Закрыть">×</button>
             {verifiedPhone ? <>
-              <header className="profile-screen-header">
-                {profileSection !== "menu" ? <button type="button" onClick={() => setProfileSection("menu")} aria-label="Назад">←</button> : <span />}
-                <h2>{profileSection === "orders" ? "Мои заказы" : profileSection === "balance" ? "NAKTA Coin" : profileSection === "settings" ? "Настройки" : "Профиль"}</h2>
+              <header className={`profile-screen-header${profileSection === "menu" ? " profile-menu-header" : ""}`}>
+                <button type="button" onClick={() => profileSection === "menu" ? setMenuOpen(false) : setProfileSection("menu")} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
+                <h2>{profileSection === "orders" ? "Мои заказы" : profileSection === "balance" ? "NAKTA Coin" : profileSection === "settings" ? "Настройки" : ""}</h2>
                 <span />
               </header>
               <div className={`profile-account profile-section-${profileSection}`}>
                 {profileSection === "menu" ? <>
-                  <div className="profile-account-user"><span className="cat-reference" aria-hidden="true" /><div><strong>Ваш профиль</strong><small>{verifiedPhone}</small></div></div>
+                  <div className="profile-account-card">
+                    <div><small>Привет!</small><strong>{verifiedPhone}</strong></div>
+                    <button type="button" onClick={logoutProfile}>Выйти <Icon path={mdiLogout} size={0.72} aria-hidden="true" /></button>
+                  </div>
                   <nav className="profile-account-menu" aria-label="Разделы профиля">
-                    <button type="button" onClick={() => { setProfileOrderTab("active"); setProfileSection("orders"); }}><span aria-hidden="true">▤</span><b>Мои заказы</b><i>›</i></button>
-                    <button type="button" onClick={() => setProfileSection("balance")}><img src="/nakta-coin.png" alt="" /><b>NAKTA Coin</b><em>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</em><i>›</i></button>
-                    <button type="button" onClick={() => setProfileSection("settings")}><span aria-hidden="true">⚙</span><b>Настройки</b><i>›</i></button>
-                    <a href={supportHref}><span aria-hidden="true">◌</span><b>Поддержка</b><i>›</i></a>
+                    <button type="button" onClick={() => { setProfileOrderTab("active"); setProfileSection("orders"); }}><Icon path={mdiShoppingOutline} size={1} aria-hidden="true" /><b>Мои заказы</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                    <button type="button" onClick={() => setProfileSection("balance")}><Icon path={mdiStarFourPointsOutline} size={1} aria-hidden="true" /><b>NAKTA Coin</b><em>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</em><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                    <button type="button" onClick={() => setProfileSection("settings")}><Icon path={mdiCogOutline} size={1} aria-hidden="true" /><b>Настройки</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                    <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>Поддержка</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                    <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>О нас</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
                   </nav>
+                  <div className="profile-menu-footer"><img src="/логотип.png" alt="Накта суши" /><a href="/legal">Правовая информация</a><small>Версия 0.1.0</small></div>
                 </> : null}
 
                 {profileSection === "orders" ? <>
@@ -2203,13 +2024,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <section className="profile-settings-field"><span>Телефон аккаунта</span><strong>{verifiedPhone}</strong></section>
                   <section className="profile-settings-field"><span>Баланс NAKTA Coin</span><strong>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</strong></section>
                   <a className="profile-settings-link" href="/legal">Правовая информация <span>›</span></a>
-                  <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля <span>↗</span></button>
+                  <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля <span><Icon path={mdiLogout} size={0.9} aria-hidden="true" /></span></button>
                 </> : null}
               </div>
             </> : <>
-              <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>Привет!</span><strong>Войдите в профиль</strong></div></div>
-              <nav className="profile-links" aria-label="Меню профиля"><a href={supportHref}><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>
-              <button className="profile-login" onClick={() => { setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); setPhoneAuthOpen(true); }}>Войти</button>
+              <header className="profile-screen-header profile-menu-header"><button type="button" onClick={() => setMenuOpen(false)} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button><h2 /><span /></header>
+              <div className="profile-account profile-section-menu">
+                <nav className="profile-account-menu profile-guest-menu" aria-label="Меню профиля">
+                  <button type="button" onClick={() => { setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); setPhoneAuthOpen(true); }}><Icon path={mdiAccountCircleOutline} size={1} aria-hidden="true" /><b>Вход в личный кабинет</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                  <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>Поддержка</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                  <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>О нас</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                </nav>
+                <div className="profile-menu-footer"><img src="/логотип.png" alt="Накта суши" /><a href="/legal">Правовая информация</a><small>Версия 0.1.0</small></div>
+              </div>
             </>}
           </section>
         </div>
@@ -2525,66 +2352,58 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="drawer-overlay phone-auth-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !phoneAuthBusy) setPhoneAuthOpen(false); }}>
           <aside className="phone-auth-modal" aria-label="Авторизация по номеру телефона">
             <button className="phone-auth-close" type="button" onClick={() => setPhoneAuthOpen(false)} aria-label="Закрыть">×</button>
-            <div className="phone-auth-brand"><img src="/logo.webp" alt="Накта суши" /></div>
-            {phoneAuthMethod === "whatsapp" && whatsappAuthRequest ? (
-              <div className="whatsapp-wait">
-                <h2>Подтверждение через WhatsApp</h2>
-                <p>Отправьте подготовленное сообщение боту. Код уже вставлен — менять его не нужно.</p>
-                <div className="whatsapp-status" role="status"><i aria-hidden="true" /><span><b>Ждём сообщение в WhatsApp</b><small>После отправки номер подтвердится автоматически</small></span></div>
-                {phoneAuthMessage ? <div className="phone-auth-message">{phoneAuthMessage}</div> : null}
-                <a className="phone-auth-whatsapp" href={whatsappAuthRequest.whatsappUrl} target="_blank" rel="noreferrer"><span className="whatsapp-icon" aria-hidden="true">◔</span>Открыть WhatsApp</a>
-                <button className="phone-auth-secondary" type="button" onClick={() => void checkWhatsappStatusRef.current()}>Я уже отправил код</button>
-                <button className="phone-auth-fallback" type="button" disabled={phoneAuthBusy} onClick={() => { setWhatsappAuthRequest(null); setPhoneAuthMethod("sms"); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>Не получается? Получить код по SMS</button>
-              </div>
-            ) : (
-              <>
-                <h2>{phoneCodeRequested ? "Введите код из SMS" : "Подтвердите номер телефона"}</h2>
-                <p>{phoneCodeRequested
-                  ? `Мы отправили шестизначный код на ${checkoutForm.phone}`
-                  : whatsappAvailable
-                    ? "Основной способ — подтверждение сообщением в WhatsApp. SMS останется запасным вариантом."
-                    : "Подтвердите номер кодом из SMS. WhatsApp станет доступен после настройки бота."}</p>
-                <form onSubmit={(event) => { event.preventDefault(); if (phoneCodeRequested) void verifyPhoneCode(); }}>
-                  {!phoneCodeRequested ? (
-                    <label><span>Номер телефона</span><input autoFocus required autoComplete="tel" inputMode="tel" value={checkoutForm.phone} onChange={(event) => updateCheckoutPhone(event.target.value)} placeholder="+996 555 123 456" /></label>
-                  ) : (
-                    <label><span>Код подтверждения</span><input autoFocus required aria-label="Код из SMS" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
-                  )}
-                  {!phoneCodeRequested ? (
-                    <div className="phone-auth-turnstile">
-                      <span>Проверка, что вы человек</span>
-                      <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileResetKey} />
-                    </div>
-                  ) : null}
-                  {phoneAuthMessage ? <div className="phone-auth-message" role="status">{phoneAuthMessage}</div> : null}
-                  {phoneCodeRequested ? (
-                    <>
-                      <button className="phone-auth-submit" type="submit" disabled={phoneAuthBusy || phoneCode.length !== 6}>{phoneAuthBusy ? "Подождите…" : "Подтвердить"}</button>
-                      <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>Изменить номер</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => { setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>{phoneCodeRetryAfter > 0 ? `Повторно через ${phoneCodeRetryAfter} сек.` : "Получить новый код"}</button></div>
-                    </>
-                  ) : (
-                    <>
-                      {whatsappAvailable ? (
-                        <>
-                          <button className="phone-auth-whatsapp" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestWhatsappAuth()}><span className="whatsapp-icon" aria-hidden="true">◔</span>{phoneAuthBusy && phoneAuthMethod === "whatsapp" ? "Открываем WhatsApp…" : "Подтвердить через WhatsApp"}</button>
-                          <button className="phone-auth-secondary" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim() || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код по SMS"}</button>
-                        </>
-                      ) : (
-                        <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim() || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy ? "Отправляем SMS…" : "Получить код по SMS"}</button>
-                      )}
-                    </>
-                  )}
-                </form>
-                {!phoneCodeRequested ? <div className="phone-auth-legal">
-                  <p>Нажимая «Получить код», вы соглашаетесь с <a href="/legal">обработкой персональных данных</a>, <a href="/privacy">политикой конфиденциальности</a> и <a href="/terms">условиями использования</a>.</p>
-                  <nav aria-label="Правовая информация">
-                    <a href="/privacy"><span aria-hidden="true">◇</span>Политика конфиденциальности<b>›</b></a>
-                    <a href="/terms"><span aria-hidden="true">□</span>Условия использования<b>›</b></a>
-                    <a href="/terms"><span aria-hidden="true">▤</span>Условия доставки и оплаты<b>›</b></a>
-                  </nav>
-                </div> : null}
-              </>
-            )}
+            <div className="phone-auth-brand" aria-label="Накта суши"><span><img src="/логотип.png" alt="" /></span><strong>НАКТА<br />СУШИ</strong></div>
+            <h2>{phoneCodeRequested ? "Введите код" : "Войдите или зарегистрируйтесь"}</h2>
+            <p>{phoneCodeRequested
+              ? `Код отправлен на ${checkoutForm.phone}`
+              : "Введите номер телефона, чтобы войти в личный кабинет"}</p>
+            <form onSubmit={(event) => { event.preventDefault(); if (phoneCodeRequested) void verifyPhoneCode(); }}>
+              {!phoneCodeRequested ? (
+                <label className="phone-auth-phone-field">
+                  <span>Номер телефона</span>
+                  <span className="phone-auth-input-shell">
+                    <Icon path={mdiPhoneOutline} size={1.1} aria-hidden="true" />
+                    <b>+996</b>
+                    <input
+                      autoFocus
+                      required
+                      aria-label="Номер телефона"
+                      autoComplete="tel"
+                      inputMode="numeric"
+                      maxLength={11}
+                      value={checkoutForm.phone.replace(/\D/g, "").replace(/^996/, "").slice(0, 9).replace(/(\d{3})(?=\d)/g, "$1 ")}
+                      onChange={(event) => updateCheckoutPhone(`+996${event.target.value.replace(/\D/g, "").replace(/^996/, "").slice(0, 9)}`)}
+                      placeholder="555 123 456"
+                    />
+                  </span>
+                </label>
+              ) : (
+                <label><span>Код подтверждения</span><input autoFocus required aria-label="Код из SMS" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
+              )}
+              {!phoneCodeRequested ? (
+                <div className="phone-auth-turnstile">
+                  <span>Проверка, что вы человек</span>
+                  <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileResetKey} />
+                </div>
+              ) : null}
+              {phoneAuthMessage ? <div className="phone-auth-message" role="status">{phoneAuthMessage}</div> : null}
+              {phoneCodeRequested ? (
+                <>
+                  <button className="phone-auth-submit" type="submit" disabled={phoneAuthBusy || phoneCode.length !== 6}>{phoneAuthBusy ? "Подождите…" : "Подтвердить"}</button>
+                  <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>Изменить номер</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => { setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>{phoneCodeRetryAfter > 0 ? `Повторно через ${phoneCodeRetryAfter} сек.` : "Получить новый код"}</button></div>
+                </>
+              ) : (
+                <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || checkoutForm.phone.replace(/\D/g, "").length !== 12 || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код"}</button>
+              )}
+            </form>
+            {!phoneCodeRequested ? <div className="phone-auth-legal">
+              <p>Нажимая «Получить код», вы соглашаетесь с <a href="/legal">Согласием на обработку персональных данных</a>, <a href="/privacy">Политикой конфиденциальности</a> и <a href="/terms">Условиями использования</a>.</p>
+              <nav aria-label="Правовая информация">
+                <a href="/privacy"><Icon path={mdiShieldAccountOutline} size={1} aria-hidden="true" />Политика конфиденциальности<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
+                <a href="/terms"><Icon path={mdiFileDocumentOutline} size={1} aria-hidden="true" />Условия использования<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
+                <a href="/terms"><Icon path={mdiClipboardTextOutline} size={1} aria-hidden="true" />Условия доставки и оплаты<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
+              </nav>
+            </div> : null}
             {phoneAuthPurpose === "checkout" ? <button className="phone-auth-back" type="button" onClick={() => { setPhoneAuthOpen(false); setCartOpen(true); }}>Вернуться в корзину</button> : null}
           </aside>
         </div>
@@ -2611,7 +2430,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <section className="checkout-section checkout-contact">
                   <h3>Контакты</h3>
                   <label><span>Имя</span><input required autoComplete="name" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Как к вам обращаться" /></label>
-                  <div className="checkout-confirmed-phone"><span>Телефон</span><div><b>{checkoutForm.phone}</b><button type="button" onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthMethod("choose"); setWhatsappAuthRequest(null); try { window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY); window.localStorage.removeItem(WHATSAPP_AUTH_STORAGE_KEY); } catch {} setPhoneAuthOpen(true); }}>Изменить</button></div><small>✓ Номер подтверждён</small></div>
+                  <div className="checkout-confirmed-phone"><span>Телефон</span><div><b>{checkoutForm.phone}</b><button type="button" onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthMethod("choose"); try { window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY); } catch {} setPhoneAuthOpen(true); }}>Изменить</button></div><small>✓ Номер подтверждён</small></div>
                 </section>
 
                 <section className="checkout-section checkout-destination">
