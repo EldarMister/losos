@@ -7,6 +7,7 @@ import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } 
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
+import { TurnstileWidget } from "./TurnstileWidget";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
 const YandexPickupMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexPickupMap: Map }) => ({ default: Map })));
@@ -101,6 +102,9 @@ type ProfileOrder = {
   status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
   deliveryType: DeliveryType;
   createdAt: string;
+  address?: string;
+  earnedNaktaCoins?: number;
+  naktaCoins?: number;
 };
 type ProfileOrderDetail = ProfileOrder & {
   subtotal: number;
@@ -120,7 +124,20 @@ type ProfileOrderDetail = ProfileOrder & {
     modifierSnapshots: Array<{ itemName: string; quantity: number }>;
   }>;
 };
-type ProfileData = { naktaCoins: number; currentOrders: ProfileOrder[]; orderHistory: ProfileOrder[] };
+type NaktaCoinTransaction = {
+  id: string;
+  amount: number;
+  createdAt?: string;
+  description: string;
+  orderId?: string;
+};
+type ProfileData = {
+  naktaCoins: number;
+  currentOrders: ProfileOrder[];
+  orderHistory: ProfileOrder[];
+  naktaCoinHistory?: NaktaCoinTransaction[];
+  naktaCoinTransactions?: NaktaCoinTransaction[];
+};
 type PersistedStorefrontState = {
   cart: CartLine[];
   deliveryType: DeliveryType;
@@ -192,9 +209,35 @@ const readPhoneAuthSession = (raw: string | null): StoredPhoneAuthSession | null
 };
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
 const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
-  new: "Новый", confirmed: "Подтверждён", preparing: "Готовится", ready: "Готов", delivering: "В пути", completed: "Завершён", cancelled: "Отменён",
+  new: "Принят", confirmed: "Подтверждён", preparing: "Готовим", ready: "Готов", delivering: "В пути", completed: "Выполнен", cancelled: "Отменён",
 };
 const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+
+function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[] {
+  if (!profile) return [];
+  const serverHistory = profile.naktaCoinHistory ?? profile.naktaCoinTransactions ?? [];
+  const normalized = serverHistory.filter((entry) => Number.isFinite(entry.amount) && entry.amount !== 0);
+  if (normalized.length) return normalized;
+
+  const orderEntries = profile.orderHistory.flatMap((order) => {
+    const amount = Math.round(Number(order.earnedNaktaCoins ?? order.naktaCoins ?? 0));
+    if (!Number.isFinite(amount) || !amount) return [];
+    return [{
+      id: `order-${order.id}`,
+      amount,
+      createdAt: order.createdAt,
+      description: `Заказ №${order.id.slice(0, 6).toUpperCase()}`,
+      orderId: order.id,
+    }];
+  });
+  if (orderEntries.length) return orderEntries;
+
+  return profile.naktaCoins > 0 ? [{
+    id: "previous-orders",
+    amount: profile.naktaCoins,
+    description: "Начислено за предыдущие заказы",
+  }] : [];
+}
 
 function addressWithSingleCity(value: string, city: string) {
   const cleaned = value
@@ -678,6 +721,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [profileOrderDetailLoading, setProfileOrderDetailLoading] = useState(false);
   const [profileOrderDetailError, setProfileOrderDetailError] = useState("");
   const [profileRefreshIndex, setProfileRefreshIndex] = useState(0);
+  const [profileSection, setProfileSection] = useState<"menu" | "orders" | "balance" | "settings">("menu");
+  const [profileOrderTab, setProfileOrderTab] = useState<"active" | "history">("active");
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
   const [promoPage, setPromoPage] = useState(0);
@@ -708,6 +753,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [phoneAuthMessage, setPhoneAuthMessage] = useState("");
   const [phoneCodeRetryAfter, setPhoneCodeRetryAfter] = useState(0);
   const [phoneAuthMethod, setPhoneAuthMethod] = useState<PhoneAuthMethod>("choose");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [whatsappAvailable, setWhatsappAvailable] = useState(false);
   const [whatsappAuthRequest, setWhatsappAuthRequest] = useState<PendingWhatsappAuth | null>(null);
   const [placedOrder, setPlacedOrder] = useState<PlacedOrder | null>(null);
@@ -736,6 +783,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   );
   const orderingClosed = !deliveryAvailability.isOpen;
   const profileLoading = Boolean(verifiedPhone && phoneVerificationToken && !profileData);
+  const coinHistory = useMemo(() => profileCoinHistory(profileData), [profileData]);
   const openSearch = () => {
     const nav = categoryNavRef.current;
     if (nav) nav.scrollLeft = 0;
@@ -812,6 +860,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .catch(() => { if (!controller.signal.aborted) setProfileData(null); })
     return () => controller.abort();
   }, [phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
+
+  useEffect(() => {
+    if (!menuOpen || !verifiedPhone || !phoneVerificationToken) return;
+    const timer = window.setInterval(
+      () => setProfileRefreshIndex((current) => current + 1),
+      5_000,
+    );
+    return () => window.clearInterval(timer);
+  }, [menuOpen, phoneVerificationToken, verifiedPhone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1299,6 +1356,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setPhoneAuthMessage("Введите телефон в формате +996 XXX XXX XXX.");
       return;
     }
+    if (!turnstileToken) {
+      setPhoneAuthMessage("Подтвердите, что вы не робот.");
+      return;
+    }
+    const captchaToken = turnstileToken;
     setPhoneAuthMethod("sms");
     setWhatsappAuthRequest(null);
     try {
@@ -1312,7 +1374,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       const response = await fetch(`${STOREFRONT_API_URL}/auth/request-code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, captchaToken }),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -1336,6 +1398,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось отправить код");
     } finally {
       setPhoneAuthBusy(false);
+      setTurnstileToken("");
+      setTurnstileResetKey((current) => current + 1);
     }
   };
 
@@ -1414,6 +1478,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       // The verified token remains available for the current visit.
     }
     if (phoneAuthPurpose === "profile") {
+      setProfileSection("menu");
       setMenuOpen(true);
       return;
     }
@@ -1964,7 +2029,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
         <header className="delivery-header">
-          <button className="cat-avatar" aria-label="Открыть меню" onClick={() => setMenuOpen(true)}><span className="cat-reference" aria-hidden="true" /></button>
+          <button className="cat-avatar" aria-label="Открыть меню" onClick={() => { setProfileSection("menu"); setMenuOpen(true); }}><span className="cat-reference" aria-hidden="true" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
             <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button>
             <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button>
@@ -2097,15 +2162,55 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
           <section className="profile-modal">
             <button className="profile-close" onClick={() => setMenuOpen(false)} aria-label="Закрыть">×</button>
-            <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>{verifiedPhone || "Привет!"}</span><strong>{verifiedPhone ? "Вы авторизованы" : "Войдите в профиль"}</strong></div></div>
-            {verifiedPhone ? <div className="profile-account">
-              <section className="profile-coins"><span>Баланс NAKTA Coin</span><strong>{profileData?.naktaCoins ?? 0}</strong><small>coin</small></section>
-              <section className="profile-orders"><h2>Текущие заказы</h2>{profileLoading ? <p>Загружаем…</p> : profileData?.currentOrders.length ? profileData.currentOrders.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Активных заказов нет</p>}</section>
-              <section className="profile-orders"><h2>История заказов</h2>{profileLoading ? null : profileData?.orderHistory.length ? profileData.orderHistory.map((order) => <button className="profile-order-button" type="button" key={order.id} onClick={() => openProfileOrder(order)}><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)}</small></span><span><b>{money(order.total)}</b><small>{profileOrderStatuses[order.status]}</small></span></button>) : <p>Заказов пока нет</p>}</section>
-              <a className="profile-support" href={supportHref}><span aria-hidden="true">💬</span>Поддержка</a>
-              <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля</button>
-            </div> : <nav className="profile-links" aria-label="Меню профиля"><a href={supportHref}><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>}
-            <button className="profile-login" onClick={() => { if (verifiedPhone) { setMenuOpen(false); return; } setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setPhoneAuthOpen(true); }}>{verifiedPhone ? "Готово" : "Войти"}</button>
+            {verifiedPhone ? <>
+              <header className="profile-screen-header">
+                {profileSection !== "menu" ? <button type="button" onClick={() => setProfileSection("menu")} aria-label="Назад">←</button> : <span />}
+                <h2>{profileSection === "orders" ? "Мои заказы" : profileSection === "balance" ? "NAKTA Coin" : profileSection === "settings" ? "Настройки" : "Профиль"}</h2>
+                <span />
+              </header>
+              <div className={`profile-account profile-section-${profileSection}`}>
+                {profileSection === "menu" ? <>
+                  <div className="profile-account-user"><span className="cat-reference" aria-hidden="true" /><div><strong>Ваш профиль</strong><small>{verifiedPhone}</small></div></div>
+                  <nav className="profile-account-menu" aria-label="Разделы профиля">
+                    <button type="button" onClick={() => { setProfileOrderTab("active"); setProfileSection("orders"); }}><span aria-hidden="true">▤</span><b>Мои заказы</b><i>›</i></button>
+                    <button type="button" onClick={() => setProfileSection("balance")}><img src="/nakta-coin.png" alt="" /><b>NAKTA Coin</b><em>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</em><i>›</i></button>
+                    <button type="button" onClick={() => setProfileSection("settings")}><span aria-hidden="true">⚙</span><b>Настройки</b><i>›</i></button>
+                    <a href={supportHref}><span aria-hidden="true">◌</span><b>Поддержка</b><i>›</i></a>
+                  </nav>
+                </> : null}
+
+                {profileSection === "orders" ? <>
+                  <div className="profile-order-tabs" role="tablist">
+                    <button className={profileOrderTab === "active" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "active"} onClick={() => setProfileOrderTab("active")}>Активные</button>
+                    <button className={profileOrderTab === "history" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "history"} onClick={() => setProfileOrderTab("history")}>История</button>
+                  </div>
+                  <div className="profile-order-list">
+                    {profileLoading ? <p className="profile-empty">Загружаем заказы…</p> : (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.length ? (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.map((order) => <button className="profile-order-card" type="button" key={order.id} onClick={() => openProfileOrder(order)}>
+                      <span className={`profile-order-status status-${order.status}`}>{profileOrderStatuses[order.status]}</span>
+                      <span className="profile-order-main"><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
+                      <span className="profile-order-delivery"><i aria-hidden="true">▣</i><span><b>{order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{order.address || "Адрес заказа"}</small></span></span>
+                    </button>) : <div className="profile-orders-empty"><span aria-hidden="true">▱</span><p>{profileOrderTab === "active" ? "Активных заказов пока нет" : "История заказов пока пуста"}</p><button type="button" onClick={() => setMenuOpen(false)}>Перейти в меню</button></div>}
+                  </div>
+                </> : null}
+
+                {profileSection === "balance" ? <>
+                  <section className="profile-balance-card"><div><span>Ваш баланс</span><strong>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</strong></div><img src="/nakta-coin.png" alt="NAKTA Coin" /></section>
+                  <section className="profile-info-card"><h3>Как работают NAKTA Coin</h3><p>Баланс и начисления приходят с сервера Накта суши. Используйте доступные коины при оформлении заказа.</p></section>
+                  <section className="profile-info-card"><h3>История начислений</h3>{coinHistory.length ? <div className="profile-coin-history">{coinHistory.map((entry) => <button type="button" disabled={!entry.orderId} key={entry.id} onClick={() => { const order = [...(profileData?.currentOrders ?? []), ...(profileData?.orderHistory ?? [])].find((item) => item.id === entry.orderId); if (order) openProfileOrder(order); }}><span><b>{entry.description}</b>{entry.createdAt ? <small>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(entry.createdAt))}</small> : null}</span><strong className={entry.amount < 0 ? "negative" : ""}>{entry.amount > 0 ? "+" : ""}{new Intl.NumberFormat("ru-RU").format(entry.amount)}</strong></button>)}</div> : <p>Начислений пока нет.</p>}</section>
+                </> : null}
+
+                {profileSection === "settings" ? <>
+                  <section className="profile-settings-field"><span>Телефон аккаунта</span><strong>{verifiedPhone}</strong></section>
+                  <section className="profile-settings-field"><span>Баланс NAKTA Coin</span><strong>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</strong></section>
+                  <a className="profile-settings-link" href="/legal">Правовая информация <span>›</span></a>
+                  <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля <span>↗</span></button>
+                </> : null}
+              </div>
+            </> : <>
+              <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>Привет!</span><strong>Войдите в профиль</strong></div></div>
+              <nav className="profile-links" aria-label="Меню профиля"><a href={supportHref}><span aria-hidden="true">💬</span>Поддержка</a><a href="/about">О нас</a><a href="/jobs">Работа</a><a href="/legal">Правовая информация</a></nav>
+              <button className="profile-login" onClick={() => { setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); setPhoneAuthOpen(true); }}>Войти</button>
+            </>}
           </section>
         </div>
       ) : null}
@@ -2429,7 +2534,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 {phoneAuthMessage ? <div className="phone-auth-message">{phoneAuthMessage}</div> : null}
                 <a className="phone-auth-whatsapp" href={whatsappAuthRequest.whatsappUrl} target="_blank" rel="noreferrer"><span className="whatsapp-icon" aria-hidden="true">◔</span>Открыть WhatsApp</a>
                 <button className="phone-auth-secondary" type="button" onClick={() => void checkWhatsappStatusRef.current()}>Я уже отправил код</button>
-                <button className="phone-auth-fallback" type="button" disabled={phoneAuthBusy} onClick={() => void requestPhoneCode()}>Не получается? Получить код по SMS</button>
+                <button className="phone-auth-fallback" type="button" disabled={phoneAuthBusy} onClick={() => { setWhatsappAuthRequest(null); setPhoneAuthMethod("sms"); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>Не получается? Получить код по SMS</button>
               </div>
             ) : (
               <>
@@ -2445,28 +2550,42 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   ) : (
                     <label><span>Код подтверждения</span><input autoFocus required aria-label="Код из SMS" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
                   )}
+                  {!phoneCodeRequested ? (
+                    <div className="phone-auth-turnstile">
+                      <span>Проверка, что вы человек</span>
+                      <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileResetKey} />
+                    </div>
+                  ) : null}
                   {phoneAuthMessage ? <div className="phone-auth-message" role="status">{phoneAuthMessage}</div> : null}
                   {phoneCodeRequested ? (
                     <>
                       <button className="phone-auth-submit" type="submit" disabled={phoneAuthBusy || phoneCode.length !== 6}>{phoneAuthBusy ? "Подождите…" : "Подтвердить"}</button>
-                      <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); }}>Изменить номер</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => void requestPhoneCode()}>{phoneCodeRetryAfter > 0 ? `Повторно через ${phoneCodeRetryAfter} сек.` : "Отправить код повторно"}</button></div>
+                      <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>Изменить номер</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => { setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>{phoneCodeRetryAfter > 0 ? `Повторно через ${phoneCodeRetryAfter} сек.` : "Получить новый код"}</button></div>
                     </>
                   ) : (
                     <>
                       {whatsappAvailable ? (
                         <>
                           <button className="phone-auth-whatsapp" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestWhatsappAuth()}><span className="whatsapp-icon" aria-hidden="true">◔</span>{phoneAuthBusy && phoneAuthMethod === "whatsapp" ? "Открываем WhatsApp…" : "Подтвердить через WhatsApp"}</button>
-                          <button className="phone-auth-secondary" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код по SMS"}</button>
+                          <button className="phone-auth-secondary" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim() || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код по SMS"}</button>
                         </>
                       ) : (
-                        <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim()} onClick={() => void requestPhoneCode()}>{phoneAuthBusy ? "Отправляем SMS…" : "Получить код по SMS"}</button>
+                        <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || !checkoutForm.phone.trim() || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy ? "Отправляем SMS…" : "Получить код по SMS"}</button>
                       )}
                     </>
                   )}
                 </form>
+                {!phoneCodeRequested ? <div className="phone-auth-legal">
+                  <p>Нажимая «Получить код», вы соглашаетесь с <a href="/legal">обработкой персональных данных</a>, <a href="/privacy">политикой конфиденциальности</a> и <a href="/terms">условиями использования</a>.</p>
+                  <nav aria-label="Правовая информация">
+                    <a href="/privacy"><span aria-hidden="true">◇</span>Политика конфиденциальности<b>›</b></a>
+                    <a href="/terms"><span aria-hidden="true">□</span>Условия использования<b>›</b></a>
+                    <a href="/terms"><span aria-hidden="true">▤</span>Условия доставки и оплаты<b>›</b></a>
+                  </nav>
+                </div> : null}
               </>
             )}
-            <button className="phone-auth-back" type="button" onClick={() => { setPhoneAuthOpen(false); setCartOpen(true); }}>Вернуться в корзину</button>
+            {phoneAuthPurpose === "checkout" ? <button className="phone-auth-back" type="button" onClick={() => { setPhoneAuthOpen(false); setCartOpen(true); }}>Вернуться в корзину</button> : null}
           </aside>
         </div>
       ) : null}

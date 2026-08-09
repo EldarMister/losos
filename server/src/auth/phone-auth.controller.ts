@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   HttpCode,
+  Ip,
   Param,
   Post,
   Query,
@@ -92,8 +93,8 @@ export class PhoneAuthController {
 
   @Post("request-code")
   @HttpCode(200)
-  requestCode(@Body() dto: RequestPhoneCodeDto) {
-    return this.auth.requestCode(dto.phone);
+  requestCode(@Body() dto: RequestPhoneCodeDto, @Ip() remoteIp: string) {
+    return this.auth.requestCode(dto.phone, dto.captchaToken, remoteIp);
   }
 
   @Post("verify-code")

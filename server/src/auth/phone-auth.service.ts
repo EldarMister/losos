@@ -25,6 +25,7 @@ import { PhoneAccount } from "./phone-account.entity";
 import { OrderStatus } from "../orders/order.enums";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
+import { CaptchaVerificationService } from "./captcha-verification.service";
 
 const CODE_TTL_MS = 5 * 60_000;
 const WHATSAPP_CODE_TTL_MS = 10 * 60_000;
@@ -64,13 +65,15 @@ export class PhoneAuthService {
     private readonly config: ConfigService,
     private readonly otp: NikitaOtpService,
     private readonly whatsapp: WhatsappCloudService,
+    private readonly captcha: CaptchaVerificationService,
     @InjectRepository(AuthorizedPhone)
     private readonly authorizedPhones: Repository<AuthorizedPhone>,
     @InjectRepository(PhoneAccount)
     private readonly accounts: Repository<PhoneAccount>,
   ) {}
 
-  async requestCode(phone: string) {
+  async requestCode(phone: string, captchaToken: string, remoteIp: string) {
+    await this.captcha.verify(captchaToken, remoteIp);
     this.hash("configuration-check");
     if (await this.authorizedPhones.existsBy({ phone, enabled: true })) {
       return this.issueTrustedVerification(phone);

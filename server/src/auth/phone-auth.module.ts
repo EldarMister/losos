@@ -8,6 +8,7 @@ import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { PhoneAuthService } from "./phone-auth.service";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
 import { PushNotificationsModule } from "../notifications/push-notifications.module";
+import { CaptchaVerificationService } from "./captcha-verification.service";
 
 @Module({
   imports: [
@@ -15,7 +16,12 @@ import { PushNotificationsModule } from "../notifications/push-notifications.mod
     PushNotificationsModule,
   ],
   controllers: [PhoneAuthController],
-  providers: [PhoneAuthService, NikitaOtpService, WhatsappCloudService],
+  providers: [
+    PhoneAuthService,
+    NikitaOtpService,
+    WhatsappCloudService,
+    CaptchaVerificationService,
+  ],
   exports: [PhoneAuthService],
 })
 export class PhoneAuthModule {}

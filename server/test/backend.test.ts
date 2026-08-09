@@ -60,10 +60,18 @@ const baseOrder = {
   items: [{ productId: 1, quantity: 1, modifiers: [] }],
 };
 
-test("phone auth DTO normalizes supported numbers and requires a six-digit code", () => {
-  const request = plainToInstance(RequestPhoneCodeDto, { phone: "+996 (555) 123-456" });
+test("phone auth DTO normalizes supported numbers and requires CAPTCHA for SMS", () => {
+  const request = plainToInstance(RequestPhoneCodeDto, {
+    phone: "+996 (555) 123-456",
+    captchaToken: "turnstile-token-with-enough-length",
+  });
   assert.deepEqual(validateSync(request), []);
   assert.equal(request.phone, "+996555123456");
+
+  const missingCaptcha = plainToInstance(RequestPhoneCodeDto, {
+    phone: "+996555123456",
+  });
+  assert.ok(validateSync(missingCaptcha).some((error) => error.property === "captchaToken"));
 
   const verified = plainToInstance(VerifyPhoneCodeDto, {
     phone: "+996 555 123 456",
@@ -432,6 +440,7 @@ test("account deletion verifies the session and removes all phone-owned profile 
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     accounts as never,
   );
 
@@ -504,6 +513,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
     new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
     {} as never,
     whatsapp as never,
+    {} as never,
     { existsBy: async () => false } as never,
     accountRepository as never,
   );
