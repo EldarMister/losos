@@ -30,6 +30,15 @@ const statusLabels: Record<ProfileOrderDetail["status"], string> = {
   completed: "Заказ выполнен",
   cancelled: "Заказ отменён",
 };
+const posStatusLabels: Record<string, string> = {
+  sent_to_kitchen: "Заказ передан на кухню",
+  accepted_by_kitchen: "Кухня приняла заказ",
+  cooking: "Заказ готовится",
+  partially_rejected: "Некоторые блюда недоступны",
+  ready: "Заказ готов",
+  rejected: "Кухня отклонила заказ",
+  cancelled: "Заказ отменён",
+};
 
 function formatOrderDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {
@@ -124,15 +133,38 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
               color={order.status === "cancelled" ? colors.danger : colors.orange}
             />
             <View style={styles.statusCopy}>
-              <Text style={styles.statusTitle}>{statusLabels[order.status]}</Text>
+              <Text style={styles.statusTitle}>
+                {order.posStatus ? posStatusLabels[order.posStatus] || statusLabels[order.status] : statusLabels[order.status]}
+              </Text>
               <Text style={styles.statusDate}>{formatOrderDate(order.createdAt)}</Text>
             </View>
           </View>
 
+          {order.posProgress?.itemsTotal ? (
+            <View style={styles.progressCard}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressTitle}>
+                  Готово {order.posProgress.itemsReady} из {order.posProgress.itemsTotal} блюд
+                </Text>
+                {order.posProgress.itemsRejected > 0 ? (
+                  <Text style={styles.progressRejected}>Отклонено: {order.posProgress.itemsRejected}</Text>
+                ) : null}
+              </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressValue,
+                    { width: `${Math.min(100, (order.posProgress.itemsReady / order.posProgress.itemsTotal) * 100)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          ) : null}
+
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Состав заказа</Text>
             {order.items.map((item, index) => (
-              <View key={`${item.productName}-${index}`} style={styles.itemRow}>
+              <View key={`${item.productName}-${index}`} style={[styles.itemRow, item.posStatus === "rejected" && styles.itemRejected]}>
                 <View style={styles.quantityBadge}>
                   <Text style={styles.quantityText}>{item.quantity}</Text>
                 </View>
@@ -143,6 +175,23 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
                       {item.modifierSnapshots
                         .map((modifier) => `${modifier.itemName} ×${modifier.quantity}`)
                         .join(", ")}
+                    </Text>
+                  ) : null}
+                  {item.posStatus ? (
+                    <Text style={[
+                      styles.itemKitchenStatus,
+                      item.posStatus === "ready" && styles.itemKitchenReady,
+                      item.posStatus === "rejected" && styles.itemKitchenRejected,
+                    ]}>
+                      {item.posStatus === "ready"
+                        ? "Готово"
+                        : item.posStatus === "cooking"
+                          ? `Готовится${item.posReadyQuantity ? ` · готово ${item.posReadyQuantity}` : ""}`
+                          : item.posStatus === "rejected"
+                            ? `Отклонено${item.posRejectReason ? `: ${item.posRejectReason}` : ""}`
+                            : item.posStatus === "accepted"
+                              ? "Принято кухней"
+                              : "Ожидает кухню"}
                     </Text>
                   ) : null}
                 </View>
@@ -294,6 +343,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  progressCard: {
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: "#FFF5EA",
+    gap: 10,
+  },
+  progressHeader: {
+    gap: 3,
+  },
+  progressTitle: {
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  progressRejected: {
+    color: colors.danger,
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#F0D6BF",
+    overflow: "hidden",
+  },
+  progressValue: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: colors.orange,
+  },
   card: {
     padding: 17,
     borderWidth: 1,
@@ -316,6 +397,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  itemRejected: {
+    marginHorizontal: -7,
+    paddingHorizontal: 7,
+    borderRadius: 12,
+    backgroundColor: "#FFF1EE",
   },
   quantityBadge: {
     width: 29,
@@ -346,6 +433,19 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 10,
     lineHeight: 14,
+  },
+  itemKitchenStatus: {
+    marginTop: 3,
+    color: "#A05A00",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  itemKitchenReady: {
+    color: "#27804F",
+  },
+  itemKitchenRejected: {
+    color: colors.danger,
   },
   itemPrice: {
     color: colors.ink,

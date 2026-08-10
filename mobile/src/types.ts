@@ -159,6 +159,15 @@ export type CreatedOrder = {
   orderNumber?: number;
   total: number;
   status: string;
+  posStatus?: string | null;
+  posSyncStatus?: string;
+  posProgress?: PosProgress;
+};
+
+export type PosProgress = {
+  itemsTotal: number;
+  itemsReady: number;
+  itemsRejected: number;
 };
 
 export type AuthSession = {
@@ -199,6 +208,9 @@ export type ProfileOrder = {
   address?: string;
   naktaCoins?: number;
   earnedNaktaCoins?: number;
+  posStatus?: string | null;
+  posSyncStatus?: string;
+  posProgress?: PosProgress;
 };
 
 export type NaktaCoinTransaction = {
@@ -227,10 +239,18 @@ export type ProfileOrderDetail = ProfileOrder & {
   utensilsCount: number;
   noUtensils: boolean;
   paymentMethod: "cash" | "card";
+  externalOrderId?: string | null;
+  posOrderNumber?: string | null;
+  posStatus?: string | null;
+  posSyncStatus?: string;
+  posProgress?: PosProgress;
   items: Array<{
     productName: string;
     quantity: number;
     lineTotal: number;
     modifierSnapshots: Array<{ itemName: string; quantity: number }>;
+    posStatus?: string | null;
+    posReadyQuantity?: number;
+    posRejectReason?: string | null;
   }>;
 };

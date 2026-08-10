@@ -120,28 +120,38 @@ export function CatalogScreen({
   const availability = orderingAvailability(store.activeRegion, new Date(scheduleNow));
   const productCardWidth = 172;
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
-    setError("");
+  const load = useCallback(async (refresh = false, silent = false) => {
+    if (!silent) {
+      if (refresh) setRefreshing(true);
+      else setLoading(true);
+      setError("");
+    }
     try {
       const [nextCategories, nextPromotions] = await Promise.all([
         catalogApi.categories(store.regionSlug),
         catalogApi.promotions(store.regionSlug),
       ]);
       setCategories(nextCategories);
+      store.syncCartProducts(nextCategories.flatMap((category) => category.products));
       setPromotions(nextPromotions);
       setActiveCategory((current) => current || nextCategories[0]?.slug || "");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось загрузить каталог");
+      if (!silent) setError(reason instanceof Error ? reason.message : "Не удалось загрузить каталог");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!silent) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [store.regionSlug]);
+  }, [store.regionSlug, store.syncCartProducts]);
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const timer = setInterval(() => void load(false, true), 45_000);
+    return () => clearInterval(timer);
   }, [load]);
 
   useEffect(() => {

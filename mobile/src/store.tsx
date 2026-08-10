@@ -59,6 +59,7 @@ type StoreValue = PersistedState & {
   decrementCartProduct: (productId: number) => void;
   setCartQuantity: (key: string, quantity: number) => void;
   clearCart: () => void;
+  syncCartProducts: (products: Product[]) => void;
 };
 
 const initialState: PersistedState = {
@@ -203,6 +204,18 @@ export function StoreProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
+  const syncCartProducts = useCallback((products: Product[]) => {
+    const byId = new Map(products.map((product) => [product.id, product]));
+    setState((current) => ({
+      ...current,
+      cart: current.cart.flatMap((line) => {
+        const product = byId.get(line.product.id);
+        if (!product || product.available === false) return [];
+        return [{ ...line, product }];
+      }),
+    }));
+  }, []);
+
   const value = useMemo<StoreValue>(() => {
     const cartCount = state.cart.reduce((sum, line) => sum + line.quantity, 0);
     const cartTotal = state.cart.reduce((sum, line) => sum + lineTotal(line), 0);
@@ -238,6 +251,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
       decrementCartProduct,
       setCartQuantity,
       clearCart: () => patch({ cart: [] }),
+      syncCartProducts,
     };
   }, [
     addCartLine,
@@ -248,6 +262,7 @@ export function StoreProvider({ children }: PropsWithChildren) {
     regions,
     session,
     setCartQuantity,
+    syncCartProducts,
     state,
   ]);
 

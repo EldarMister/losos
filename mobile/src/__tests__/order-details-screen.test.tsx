@@ -60,11 +60,17 @@ describe("OrderDetailsScreen", () => {
       utensilsCount: 1,
       noUtensils: false,
       paymentMethod: "cash",
+      posStatus: "partially_rejected",
+      posSyncStatus: "synced",
+      posProgress: { itemsTotal: 2, itemsReady: 1, itemsRejected: 1 },
       items: [{
         productName: "Шаурокинава",
         quantity: 1,
         lineTotal: 405,
         modifierSnapshots: [],
+        posStatus: "rejected",
+        posReadyQuantity: 0,
+        posRejectReason: "Закончился лосось",
       }],
     } satisfies ProfileOrderDetail);
 
@@ -72,7 +78,10 @@ describe("OrderDetailsScreen", () => {
       <OrderDetailsScreen onBack={jest.fn()} orderId="5f2334-order" />,
     );
 
-    expect(await screen.findByText("Заказ принят")).toBeTruthy();
+    expect(await screen.findByText("Некоторые блюда недоступны")).toBeTruthy();
+    expect(screen.getByText("Готово 1 из 2 блюд")).toBeTruthy();
+    expect(screen.getByText("Отклонено: 1")).toBeTruthy();
+    expect(screen.getByText("Отклонено: Закончился лосось")).toBeTruthy();
     expect(screen.getByText("Состав заказа")).toBeTruthy();
     expect(screen.getByText("Шаурокинава")).toBeTruthy();
     expect(screen.getByText("3 145 С")).toBeTruthy();

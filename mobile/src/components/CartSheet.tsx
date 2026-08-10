@@ -52,7 +52,10 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
     const task = InteractionManager.runAfterInteractions(() => {
       catalogApi.categories(store.regionSlug)
         .then((nextCategories) => {
-          if (!ignore) setCategories(nextCategories);
+          if (!ignore) {
+            setCategories(nextCategories);
+            store.syncCartProducts(nextCategories.flatMap((category) => category.products));
+          }
         })
         .catch(() => undefined);
     });
@@ -60,7 +63,7 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
       ignore = true;
       task.cancel();
     };
-  }, [store.regionSlug, visible]);
+  }, [store.regionSlug, store.syncCartProducts, visible]);
 
   useEffect(() => {
     if (!visible) return undefined;
