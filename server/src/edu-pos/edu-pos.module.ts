@@ -12,4 +12,3 @@ import { EduPosService } from "./edu-pos.service";
   exports: [EduPosClient, EduPosService],
 })
 export class EduPosModule {}
-

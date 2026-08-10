@@ -5,7 +5,6 @@ export type EduPosOrderItemPayload = {
   weightGrams?: number;
   comment?: string;
 };
-
 export type EduPosCreateOrderPayload = {
   externalOrderId: string;
   customerName?: string;
@@ -57,4 +56,3 @@ export type EduPosMenuDish = {
   soldByWeight: boolean;
   variants: EduPosMenuVariant[];
 };
-
