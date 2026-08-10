@@ -6,7 +6,7 @@ import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
 
 type PickupLocation = { id: number; title: string; address: string; workingHours: string; latitude: number | null; longitude: number | null; yandexUrl: string; enabled: boolean; sortOrder: number };
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; supportPhone: string; supportUrl: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; menuSourceRegionSlug: string | null; promotionSourceRegionSlug: string | null; contactPhone: string; contactEmail: string; contactAddress: string; supportPhone: string; supportUrl: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
 type Product = {
   id: number;
   name: string;
@@ -52,7 +52,7 @@ type ModifierGroup = {
 };
 type Category = { id: number; title: string; slug: string; image: string; sortOrder: number; products: Product[] };
 type Promotion = { id: number; title: string; image: string; cta: string; ctaUrl: string; enabled: boolean; sortOrder: number };
-type Dashboard = { region: Region; categories: Category[]; promotions: Promotion[] };
+type Dashboard = { region: Region; menuRegionSlug: string; promotionRegionSlug: string; categories: Category[]; promotions: Promotion[] };
 type OrderStatus = "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
 type OrderModifierSnapshot = {
   groupId: string;
@@ -151,10 +151,12 @@ const apiUrl = (
 const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
   bishkek: [[42.94, 74.48], [42.945, 74.62], [42.925, 74.71], [42.89, 74.75], [42.835, 74.74], [42.795, 74.68], [42.78, 74.57], [42.795, 74.48], [42.84, 74.43], [42.9, 74.44]].map(([latitude, longitude]) => ({ latitude, longitude })),
   osh: [[40.59, 72.75], [40.6, 72.84], [40.565, 72.9], [40.505, 72.91], [40.46, 72.86], [40.445, 72.78], [40.475, 72.72], [40.535, 72.7]].map(([latitude, longitude]) => ({ latitude, longitude })),
+  "otuz-adyr": [[40.64, 72.92], [40.645, 72.98], [40.625, 73.02], [40.59, 73.02], [40.565, 72.99], [40.565, 72.94], [40.585, 72.91], [40.62, 72.91]].map(([latitude, longitude]) => ({ latitude, longitude })),
 };
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, menuSourceRegionSlug: null, promotionSourceRegionSlug: null, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, menuSourceRegionSlug: null, promotionSourceRegionSlug: null, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 2, slug: "otuz-adyr", name: "Отуз-Адыр", enabled: true, sortOrder: 2, menuSourceRegionSlug: "osh", promotionSourceRegionSlug: "osh", contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones["otuz-adyr"], footerCompanyName: "", footerLegalInfo: "" },
 ];
 
 function formatDeliveryZone(points: DeliveryZonePoint[] | undefined) {
@@ -783,6 +785,8 @@ export function AdminApp() {
         name: item.name,
         enabled: item.enabled,
         sortOrder: String(item.sortOrder),
+        menuSourceRegionSlug: item.menuSourceRegionSlug || "",
+        promotionSourceRegionSlug: item.promotionSourceRegionSlug || "",
         contactPhone: item.contactPhone || "",
         contactEmail: item.contactEmail || "",
         contactAddress: item.contactAddress || "",
@@ -821,6 +825,8 @@ export function AdminApp() {
         name: "",
         enabled: true,
         sortOrder: String(availableRegions.length),
+        menuSourceRegionSlug: "",
+        promotionSourceRegionSlug: "",
         contactPhone: "",
         contactEmail: "",
         contactAddress: "",
@@ -1144,6 +1150,7 @@ export function AdminApp() {
           <span>Всего блюд: <b>{products.length}</b></span><i />
           <span>Категорий: <b>{dashboard?.categories.length || 0}</b></span><i />
           <span>В продаже: <b>{products.filter((product) => product.available).length}</b></span>
+          {dashboard?.menuRegionSlug !== region ? <><i /><span>Общее меню: <b>{availableRegions.find((item) => item.slug === dashboard?.menuRegionSlug)?.name || dashboard?.menuRegionSlug}</b></span></> : null}
         </div>
         <div className="admin-catalog-card">
           <div className="admin-catalog-toolbar">
@@ -1174,7 +1181,7 @@ export function AdminApp() {
       </> : null}
 
       {tab === "promotions" ? <>
-        <div className="admin-page-summary"><span>Всего акций: <b>{dashboard?.promotions.length || 0}</b></span><i /><span>Активных: <b>{dashboard?.promotions.filter((item) => item.enabled).length || 0}</b></span></div>
+        <div className="admin-page-summary"><span>Всего акций: <b>{dashboard?.promotions.length || 0}</b></span><i /><span>Активных: <b>{dashboard?.promotions.filter((item) => item.enabled).length || 0}</b></span>{dashboard?.promotionRegionSlug !== region ? <><i /><span>Общие акции: <b>{availableRegions.find((item) => item.slug === dashboard?.promotionRegionSlug)?.name || dashboard?.promotionRegionSlug}</b></span></> : null}</div>
         <div className="admin-catalog-card">
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по акциям" /></label>
@@ -1212,7 +1219,7 @@ export function AdminApp() {
           <div className="admin-settings-title"><span><b>Города и контакты</b><small>Города, доступные на витрине, и данные для связи с клиентами.</small></span></div>
           <div className="admin-settings-list">
             {availableRegions.map((item) => <button key={item.id || item.slug} onClick={() => openRegion(item)}>
-              <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug}</small></span>
+              <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug} · меню: {availableRegions.find((source) => source.slug === item.menuSourceRegionSlug)?.name || "своё"} · акции: {availableRegions.find((source) => source.slug === item.promotionSourceRegionSlug)?.name || "свои"}</small></span>
               <span><small>Телефон</small><b>{item.contactPhone || "Не указан"}</b></span>
               <span><small>Почта</small><b>{item.contactEmail || "Не указана"}</b></span>
               <span><small>Доставка</small><b>{item.deliveryOpenTime || "11:30"}–{item.deliveryCloseTime || "22:30"} · бесплатно от {formatSom(item.freeDeliveryThreshold ?? 4900)}</b></span>
@@ -1330,6 +1337,13 @@ export function AdminApp() {
           <div className="admin-two-fields">
             <label>Номер поддержки<input value={String(regionEditor.values.supportPhone)} onChange={(event) => updateRegionValue("supportPhone", event.target.value)} placeholder="+996 555 123 456" /></label>
             <label>Ссылка на поддержку<input type="url" value={String(regionEditor.values.supportUrl)} onChange={(event) => updateRegionValue("supportUrl", event.target.value)} placeholder="https://t.me/your_support" /></label>
+          </div>
+        </div>
+        <div className="admin-region-block">
+          <b>Общее меню и акции</b><small>Можно использовать контент другого города. Доставка, кухни и заказы при этом останутся у текущего города.</small>
+          <div className="admin-two-fields">
+            <label>Источник меню<select value={String(regionEditor.values.menuSourceRegionSlug || "")} onChange={(event) => updateRegionValue("menuSourceRegionSlug", event.target.value)}><option value="">Собственное меню</option>{availableRegions.filter((item) => item.slug !== String(regionEditor.values.slug)).map((item) => <option value={item.slug} key={item.slug}>{item.name}</option>)}</select></label>
+            <label>Источник акций<select value={String(regionEditor.values.promotionSourceRegionSlug || "")} onChange={(event) => updateRegionValue("promotionSourceRegionSlug", event.target.value)}><option value="">Собственные акции</option>{availableRegions.filter((item) => item.slug !== String(regionEditor.values.slug)).map((item) => <option value={item.slug} key={item.slug}>{item.name}</option>)}</select></label>
           </div>
         </div>
         </div> : null}

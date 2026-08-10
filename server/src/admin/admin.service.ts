@@ -9,6 +9,7 @@ import {
 import { Product } from "../catalog/product.entity";
 import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
+import { regionContentSourceSlug, type RegionContentSourceField } from "../catalog/region-content-source";
 import { PickupLocation } from "../catalog/pickup-location.entity";
 import { resolvePickupMapLink } from "../catalog/pickup-map-link";
 import { Order } from "../orders/order.entity";
@@ -45,14 +46,16 @@ export class AdminService {
 
   async dashboard(regionSlug: string) {
     const region = await this.requireRegion(regionSlug);
+    const menuRegion = await this.contentSource(region, "menuSourceRegionSlug");
+    const promotionRegion = await this.contentSource(region, "promotionSourceRegionSlug");
     const [categories, promotions] = await Promise.all([
       this.categories.find({
-        where: { region: { id: region.id } },
+        where: { region: { id: menuRegion.id } },
         relations: { products: true },
         order: { sortOrder: "ASC", products: { sortOrder: "ASC", id: "ASC" } },
       }),
       this.promotions.find({
-        where: { region: { id: region.id } },
+        where: { region: { id: promotionRegion.id } },
         order: { sortOrder: "ASC", id: "ASC" },
       }),
     ]);
@@ -60,7 +63,13 @@ export class AdminService {
       where: { region: { id: region.id } },
       order: { sortOrder: "ASC", id: "ASC" },
     });
-    return { region: { ...region, pickupLocations }, categories, promotions };
+    return {
+      region: { ...region, pickupLocations },
+      menuRegionSlug: menuRegion.slug,
+      promotionRegionSlug: promotionRegion.slug,
+      categories,
+      promotions,
+    };
   }
 
   settings() {
@@ -74,13 +83,15 @@ export class AdminService {
     const slug = dto.slug.trim().toLowerCase();
     const exists = await this.regions.findOne({ where: { slug } });
     if (exists) throw new BadRequestException("Город с таким адресом уже существует");
-    return this.regions.save(this.regions.create({ ...dto, slug }));
+    const sources = await this.validateContentSources(slug, dto);
+    return this.regions.save(this.regions.create({ ...dto, ...sources, slug }));
   }
 
   async updateRegion(id: number, dto: UpdateRegionDto) {
     const region = await this.regions.findOne({ where: { id } });
     if (!region) throw new NotFoundException("Город не найден");
-    Object.assign(region, dto);
+    const sources = await this.validateContentSources(region.slug, dto);
+    Object.assign(region, dto, sources);
     return this.regions.save(region);
   }
 
@@ -190,7 +201,8 @@ export class AdminService {
   }
 
   async createCategory(dto: CreateCategoryDto) {
-    const region = await this.requireRegion(dto.regionSlug);
+    const requestedRegion = await this.requireRegion(dto.regionSlug);
+    const region = await this.contentSource(requestedRegion, "menuSourceRegionSlug");
     const exists = await this.categories.findOne({ where: { region: { id: region.id }, slug: dto.slug } });
     if (exists) throw new BadRequestException("Category slug already exists in this region");
     return this.categories.save(this.categories.create({ ...dto, region }));
@@ -211,7 +223,8 @@ export class AdminService {
   async createProduct(dto: CreateProductDto) {
     this.validateModifierGroups(dto.modifierGroups);
     this.validateOldPrice(dto.price, dto.oldPrice);
-    const region = await this.requireRegion(dto.regionSlug);
+    const requestedRegion = await this.requireRegion(dto.regionSlug);
+    const region = await this.contentSource(requestedRegion, "menuSourceRegionSlug");
     const category = await this.requireCategory(dto.categoryId);
     if (category.region.id !== region.id) throw new BadRequestException("Category belongs to another region");
     const { regionSlug: _regionSlug, categoryId: _categoryId, ...data } = dto;
@@ -248,7 +261,8 @@ export class AdminService {
   }
 
   async createPromotion(dto: CreatePromotionDto) {
-    const region = await this.requireRegion(dto.regionSlug);
+    const requestedRegion = await this.requireRegion(dto.regionSlug);
+    const region = await this.contentSource(requestedRegion, "promotionSourceRegionSlug");
     const { regionSlug: _regionSlug, ...data } = dto;
     return this.promotions.save(this.promotions.create({ ...data, region }));
   }
@@ -269,6 +283,40 @@ export class AdminService {
     const region = await this.regions.findOne({ where: { slug, enabled: true } });
     if (!region) throw new NotFoundException("Region not found");
     return region;
+  }
+
+  private async contentSource(
+    region: Region,
+    field: RegionContentSourceField,
+  ) {
+    const sourceSlug = regionContentSourceSlug(region, field);
+    if (sourceSlug === region.slug) return region;
+    const source = await this.regions.findOne({ where: { slug: sourceSlug } });
+    if (!source) throw new BadRequestException("Выбранный источник контента не найден");
+    return source;
+  }
+
+  private async validateContentSources(
+    regionSlug: string,
+    dto: Pick<CreateRegionDto | UpdateRegionDto, "menuSourceRegionSlug" | "promotionSourceRegionSlug">,
+  ) {
+    const entries = [
+      ["menuSourceRegionSlug", dto.menuSourceRegionSlug],
+      ["promotionSourceRegionSlug", dto.promotionSourceRegionSlug],
+    ] as const;
+    const result: Partial<Pick<Region, "menuSourceRegionSlug" | "promotionSourceRegionSlug">> = {};
+    for (const [field, value] of entries) {
+      if (value === undefined) continue;
+      const sourceSlug = value.trim().toLowerCase();
+      if (!sourceSlug || sourceSlug === regionSlug) {
+        result[field] = null;
+        continue;
+      }
+      const source = await this.regions.findOne({ where: { slug: sourceSlug } });
+      if (!source) throw new BadRequestException("Выбранный источник контента не найден");
+      result[field] = source.slug;
+    }
+    return result;
   }
 
   private async requireCategory(id: number) {

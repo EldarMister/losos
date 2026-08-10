@@ -39,6 +39,7 @@ import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAu
 import { AddWhatsappAuth1784989000000 } from "./migrations/1784989000000-AddWhatsappAuth";
 import { AddRegionDeliverySettings1784990000000 } from "./migrations/1784990000000-AddRegionDeliverySettings";
 import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
+import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/17849990
             AddRegionDeliveryDetailsAndZone1784997000000,
             AddOrderCompletionAndSupportContact1784998000000,
             AddEduPosDeliveryIntegration1784999000000,
+            AddSharedRegionContentAndOtuzAdyr1785000000000,
           ],
           migrationsRun: true,
           synchronize:

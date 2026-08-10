@@ -10,6 +10,7 @@ import {
   CreateRegionDto,
   CreateProductDto,
   CreatePromotionDto,
+  UpdateRegionDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
 import { dispatchOrderStatusPush } from "../src/admin/order-status-notifier";
@@ -29,6 +30,7 @@ import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
+import { regionContentSourceSlug } from "../src/catalog/region-content-source";
 import {
   assertYandexMapUrl,
   pickupCoordinatesFromYandexUrl,
@@ -51,6 +53,7 @@ import { priceOrderLine } from "../src/orders/order-pricing";
 import { PushNotificationsService } from "../src/notifications/push-notifications.service";
 import { AddPickupLocationsAndPushTokens1784996000000 } from "../src/migrations/1784996000000-AddPickupLocationsAndPushTokens";
 import { AddRegionDeliveryDetailsAndZone1784997000000 } from "../src/migrations/1784997000000-AddRegionDeliveryDetailsAndZone";
+import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "../src/migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -138,6 +141,34 @@ test("region delivery settings validate time, days, and free-delivery threshold"
     deliveryZone: [{ latitude: 200, longitude: 300 }],
   });
   assert.ok(validateSync(invalid).length >= 9);
+});
+
+test("region settings accept independent menu and promotion sources", () => {
+  const valid = plainToInstance(UpdateRegionDto, {
+    menuSourceRegionSlug: "osh",
+    promotionSourceRegionSlug: "bishkek",
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const tooLong = plainToInstance(UpdateRegionDto, {
+    menuSourceRegionSlug: "x".repeat(101),
+  });
+  assert.ok(validateSync(tooLong).some((error) => error.property === "menuSourceRegionSlug"));
+});
+
+test("region content sources keep menu and promotions independent", () => {
+  const region = {
+    slug: "otuz-adyr",
+    menuSourceRegionSlug: "osh",
+    promotionSourceRegionSlug: "bishkek",
+  };
+  assert.equal(regionContentSourceSlug(region, "menuSourceRegionSlug"), "osh");
+  assert.equal(regionContentSourceSlug(region, "promotionSourceRegionSlug"), "bishkek");
+  assert.equal(regionContentSourceSlug({ slug: "osh" }, "menuSourceRegionSlug"), "osh");
+  assert.equal(regionContentSourceSlug({
+    slug: "osh",
+    menuSourceRegionSlug: "osh",
+  }, "menuSourceRegionSlug"), "osh");
 });
 
 test("SMS resend delays grow from a minute to a day", () => {
@@ -1038,6 +1069,25 @@ test("order statuses allow only explicit transitions", () => {
   assert.equal(canTransitionOrderStatus(OrderStatus.NEW, OrderStatus.COMPLETED), false);
   assert.equal(canTransitionOrderStatus(OrderStatus.COMPLETED, OrderStatus.NEW), false);
   assert.equal(canTransitionOrderStatus(OrderStatus.READY, OrderStatus.COMPLETED), true);
+});
+
+test("shared region migration adds source selectors and seeds Otuz-Adyr", async () => {
+  const migration = new AddSharedRegionContentAndOtuzAdyr1785000000000();
+  const queries: Array<{ statement: string; parameters?: unknown[] }> = [];
+  await migration.up({
+    query: async (statement: string, parameters?: unknown[]) => {
+      queries.push({ statement: statement.replace(/\s+/g, " ").trim(), parameters });
+      return [];
+    },
+  } as never);
+
+  assert.ok(queries.some(({ statement }) => statement.includes('"menuSourceRegionSlug"')));
+  assert.ok(queries.some(({ statement }) => statement.includes('"promotionSourceRegionSlug"')));
+  const seed = queries.find(({ statement }) => statement.includes("INSERT INTO \"regions\""));
+  assert.ok(seed?.statement.includes("'otuz-adyr'"));
+  assert.ok(seed?.statement.includes("'Отуз-Адыр'"));
+  assert.ok(seed?.statement.includes("'osh', 'osh'"));
+  assert.ok(String(seed?.parameters?.[0]).includes("40.64"));
 });
 
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {

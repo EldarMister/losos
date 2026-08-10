@@ -29,6 +29,11 @@ const regionMapConfig: Record<string, RegionMapConfig> = {
     center: [40.513, 72.8161],
     bounds: [[40.35, 72.61], [40.69, 73.08]],
   },
+  "otuz-adyr": {
+    city: "Отуз-Адыр",
+    center: [40.606046, 72.966095],
+    bounds: [[40.54, 72.88], [40.68, 73.06]],
+  },
 };
 
 function getRegionMapConfig(

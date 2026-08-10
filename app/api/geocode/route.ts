@@ -33,6 +33,10 @@ const REGION_CONFIG = {
     city: "Ош",
     bbox: "72.61,40.35~73.08,40.69",
   },
+  "otuz-adyr": {
+    city: "Отуз-Адыр",
+    bbox: "72.88,40.54~73.06,40.68",
+  },
 } as const;
 
 type RegionSlug = keyof typeof REGION_CONFIG;

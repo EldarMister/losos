@@ -21,6 +21,12 @@ export class Region {
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 
+  @Column({ type: "varchar", length: 100, nullable: true })
+  menuSourceRegionSlug!: string | null;
+
+  @Column({ type: "varchar", length: 100, nullable: true })
+  promotionSourceRegionSlug!: string | null;
+
   @Column({ default: "" })
   contactPhone!: string;
 

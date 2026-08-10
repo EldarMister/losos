@@ -15,6 +15,7 @@ type Props = {
 const regionCenters: Record<string, [number, number]> = {
   bishkek: [42.8746, 74.5698],
   osh: [40.513, 72.8161],
+  "otuz-adyr": [40.606046, 72.966095],
 };
 
 let mapsPromise: Promise<any> | null = null;

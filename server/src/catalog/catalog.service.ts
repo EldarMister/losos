@@ -5,12 +5,37 @@ import { Category } from "./category.entity";
 import { Product } from "./product.entity";
 import { Promotion } from "./promotion.entity";
 import { Region } from "./region.entity";
+import { regionContentSourceSlug, type RegionContentSourceField } from "./region-content-source";
 import { seedCategories } from "./seed-data";
 
-const defaultRegions = [
+const defaultRegions: Array<{
+  slug: string;
+  name: string;
+  sortOrder: number;
+  menuSourceRegionSlug?: string;
+  promotionSourceRegionSlug?: string;
+  deliveryZone?: Array<{ latitude: number; longitude: number }>;
+}> = [
   { slug: "bishkek", name: "Бишкек", sortOrder: 0 },
   { slug: "osh", name: "Ош", sortOrder: 1 },
-] as const;
+  {
+    slug: "otuz-adyr",
+    name: "Отуз-Адыр",
+    sortOrder: 2,
+    menuSourceRegionSlug: "osh",
+    promotionSourceRegionSlug: "osh",
+    deliveryZone: [
+      { latitude: 40.64, longitude: 72.92 },
+      { latitude: 40.645, longitude: 72.98 },
+      { latitude: 40.625, longitude: 73.02 },
+      { latitude: 40.59, longitude: 73.02 },
+      { latitude: 40.565, longitude: 72.99 },
+      { latitude: 40.565, longitude: 72.94 },
+      { latitude: 40.585, longitude: 72.91 },
+      { latitude: 40.62, longitude: 72.91 },
+    ],
+  },
+];
 
 const defaultPromotions = [
   {
@@ -88,24 +113,28 @@ export class CatalogService implements OnModuleInit {
         if (region) continue;
 
         region = await regions.save(regions.create(definition));
-        for (const entry of seedCategories) {
-          const category = await categories.save(categories.create({
-            slug: entry.slug,
-            title: entry.title,
-            sortOrder: entry.sortOrder,
+        if (!definition.menuSourceRegionSlug) {
+          for (const entry of seedCategories) {
+            const category = await categories.save(categories.create({
+              slug: entry.slug,
+              title: entry.title,
+              sortOrder: entry.sortOrder,
+              region,
+            }));
+            await products.save(entry.products.map((product) => products.create({
+              ...product,
+              category,
+            })));
+          }
+        }
+        if (!definition.promotionSourceRegionSlug) {
+          await promotions.save(defaultPromotions.map((promotion, sortOrder) => promotions.create({
+            ...promotion,
+            enabled: true,
+            sortOrder,
             region,
-          }));
-          await products.save(entry.products.map((product) => products.create({
-            ...product,
-            category,
           })));
         }
-        await promotions.save(defaultPromotions.map((promotion, sortOrder) => promotions.create({
-          ...promotion,
-          enabled: true,
-          sortOrder,
-          region,
-        })));
       }
     });
   }
@@ -119,9 +148,10 @@ export class CatalogService implements OnModuleInit {
   }
 
   async categories(regionSlug = "bishkek") {
-    await this.requireRegion(regionSlug);
+    const region = await this.requireRegion(regionSlug);
+    const source = await this.contentSource(region, "menuSourceRegionSlug");
     const categories = await this.categoryRepository.find({
-      where: { region: { slug: regionSlug } },
+      where: { region: { id: source.id } },
       relations: { products: true },
       order: { sortOrder: "ASC", products: { sortOrder: "ASC", id: "ASC" } },
     });
@@ -132,22 +162,24 @@ export class CatalogService implements OnModuleInit {
   }
 
   async promotions(regionSlug = "bishkek") {
-    await this.requireRegion(regionSlug);
+    const region = await this.requireRegion(regionSlug);
+    const source = await this.contentSource(region, "promotionSourceRegionSlug");
     return this.promotionRepository.find({
-      where: { region: { slug: regionSlug }, enabled: true },
+      where: { region: { id: source.id }, enabled: true },
       order: { sortOrder: "ASC", id: "ASC" },
     });
   }
 
   async products(filters: { search?: string; category?: string; region?: string }) {
     const regionSlug = filters.region || "bishkek";
-    await this.requireRegion(regionSlug);
+    const region = await this.requireRegion(regionSlug);
+    const source = await this.contentSource(region, "menuSourceRegionSlug");
     const products = await this.productRepository.find({
       where: {
         ...(filters.search ? { name: ILike(`%${filters.search}%`) } : {}),
         category: {
           ...(filters.category ? { slug: filters.category } : {}),
-          region: { slug: regionSlug },
+          region: { id: source.id },
         },
       },
       relations: { category: { region: true } },
@@ -169,5 +201,16 @@ export class CatalogService implements OnModuleInit {
     const region = await this.regionRepository.findOne({ where: { slug, enabled: true } });
     if (!region) throw new NotFoundException("Region not found");
     return region;
+  }
+
+  private async contentSource(
+    region: Region,
+    field: RegionContentSourceField,
+  ) {
+    const sourceSlug = regionContentSourceSlug(region, field);
+    if (sourceSlug === region.slug) return region;
+    const source = await this.regionRepository.findOne({ where: { slug: sourceSlug } });
+    if (!source) throw new NotFoundException("Content source region not found");
+    return source;
   }
 }

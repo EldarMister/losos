@@ -179,6 +179,7 @@ type PersistedStorefrontState = {
 const defaultRegions: RegionOption[] = [
   { slug: "bishkek", name: "Бишкек" },
   { slug: "osh", name: "Ош" },
+  { slug: "otuz-adyr", name: "Отуз-Адыр" },
 ];
 
 const STOREFRONT_STORAGE_KEY = "losos.storefront.v1";
@@ -946,13 +947,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     const checkStoredCity = () => {
       try {
         const selectedCity = window.localStorage.getItem(CITY_SELECTION_STORAGE_KEY);
-        setCityPickerOpen(selectedCity !== "bishkek" && selectedCity !== "osh");
+        setCityPickerOpen(!regionOptions.some((item) => item.slug === selectedCity));
       } catch {
         setCityPickerOpen(true);
       }
     };
     queueMicrotask(checkStoredCity);
-  }, []);
+  }, [regionOptions]);
 
   useEffect(() => {
     queueMicrotask(() => {

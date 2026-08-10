@@ -4,6 +4,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
 import { PhoneAuthService } from "../auth/phone-auth.service";
 import { Product } from "../catalog/product.entity";
+import { Region } from "../catalog/region.entity";
+import { regionContentSourceSlug } from "../catalog/region-content-source";
 import { EduPosService } from "../edu-pos/edu-pos.service";
 import { isDeliveryOpenAt } from "../catalog/delivery-hours";
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
@@ -78,6 +80,7 @@ export class OrdersService {
         const orders = manager.getRepository(Order);
         const items = manager.getRepository(OrderItem);
         const productRepository = manager.getRepository(Product);
+        const regionRepository = manager.getRepository(Region);
 
         const concurrentExisting = await orders.findOne({
           where: { idempotencyKey },
@@ -98,11 +101,16 @@ export class OrdersService {
         this.eduPos.assertProductsOrderable(products);
         const byId = new Map(products.map((product) => [product.id, product]));
         const regionSlug = dto.regionSlug || "bishkek";
+        const orderRegion = await regionRepository.findOne({
+          where: { slug: regionSlug, enabled: true },
+        });
+        if (!orderRegion) throw new BadRequestException(`Region ${regionSlug} is unavailable`);
+        const menuRegionSlug = regionContentSourceSlug(orderRegion, "menuSourceRegionSlug");
 
         const lines = dto.items.map((entry) => {
           const product = byId.get(entry.productId)!;
           if (!product.available) throw new BadRequestException(`${product.name} is unavailable`);
-          if (!product.category.region.enabled || product.category.region.slug !== regionSlug) {
+          if (product.category.region.slug !== menuRegionSlug) {
             throw new BadRequestException(`${product.name} is not available in region ${regionSlug}`);
           }
           try {
@@ -138,7 +146,7 @@ export class OrdersService {
         }
 
         const deliveryType = dto.deliveryType || DeliveryType.DELIVERY;
-        if (!isDeliveryOpenAt(products[0].category.region)) {
+        if (!isDeliveryOpenAt(orderRegion)) {
           throw new BadRequestException("Кухня сейчас закрыта. Оформить заказ можно в рабочее время.");
         }
 
