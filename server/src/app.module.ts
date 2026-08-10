@@ -2,6 +2,11 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AdminModule } from "./admin/admin.module";
+import { AuthorizedPhone } from "./auth/authorized-phone.entity";
+import { DevicePushToken } from "./auth/device-push-token.entity";
+import { PhoneAccount } from "./auth/phone-account.entity";
+import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
+import { PhoneAuthModule } from "./auth/phone-auth.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { Category } from "./catalog/category.entity";
 import { Product } from "./catalog/product.entity";
@@ -22,6 +27,7 @@ import { AddRegionPickupAndFooter1784985000000 } from "./migrations/178498500000
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddRegionDeliveryDetails1784987000000 } from "./migrations/1784987000000-AddRegionDeliveryDetails";
 import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-AddRegionDeliveryZone";
+import { AddCaptchaProtectedPhoneAuth1784999000000 } from "./migrations/1784999000000-AddCaptchaProtectedPhoneAuth";
 
 @Module({
   imports: [
@@ -34,7 +40,18 @@ import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-A
         return {
           type: "postgres" as const,
           url: databaseUrl,
-          entities: [Region, Category, Product, Promotion, Order, OrderItem],
+          entities: [
+            Region,
+            Category,
+            Product,
+            Promotion,
+            Order,
+            OrderItem,
+            PhoneAuthChallenge,
+            AuthorizedPhone,
+            PhoneAccount,
+            DevicePushToken,
+          ],
           migrations: [
             BootstrapSchema1784978000000,
             AddProductCustomization1784979000000,
@@ -47,6 +64,7 @@ import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-A
             AddProductOldPrice1784986000000,
             AddRegionDeliveryDetails1784987000000,
             AddRegionDeliveryZone1784988000000,
+            AddCaptchaProtectedPhoneAuth1784999000000,
           ],
           migrationsRun: true,
           synchronize:
@@ -57,6 +75,7 @@ import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-A
       },
     }),
     CatalogModule,
+    PhoneAuthModule,
     AdminModule,
     OrdersModule,
   ],

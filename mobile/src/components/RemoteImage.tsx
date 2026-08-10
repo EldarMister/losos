@@ -8,6 +8,7 @@ import { resolveImageUrl } from "../api";
 
 const RETRIES_PER_URL = 3;
 const IMAGE_ATTEMPT_TIMEOUT_MS = 12_000;
+const IMAGE_PREFETCH_TIMEOUT_MS = 8_000;
 
 export function remoteImageCandidates(source: string) {
   const resolved = resolveImageUrl(source.trim());
@@ -32,6 +33,29 @@ export function remoteImageCandidates(source: string) {
   }
 
   return [...new Set(candidates)];
+}
+
+function prefetchCandidate(uri: string) {
+  return new Promise<boolean>((resolve) => {
+    const timer = setTimeout(() => resolve(false), IMAGE_PREFETCH_TIMEOUT_MS);
+    Image.prefetch(uri).then(
+      (loaded) => {
+        clearTimeout(timer);
+        resolve(loaded);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(false);
+      },
+    );
+  });
+}
+
+export async function prefetchRemoteImage(source: string) {
+  for (const candidate of remoteImageCandidates(source)) {
+    if (await prefetchCandidate(candidate)) return true;
+  }
+  return false;
 }
 
 function retrySource(uri: string, retry: number): ImageURISource {

@@ -27,6 +27,7 @@ import { useStore } from "../store";
 import { supportUrl } from "../support";
 import { colors } from "../theme";
 import { useDrawerDismiss } from "./DrawerGesture";
+import { InAppWebPage } from "./InAppWebPage";
 
 type Props = {
   visible: boolean;
@@ -55,10 +56,15 @@ export function MenuSheet({
   const version = Constants.expoConfig?.version || "1.0.0";
   const [naktaCoins, setNaktaCoins] = useState(0);
   const [mounted, setMounted] = useState(visible);
+  const [legalVisible, setLegalVisible] = useState(false);
   const openOffset = useSharedValue(visible ? 0 : -360);
   const backdropProgress = useSharedValue(visible ? 1 : 0);
   const handleSwipeDismiss = useCallback(() => onClose(), [onClose]);
   const drawerGesture = useDrawerDismiss({ onDismiss: handleSwipeDismiss });
+
+  useEffect(() => {
+    if (!visible) setLegalVisible(false);
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) return;
@@ -236,7 +242,7 @@ export function MenuSheet({
           />
           <Pressable
             accessibilityRole="link"
-            onPress={() => void openPage("/legal")}
+            onPress={() => setLegalVisible(true)}
             style={({ pressed }) => [styles.legalButton, pressed && styles.buttonPressed]}
           >
             <Text style={styles.legalText}>Правовая информация</Text>
@@ -245,6 +251,12 @@ export function MenuSheet({
           </Animated.View>
         </GestureDetector>
       </GestureHandlerRootView>
+      <InAppWebPage
+        onClose={() => setLegalVisible(false)}
+        title="Правовая информация"
+        url={`${WEB_URL}/legal`}
+        visible={legalVisible}
+      />
     </Modal>
   );
 }

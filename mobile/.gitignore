@@ -30,6 +30,7 @@ yarn-error.*
 .codex-*.log
 tmp/nakta-*.png
 tmp/window.xml
+tmp/pixel8-auth-*
 
 # macOS
 .DS_Store

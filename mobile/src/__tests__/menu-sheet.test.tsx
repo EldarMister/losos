@@ -47,6 +47,9 @@ describe("MenuSheet account states", () => {
     expect(screen.getByText("О нас")).toBeTruthy();
     expect(screen.queryByText("Хочу в команду")).toBeNull();
 
+    await fireEvent.press(screen.getByText("Правовая информация"));
+    expect(screen.getByLabelText("Закрыть документ")).toBeTruthy();
+
     await fireEvent.press(screen.getByLabelText("Закрыть меню"));
     expect(callbacks.onClose).toHaveBeenCalledTimes(1);
   });

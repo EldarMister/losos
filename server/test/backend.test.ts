@@ -15,6 +15,8 @@ import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
+import { RequestPhoneCodeDto } from "../src/auth/phone-auth.dto";
+import { smsResendDelaySeconds } from "../src/auth/phone-auth.service";
 import { OrdersController } from "../src/orders/orders.controller";
 import {
   canTransitionOrderStatus,
@@ -34,6 +36,32 @@ const baseOrder = {
   paymentMethod: "cash",
   items: [{ productId: 1, quantity: 1, modifiers: [] }],
 };
+
+test("SMS request requires a Kyrgyz phone and a CAPTCHA token", () => {
+  const valid = plainToInstance(RequestPhoneCodeDto, {
+    phone: "+996 555 123 456",
+    captchaToken: "turnstile-token-with-enough-length",
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const missingCaptcha = plainToInstance(RequestPhoneCodeDto, {
+    phone: "+996555123456",
+  });
+  assert.ok(validateSync(missingCaptcha).some((error) => error.property === "captchaToken"));
+
+  const foreignPhone = plainToInstance(RequestPhoneCodeDto, {
+    phone: "+79991234567",
+    captchaToken: "turnstile-token-with-enough-length",
+  });
+  assert.ok(validateSync(foreignPhone).some((error) => error.property === "phone"));
+});
+
+test("SMS resend delays grow from a minute to a day", () => {
+  assert.deepEqual(
+    [1, 2, 3, 4, 5].map(smsResendDelaySeconds),
+    [60, 300, 3_600, 86_400, 86_400],
+  );
+});
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {
   for (const phone of ["+996555123456", "+79991234567", "+996 (555) 123-456"]) {

@@ -12,7 +12,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ordersApi } from "../api";
+import { ordersApi, WEB_URL } from "../api";
+import { InAppWebPage } from "../components/InAppWebPage";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { NumberTicker } from "../components/NumberTicker";
 import { orderingAvailability } from "../delivery";
@@ -98,6 +99,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
   const [error, setError] = useState("");
   const [idempotencyKey] = useState(() => createOrderIdempotencyKey());
   const [scheduleNow, setScheduleNow] = useState(() => Date.now());
+  const [termsVisible, setTermsVisible] = useState(false);
   const availability = orderingAvailability(store.activeRegion, new Date(scheduleNow));
   const hasKyrgyzPhone = (store.session?.phone ?? "").replace(/\D/g, "").startsWith("996");
 
@@ -328,6 +330,16 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
             />
           </View>
 
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => setTermsVisible(true)}
+            style={({ pressed }) => [styles.orderTerms, pressed && styles.pressed]}
+          >
+            <Text style={styles.orderTermsText}>
+              Оформляя заказ, вы принимаете <Text style={styles.orderTermsLink}>Условия заказа</Text>
+            </Text>
+          </Pressable>
+
           {error ? (
             <View style={styles.errorBox}>
               <MaterialCommunityIcons name="alert-circle-outline" size={21} color={colors.danger} />
@@ -367,6 +379,12 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
           />
         </View>
       </KeyboardAvoidingView>
+      <InAppWebPage
+        onClose={() => setTermsVisible(false)}
+        title="Условия заказа"
+        url={`${WEB_URL}/terms`}
+        visible={termsVisible}
+      />
     </View>
   );
 }
@@ -590,6 +608,24 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     textAlignVertical: "top",
+  },
+  orderTerms: {
+    minHeight: 42,
+    paddingTop: 13,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  orderTermsText: {
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center",
+  },
+  orderTermsLink: {
+    color: colors.ink,
+    textDecorationLine: "underline",
   },
   errorBox: {
     marginTop: 14,

@@ -89,6 +89,7 @@ describe("CheckoutScreen", () => {
     expect(screen.getByLabelText("Наличными").props.accessibilityState.checked).toBe(true);
     expect(screen.getByText("Наличными").props.numberOfLines).toBe(1);
     expect(screen.queryByText("Комплектация")).toBeNull();
+    expect(screen.getByText(/Оформляя заказ, вы принимаете/)).toBeTruthy();
 
     await fireEvent.press(screen.getByLabelText("Выбрать адрес на карте"));
     expect(onOpenLocation).toHaveBeenCalledTimes(1);

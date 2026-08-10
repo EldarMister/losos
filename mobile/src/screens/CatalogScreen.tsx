@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
 import { CatalogCartDock } from "../components/CatalogCartDock";
 import { ProductCard } from "../components/ProductCard";
-import { RemoteImage } from "../components/RemoteImage";
+import { prefetchRemoteImage, RemoteImage } from "../components/RemoteImage";
 import { deliveryEtaLabel, orderingAvailability } from "../delivery";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
@@ -47,6 +47,7 @@ type ProductRailProps = {
 };
 
 const PRODUCT_CARD_GAP = 12;
+const IMAGE_PREFETCH_BATCH_SIZE = 4;
 
 const ProductRail = memo(function ProductRail({
   onAdd,
@@ -152,6 +153,41 @@ export function CatalogScreen({
     () => categories.filter((category) => category.products.some((product) => product.available !== false)),
     [categories],
   );
+
+  const catalogImageSources = useMemo(() => {
+    const orderedSources = [
+      ...promotions.slice(0, 6).map((promotion) => promotion.image),
+      ...visibleCategories.flatMap((category) => (
+        category.products
+          .filter((product) => product.available !== false)
+          .map((product) => product.image)
+      )),
+    ];
+    return [...new Set(orderedSources.map((source) => source.trim()).filter(Boolean))];
+  }, [promotions, visibleCategories]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const prefetchCatalogImages = async () => {
+      for (
+        let index = 0;
+        index < catalogImageSources.length && !cancelled;
+        index += IMAGE_PREFETCH_BATCH_SIZE
+      ) {
+        await Promise.all(
+          catalogImageSources
+            .slice(index, index + IMAGE_PREFETCH_BATCH_SIZE)
+            .map((source) => prefetchRemoteImage(source)),
+        );
+      }
+    };
+
+    void prefetchCatalogImages();
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogImageSources]);
 
   const addProduct = useCallback((product: Product) => {
     if (product.modifierGroups?.some((group) => group.required)) {

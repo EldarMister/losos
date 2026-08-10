@@ -28,6 +28,18 @@ export const WEB_URL = (
   "https://naktasushi.com"
 ).replace(/\/$/, "");
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly retryAfterSeconds?: number;
+
+  constructor(message: string, status: number, retryAfterSeconds?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 export function resolveImageUrl(source: string) {
   if (/^https?:\/\//i.test(source)) return source;
   return `${WEB_URL}/${source.replace(/^\/+/, "")}`;
@@ -46,12 +58,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         ...init?.headers,
       },
     });
-    const body = await response.json().catch(() => null);
+    const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
-      const message = Array.isArray(body?.message)
-        ? body.message.join(", ")
-        : body?.message;
-      throw new Error(message || `Сервер вернул ошибку ${response.status}`);
+      const errorBody = body && typeof body === "object"
+        ? body as { message?: unknown; retryAfterSeconds?: unknown }
+        : null;
+      const message = Array.isArray(errorBody?.message)
+        ? errorBody.message.filter((item): item is string => typeof item === "string").join(", ")
+        : typeof errorBody?.message === "string" ? errorBody.message : "";
+      const retryAfterSeconds = typeof errorBody?.retryAfterSeconds === "number"
+        ? errorBody.retryAfterSeconds
+        : undefined;
+      throw new ApiError(
+        message || `Сервер вернул ошибку ${response.status}`,
+        response.status,
+        retryAfterSeconds,
+      );
     }
     return body as T;
   } catch (error) {
@@ -155,10 +177,10 @@ export const authApi = {
   methods() {
     return request<AuthMethods>("/auth/methods");
   },
-  requestCode(phone: string) {
+  requestCode(phone: string, captchaToken: string) {
     return request<CodeRequest>("/auth/request-code", {
       method: "POST",
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, captchaToken }),
     });
   },
   verifyCode(phone: string, code: string) {

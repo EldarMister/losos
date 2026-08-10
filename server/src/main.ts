@@ -18,6 +18,7 @@ const trustedFrontendOrigins = [
 
 async function createApplication(): Promise<INestApplication> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set("trust proxy", 1);
   app.useBodyParser("json", { limit: "8mb" });
   app.setGlobalPrefix("api");
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

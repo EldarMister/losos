@@ -4,6 +4,7 @@ import { AuthScreen } from "../screens/AuthScreen";
 import { useStore } from "../store";
 
 jest.mock("../api", () => ({
+  ApiError: class ApiError extends Error {},
   WEB_URL: "https://naktasushi.com",
   authApi: {
     methods: jest.fn().mockResolvedValue({ sms: true, whatsapp: false }),
@@ -13,6 +14,22 @@ jest.mock("../api", () => ({
     whatsappStatus: jest.fn(),
   },
 }));
+
+jest.mock("../components/CaptchaVerification", () => {
+  const React = require("react");
+  const { Pressable, Text } = require("react-native");
+  return {
+    CaptchaVerification: ({ onVerified, visible }: { onVerified: (token: string) => void; visible: boolean }) => (
+      visible
+        ? React.createElement(
+          Pressable,
+          { accessibilityLabel: "Завершить CAPTCHA", onPress: () => onVerified("captcha-token") },
+          React.createElement(Text, null, "CAPTCHA"),
+        )
+        : null
+    ),
+  };
+});
 
 jest.mock("../store", () => ({
   useStore: jest.fn(),
@@ -47,15 +64,18 @@ describe("AuthScreen", () => {
       <AuthScreen onBack={jest.fn()} onSuccess={jest.fn()} />,
     );
 
-    const phone = screen.getByPlaceholderText("+996 555 123 456");
+    const phone = screen.getByLabelText("Номер телефона");
     expect(phone.props.autoFocus).toBeUndefined();
 
-    await fireEvent.changeText(phone, "+996 555 123 456");
-    await fireEvent.press(screen.getByLabelText("Отправить код"));
+    await fireEvent.changeText(phone, "555123456");
+    await fireEvent.press(screen.getByLabelText("Получить код"));
+    await fireEvent.press(screen.getByLabelText("Завершить CAPTCHA"));
 
     await waitFor(() => {
-      expect(authApi.requestCode).toHaveBeenCalledWith("+996555123456");
+      expect(authApi.requestCode).toHaveBeenCalledWith("+996555123456", "captcha-token");
       expect(screen.getByText("Введите код")).toBeTruthy();
+      expect(screen.getByText("Код отправлен на +996 555 123 456")).toBeTruthy();
+      expect(screen.getByText("Отправить код повторно через 60 сек.")).toBeTruthy();
     });
   });
 });
