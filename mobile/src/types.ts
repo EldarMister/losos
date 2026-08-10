@@ -54,6 +54,8 @@ export type Region = {
   id: number;
   slug: string;
   name: string;
+  menuSourceRegionSlug?: string | null;
+  promotionSourceRegionSlug?: string | null;
   contactPhone?: string;
   supportPhone?: string;
   supportUrl?: string;

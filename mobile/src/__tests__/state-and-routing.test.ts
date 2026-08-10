@@ -187,6 +187,8 @@ describe("mobile state and routing", () => {
     expect(isPointInRegionBounds("osh", 40.513, 72.8161)).toBe(true);
     expect(isPointInRegionBounds("osh", 42.851968, 74.624326)).toBe(false);
     expect(isPointInRegionBounds("bishkek", 40.513, 72.8161)).toBe(false);
+    expect(isPointInRegionBounds("otuz-adyr", 40.606046, 72.966095)).toBe(true);
+    expect(isPointInRegionBounds("otuz-adyr", 40.513, 72.8161)).toBe(false);
   });
 
   test("allows a live device point outside the selected delivery region", () => {

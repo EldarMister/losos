@@ -132,6 +132,17 @@ describe("LocationSheet delivery address workflow", () => {
     expect(deliveryRegionAtPoint(regions, 41.2, 74.4)).toBeUndefined();
   });
 
+  test("recognizes Otuz-Adyr with the built-in delivery zone", () => {
+    const regions = [{
+      id: 3,
+      slug: "otuz-adyr",
+      name: "Отуз-Адыр",
+    }] as Region[];
+
+    expect(deliveryRegionAtPoint(regions, 40.606046, 72.966095)?.slug).toBe("otuz-adyr");
+    expect(deliveryRegionAtPoint(regions, 40.513, 72.8161)).toBeUndefined();
+  });
+
   test("shows an honest unavailable state instead of six hardcoded kitchens", async () => {
     const store = makeStore("улица Медерова, 41");
     (catalogApi.regions as jest.Mock).mockResolvedValue(store.regions);

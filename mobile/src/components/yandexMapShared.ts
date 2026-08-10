@@ -49,6 +49,11 @@ const regions: Record<string, RegionMapConfig> = {
     center: [40.513, 72.8161],
     bounds: [[40.35, 72.61], [40.69, 73.08]],
   },
+  "otuz-adyr": {
+    city: "Отуз-Адыр",
+    center: [40.606046, 72.966095],
+    bounds: [[40.54, 72.88], [40.68, 73.06]],
+  },
 };
 
 const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
@@ -73,6 +78,16 @@ const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
     { latitude: 40.445, longitude: 72.78 },
     { latitude: 40.475, longitude: 72.72 },
     { latitude: 40.535, longitude: 72.7 },
+  ],
+  "otuz-adyr": [
+    { latitude: 40.64, longitude: 72.92 },
+    { latitude: 40.645, longitude: 72.98 },
+    { latitude: 40.625, longitude: 73.02 },
+    { latitude: 40.59, longitude: 73.02 },
+    { latitude: 40.565, longitude: 72.99 },
+    { latitude: 40.565, longitude: 72.94 },
+    { latitude: 40.585, longitude: 72.91 },
+    { latitude: 40.62, longitude: 72.91 },
   ],
 };
 

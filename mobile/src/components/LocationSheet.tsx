@@ -140,7 +140,12 @@ export function deliveryRegionAtPoint(
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
   return regions.find((region) => {
     const hasConfiguredZone = (region.deliveryZone?.length ?? 0) >= 3;
-    if (!hasConfiguredZone && region.slug !== "bishkek" && region.slug !== "osh") return false;
+    if (
+      !hasConfiguredZone
+      && region.slug !== "bishkek"
+      && region.slug !== "osh"
+      && region.slug !== "otuz-adyr"
+    ) return false;
     return isPointInDeliveryZone(
       latitude as number,
       longitude as number,
