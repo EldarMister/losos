@@ -11,11 +11,13 @@ import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
 import { PushNotificationsModule } from "../notifications/push-notifications.module";
 import { PickupLocation } from "../catalog/pickup-location.entity";
+import { EduPosModule } from "../edu-pos/edu-pos.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Region, PickupLocation, Category, Product, Promotion, Order, OrderItem]),
     PushNotificationsModule,
+    EduPosModule,
   ],
   controllers: [AdminController],
   providers: [AdminService, AdminTokenGuard],

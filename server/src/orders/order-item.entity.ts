@@ -57,6 +57,24 @@ export class OrderItem {
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   modifierSnapshots!: OrderModifierSnapshot[];
 
+  @Column({ type: "varchar", length: 160, nullable: true })
+  posDishId!: string | null;
+
+  @Column({ type: "varchar", length: 160, nullable: true })
+  posVariantId!: string | null;
+
+  @Column({ type: "int", nullable: true })
+  posWeightGrams!: number | null;
+
+  @Column({ type: "varchar", length: 30, nullable: true })
+  posStatus!: string | null;
+
+  @Column({ type: "int", default: 0 })
+  posReadyQuantity!: number;
+
+  @Column({ type: "text", nullable: true })
+  posRejectReason!: string | null;
+
   @ManyToOne(() => Order, (order) => order.items, { onDelete: "CASCADE" })
   order!: Order;
 }

@@ -98,7 +98,15 @@ type CheckoutForm = {
   comment: string;
   paymentMethod: "cash" | "card_on_delivery";
 };
-type PlacedOrder = { id: string; orderNumber?: number; total: number; status: string };
+type PosProgress = { itemsTotal: number; itemsReady: number; itemsRejected: number };
+type PlacedOrder = {
+  id: string;
+  orderNumber?: number;
+  total: number;
+  status: string;
+  posStatus?: string | null;
+  posProgress?: PosProgress;
+};
 type PhoneAuthMethod = "choose" | "sms";
 type StoredPhoneAuthSession = {
   phone: string;
@@ -114,6 +122,9 @@ type ProfileOrder = {
   address?: string;
   earnedNaktaCoins?: number;
   naktaCoins?: number;
+  posStatus?: string | null;
+  posSyncStatus?: string;
+  posProgress?: PosProgress;
 };
 type ProfileOrderDetail = ProfileOrder & {
   subtotal: number;
@@ -126,11 +137,19 @@ type ProfileOrderDetail = ProfileOrder & {
   utensilsCount: number;
   noUtensils: boolean;
   paymentMethod: "cash" | "card_on_delivery";
+  externalOrderId?: string | null;
+  posOrderNumber?: string | null;
+  posStatus?: string | null;
+  posSyncStatus?: string;
+  posProgress?: PosProgress;
   items: Array<{
     productName: string;
     quantity: number;
     lineTotal: number;
     modifierSnapshots: Array<{ itemName: string; quantity: number }>;
+    posStatus?: string | null;
+    posReadyQuantity?: number;
+    posRejectReason?: string | null;
   }>;
 };
 type NaktaCoinTransaction = {
@@ -195,6 +214,15 @@ const readPhoneAuthSession = (raw: string | null): StoredPhoneAuthSession | null
 const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
 const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
   new: "Принят", confirmed: "Подтверждён", preparing: "Готовим", ready: "Готов", delivering: "В пути", completed: "Выполнен", cancelled: "Отменён",
+};
+const posStatusLabels: Record<string, string> = {
+  sent_to_kitchen: "Заказ передан на кухню",
+  accepted_by_kitchen: "Кухня приняла заказ",
+  cooking: "Заказ готовится",
+  partially_rejected: "Некоторые блюда недоступны",
+  ready: "Заказ готов",
+  rejected: "Кухня отклонила заказ",
+  cancelled: "Заказ отменён",
 };
 const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 
@@ -706,6 +734,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [profileOrderDetailLoading, setProfileOrderDetailLoading] = useState(false);
   const [profileOrderDetailError, setProfileOrderDetailError] = useState("");
   const [profileRefreshIndex, setProfileRefreshIndex] = useState(0);
+  const selectedProfileOrderId = selectedProfileOrder?.id;
   const [profileSection, setProfileSection] = useState<"menu" | "orders" | "balance" | "settings">("menu");
   const [profileOrderTab, setProfileOrderTab] = useState<"active" | "history">("active");
   const [promoOpen, setPromoOpen] = useState(false);
@@ -787,16 +816,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       })
       .catch(() => undefined);
 
-    fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
+    const loadCategories = () => fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Catalog request failed")))
       .then((data: Array<Category & { products: Product[] }>) => {
         if (!Array.isArray(data)) throw new Error("Catalog response is invalid");
-        setCatalogCategories(data.map((category) => ({
+        const nextCategories = data.map((category) => ({
           slug: category.slug,
           title: category.title,
           image: typeof category.image === "string" ? category.image : "",
           products: category.products.map((product) => ({ ...product, category: category.slug })),
-        })));
+        }));
+        setCatalogCategories(nextCategories);
+        const productsById = new Map(nextCategories.flatMap((category) => category.products).map((product) => [product.id, product]));
+        setCart((current) => current.flatMap((line) => {
+          const product = productsById.get(line.product.id);
+          return product?.available === false || !product ? [] : [{ ...line, product }];
+        }));
         setCatalogLoading(false);
       })
       .catch(() => {
@@ -804,6 +839,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         setCatalogCategories(categories);
         setCatalogLoading(false);
       });
+    void loadCategories();
+    const catalogTimer = window.setInterval(() => void loadCategories(), 45_000);
 
     fetch(`${baseUrl}/promotions?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
@@ -818,7 +855,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         setStoryGroups(defaultStoryGroups);
       });
 
-    return () => controller.abort();
+    return () => {
+      window.clearInterval(catalogTimer);
+      controller.abort();
+    };
   }, [regionSlug]);
 
   useEffect(() => {
@@ -844,13 +884,35 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
 
   useEffect(() => {
-    if (!menuOpen || !verifiedPhone || !phoneVerificationToken) return;
+    if (
+      !verifiedPhone
+      || !phoneVerificationToken
+      || (!menuOpen && !selectedProfileOrder && !profileData?.currentOrders.length)
+    ) return;
     const timer = window.setInterval(
       () => setProfileRefreshIndex((current) => current + 1),
-      5_000,
+      7_500,
     );
     return () => window.clearInterval(timer);
-  }, [menuOpen, phoneVerificationToken, verifiedPhone]);
+  }, [menuOpen, phoneVerificationToken, profileData?.currentOrders.length, selectedProfileOrder, verifiedPhone]);
+
+  useEffect(() => {
+    if (!selectedProfileOrderId || !verifiedPhone || !phoneVerificationToken) return;
+    const controller = new AbortController();
+    void fetch(`${STOREFRONT_API_URL}/auth/orders/${encodeURIComponent(selectedProfileOrderId)}?phone=${encodeURIComponent(verifiedPhone)}`, {
+      headers: { Authorization: `Bearer ${phoneVerificationToken}` },
+      signal: controller.signal,
+    })
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Order details request failed")))
+      .then((data: ProfileOrderDetail) => {
+        if (controller.signal.aborted) return;
+        setProfileOrderDetail(data);
+        setProfileOrderDetailError("");
+      })
+      .catch(() => { if (!controller.signal.aborted) setProfileOrderDetailError("Не удалось загрузить детали заказа. Попробуйте ещё раз."); })
+      .finally(() => { if (!controller.signal.aborted) setProfileOrderDetailLoading(false); });
+    return () => controller.abort();
+  }, [phoneVerificationToken, profileRefreshIndex, selectedProfileOrderId, verifiedPhone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1201,13 +1263,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setProfileOrderDetail(null);
     setProfileOrderDetailError("");
     setProfileOrderDetailLoading(true);
-    void fetch(`${STOREFRONT_API_URL}/auth/orders/${encodeURIComponent(order.id)}?phone=${encodeURIComponent(verifiedPhone)}`, {
-      headers: { Authorization: `Bearer ${phoneVerificationToken}` },
-    })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Order details request failed")))
-      .then((data: ProfileOrderDetail) => setProfileOrderDetail(data))
-      .catch(() => setProfileOrderDetailError("Не удалось загрузить детали заказа. Попробуйте ещё раз."))
-      .finally(() => setProfileOrderDetailLoading(false));
   };
 
   const closeProfileOrder = () => {
@@ -2288,10 +2343,18 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {selectedProfileOrder ? (
         <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${selectedProfileOrder.id.slice(0, 6).toUpperCase()}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
           <section className="order-details-modal">
-            <header><div><small>Заказ №{selectedProfileOrder.id.slice(0, 6).toUpperCase()}</small><h2>{profileOrderStatuses[selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
+            <header><div><small>Заказ №{selectedProfileOrder.id.slice(0, 6).toUpperCase()}</small><h2>{profileOrderStatuses[profileOrderDetail?.status ?? selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
             {profileOrderDetailLoading ? <p className="order-details-state">Загружаем детали заказа…</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
-              <section className="order-status-card"><b>Статус заказа</b>{selectedProfileOrder.status === "cancelled" ? <p className="order-cancelled">Заказ отменён</p> : <ol>{profileOrderSteps.map((step) => { const currentStep = profileOrderSteps.findIndex((candidate) => candidate.status === selectedProfileOrder.status); const stepIndex = profileOrderSteps.findIndex((candidate) => candidate.status === step.status); return <li className={stepIndex <= currentStep ? "done" : ""} key={step.status}>{step.label}</li>; })}</ol>}</section>
-              <section className="order-details-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className="order-detail-line" key={`${item.productName}-${index}`}><span><b>{item.productName}</b><small>{item.quantity} шт.{item.modifierSnapshots?.length ? ` · ${item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}` : ""}</small></span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
+              <section className="order-status-card">
+                <b>{profileOrderDetail.posStatus ? posStatusLabels[profileOrderDetail.posStatus] || "Статус кухни" : "Статус заказа"}</b>
+                {profileOrderDetail.posProgress?.itemsTotal ? <div className="kitchen-progress" role="status">
+                  <span>Готово {profileOrderDetail.posProgress.itemsReady} из {profileOrderDetail.posProgress.itemsTotal} блюд</span>
+                  <i><em style={{ width: `${Math.min(100, (profileOrderDetail.posProgress.itemsReady / profileOrderDetail.posProgress.itemsTotal) * 100)}%` }} /></i>
+                  {profileOrderDetail.posProgress.itemsRejected > 0 ? <small>Отклонено: {profileOrderDetail.posProgress.itemsRejected}</small> : null}
+                </div> : null}
+                {profileOrderDetail.status === "cancelled" ? <p className="order-cancelled">Заказ отменён</p> : <ol>{profileOrderSteps.map((step) => { const currentStep = profileOrderSteps.findIndex((candidate) => candidate.status === profileOrderDetail.status); const stepIndex = profileOrderSteps.findIndex((candidate) => candidate.status === step.status); return <li className={stepIndex <= currentStep ? "done" : ""} key={step.status}>{step.label}</li>; })}</ol>}
+              </section>
+              <section className="order-details-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className={`order-detail-line${item.posStatus === "rejected" ? " rejected" : ""}`} key={`${item.productName}-${index}`}><span><b>{item.productName}</b><small>{item.quantity} шт.{item.modifierSnapshots?.length ? ` · ${item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}` : ""}</small>{item.posStatus ? <small className={`kitchen-item-status status-${item.posStatus}`}>{item.posStatus === "ready" ? "Готово" : item.posStatus === "cooking" ? `Готовится${item.posReadyQuantity ? ` · готово ${item.posReadyQuantity}` : ""}` : item.posStatus === "rejected" ? `Отклонено${item.posRejectReason ? `: ${item.posRejectReason}` : ""}` : item.posStatus === "accepted" ? "Принято кухней" : "Ожидает кухню"}</small> : null}</span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
               <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><p className="order-destination">{profileOrderDetail.address || "Адрес не указан"}</p>{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).join(", ")}</small> : null}<p className="order-meta">{profileOrderDetail.paymentMethod === "cash" ? "Оплата наличными" : "Оплата картой курьеру"}{profileOrderDetail.noUtensils ? " · Без приборов" : profileOrderDetail.utensilsCount ? ` · Приборы: ${profileOrderDetail.utensilsCount}` : ""}</p>{profileOrderDetail.comment ? <p className="order-comment">Комментарий: {profileOrderDetail.comment}</p> : null}</section>
             </div> : null}
             <button type="button" className="order-details-close" onClick={closeProfileOrder}>Готово</button>

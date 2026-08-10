@@ -57,6 +57,11 @@ const defaultPromotions = [
   },
 ] as const;
 
+const publicProduct = (product: Product) => ({
+  ...product,
+  available: product.available && product.posAvailable,
+});
+
 @Injectable()
 export class CatalogService implements OnModuleInit {
   constructor(
@@ -115,11 +120,15 @@ export class CatalogService implements OnModuleInit {
 
   async categories(regionSlug = "bishkek") {
     await this.requireRegion(regionSlug);
-    return this.categoryRepository.find({
+    const categories = await this.categoryRepository.find({
       where: { region: { slug: regionSlug } },
       relations: { products: true },
       order: { sortOrder: "ASC", products: { sortOrder: "ASC", id: "ASC" } },
     });
+    return categories.map((category) => ({
+      ...category,
+      products: category.products.map(publicProduct),
+    }));
   }
 
   async promotions(regionSlug = "bishkek") {
@@ -133,7 +142,7 @@ export class CatalogService implements OnModuleInit {
   async products(filters: { search?: string; category?: string; region?: string }) {
     const regionSlug = filters.region || "bishkek";
     await this.requireRegion(regionSlug);
-    return this.productRepository.find({
+    const products = await this.productRepository.find({
       where: {
         ...(filters.search ? { name: ILike(`%${filters.search}%`) } : {}),
         category: {
@@ -144,6 +153,7 @@ export class CatalogService implements OnModuleInit {
       relations: { category: { region: true } },
       order: { sortOrder: "ASC", id: "ASC" },
     });
+    return products.map(publicProduct);
   }
 
   async product(id: number) {
@@ -152,7 +162,7 @@ export class CatalogService implements OnModuleInit {
       relations: { category: { region: true } },
     });
     if (!product) throw new NotFoundException("Product not found");
-    return product;
+    return publicProduct(product);
   }
 
   async requireRegion(slug: string) {

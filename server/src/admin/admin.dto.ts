@@ -338,6 +338,16 @@ export class CreateProductDto {
   @IsBoolean()
   available = true;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  posDishId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  posVariantId?: string;
+
   @Type(() => Number)
   @IsInt()
   @Min(0)
@@ -392,6 +402,8 @@ export class UpdateProductDto {
   @Type(() => ProductModifierGroupDto)
   modifierGroups?: ProductModifierGroupDto[];
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() available?: boolean;
+  @IsOptional() @IsString() @MaxLength(160) posDishId?: string | null;
+  @IsOptional() @IsString() @MaxLength(160) posVariantId?: string | null;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) weight?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) calories?: number;

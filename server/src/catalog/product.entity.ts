@@ -81,6 +81,22 @@ export class Product {
   @Column({ default: true })
   available!: boolean;
 
+  @Index()
+  @Column({ type: "varchar", length: 160, nullable: true })
+  posDishId!: string | null;
+
+  @Column({ type: "varchar", length: 160, nullable: true })
+  posVariantId!: string | null;
+
+  @Column({ default: true })
+  posAvailable!: boolean;
+
+  @Column({ default: false })
+  posSoldByWeight!: boolean;
+
+  @Column({ type: "timestamp with time zone", nullable: true })
+  posLastSyncedAt!: Date | null;
+
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 

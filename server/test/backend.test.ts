@@ -36,6 +36,11 @@ import {
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
+import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
+import {
+  eduPosRetryDelayMs,
+  internalOrderStatusForPos,
+} from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
 import { OrdersController } from "../src/orders/orders.controller";
 import {
@@ -1033,6 +1038,83 @@ test("order statuses allow only explicit transitions", () => {
   assert.equal(canTransitionOrderStatus(OrderStatus.NEW, OrderStatus.COMPLETED), false);
   assert.equal(canTransitionOrderStatus(OrderStatus.COMPLETED, OrderStatus.NEW), false);
   assert.equal(canTransitionOrderStatus(OrderStatus.READY, OrderStatus.COMPLETED), true);
+});
+
+test("EDU POS status mapping and retry schedule follow the delivery contract", () => {
+  assert.equal(internalOrderStatusForPos("sent_to_kitchen"), OrderStatus.CONFIRMED);
+  assert.equal(internalOrderStatusForPos("accepted_by_kitchen"), OrderStatus.CONFIRMED);
+  assert.equal(internalOrderStatusForPos("cooking"), OrderStatus.PREPARING);
+  assert.equal(internalOrderStatusForPos("partially_rejected"), OrderStatus.PREPARING);
+  assert.equal(internalOrderStatusForPos("ready"), OrderStatus.READY);
+  assert.equal(internalOrderStatusForPos("rejected"), OrderStatus.CANCELLED);
+  assert.deepEqual([1, 2, 3, 4, 5].map(eduPosRetryDelayMs), [5_000, 15_000, 30_000, 60_000, 60_000]);
+});
+
+test("EDU POS client keeps the API key server-side and validates order progress", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedHeaders: HeadersInit | undefined;
+  let capturedBody = "";
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    capturedHeaders = init?.headers;
+    capturedBody = String(init?.body || "");
+    return new Response(JSON.stringify({
+      id: "pos-order-1",
+      externalOrderId: "NAKTA-checkout-1",
+      orderNumber: "42",
+      status: "cooking",
+      completed: false,
+      progress: { itemsTotal: 3, itemsReady: 1, itemsRejected: 0 },
+      items: [{
+        dishId: "dish-1",
+        variantId: null,
+        name: "Ролл",
+        quantity: 3,
+        readyQuantity: 1,
+        status: "cooking",
+        rejectReason: null,
+      }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const client = new EduPosClient(new ConfigService({
+      EDU_POS_URL: "https://pos.example/api/integration/v1",
+      EDU_POS_API_KEY: "edu_live_test_secret",
+    }));
+    const order = await client.createOrder({
+      externalOrderId: "NAKTA-checkout-1",
+      items: [{ dishId: "dish-1", quantity: 3 }],
+    });
+    assert.equal(new Headers(capturedHeaders).get("X-API-Key"), "edu_live_test_secret");
+    assert.equal(JSON.parse(capturedBody).items[0].dishId, "dish-1");
+    assert.deepEqual(order.progress, { itemsTotal: 3, itemsReady: 1, itemsRejected: 0 });
+    assert.equal(order.items[0].status, "cooking");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("EDU POS client classifies temporary errors without exposing credentials", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(
+    JSON.stringify({ message: "temporarily unavailable: edu_live_must_not_leak" }),
+    { status: 503, headers: { "Content-Type": "application/json" } },
+  )) as typeof fetch;
+  try {
+    const client = new EduPosClient(new ConfigService({
+      EDU_POS_URL: "https://pos.example/api/integration/v1",
+      EDU_POS_API_KEY: "edu_live_must_not_leak",
+    }));
+    await assert.rejects(
+      () => client.menu(),
+      (error: unknown) => error instanceof EduPosApiError
+        && error.status === 503
+        && error.retryable
+        && !error.message.includes("edu_live_must_not_leak"),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("public orders controller does not expose an order-details endpoint", () => {

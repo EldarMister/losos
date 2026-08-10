@@ -20,6 +20,10 @@ type Product = {
   isNew: boolean;
   modifierGroups: ModifierGroup[];
   available: boolean;
+  posDishId: string | null;
+  posVariantId: string | null;
+  posAvailable: boolean;
+  posLastSyncedAt: string | null;
   sortOrder: number;
   weight: number;
   calories: number;
@@ -73,6 +77,9 @@ type AdminOrderItem = {
   lineTotal: number;
   pricingVersion?: string;
   modifierSnapshots: OrderModifierSnapshot[];
+  posStatus?: string | null;
+  posReadyQuantity?: number;
+  posRejectReason?: string | null;
 };
 type AdminOrder = {
   id: string;
@@ -97,6 +104,14 @@ type AdminOrder = {
   createdAt: string;
   updatedAt: string;
   completedAt?: string | null;
+  externalOrderId?: string | null;
+  posOrderNumber?: string | null;
+  posStatus?: string | null;
+  posSyncStatus?: "pending" | "synced" | "pos_sync_failed";
+  posItemsTotal?: number;
+  posItemsReady?: number;
+  posItemsRejected?: number;
+  posLastError?: string;
   items: AdminOrderItem[];
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
@@ -201,6 +216,15 @@ const orderStatusLabels: Record<OrderStatus, string> = {
   completed: "Завершён",
   cancelled: "Отменён",
 };
+const posStatusLabels: Record<string, string> = {
+  sent_to_kitchen: "Передан на кухню",
+  accepted_by_kitchen: "Принят кухней",
+  cooking: "Готовится",
+  partially_rejected: "Частично отклонён",
+  ready: "Готов",
+  rejected: "Отклонён кухней",
+  cancelled: "Отменён",
+};
 const orderStatusTransitions: Record<OrderStatus, OrderStatus[]> = {
   new: ["confirmed", "cancelled"],
   confirmed: ["preparing", "cancelled"],
@@ -242,6 +266,8 @@ const emptyProduct = (categoryId = ""): Editor => ({
     isNew: false,
     modifierGroups: [],
     available: true,
+    posDishId: "",
+    posVariantId: "",
     sortOrder: "0",
     weight: "0",
     calories: "0",
@@ -587,6 +613,8 @@ export function AdminApp() {
         description: product.description,
         composition: product.composition,
         available: product.available,
+        posDishId: product.posDishId || "",
+        posVariantId: product.posVariantId || "",
         isNew: product.isNew,
         modifierGroups: product.modifierGroups || [],
         categoryId: String(product.categoryId),
@@ -972,6 +1000,21 @@ export function AdminApp() {
     setEditor(null);
     setMobileNavOpen(false);
   };
+
+  const syncEduPosMenu = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const menu = await request("/admin/edu-pos/sync-menu", { method: "POST" }) as { matched?: number; received?: number };
+      const stopList = await request("/admin/edu-pos/sync-stop-list", { method: "POST" }) as { unavailable?: number };
+      setMessage(`EDU POS: сопоставлено ${menu.matched || 0} из ${menu.received || 0}, недоступно ${stopList.unavailable || 0}`);
+      await loadDashboard();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось синхронизировать EDU POS");
+    } finally {
+      setLoading(false);
+    }
+  };
   const openCategoryManager = () => {
     setRegionByTab((current) => ({ ...current, categories: region }));
     setTab("categories");
@@ -1105,7 +1148,7 @@ export function AdminApp() {
         <div className="admin-catalog-card">
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию блюда" /></label>
-            <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+            <div className="admin-menu-actions"><button type="button" className="admin-category-add" disabled={loading} onClick={() => void syncEduPosMenu()}>↻ EDU POS</button><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
           </div>
           <div className="admin-menu-categories" aria-label="Категории меню">
             <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
@@ -1119,10 +1162,10 @@ export function AdminApp() {
           openProduct(product);
         }}>
           <img src={product.image} alt="" />
-          <span><b>{product.name}</b><small>ID: {product.id}</small></span>
+          <span><b>{product.name}</b><small>ID: {product.id}{product.posDishId ? ` · POS: ${product.posDishId}` : " · не сопоставлено с POS"}</small></span>
           <span className="admin-product-category">{product.categoryTitle}</span>
           <strong>{product.price} сом{product.oldPrice && product.oldPrice > product.price ? <small> {product.oldPrice} сом</small> : null}</strong>
-          <i className={product.available ? "available" : ""}>{product.available ? "В продаже" : "Недоступно"}</i>
+          <i className={product.available && product.posAvailable ? "available" : ""}>{!product.available ? "Отключено" : product.posAvailable ? "В продаже" : "Стоп-лист POS"}</i>
           <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} aria-expanded={openProductActions === product.id} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
         </article>)}
           {!visibleProducts.length && !loading ? <div className="admin-empty"><span>Блюда не найдены</span></div> : null}
@@ -1216,6 +1259,10 @@ export function AdminApp() {
                   <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins ?? "")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
                 </div>
                 <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
+                <div className="admin-two-fields">
+                  <label>EDU POS dishId<input value={String(editor.values.posDishId || "")} onChange={(event) => updateValue("posDishId", event.target.value)} placeholder="ID блюда из /menu" /></label>
+                  <label>EDU POS variantId<input value={String(editor.values.posVariantId || "")} onChange={(event) => updateValue("posVariantId", event.target.value)} placeholder="Необязательно" /></label>
+                </div>
                 <div className="admin-editor-inline-row">
                   <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
                   <label className="admin-switch"><span><b>В продаже</b><small>Можно заказать на сайте</small></span><input type="checkbox" checked={Boolean(editor.values.available)} onChange={(event) => updateValue("available", event.target.checked)} /></label>
@@ -1394,6 +1441,10 @@ export function AdminApp() {
           {selectedOrder.comment ? <span className="wide admin-order-comment"><span><small>Комментарий</small><b>{selectedOrder.comment}</b></span></span> : null}
         </div>
 
+        {selectedOrder.posSyncStatus ? <div className="admin-order-notes">
+          <span className="wide"><span><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `№${selectedOrder.posOrderNumber} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : "Ожидает отправки"}</b></span></span>
+        </div> : null}
+
         <div className="admin-order-lines">
           {selectedOrder.items.map((item) => <article key={item.id}>
             <span className="admin-order-qty">{item.quantity}×</span>
@@ -1408,7 +1459,7 @@ export function AdminApp() {
                 {modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}
                 {contribution ? ` (+${contribution} сом ${scopeLabel})` : ""}
               </small>;
-            })}</span>
+            })}{item.posStatus ? <small>{item.posStatus === "rejected" ? `EDU POS: отклонено${item.posRejectReason ? ` — ${item.posRejectReason}` : ""}` : item.posStatus === "ready" ? "EDU POS: готово" : `EDU POS: ${item.posStatus}`}</small> : null}</span>
             <strong>{formatSom(item.lineTotal)}</strong>
           </article>)}
           <div className="admin-order-summary"><span>Итого</span><strong>{formatSom(selectedOrder.total)}</strong></div>

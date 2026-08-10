@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
 import { PhoneAuthService } from "../auth/phone-auth.service";
 import { Product } from "../catalog/product.entity";
+import { EduPosService } from "../edu-pos/edu-pos.service";
 import { isDeliveryOpenAt } from "../catalog/delivery-hours";
 import { POSTGRES_INTEGER_MAX } from "../common/numeric-limits";
 import { CreateOrderDto } from "./create-order.dto";
@@ -11,7 +12,6 @@ import { OrderItem } from "./order-item.entity";
 import { Order } from "./order.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
 import { OrderPricingError, priceOrderLine } from "./order-pricing";
-import { EduPosIntegrationService } from "./edu-pos-integration.service";
 
 function fingerprintRequest(dto: CreateOrderDto) {
   const items = (dto.items ?? []).map((item) => ({
@@ -58,7 +58,7 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     private readonly phoneAuth: PhoneAuthService,
-    private readonly eduPos: EduPosIntegrationService,
+    private readonly eduPos: EduPosService,
   ) {}
 
   async create(dto: CreateOrderDto) {
@@ -69,7 +69,7 @@ export class OrdersService {
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
       const matched = this.ensureMatchingIdempotency(existing, requestFingerprint);
-      await this.eduPos.forward(matched);
+      await this.eduPos.submitOrder(matched);
       return matched;
     }
 
@@ -95,6 +95,7 @@ export class OrdersService {
         if (products.length !== ids.length) {
           throw new BadRequestException("One or more products do not exist");
         }
+        this.eduPos.assertProductsOrderable(products);
         const byId = new Map(products.map((product) => [product.id, product]));
         const regionSlug = dto.regionSlug || "bishkek";
 
@@ -110,7 +111,18 @@ export class OrdersService {
             if (!Number.isSafeInteger(naktaCoins) || naktaCoins > POSTGRES_INTEGER_MAX) {
               throw new BadRequestException("NAKTA Coin для позиции заказа превышает допустимое значение");
             }
-            return items.create({ ...priced, naktaCoins });
+            return items.create({
+              ...priced,
+              naktaCoins,
+              posDishId: product.posDishId,
+              posVariantId: product.posVariantId,
+              posWeightGrams: product.posSoldByWeight && product.weight > 0
+                ? Math.round(product.weight)
+                : null,
+              posStatus: null,
+              posReadyQuantity: 0,
+              posRejectReason: null,
+            });
           } catch (error) {
             if (error instanceof OrderPricingError) throw new BadRequestException(error.message);
             throw error;
@@ -150,6 +162,7 @@ export class OrdersService {
           noUtensils: dto.noUtensils ?? false,
           idempotencyKey,
           requestFingerprint,
+          externalOrderId: `NAKTA-${idempotencyKey}`,
           subtotal,
           total: subtotal,
           status: OrderStatus.NEW,
@@ -157,14 +170,14 @@ export class OrdersService {
         });
         return orders.save(order);
       });
-      await this.eduPos.forward(created);
+      await this.eduPos.submitOrder(created);
       return created;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
       const matched = this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
-      await this.eduPos.forward(matched);
+      await this.eduPos.submitOrder(matched);
       return matched;
     }
   }

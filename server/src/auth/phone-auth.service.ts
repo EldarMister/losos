@@ -292,12 +292,25 @@ export class PhoneAuthService {
     const account = await this.requireAccount(phone, verificationToken);
 
     const orders = await this.challenges.manager.query(`
-      SELECT "id", "total", "status", "deliveryType", "createdAt", "address"
+      SELECT "id", "total", "status", "deliveryType", "createdAt", "address",
+        "posStatus", "posSyncStatus", "posItemsTotal", "posItemsReady", "posItemsRejected"
       FROM "orders"
       WHERE "phone" = $1
       ORDER BY "createdAt" DESC
       LIMIT 30
-    `, [phone]) as Array<{ id: string; total: number; status: OrderStatus; deliveryType: string; createdAt: Date; address: string }>;
+    `, [phone]) as Array<{
+      id: string;
+      total: number;
+      status: OrderStatus;
+      deliveryType: string;
+      createdAt: Date;
+      address: string;
+      posStatus: string | null;
+      posSyncStatus: string;
+      posItemsTotal: number;
+      posItemsReady: number;
+      posItemsRejected: number;
+    }>;
     const currentStatuses = new Set<OrderStatus>([
       OrderStatus.NEW,
       OrderStatus.CONFIRMED,
@@ -312,6 +325,13 @@ export class PhoneAuthService {
       deliveryType: order.deliveryType,
       createdAt: order.createdAt,
       address: order.address,
+      posStatus: order.posStatus,
+      posSyncStatus: order.posSyncStatus,
+      posProgress: {
+        itemsTotal: order.posItemsTotal,
+        itemsReady: order.posItemsReady,
+        itemsRejected: order.posItemsRejected,
+      },
     });
     return {
       naktaCoins: account.naktaCoins,
@@ -324,7 +344,8 @@ export class PhoneAuthService {
     await this.requireAccount(phone, verificationToken);
     const [order] = await this.challenges.manager.query(`
       SELECT "id", "total", "subtotal", "status", "deliveryType", "createdAt", "address",
-        "apartment", "entrance", "floor", "intercom", "comment", "utensilsCount", "noUtensils", "paymentMethod"
+        "apartment", "entrance", "floor", "intercom", "comment", "utensilsCount", "noUtensils", "paymentMethod",
+        "externalOrderId", "posOrderNumber", "posStatus", "posSyncStatus", "posItemsTotal", "posItemsReady", "posItemsRejected", "posLastSyncAt"
       FROM "orders"
       WHERE "phone" = $1 AND "id" = $2
       LIMIT 1
@@ -344,18 +365,40 @@ export class PhoneAuthService {
       utensilsCount: number;
       noUtensils: boolean;
       paymentMethod: string;
+      externalOrderId: string | null;
+      posOrderNumber: string | null;
+      posStatus: string | null;
+      posSyncStatus: string;
+      posItemsTotal: number;
+      posItemsReady: number;
+      posItemsRejected: number;
+      posLastSyncAt: Date | null;
     }>;
     if (!order) throw new NotFoundException("Заказ не найден");
 
     const items = await this.challenges.manager.query(`
-      SELECT "productName", "quantity", "lineTotal", "modifierSnapshots"
+      SELECT "productName", "quantity", "lineTotal", "modifierSnapshots",
+        "posStatus", "posReadyQuantity", "posRejectReason"
       FROM "order_items"
       WHERE "orderId" = $1
       ORDER BY "id" ASC
-    `, [id]) as Array<{ productName: string; quantity: number; lineTotal: number; modifierSnapshots: unknown }>;
+    `, [id]) as Array<{
+      productName: string;
+      quantity: number;
+      lineTotal: number;
+      modifierSnapshots: unknown;
+      posStatus: string | null;
+      posReadyQuantity: number;
+      posRejectReason: string | null;
+    }>;
 
     return {
       ...order,
+      posProgress: {
+        itemsTotal: order.posItemsTotal,
+        itemsReady: order.posItemsReady,
+        itemsRejected: order.posItemsRejected,
+      },
       items: items.map((item) => ({
         ...item,
         modifierSnapshots: Array.isArray(item.modifierSnapshots) ? item.modifierSnapshots : [],

@@ -88,6 +88,51 @@ export class Order {
   @Column({ type: "timestamp with time zone", nullable: true })
   completedAt!: Date | null;
 
+  @Index({ unique: true })
+  @Column({ type: "varchar", length: 160, nullable: true })
+  externalOrderId!: string | null;
+
+  @Index()
+  @Column({ type: "varchar", length: 160, nullable: true })
+  posOrderId!: string | null;
+
+  @Column({ type: "varchar", length: 80, nullable: true })
+  posOrderNumber!: string | null;
+
+  @Index()
+  @Column({ type: "varchar", length: 40, nullable: true })
+  posStatus!: string | null;
+
+  @Column({ type: "varchar", length: 30, default: "pending" })
+  posSyncStatus!: "pending" | "synced" | "pos_sync_failed";
+
+  @Column({ type: "int", default: 0 })
+  posItemsTotal!: number;
+
+  @Column({ type: "int", default: 0 })
+  posItemsReady!: number;
+
+  @Column({ type: "int", default: 0 })
+  posItemsRejected!: number;
+
+  @Column({ type: "timestamp with time zone", nullable: true })
+  posCreatedAt!: Date | null;
+
+  @Column({ type: "timestamp with time zone", nullable: true })
+  posUpdatedAt!: Date | null;
+
+  @Column({ type: "timestamp with time zone", nullable: true })
+  posLastSyncAt!: Date | null;
+
+  @Column({ type: "int", default: 0 })
+  posRetryCount!: number;
+
+  @Column({ type: "timestamp with time zone", nullable: true })
+  posNextRetryAt!: Date | null;
+
+  @Column({ type: "text", default: "" })
+  posLastError!: string;
+
   @OneToMany(() => OrderItem, (item) => item.order, { cascade: true })
   items!: OrderItem[];
 }

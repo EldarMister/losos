@@ -684,12 +684,20 @@ a { color: inherit; text-decoration: none; }
 .order-status-card li:not(:last-child)::after { content: ""; position: absolute; left: 7px; top: 19px; bottom: -11px; width: 2px; background: #e3e3e5; }
 .order-status-card li.done { color: #303035; font-weight: 500; }
 .order-status-card li.done::before { border-color: var(--orange); background: var(--orange); box-shadow: inset 0 0 0 3px #fff; }
+.kitchen-progress { display: grid; gap: 7px; margin: -3px 0 16px; padding: 12px; border-radius: 15px; background: #fff4ea; color: #29292d; font-size: 13px; font-weight: 600; }
+.kitchen-progress i { display: block; height: 7px; overflow: hidden; border-radius: 999px; background: #f0d8c5; }
+.kitchen-progress em { display: block; height: 100%; border-radius: inherit; background: var(--orange); transition: width .3s ease; }
+.kitchen-progress small { color: #b5482f; font-size: 11px; }
 .order-cancelled { margin: 0; color: #ce4b2d; font-size: 14px; }
 .order-detail-line { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid #efeff1; }
+.order-detail-line.rejected { margin: 0 -8px; padding: 10px 8px; border-radius: 12px; background: #fff1ee; }
 .order-detail-line span { min-width: 0; }
 .order-detail-line b, .order-detail-line small { display: block; }
 .order-detail-line b { font-size: 14px; line-height: 19px; font-weight: 500; }
 .order-detail-line small { margin-top: 3px; color: #929297; font-size: 11px; line-height: 15px; }
+.order-detail-line .kitchen-item-status { color: #a05a00; font-weight: 600; }
+.order-detail-line .kitchen-item-status.status-ready { color: #27804f; }
+.order-detail-line .kitchen-item-status.status-rejected { color: #bd3f2b; }
 .order-detail-line strong { flex: 0 0 auto; font-size: 13px; font-weight: 500; }
 .order-detail-total { display: flex; justify-content: space-between; padding-top: 15px; font-size: 15px; }
 .order-detail-total b { font-size: 17px; }

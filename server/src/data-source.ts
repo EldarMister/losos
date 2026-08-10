@@ -32,6 +32,7 @@ import { AddWhatsappAuth1784989000000 } from "./migrations/1784989000000-AddWhat
 import { AddRegionDeliverySettings1784990000000 } from "./migrations/1784990000000-AddRegionDeliverySettings";
 import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
+import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
 
 try {
   process.loadEnvFile(".env");
@@ -67,6 +68,7 @@ export default new DataSource({
     AddPickupLocationsAndPushTokens1784996000000,
     AddRegionDeliveryDetailsAndZone1784997000000,
     AddOrderCompletionAndSupportContact1784998000000,
+    AddEduPosDeliveryIntegration1784999000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

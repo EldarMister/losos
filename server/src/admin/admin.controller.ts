@@ -27,11 +27,15 @@ import {
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
+import { EduPosService } from "../edu-pos/edu-pos.service";
 
 @Controller("admin")
 @UseGuards(AdminTokenGuard)
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly eduPos: EduPosService,
+  ) {}
 
   @Get("dashboard")
   dashboard(@Query("region") region = "bishkek") {
@@ -41,6 +45,21 @@ export class AdminController {
   @Get("settings")
   settings() {
     return this.admin.settings();
+  }
+
+  @Get("edu-pos/status")
+  eduPosStatus() {
+    return this.eduPos.status();
+  }
+
+  @Post("edu-pos/sync-menu")
+  syncEduPosMenu() {
+    return this.eduPos.syncMenu();
+  }
+
+  @Post("edu-pos/sync-stop-list")
+  syncEduPosStopList() {
+    return this.eduPos.syncStopList();
   }
 
   @Post("regions")

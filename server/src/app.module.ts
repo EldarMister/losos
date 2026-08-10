@@ -38,6 +38,7 @@ import { AddCategoryImage1784987000000 } from "./migrations/1784987000000-AddCat
 import { AddPhoneAuth1784988000000 } from "./migrations/1784988000000-AddPhoneAuth";
 import { AddWhatsappAuth1784989000000 } from "./migrations/1784989000000-AddWhatsappAuth";
 import { AddRegionDeliverySettings1784990000000 } from "./migrations/1784990000000-AddRegionDeliverySettings";
+import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
             AddPickupLocationsAndPushTokens1784996000000,
             AddRegionDeliveryDetailsAndZone1784997000000,
             AddOrderCompletionAndSupportContact1784998000000,
+            AddEduPosDeliveryIntegration1784999000000,
           ],
           migrationsRun: true,
           synchronize:
