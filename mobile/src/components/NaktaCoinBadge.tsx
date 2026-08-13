@@ -1,23 +1,11 @@
 import {
+  Image,
   StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-
-function CoinIcon({ compact }: { compact: boolean }) {
-  return (
-    <View
-      importantForAccessibility="no-hide-descendants"
-      style={[styles.coin, compact && styles.coinCompact]}
-    >
-      <View style={styles.coinHighlight} />
-      <View style={styles.coinRing} />
-      <Text style={[styles.coinLetter, compact && styles.coinLetterCompact]}>N</Text>
-    </View>
-  );
-}
 
 export function NaktaCoinBadge({
   amount,
@@ -34,7 +22,14 @@ export function NaktaCoinBadge({
       accessibilityLabel={`Начислим ${amount} NAKTA Coin`}
       style={[styles.badge, compact && styles.badgeCompact, style]}
     >
-      <CoinIcon compact={compact} />
+      <Image
+        accessibilityIgnoresInvertColors
+        fadeDuration={0}
+        resizeMethod="resize"
+        resizeMode="contain"
+        source={require("../../assets/coin.png")}
+        style={[styles.coin, compact && styles.coinCompact]}
+      />
       <View>
         <Text style={[styles.amount, compact && styles.amountCompact]}>+{Math.round(amount)}</Text>
         <Text style={[styles.label, compact && styles.labelCompact]}>NAKTA COIN</Text>
@@ -45,7 +40,7 @@ export function NaktaCoinBadge({
 
 const styles = StyleSheet.create({
   badge: {
-    minHeight: 31,
+    minHeight: 35,
     paddingVertical: 3,
     paddingLeft: 3,
     paddingRight: 7,
@@ -63,63 +58,19 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   badgeCompact: {
-    minHeight: 27,
+    minHeight: 32,
     paddingVertical: 2,
     paddingRight: 6,
     borderRadius: 9,
     gap: 3,
   },
   coin: {
-    width: 24,
-    height: 24,
-    borderWidth: 1,
-    borderColor: "#B96F00",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFC928",
-    overflow: "hidden",
+    width: 28,
+    height: 28,
   },
   coinCompact: {
-    width: 21,
-    height: 21,
-    borderRadius: 10.5,
-  },
-  coinHighlight: {
-    position: "absolute",
-    top: 1,
-    left: 3,
-    width: 12,
-    height: 5,
-    borderRadius: 6,
-    backgroundColor: "#FFF3A1",
-    opacity: 0.95,
-    transform: [{ rotate: "-18deg" }],
-  },
-  coinRing: {
-    position: "absolute",
-    top: 2,
-    right: 2,
-    bottom: 2,
-    left: 2,
-    borderWidth: 1,
-    borderColor: "#E19700",
-    borderRadius: 10,
-  },
-  coinLetter: {
-    color: "#4A2A00",
-    fontFamily: "Inter_700Bold",
-    fontSize: 13,
-    lineHeight: 15,
-    textAlign: "center",
-    includeFontPadding: false,
-    textShadowColor: "#FFF2A6",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0,
-  },
-  coinLetterCompact: {
-    fontSize: 11,
-    lineHeight: 13,
+    width: 26,
+    height: 26,
   },
   amount: {
     color: "#171717",

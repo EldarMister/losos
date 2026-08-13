@@ -136,4 +136,19 @@ describe("CheckoutScreen", () => {
     await fireEvent.changeText(phone, "555123456");
     expect(screen.getByDisplayValue("+996 555 12 34 56")).toBeTruthy();
   });
+
+  test("explains why checkout cannot be submitted instead of silently disabling the button", async () => {
+    const screen = await render(
+      <CheckoutScreen
+        onBack={jest.fn()}
+        onOpenLocation={jest.fn()}
+        onSuccess={jest.fn()}
+      />,
+    );
+
+    await fireEvent.press(screen.getByText("Заказать"));
+
+    expect(screen.getByText("Укажите имя получателя")).toBeTruthy();
+    expect(ordersApi.create).not.toHaveBeenCalled();
+  });
 });

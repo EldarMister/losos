@@ -110,14 +110,19 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
 
   const normalizedPhone = phone.replace(/[\s()-]/g, "");
   const validPhone = /^\+(?:7\d{10}|996\d{9})$/.test(normalizedPhone);
-  const canSubmit = (
-    customerName.trim().length >= 2
-    && validPhone
-    && address.trim().length >= 5
-    && store.cart.length > 0
-    && Boolean(store.session)
-    && availability.isOpen
-  );
+  const validationError = customerName.trim().length < 2
+    ? "Укажите имя получателя"
+    : !validPhone
+      ? "Проверьте номер телефона"
+      : address.trim().length < 5
+        ? "Выберите адрес доставки"
+        : store.cart.length === 0
+          ? "Корзина пуста"
+          : !store.session
+            ? "Войдите по номеру телефона заново"
+            : !availability.isOpen
+              ? `Кухня сейчас закрыта. ${availability.nextOpenLabel}.`
+              : "";
 
   const deliveryLabel = useMemo(
     () => store.deliveryType === "delivery" ? "Доставка" : "Самовывоз",
@@ -127,7 +132,12 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
     setPhone(hasKyrgyzPhone ? formatKyrgyzPhoneInput(value) : value);
   };
   const submit = async () => {
-    if (!canSubmit || submitting) return;
+    if (submitting) return;
+    if (validationError) {
+      setError(validationError);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+      return;
+    }
     setSubmitting(true);
     setError("");
     const payload: OrderPayload = {
@@ -164,6 +174,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
       onSuccess(order);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Не удалось оформить заказ");
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
     } finally {
       setSubmitting(false);
     }
@@ -371,7 +382,7 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
             />
           </View>
           <PrimaryButton
-            disabled={!canSubmit}
+            disabled={!availability.isOpen}
             label={availability.isOpen ? "Заказать" : "Кухня закрыта"}
             loading={submitting}
             onPress={() => void submit()}
