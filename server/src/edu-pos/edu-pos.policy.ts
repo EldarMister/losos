@@ -1,5 +1,23 @@
 import { OrderStatus } from "../orders/order.enums";
 
+export const EDU_POS_SUBMITTABLE_ORDER_STATUSES = [
+  OrderStatus.CONFIRMED,
+  OrderStatus.PREPARING,
+  OrderStatus.READY,
+  OrderStatus.DELIVERING,
+] as const;
+
+export function canSubmitOrderToEduPos(status: OrderStatus) {
+  return (EDU_POS_SUBMITTABLE_ORDER_STATUSES as readonly OrderStatus[]).includes(status);
+}
+
+export function shouldSubmitOrderToEduPosAfterAdminTransition(
+  previousStatus: OrderStatus,
+  nextStatus: OrderStatus,
+) {
+  return previousStatus === OrderStatus.NEW && nextStatus === OrderStatus.CONFIRMED;
+}
+
 const RETRY_DELAYS_MS = [5_000, 15_000, 30_000, 60_000] as const;
 
 export function eduPosRetryDelayMs(attempt: number) {

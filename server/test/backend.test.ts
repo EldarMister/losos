@@ -41,8 +41,10 @@ import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
 import {
+  canSubmitOrderToEduPos,
   eduPosRetryDelayMs,
   internalOrderStatusForPos,
+  shouldSubmitOrderToEduPosAfterAdminTransition,
 } from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
 import { OrdersController } from "../src/orders/orders.controller";
@@ -1163,6 +1165,21 @@ test("shared region migration adds source selectors and seeds Otuz-Adyr", async 
 });
 
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {
+  assert.equal(canSubmitOrderToEduPos(OrderStatus.NEW), false);
+  assert.equal(canSubmitOrderToEduPos(OrderStatus.CONFIRMED), true);
+  assert.equal(canSubmitOrderToEduPos(OrderStatus.CANCELLED), false);
+  assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
+    OrderStatus.NEW,
+    OrderStatus.CONFIRMED,
+  ), true);
+  assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
+    OrderStatus.NEW,
+    OrderStatus.CANCELLED,
+  ), false);
+  assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
+    OrderStatus.CONFIRMED,
+    OrderStatus.PREPARING,
+  ), false);
   assert.equal(internalOrderStatusForPos("sent_to_kitchen"), OrderStatus.CONFIRMED);
   assert.equal(internalOrderStatusForPos("accepted_by_kitchen"), OrderStatus.CONFIRMED);
   assert.equal(internalOrderStatusForPos("cooking"), OrderStatus.PREPARING);

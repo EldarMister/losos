@@ -70,9 +70,7 @@ export class OrdersService {
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
-      const matched = this.ensureMatchingIdempotency(existing, requestFingerprint);
-      await this.eduPos.submitOrder(matched);
-      return matched;
+      return this.ensureMatchingIdempotency(existing, requestFingerprint);
     }
 
     try {
@@ -178,15 +176,12 @@ export class OrdersService {
         });
         return orders.save(order);
       });
-      await this.eduPos.submitOrder(created);
       return created;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
-      const matched = this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
-      await this.eduPos.submitOrder(matched);
-      return matched;
+      return this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
     }
   }
 

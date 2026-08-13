@@ -13,7 +13,12 @@ import { OrderItem } from "../orders/order-item.entity";
 import { Order } from "../orders/order.entity";
 import { OrderStatus } from "../orders/order.enums";
 import { EduPosApiError, EduPosClient } from "./edu-pos.client";
-import { eduPosRetryDelayMs, internalOrderStatusForPos } from "./edu-pos.policy";
+import {
+  canSubmitOrderToEduPos,
+  EDU_POS_SUBMITTABLE_ORDER_STATUSES,
+  eduPosRetryDelayMs,
+  internalOrderStatusForPos,
+} from "./edu-pos.policy";
 import type {
   EduPosCreateOrderPayload,
   EduPosMenuDish,
@@ -170,6 +175,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
 
   async submitOrder(order: Order, throwOnFailure = true) {
     if (!this.client.isConfigured()) return order;
+    if (!canSubmitOrderToEduPos(order.status)) return order;
     // Keep the existing local order flow available while the POS catalogue is
     // still being populated. A partially mapped order cannot be sent to EDU
     // POS safely because its API accepts IDs only.
@@ -194,14 +200,27 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (!this.client.isConfigured() || this.syncingOrders) return;
     this.syncingOrders = true;
     try {
-      const dueFailed = await this.orders.createQueryBuilder("order")
+      const dueSubmissions = await this.orders.createQueryBuilder("order")
         .leftJoinAndSelect("order.items", "item")
-        .where("order.posSyncStatus = :failed", { failed: "pos_sync_failed" })
-        .andWhere("order.posRetryCount < :maxRetries", { maxRetries: MAX_RETRIES })
-        .andWhere("(order.posNextRetryAt IS NULL OR order.posNextRetryAt <= :now)", { now: new Date() })
+        .where("order.status IN (:...submittableStatuses)", {
+          submittableStatuses: [...EDU_POS_SUBMITTABLE_ORDER_STATUSES],
+        })
+        .andWhere(`(
+          order.posSyncStatus = :pending
+          OR (
+            order.posSyncStatus = :failed
+            AND order.posRetryCount < :maxRetries
+            AND (order.posNextRetryAt IS NULL OR order.posNextRetryAt <= :now)
+          )
+        )`, {
+          pending: "pending",
+          failed: "pos_sync_failed",
+          maxRetries: MAX_RETRIES,
+          now: new Date(),
+        })
         .take(20)
         .getMany();
-      for (const order of dueFailed) await this.submitOrder(order, false);
+      for (const order of dueSubmissions) await this.submitOrder(order, false);
 
       const active = await this.orders.createQueryBuilder("order")
         .leftJoinAndSelect("order.items", "item")
