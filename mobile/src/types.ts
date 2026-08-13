@@ -203,6 +203,7 @@ export type WhatsappRequest = {
 
 export type ProfileOrder = {
   id: string;
+  orderNumber?: number;
   total: number;
   status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
   deliveryType: DeliveryType;

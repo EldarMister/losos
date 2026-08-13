@@ -19,6 +19,9 @@ import { colors } from "../theme";
 import type { NaktaCoinTransaction, ProfileData, ProfileOrder } from "../types";
 import { useOrderLiveRefresh } from "../useOrderLiveRefresh";
 
+const publicOrderNumber = (order: Pick<ProfileOrder, "id" | "orderNumber">) =>
+  String(order.orderNumber || order.id.slice(0, 6).toUpperCase());
+
 const money = formatMoney;
 
 const statuses: Record<ProfileOrder["status"], string> = {
@@ -77,7 +80,7 @@ export function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransa
       id: `order-${order.id}`,
       amount,
       createdAt: order.createdAt,
-      description: `Заказ №${order.id.slice(0, 6).toUpperCase()}`,
+      description: `Заказ №${publicOrderNumber(order)}`,
       orderId: order.id,
     } satisfies NaktaCoinTransaction];
   });
@@ -114,7 +117,7 @@ function OrderCard({
 
   return (
     <Pressable
-      accessibilityLabel={`Заказ №${order.id.slice(0, 6).toUpperCase()}`}
+      accessibilityLabel={`Заказ №${publicOrderNumber(order)}`}
       onPress={onPress}
       style={({ pressed }) => [styles.orderCard, pressed && styles.orderPressed]}
     >
@@ -136,7 +139,7 @@ function OrderCard({
       <View style={styles.orderMainRow}>
         <View style={styles.orderMainCopy}>
         <Text style={styles.orderTitle}>
-          Заказ №{order.id.slice(0, 6).toUpperCase()}
+          Заказ №{publicOrderNumber(order)}
         </Text>
         <Text numberOfLines={1} style={styles.orderSubtitle}>
           {new Intl.DateTimeFormat("ru-RU", {

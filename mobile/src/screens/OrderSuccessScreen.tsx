@@ -32,7 +32,7 @@ export function OrderSuccessScreen({ order, onDone }: Props) {
         <Text style={styles.title}>Заказ принят!</Text>
         <Text style={styles.order}>Заказ {label}</Text>
         <Text style={styles.copy}>
-          Кухня уже получила заказ. Об изменении статуса сообщим в уведомлении.
+          Администратор скоро проверит заказ. После подтверждения мы передадим его на кухню и сообщим в уведомлении.
         </Text>
       </View>
       <PrimaryButton label="Вернуться в каталог" onPress={onDone} tone="white" />

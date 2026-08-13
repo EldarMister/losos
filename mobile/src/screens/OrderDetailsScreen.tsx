@@ -105,7 +105,7 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
           <MaterialCommunityIcons name="arrow-left" size={23} color={colors.ink} />
         </Pressable>
         <Text numberOfLines={1} style={styles.headerTitle}>
-          Заказ №{orderId.slice(0, 6).toUpperCase()}
+          Заказ №{order?.orderNumber || orderId.slice(0, 6).toUpperCase()}
         </Text>
         <View style={styles.headerSpacer} />
       </View>

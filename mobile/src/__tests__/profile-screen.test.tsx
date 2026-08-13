@@ -109,6 +109,7 @@ describe("ProfileScreen order history", () => {
       naktaCoins: 42,
       currentOrders: [{
         id: "abcdef-current",
+        orderNumber: 1424,
         total: 1290,
         status: "preparing",
         deliveryType: "delivery",
@@ -134,7 +135,7 @@ describe("ProfileScreen order history", () => {
       />,
     );
 
-    await fireEvent.press(await screen.findByLabelText("Заказ №ABCDEF"));
+    await fireEvent.press(await screen.findByLabelText("Заказ №1424"));
     expect(onOpenOrder).toHaveBeenCalledWith("abcdef-current");
     expect(screen.getByText("переулок Токолдош, 61")).toBeTruthy();
 
