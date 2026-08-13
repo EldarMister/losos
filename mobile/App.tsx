@@ -21,7 +21,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { catalogApi } from "./src/api";
+import { ApiError, authApi, catalogApi } from "./src/api";
 import { CartSheet } from "./src/components/CartSheet";
 import { DeliveryInfoSheet } from "./src/components/DeliveryInfoSheet";
 import { LocationSheet } from "./src/components/LocationSheet";
@@ -323,6 +323,20 @@ function MobileApp() {
       })
       .catch(() => undefined);
   }, [store.hydrated]);
+
+  useEffect(() => {
+    if (!store.hydrated || !store.session) return undefined;
+    const session = store.session;
+    let active = true;
+    void authApi.profile(session).catch((error) => {
+      if (active && error instanceof ApiError && error.status === 401) {
+        void store.signOut();
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [store.hydrated, store.session]);
 
   useEffect(() => {
     if (!store.session) return;
