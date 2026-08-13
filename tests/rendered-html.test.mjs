@@ -133,6 +133,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /className="phone-auth-modal"/);
   assert.match(storefront, /Войдите или зарегистрируйтесь/);
   assert.match(storefront, /<TurnstileWidget/);
+  assert.match(storefront, /import \{ Icon \} from "@mdi\/react"/);
+  assert.doesNotMatch(storefront, /import Icon from "@mdi\/react"/);
   assert.doesNotMatch(storefront, /WhatsApp/i);
   assert.doesNotMatch(storefront, /\/auth\/whatsapp\//);
   assert.match(storefront, /mdiShoppingOutline/);
