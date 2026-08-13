@@ -794,7 +794,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     scheduleTimestamp,
   );
   const orderingClosed = !deliveryAvailability.isOpen;
-  const profileLoading = Boolean(verifiedPhone && phoneVerificationToken && !profileData);
+  const hasProfileSession = Boolean(verifiedPhone && phoneVerificationToken);
+  const profileLoading = Boolean(hasProfileSession && !profileData);
   const coinHistory = useMemo(() => profileCoinHistory(profileData), [profileData]);
   const openSearch = () => {
     const nav = categoryNavRef.current;
@@ -1244,6 +1245,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setDeliveryLocation(null);
     }
     setAddressOpen(true);
+  };
+
+  const openAccount = () => {
+    setProfileSection("menu");
+    if (hasProfileSession) {
+      setMenuOpen(true);
+      return;
+    }
+    setPhoneAuthMethod("choose");
+    setPhoneCodeRequested(false);
+    setPhoneCode("");
+    setPhoneAuthMessage("");
+    setPhoneAuthPurpose("profile");
+    setTurnstileToken("");
+    setTurnstileResetKey((current) => current + 1);
+    setPhoneAuthOpen(true);
   };
 
   const createCheckoutAttempt = () => {
@@ -1902,10 +1919,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
         <header className="delivery-header">
-          <button className="cat-avatar" aria-label="Открыть меню" onClick={() => { setProfileSection("menu"); setMenuOpen(true); }}><span className="cat-reference" aria-hidden="true" /></button>
+          <button className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}><span className="cat-reference" aria-hidden="true" /></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
-            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button>
-            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button>
+            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
+            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
           </div>
           <div className="order-location-bar">
             <div className="city-select" ref={citySelectRef}>
@@ -1916,7 +1933,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
             <div className="delivery-mode" aria-label={orderingClosed ? `Кухня закрыта. ${deliveryAvailability.opensLabel}` : deliveryType === "pickup" ? "Самовывоз примерно 40 минут" : "Доставка примерно 45 минут"}>
-              <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button></div>
+              <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button></div>
               <span className="delivery-connector" aria-hidden="true" />
               <div className={`delivery-status${orderingClosed ? " closed" : ""}`}><strong>{orderingClosed ? "Закрыто" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "~40 минут" : "от ~45 минут"}</small></div>
             </div>
@@ -2034,7 +2051,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {menuOpen ? (
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
           <section className="profile-modal">
-            {verifiedPhone ? <>
+            {hasProfileSession ? <>
               <header className={`profile-screen-header${profileSection === "menu" ? " profile-menu-header" : ""}`}>
                 <button type="button" onClick={() => profileSection === "menu" ? setMenuOpen(false) : setProfileSection("menu")} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
                 <h2>{profileSection === "orders" ? "Мои заказы" : profileSection === "balance" ? "NAKTA Coin" : profileSection === "settings" ? "Настройки" : ""}</h2>
@@ -2221,8 +2238,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>
               <div className="modal-mode-switch" aria-label="Способ получения заказа">
                 <div className="modal-mode-icons">
-                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.webp" alt="" /></button>
-                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.webp" alt="" /></button>
+                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
+                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
                 </div>
                 <div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~45 минут" : "от ~45 минут"}</small></div>
               </div>
@@ -2333,7 +2350,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
                   </div>
                   <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
-                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.webp" : "/delivery.webp"} alt="" /><span><b>{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"} ›</span></button><button className={`checkout${orderingClosed ? " closed" : ""}`} disabled={orderingClosed} onClick={beginCheckout}><span>{orderingClosed ? "Закрыто" : "Далее"}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"} ›</span></button><button className={`checkout${orderingClosed ? " closed" : ""}`} disabled={orderingClosed} onClick={beginCheckout}><span>{orderingClosed ? "Закрыто" : "Далее"}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
                 </section>
               </div>
             </>}
