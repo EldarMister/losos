@@ -36,6 +36,7 @@ import { Order } from "./orders/order.entity";
 import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
 import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000-AddPhoneAccountSessions";
+import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "./migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 
 try {
   process.loadEnvFile(".env");
@@ -74,6 +75,7 @@ export default new DataSource({
     AddEduPosDeliveryIntegration1784999000000,
     AddSharedRegionContentAndOtuzAdyr1785000000000,
     AddPhoneAccountSessions1785001000000,
+    AddShortOrderNumbersAndAdminConfirmation1785002000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

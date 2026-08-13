@@ -19,7 +19,7 @@ import { OrderStatus } from "../orders/order.enums";
 import { EduPosApiError, EduPosClient } from "./edu-pos.client";
 import { buildEduPosMenuExportPayload } from "./edu-pos-menu-export";
 import {
-  canSubmitOrderToEduPos,
+  canSyncOrderWithEduPos,
   EDU_POS_SUBMITTABLE_ORDER_STATUSES,
   eduPosRetryDelayMs,
   orderStatusAfterPosUpdate,
@@ -210,7 +210,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
 
   async submitOrder(order: Order, throwOnFailure = true) {
     if (!this.client.isConfigured()) return order;
-    if (!canSubmitOrderToEduPos(order.status)) return order;
+    if (!canSyncOrderWithEduPos(order.status, order.adminConfirmedAt)) return order;
     const unmapped = order.items.filter((item) => !item.posDishId);
     if (unmapped.length) {
       const error = new BadRequestException(
@@ -278,6 +278,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
       if (current.status !== OrderStatus.NEW) return current;
       if (current.posSyncStatus === "synced" && current.posOrderId) {
         current.status = OrderStatus.CONFIRMED;
+        current.adminConfirmedAt = new Date();
         return this.orders.save(current);
       }
       throw new ConflictException("Заказ уже отправляется на кухню. Подождите несколько секунд");
@@ -309,6 +310,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
         .where("order.status IN (:...submittableStatuses)", {
           submittableStatuses: [...EDU_POS_SUBMITTABLE_ORDER_STATUSES],
         })
+        .andWhere("order.adminConfirmedAt IS NOT NULL")
         .andWhere(`(
           order.posSyncStatus = :pending
           OR (
@@ -331,6 +333,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
         .leftJoinAndSelect("order.items", "item")
         .where("order.posSyncStatus = :synced", { synced: "synced" })
         .andWhere("order.status <> :newStatus", { newStatus: OrderStatus.NEW })
+        .andWhere("order.adminConfirmedAt IS NOT NULL")
         .andWhere("order.posStatus NOT IN (:...terminal)", { terminal: [...TERMINAL_POS_STATUSES] })
         .take(50)
         .getMany();
@@ -415,6 +418,9 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     order.posNextRetryAt = null;
     order.posLastError = "";
     order.status = orderStatusAfterPosUpdate(order.status, pos.status, confirmAccepted);
+    if (confirmAccepted && order.status !== OrderStatus.NEW) {
+      order.adminConfirmedAt = order.adminConfirmedAt ?? new Date();
+    }
     await this.orders.save(order);
 
     for (const item of order.items) {

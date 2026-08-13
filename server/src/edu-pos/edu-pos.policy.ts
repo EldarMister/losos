@@ -11,6 +11,10 @@ export function canSubmitOrderToEduPos(status: OrderStatus) {
   return (EDU_POS_SUBMITTABLE_ORDER_STATUSES as readonly OrderStatus[]).includes(status);
 }
 
+export function canSyncOrderWithEduPos(status: OrderStatus, adminConfirmedAt: Date | null) {
+  return Boolean(adminConfirmedAt) && canSubmitOrderToEduPos(status);
+}
+
 export function shouldSubmitOrderToEduPosAfterAdminTransition(
   previousStatus: OrderStatus,
   nextStatus: OrderStatus,

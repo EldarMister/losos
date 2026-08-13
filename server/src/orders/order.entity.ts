@@ -15,6 +15,10 @@ export class Order {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Index({ unique: true })
+  @Column({ type: "int", generated: "increment" })
+  orderNumber!: number;
+
   @Index()
   @Column({ length: 100, default: "bishkek" })
   regionSlug!: string;
@@ -77,6 +81,9 @@ export class Order {
   @Index()
   @Column({ type: "varchar", length: 30, default: OrderStatus.NEW })
   status!: OrderStatus;
+
+  @Column({ type: "timestamp with time zone", nullable: true })
+  adminConfirmedAt!: Date | null;
 
   @CreateDateColumn()
   createdAt!: Date;

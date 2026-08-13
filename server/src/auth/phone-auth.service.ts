@@ -296,7 +296,7 @@ export class PhoneAuthService {
     const account = await this.requireAccount(phone, verificationToken);
 
     const orders = await this.challenges.manager.query(`
-      SELECT "id", "total", "status", "deliveryType", "createdAt", "address",
+      SELECT "id", "orderNumber", "total", "status", "deliveryType", "createdAt", "address",
         "posStatus", "posSyncStatus", "posItemsTotal", "posItemsReady", "posItemsRejected"
       FROM "orders"
       WHERE "phone" = $1
@@ -304,6 +304,7 @@ export class PhoneAuthService {
       LIMIT 30
     `, [phone]) as Array<{
       id: string;
+      orderNumber: number;
       total: number;
       status: OrderStatus;
       deliveryType: string;
@@ -324,6 +325,7 @@ export class PhoneAuthService {
     ]);
     const serialize = (order: typeof orders[number]) => ({
       id: order.id,
+      orderNumber: order.orderNumber,
       total: order.total,
       status: order.status,
       deliveryType: order.deliveryType,
@@ -347,7 +349,7 @@ export class PhoneAuthService {
   async orderDetails(phone: string, verificationToken: string, id: string) {
     await this.requireAccount(phone, verificationToken);
     const [order] = await this.challenges.manager.query(`
-      SELECT "id", "total", "subtotal", "status", "deliveryType", "createdAt", "address",
+      SELECT "id", "orderNumber", "total", "subtotal", "status", "deliveryType", "createdAt", "address",
         "apartment", "entrance", "floor", "intercom", "comment", "utensilsCount", "noUtensils", "paymentMethod",
         "externalOrderId", "posOrderNumber", "posStatus", "posSyncStatus", "posItemsTotal", "posItemsReady", "posItemsRejected", "posLastSyncAt"
       FROM "orders"
@@ -355,6 +357,7 @@ export class PhoneAuthService {
       LIMIT 1
     `, [phone, id]) as Array<{
       id: string;
+      orderNumber: number;
       total: number;
       subtotal: number;
       status: OrderStatus;

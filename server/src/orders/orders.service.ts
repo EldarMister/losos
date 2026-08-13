@@ -174,6 +174,7 @@ export class OrdersService {
           subtotal,
           total: subtotal,
           status: OrderStatus.NEW,
+          adminConfirmedAt: null,
           items: lines,
         });
         return orders.save(order);

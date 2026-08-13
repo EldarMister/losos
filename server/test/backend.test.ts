@@ -43,6 +43,7 @@ import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
 import { buildEduPosMenuExportPayload } from "../src/edu-pos/edu-pos-menu-export";
 import type { EduPosMenuExportPayload } from "../src/edu-pos/edu-pos.types";
 import {
+  canSyncOrderWithEduPos,
   canSubmitOrderToEduPos,
   eduPosRetryDelayMs,
   internalOrderStatusForPos,
@@ -60,6 +61,7 @@ import { PushNotificationsService } from "../src/notifications/push-notification
 import { AddPickupLocationsAndPushTokens1784996000000 } from "../src/migrations/1784996000000-AddPickupLocationsAndPushTokens";
 import { AddRegionDeliveryDetailsAndZone1784997000000 } from "../src/migrations/1784997000000-AddRegionDeliveryDetailsAndZone";
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "../src/migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
+import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "../src/migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -1167,10 +1169,29 @@ test("shared region migration adds source selectors and seeds Otuz-Adyr", async 
   assert.ok(String(seed?.parameters?.[0]).includes("40.64"));
 });
 
+test("order number migration adds a short sequence and admin confirmation marker", async () => {
+  const migration = new AddShortOrderNumbersAndAdminConfirmation1785002000000();
+  const queries: string[] = [];
+  await migration.up({
+    query: async (statement: string) => {
+      queries.push(statement.replace(/\s+/g, " ").trim());
+      return [];
+    },
+  } as never);
+
+  assert.ok(queries.some((statement) => statement.includes('CREATE SEQUENCE IF NOT EXISTS "orders_order_number_seq"')));
+  assert.ok(queries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "orderNumber" integer')));
+  assert.ok(queries.some((statement) => statement.includes('CREATE UNIQUE INDEX IF NOT EXISTS "IDX_orders_order_number"')));
+  assert.ok(queries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "adminConfirmedAt"')));
+});
+
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {
   assert.equal(canSubmitOrderToEduPos(OrderStatus.NEW), false);
   assert.equal(canSubmitOrderToEduPos(OrderStatus.CONFIRMED), true);
   assert.equal(canSubmitOrderToEduPos(OrderStatus.CANCELLED), false);
+  assert.equal(canSyncOrderWithEduPos(OrderStatus.CONFIRMED, null), false);
+  assert.equal(canSyncOrderWithEduPos(OrderStatus.CONFIRMED, new Date()), true);
+  assert.equal(canSyncOrderWithEduPos(OrderStatus.NEW, new Date()), false);
   assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
     OrderStatus.NEW,
     OrderStatus.CONFIRMED,

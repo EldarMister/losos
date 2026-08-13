@@ -42,6 +42,7 @@ import { AddRegionDeliverySettings1784990000000 } from "./migrations/17849900000
 import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
 import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000-AddPhoneAccountSessions";
+import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "./migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000
             AddEduPosDeliveryIntegration1784999000000,
             AddSharedRegionContentAndOtuzAdyr1785000000000,
             AddPhoneAccountSessions1785001000000,
+            AddShortOrderNumbersAndAdminConfirmation1785002000000,
           ],
           migrationsRun: true,
           synchronize:

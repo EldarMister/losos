@@ -115,6 +115,7 @@ type StoredPhoneAuthSession = {
 };
 type ProfileOrder = {
   id: string;
+  orderNumber?: number;
   total: number;
   status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
   deliveryType: DeliveryType;
@@ -159,6 +160,9 @@ type NaktaCoinTransaction = {
   description: string;
   orderId?: string;
 };
+
+const publicOrderNumber = (order: { id: string; orderNumber?: number }) =>
+  String(order.orderNumber || order.id.slice(0, 6).toUpperCase());
 type ProfileData = {
   naktaCoins: number;
   currentOrders: ProfileOrder[];
@@ -240,7 +244,7 @@ function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[]
       id: `order-${order.id}`,
       amount,
       createdAt: order.createdAt,
-      description: `Заказ №${order.id.slice(0, 6).toUpperCase()}`,
+      description: `Заказ №${publicOrderNumber(order)}`,
       orderId: order.id,
     }];
   });
@@ -2114,7 +2118,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <div className="profile-order-list">
                     {profileLoading ? <p className="profile-empty">Загружаем заказы…</p> : (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.length ? (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.map((order) => <button className="profile-order-card" type="button" key={order.id} onClick={() => openProfileOrder(order)}>
                       <span className={`profile-order-status status-${order.status}`}>{profileOrderStatuses[order.status]}</span>
-                      <span className="profile-order-main"><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
+                      <span className="profile-order-main"><span><b>Заказ №{publicOrderNumber(order)}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
                       <span className="profile-order-delivery"><i aria-hidden="true">▣</i><span><b>{order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{order.address || "Адрес заказа"}</small></span></span>
                     </button>) : <div className="profile-orders-empty"><span aria-hidden="true">▱</span><p>{profileOrderTab === "active" ? "Активных заказов пока нет" : "История заказов пока пуста"}</p><button type="button" onClick={() => setMenuOpen(false)}>Перейти в меню</button></div>}
                   </div>
@@ -2392,9 +2396,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       {selectedProfileOrder ? (
-        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${selectedProfileOrder.id.slice(0, 6).toUpperCase()}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
+        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${publicOrderNumber(selectedProfileOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
           <section className="order-details-modal">
-            <header><div><small>Заказ №{selectedProfileOrder.id.slice(0, 6).toUpperCase()}</small><h2>{profileOrderStatuses[profileOrderDetail?.status ?? selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
+            <header><div><small>Заказ №{publicOrderNumber(selectedProfileOrder)}</small><h2>{profileOrderStatuses[profileOrderDetail?.status ?? selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
             {profileOrderDetailLoading ? <p className="order-details-state">Загружаем детали заказа…</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
               <section className="order-status-card">
                 <b>{profileOrderDetail.posStatus ? posStatusLabels[profileOrderDetail.posStatus] || "Статус кухни" : "Статус заказа"}</b>
@@ -2530,7 +2534,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <div className="checkout-success-mark" aria-hidden="true">✓</div>
               <span>Спасибо!</span>
               <h2>Заказ принят</h2>
-              <p>Номер заказа <b>#{placedOrder.orderNumber || placedOrder.id.slice(0, 8).toUpperCase()}</b>. Мы уже передали его ресторану.</p>
+              <p>Номер заказа <b>#{publicOrderNumber(placedOrder)}</b>. Администратор скоро проверит и подтвердит его.</p>
               <div><span>К оплате</span><b><NumberTicker value={placedOrder.total} format={money} /></b></div>
               <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>Вернуться в меню</button>
             </section> : <form className="checkout-form" onSubmit={submitOrder}>
