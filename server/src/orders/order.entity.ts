@@ -104,7 +104,7 @@ export class Order {
   posStatus!: string | null;
 
   @Column({ type: "varchar", length: 30, default: "pending" })
-  posSyncStatus!: "pending" | "synced" | "pos_sync_failed";
+  posSyncStatus!: "pending" | "submitting" | "synced" | "pos_sync_failed";
 
   @Column({ type: "int", default: 0 })
   posItemsTotal!: number;

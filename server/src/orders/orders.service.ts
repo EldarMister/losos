@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
@@ -57,6 +57,8 @@ function isUniqueViolation(error: unknown) {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     private readonly phoneAuth: PhoneAuthService,
@@ -176,11 +178,13 @@ export class OrdersService {
         });
         return orders.save(order);
       });
+      this.logger.log(`Order ${created.id} persisted as new (idempotency ${idempotencyKey})`);
       return created;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
+      this.logger.warn(`Recovered concurrent order ${racedOrder.id} (idempotency ${idempotencyKey})`);
       return this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
     }
   }

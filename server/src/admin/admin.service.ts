@@ -145,7 +145,13 @@ export class AdminService {
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {
-    let shouldSubmitToEduPos = false;
+    const current = await this.order(id);
+    if (shouldSubmitOrderToEduPosAfterAdminTransition(current.status, nextStatus)) {
+      const confirmed = await this.eduPos.confirmOrder(current);
+      dispatchOrderStatusPush(this.pushNotifications, confirmed);
+      return confirmed;
+    }
+
     const saved = await this.orderRepository.manager.transaction(async (manager) => {
       const orders = manager.getRepository(Order);
       const order = await orders.findOne({ where: { id }, relations: { items: true } });
@@ -153,10 +159,6 @@ export class AdminService {
       if (!canTransitionOrderStatus(order.status, nextStatus)) {
         throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
       }
-      shouldSubmitToEduPos = shouldSubmitOrderToEduPosAfterAdminTransition(
-        order.status,
-        nextStatus,
-      );
       order.status = nextStatus;
       if (nextStatus === OrderStatus.COMPLETED) order.completedAt = new Date();
       const saved = await orders.save(order);
@@ -168,7 +170,6 @@ export class AdminService {
       }
       return saved;
     });
-    if (shouldSubmitToEduPos) await this.eduPos.submitOrder(saved, false);
     dispatchOrderStatusPush(this.pushNotifications, saved);
     return saved;
   }

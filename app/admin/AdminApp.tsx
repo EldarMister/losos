@@ -107,7 +107,7 @@ type AdminOrder = {
   externalOrderId?: string | null;
   posOrderNumber?: string | null;
   posStatus?: string | null;
-  posSyncStatus?: "pending" | "synced" | "pos_sync_failed";
+  posSyncStatus?: "pending" | "submitting" | "synced" | "pos_sync_failed";
   posItemsTotal?: number;
   posItemsReady?: number;
   posItemsRejected?: number;
@@ -770,6 +770,7 @@ export function AdminApp() {
       setMessage(`${formatOrderNumber(updated.id)}: ${orderStatusLabels[updated.status]}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось изменить статус");
+      await loadOrders(true);
     } finally {
       setOrdersLoading(false);
     }
@@ -1007,7 +1008,7 @@ export function AdminApp() {
     setMobileNavOpen(false);
   };
 
-  const syncEduPosMenu = async () => {
+  const importEduPosMenu = async () => {
     setLoading(true);
     setMessage("");
     try {
@@ -1017,6 +1018,22 @@ export function AdminApp() {
       await loadDashboard();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось синхронизировать EDU POS");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportEduPosMenu = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const exported = await request(
+        `/admin/edu-pos/export-menu?region=${encodeURIComponent(region)}`,
+        { method: "POST" },
+      ) as { categories?: number; products?: number };
+      setMessage(`Меню отправлено в EDU POS: ${exported.products || 0} блюд, ${exported.categories || 0} категорий`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось экспортировать меню в EDU POS");
     } finally {
       setLoading(false);
     }
@@ -1155,7 +1172,7 @@ export function AdminApp() {
         <div className="admin-catalog-card">
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию блюда" /></label>
-            <div className="admin-menu-actions"><button type="button" className="admin-category-add" disabled={loading} onClick={() => void syncEduPosMenu()}>↻ EDU POS</button><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+            <div className="admin-menu-actions"><button type="button" className="admin-category-add" disabled={loading} title="Получить цены и стоп-лист из EDU POS" onClick={() => void importEduPosMenu()}>↓ Из EDU POS</button><button type="button" className="admin-category-add" disabled={loading} title="Отправить всё меню выбранного города в EDU POS" onClick={() => void exportEduPosMenu()}>↑ В EDU POS</button><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
           </div>
           <div className="admin-menu-categories" aria-label="Категории меню">
             <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
@@ -1456,7 +1473,7 @@ export function AdminApp() {
         </div>
 
         {selectedOrder.posSyncStatus ? <div className="admin-order-notes">
-          <span className="wide"><span><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `№${selectedOrder.posOrderNumber} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : selectedOrder.status === "new" ? "Отправится после подтверждения" : "Ожидает отправки"}</b></span></span>
+          <span className="wide"><span><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posSyncStatus === "submitting" ? "Отправляется на кухню…" : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `№${selectedOrder.posOrderNumber} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : selectedOrder.status === "new" ? "Отправится после подтверждения" : "Ожидает отправки"}</b></span></span>
         </div> : null}
 
         <div className="admin-order-lines">

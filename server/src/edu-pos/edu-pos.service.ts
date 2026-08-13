@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   OnModuleDestroy,
@@ -8,16 +9,20 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { Category } from "../catalog/category.entity";
 import { Product } from "../catalog/product.entity";
+import { regionContentSourceSlug } from "../catalog/region-content-source";
+import { Region } from "../catalog/region.entity";
 import { OrderItem } from "../orders/order-item.entity";
 import { Order } from "../orders/order.entity";
 import { OrderStatus } from "../orders/order.enums";
 import { EduPosApiError, EduPosClient } from "./edu-pos.client";
+import { buildEduPosMenuExportPayload } from "./edu-pos-menu-export";
 import {
   canSubmitOrderToEduPos,
   EDU_POS_SUBMITTABLE_ORDER_STATUSES,
   eduPosRetryDelayMs,
-  internalOrderStatusForPos,
+  orderStatusAfterPosUpdate,
 } from "./edu-pos.policy";
 import type {
   EduPosCreateOrderPayload,
@@ -59,6 +64,8 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly client: EduPosClient,
     @InjectRepository(Product) private readonly products: Repository<Product>,
+    @InjectRepository(Category) private readonly categories: Repository<Category>,
+    @InjectRepository(Region) private readonly regions: Repository<Region>,
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     @InjectRepository(OrderItem) private readonly orderItems: Repository<OrderItem>,
   ) {}
@@ -90,6 +97,34 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
       lastStopListSyncAt: this.lastStopListSyncAt,
       lastError: this.lastError || null,
       intervals: { menuSeconds: 300, stopListSeconds: 45, ordersSeconds: 7.5 },
+    };
+  }
+
+  async exportMenu(regionSlug: string) {
+    if (!this.client.isConfigured()) {
+      throw new ServiceUnavailableException("EDU POS не настроен на сервере");
+    }
+    const region = await this.regions.findOne({ where: { slug: regionSlug, enabled: true } });
+    if (!region) throw new BadRequestException("Город не найден или отключен");
+
+    const menuSourceRegionSlug = regionContentSourceSlug(region, "menuSourceRegionSlug");
+    const categories = await this.categories.find({
+      where: { region: { slug: menuSourceRegionSlug } },
+      relations: { region: true, products: true },
+      order: { sortOrder: "ASC", id: "ASC", products: { sortOrder: "ASC", id: "ASC" } },
+    });
+    if (!categories.length) throw new BadRequestException("Для выбранного города меню пустое");
+
+    const payload = buildEduPosMenuExportPayload(region.slug, menuSourceRegionSlug, categories);
+    const result = await this.client.exportMenu(payload);
+    return {
+      configured: true,
+      regionSlug: region.slug,
+      menuSourceRegionSlug,
+      categories: payload.categories.length,
+      products: payload.categories.reduce((total, category) => total + category.products.length, 0),
+      exportedAt: payload.exportedAt,
+      result,
     };
   }
 
@@ -176,13 +211,18 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
   async submitOrder(order: Order, throwOnFailure = true) {
     if (!this.client.isConfigured()) return order;
     if (!canSubmitOrderToEduPos(order.status)) return order;
-    // Keep the existing local order flow available while the POS catalogue is
-    // still being populated. A partially mapped order cannot be sent to EDU
-    // POS safely because its API accepts IDs only.
-    if (order.items.some((item) => !item.posDishId)) return order;
+    const unmapped = order.items.filter((item) => !item.posDishId);
+    if (unmapped.length) {
+      const error = new BadRequestException(
+        `Не сопоставлены с EDU POS: ${unmapped.map((item) => item.productName).join(", ")}`,
+      );
+      await this.markFailed(order, error, false);
+      if (throwOnFailure) throw error;
+      return order;
+    }
     if (order.posSyncStatus === "synced" && order.posOrderId) return order;
     try {
-      const result = await this.client.createOrder(this.orderPayload(order));
+      const result = await this.createOrRecoverOrder(order);
       await this.applyPosOrder(order, result);
       return order;
     } catch (error) {
@@ -193,6 +233,70 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
         throw new BadRequestException("Некоторые блюда больше недоступны. Обновите корзину и попробуйте снова");
       }
       throw new ServiceUnavailableException("Кухня временно не подтвердила заказ. Повторите отправку — дубль не создастся");
+    }
+  }
+
+  async confirmOrder(order: Order) {
+    if (order.status !== OrderStatus.NEW) {
+      throw new BadRequestException(`Order cannot transition from ${order.status} to confirmed`);
+    }
+    if (!this.client.isConfigured()) {
+      throw new ServiceUnavailableException("EDU POS не настроен: заказ оставлен новым");
+    }
+    const unmapped = order.items.filter((item) => !item.posDishId);
+    if (unmapped.length) {
+      throw new BadRequestException(
+        `Нельзя подтвердить заказ. Не сопоставлены с EDU POS: ${unmapped.map((item) => item.productName).join(", ")}`,
+      );
+    }
+
+    const now = new Date();
+    const staleAt = new Date(now.getTime() - 60_000);
+    const claim = await this.orders.createQueryBuilder()
+      .update(Order)
+      .set({
+        posSyncStatus: "submitting",
+        posLastError: "",
+        posLastSyncAt: now,
+        posNextRetryAt: null,
+      })
+      .where("id = :id", { id: order.id })
+      .andWhere("status = :status", { status: OrderStatus.NEW })
+      .andWhere(`(
+        "posSyncStatus" IN (:...claimable)
+        OR ("posSyncStatus" = :submitting AND ("posLastSyncAt" IS NULL OR "posLastSyncAt" < :staleAt))
+      )`, {
+        claimable: ["pending", "pos_sync_failed"],
+        submitting: "submitting",
+        staleAt,
+      })
+      .execute();
+
+    if (!claim.affected) {
+      const current = await this.orders.findOne({ where: { id: order.id }, relations: { items: true } });
+      if (!current) throw new BadRequestException("Заказ не найден");
+      if (current.status !== OrderStatus.NEW) return current;
+      if (current.posSyncStatus === "synced" && current.posOrderId) {
+        current.status = OrderStatus.CONFIRMED;
+        return this.orders.save(current);
+      }
+      throw new ConflictException("Заказ уже отправляется на кухню. Подождите несколько секунд");
+    }
+
+    order.posSyncStatus = "submitting";
+    order.posLastError = "";
+    order.posLastSyncAt = now;
+    order.posNextRetryAt = null;
+    try {
+      const result = await this.createOrRecoverOrder(order);
+      await this.applyPosOrder(order, result, true);
+      return order;
+    } catch (error) {
+      await this.markFailed(order, error, false);
+      if (error instanceof BadRequestException) throw error;
+      throw new ServiceUnavailableException(
+        "Кухня не приняла заказ. Он оставлен новым — повторите подтверждение",
+      );
     }
   }
 
@@ -210,7 +314,8 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
           OR (
             order.posSyncStatus = :failed
             AND order.posRetryCount < :maxRetries
-            AND (order.posNextRetryAt IS NULL OR order.posNextRetryAt <= :now)
+            AND order.posNextRetryAt IS NOT NULL
+            AND order.posNextRetryAt <= :now
           )
         )`, {
           pending: "pending",
@@ -225,6 +330,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
       const active = await this.orders.createQueryBuilder("order")
         .leftJoinAndSelect("order.items", "item")
         .where("order.posSyncStatus = :synced", { synced: "synced" })
+        .andWhere("order.status <> :newStatus", { newStatus: OrderStatus.NEW })
         .andWhere("order.posStatus NOT IN (:...terminal)", { terminal: [...TERMINAL_POS_STATUSES] })
         .take(50)
         .getMany();
@@ -274,7 +380,27 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private async applyPosOrder(order: Order, pos: EduPosOrder) {
+  private async createOrRecoverOrder(order: Order) {
+    try {
+      return await this.client.createOrder(this.orderPayload(order));
+    } catch (createError) {
+      if (!order.externalOrderId) throw createError;
+      try {
+        return await this.client.order(order.externalOrderId);
+      } catch {
+        throw createError;
+      }
+    }
+  }
+
+  private async applyPosOrder(order: Order, pos: EduPosOrder, confirmAccepted = false) {
+    if (pos.externalOrderId !== order.externalOrderId) {
+      throw new EduPosApiError(409, "EDU POS вернул другой заказ");
+    }
+    const linkedOrder = await this.orders.findOne({ where: { posOrderId: pos.id } });
+    if (linkedOrder && linkedOrder.id !== order.id) {
+      throw new EduPosApiError(409, "Ответ EDU POS уже связан с другим заказом");
+    }
     order.posOrderId = pos.id;
     order.posOrderNumber = pos.orderNumber || null;
     order.posStatus = pos.status;
@@ -288,10 +414,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     order.posRetryCount = 0;
     order.posNextRetryAt = null;
     order.posLastError = "";
-    const mappedStatus = internalOrderStatusForPos(pos.status);
-    if (mappedStatus && ![OrderStatus.DELIVERING, OrderStatus.COMPLETED].includes(order.status)) {
-      order.status = mappedStatus;
-    }
+    order.status = orderStatusAfterPosUpdate(order.status, pos.status, confirmAccepted);
     await this.orders.save(order);
 
     for (const item of order.items) {
@@ -305,14 +428,19 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (order.items.length) await this.orderItems.save(order.items);
   }
 
-  private async markFailed(order: Order, error: unknown) {
-    order.posSyncStatus = "pos_sync_failed";
-    order.posRetryCount += 1;
-    const retryDelay = eduPosRetryDelayMs(order.posRetryCount);
-    order.posNextRetryAt = order.posRetryCount < MAX_RETRIES ? new Date(Date.now() + retryDelay) : null;
-    order.posLastSyncAt = new Date();
-    order.posLastError = error instanceof Error ? error.message.slice(0, 1_000) : "Unknown EDU POS error";
-    await this.orders.save(order);
+  private async markFailed(order: Order, error: unknown, scheduleRetry = true) {
+    const persisted = await this.orders.findOne({ where: { id: order.id }, relations: { items: true } });
+    const failed = persisted ?? order;
+    failed.posSyncStatus = "pos_sync_failed";
+    failed.posRetryCount += 1;
+    const retryDelay = eduPosRetryDelayMs(failed.posRetryCount);
+    failed.posNextRetryAt = scheduleRetry && failed.posRetryCount < MAX_RETRIES
+      ? new Date(Date.now() + retryDelay)
+      : null;
+    failed.posLastSyncAt = new Date();
+    failed.posLastError = error instanceof Error ? error.message.slice(0, 1_000) : "Unknown EDU POS error";
+    await this.orders.save(failed);
+    Object.assign(order, failed);
     this.rememberError(`submit order ${order.id}`, error);
   }
 

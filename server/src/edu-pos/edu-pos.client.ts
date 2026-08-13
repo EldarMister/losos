@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type {
   EduPosCreateOrderPayload,
+  EduPosMenuExportPayload,
   EduPosOrder,
   EduPosOrderItem,
 } from "./edu-pos.types";
@@ -51,6 +52,18 @@ export class EduPosClient {
 
   async stopList(): Promise<unknown> {
     return this.request("/stop-list", { method: "GET" });
+  }
+
+  async exportMenu(payload: EduPosMenuExportPayload): Promise<unknown> {
+    const configuredPath = this.config.get<string>("EDU_POS_MENU_EXPORT_PATH")?.trim();
+    const path = configuredPath || "/menu";
+    if (!path.startsWith("/") || path.includes("..")) {
+      throw new EduPosApiError(null, "EDU_POS_MENU_EXPORT_PATH must be an absolute API path");
+    }
+    return this.request(path, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
   }
 
   async createOrder(payload: EduPosCreateOrderPayload): Promise<EduPosOrder> {

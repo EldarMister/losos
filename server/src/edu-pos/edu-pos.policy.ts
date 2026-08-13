@@ -30,3 +30,21 @@ export function internalOrderStatusForPos(status: string): OrderStatus | null {
   if (status === "rejected" || status === "cancelled") return OrderStatus.CANCELLED;
   return null;
 }
+
+export function orderStatusAfterPosUpdate(
+  currentStatus: OrderStatus,
+  posStatus: string,
+  confirmAccepted: boolean,
+) {
+  const mappedStatus = internalOrderStatusForPos(posStatus);
+  if ([OrderStatus.DELIVERING, OrderStatus.COMPLETED].includes(currentStatus)) {
+    return currentStatus;
+  }
+  if (currentStatus === OrderStatus.NEW && !confirmAccepted) {
+    return currentStatus;
+  }
+  if (mappedStatus) return mappedStatus;
+  return confirmAccepted && currentStatus === OrderStatus.NEW
+    ? OrderStatus.CONFIRMED
+    : currentStatus;
+}

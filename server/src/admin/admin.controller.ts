@@ -62,6 +62,11 @@ export class AdminController {
     return this.eduPos.syncStopList();
   }
 
+  @Post("edu-pos/export-menu")
+  exportEduPosMenu(@Query("region") region = "bishkek") {
+    return this.eduPos.exportMenu(region);
+  }
+
   @Post("regions")
   createRegion(@Body() dto: CreateRegionDto) {
     return this.admin.createRegion(dto);

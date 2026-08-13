@@ -40,10 +40,13 @@ import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
+import { buildEduPosMenuExportPayload } from "../src/edu-pos/edu-pos-menu-export";
+import type { EduPosMenuExportPayload } from "../src/edu-pos/edu-pos.types";
 import {
   canSubmitOrderToEduPos,
   eduPosRetryDelayMs,
   internalOrderStatusForPos,
+  orderStatusAfterPosUpdate,
   shouldSubmitOrderToEduPosAfterAdminTransition,
 } from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
@@ -1186,6 +1189,18 @@ test("EDU POS status mapping and retry schedule follow the delivery contract", (
   assert.equal(internalOrderStatusForPos("partially_rejected"), OrderStatus.PREPARING);
   assert.equal(internalOrderStatusForPos("ready"), OrderStatus.READY);
   assert.equal(internalOrderStatusForPos("rejected"), OrderStatus.CANCELLED);
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.NEW, "sent_to_kitchen", false),
+    OrderStatus.NEW,
+  );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.NEW, "sent_to_kitchen", true),
+    OrderStatus.CONFIRMED,
+  );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.DELIVERING, "cooking", true),
+    OrderStatus.DELIVERING,
+  );
   assert.deepEqual([1, 2, 3, 4, 5].map(eduPosRetryDelayMs), [5_000, 15_000, 30_000, 60_000, 60_000]);
 });
 
@@ -1254,6 +1269,87 @@ test("EDU POS client classifies temporary errors without exposing credentials", 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("EDU POS client exports the complete menu with one configured PUT request", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedMethod = "";
+  let capturedBody = "";
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedMethod = init?.method || "";
+    capturedBody = String(init?.body || "");
+    return new Response(JSON.stringify({ imported: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+  try {
+    const client = new EduPosClient(new ConfigService({
+      EDU_POS_URL: "https://pos.example/api/integration/v1",
+      EDU_POS_API_KEY: "edu_live_export_secret",
+      EDU_POS_MENU_EXPORT_PATH: "/catalog/import",
+    }));
+    const payload: EduPosMenuExportPayload = {
+      source: "nakta-sushi",
+      regionSlug: "bishkek",
+      menuSourceRegionSlug: "bishkek",
+      exportedAt: "2026-08-14T00:00:00.000Z",
+      categories: [],
+    };
+    await client.exportMenu(payload);
+    assert.equal(capturedUrl, "https://pos.example/api/integration/v1/catalog/import");
+    assert.equal(capturedMethod, "PUT");
+    assert.deepEqual(JSON.parse(capturedBody), payload);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("EDU POS menu export preserves products, availability and modifiers", () => {
+  const exported = buildEduPosMenuExportPayload(
+    "otuz-adyr",
+    "osh",
+    [{
+        id: 7,
+        slug: "rolls",
+        title: "Роллы",
+        image: "/images/rolls.png",
+        sortOrder: 1,
+        products: [{
+          id: 42,
+          sourceId: 142,
+          slug: "salmon-roll",
+          name: "Ролл с лососем",
+          description: "Описание",
+          composition: "Лосось, рис",
+          image: "/images/salmon-roll.png",
+          price: 490,
+          oldPrice: 550,
+          available: true,
+          posAvailable: true,
+          posDishId: null,
+          posSoldByWeight: false,
+          weight: 240,
+          sortOrder: 2,
+          modifierGroups: [{
+            id: "sauce",
+            title: "Соус",
+            selectionType: "single",
+            required: true,
+            items: [{ id: "soy", name: "Соевый", price: 25, image: "" }],
+          }],
+        }],
+      }],
+    new Date("2026-08-14T00:00:00.000Z"),
+  );
+  assert.equal(exported.regionSlug, "otuz-adyr");
+  assert.equal(exported.menuSourceRegionSlug, "osh");
+  assert.equal(exported.categories[0].products[0].id, "nakta-product-42");
+  assert.equal(exported.categories[0].products[0].available, true);
+  assert.equal(exported.categories[0].products[0].modifiers[0].maxSelections, 1);
+  assert.equal(exported.categories[0].products[0].modifiers[0].items[0].available, true);
 });
 
 test("public orders controller does not expose an order-details endpoint", () => {

@@ -1558,6 +1558,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
         throw new Error(message || "Не удалось отправить заказ. Попробуйте ещё раз.");
       }
+      if (
+        !body
+        || typeof body.id !== "string"
+        || body.id.length < 8
+        || !["new", "confirmed", "preparing", "ready", "delivering", "completed", "cancelled"].includes(body.status)
+        || typeof body.total !== "number"
+      ) {
+        throw new Error("Сервер не подтвердил сохранение заказа. Корзина сохранена — попробуйте ещё раз.");
+      }
       setPlacedOrder(body as PlacedOrder);
       setProfileRefreshIndex((current) => current + 1);
       setPhoneCode("");
