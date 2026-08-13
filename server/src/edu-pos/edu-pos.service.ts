@@ -170,6 +170,10 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
 
   async submitOrder(order: Order, throwOnFailure = true) {
     if (!this.client.isConfigured()) return order;
+    // Keep the existing local order flow available while the POS catalogue is
+    // still being populated. A partially mapped order cannot be sent to EDU
+    // POS safely because its API accepts IDs only.
+    if (order.items.some((item) => !item.posDishId)) return order;
     if (order.posSyncStatus === "synced" && order.posOrderId) return order;
     try {
       const result = await this.client.createOrder(this.orderPayload(order));
@@ -220,11 +224,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
 
   assertProductsOrderable(products: Product[]) {
     if (!this.client.isConfigured()) return;
-    const unmapped = products.filter((product) => !product.posDishId);
-    if (unmapped.length) {
-      throw new BadRequestException(`Блюда не сопоставлены с EDU POS: ${unmapped.map((product) => product.name).join(", ")}`);
-    }
-    const unavailable = products.filter((product) => !product.posAvailable);
+    const unavailable = products.filter((product) => product.posDishId && !product.posAvailable);
     if (unavailable.length) {
       throw new BadRequestException(`Сейчас недоступно: ${unavailable.map((product) => product.name).join(", ")}`);
     }
