@@ -7,6 +7,8 @@ import {
   createOrderIdempotencyKey,
 } from "../navigationRules";
 import { notificationOrderId } from "../notificationRouting";
+import { isPersistedOrderReceipt } from "../orderReceipt";
+import { groupSearchResults } from "../searchResults";
 import { brandPromotion } from "../promotionBranding";
 import {
   isSpecificDeliveryAddress,
@@ -332,5 +334,33 @@ describe("mobile state and routing", () => {
       precision: "exact",
       isComplete: true,
     });
+  });
+
+  test("accepts checkout success only for a valid persisted order receipt", () => {
+    expect(isPersistedOrderReceipt({
+      id: "12345678-order",
+      status: "new",
+      total: 510,
+    })).toBe(true);
+    expect(isPersistedOrderReceipt({
+      id: "12345678-order",
+      status: "confirmed",
+      total: 510,
+    })).toBe(true);
+    expect(isPersistedOrderReceipt({ id: "short", status: "new", total: 510 })).toBe(false);
+    expect(isPersistedOrderReceipt(null)).toBe(false);
+  });
+
+  test("search query results are flat and do not expose category headings", () => {
+    const found = { ...product, id: 12, name: "Битые огурцы" };
+    const groups = groupSearchResults([found], null, [{
+      id: 1,
+      slug: "salads",
+      title: "Салаты",
+      products: [found],
+    }]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].title).toBe("");
+    expect(groups[0].products).toEqual([found]);
   });
 });

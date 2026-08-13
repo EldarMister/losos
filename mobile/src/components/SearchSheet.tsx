@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { catalogApi } from "../api";
 import { useStore } from "../store";
+import { groupSearchResults } from "../searchResults";
 import { colors, radii } from "../theme";
 import type { Category, Product } from "../types";
 import { CatalogCartDock } from "./CatalogCartDock";
@@ -142,28 +143,11 @@ export function SearchSheet({
       return products.length ? [{ ...category, products }] : [];
     })
   ), [categories]);
-  const groupedResults = useMemo(() => {
-    if (selectedCategorySlug) return visibleCategories;
-    const resultIds = new Set(results.map((product) => product.id));
-    const groups = visibleCategories.flatMap((category) => {
-      const products = category.products.filter((product) => resultIds.has(product.id));
-      return products.length ? [{ ...category, products }] : [];
-    });
-    const groupedIds = new Set(
-      groups.flatMap((category) => category.products.map((product) => product.id)),
-    );
-    const uncategorized = results.filter((product) => (
-      product.available !== false && !groupedIds.has(product.id)
-    ));
-    return uncategorized.length
-      ? [...groups, {
-          id: -1,
-          slug: "search-results",
-          title: "Результаты",
-          products: uncategorized,
-      }]
-      : groups;
-  }, [results, selectedCategorySlug, visibleCategories]);
+  const groupedResults = useMemo(
+    () => groupSearchResults(results, selectedCategorySlug, visibleCategories),
+    [results, selectedCategorySlug, visibleCategories],
+  );
+  const hasSearchQuery = query.trim().length >= 2;
 
   const hasCatalogResults = selectedCategorySlug !== null || query.trim().length >= 2;
 
@@ -278,7 +262,7 @@ export function SearchSheet({
       </View>
 
       <View style={styles.resultsBody}>
-        {!loading && !error && groupedResults.length ? (
+        {!hasSearchQuery && !loading && !error && groupedResults.length ? (
           <ScrollView
             ref={categoryRailRef}
             contentContainerStyle={styles.categoryRail}
@@ -354,7 +338,7 @@ export function SearchSheet({
                 }}
                 style={styles.resultSection}
               >
-                <Text style={styles.heading}>{category.title}</Text>
+                {category.title ? <Text style={styles.heading}>{category.title}</Text> : null}
                 <View style={styles.results}>
                   {category.products.map((product) => (
                     <ProductCard

@@ -19,6 +19,7 @@ import { NumberTicker } from "../components/NumberTicker";
 import { orderingAvailability } from "../delivery";
 import { formatMoney } from "../money";
 import { createOrderIdempotencyKey } from "../navigationRules";
+import { isPersistedOrderReceipt } from "../orderReceipt";
 import { useStore } from "../store";
 import { colors, radii, shadow } from "../theme";
 import type { CreatedOrder, OrderPayload } from "../types";
@@ -170,6 +171,9 @@ export function CheckoutScreen({ onBack, onOpenLocation, onSuccess }: Props) {
     };
     try {
       const order = await ordersApi.create(payload);
+      if (!isPersistedOrderReceipt(order)) {
+        throw new Error("Сервер не подтвердил сохранение заказа. Корзина сохранена — попробуйте ещё раз.");
+      }
       store.clearCart();
       onSuccess(order);
     } catch (reason) {

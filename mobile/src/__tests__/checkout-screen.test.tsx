@@ -59,7 +59,7 @@ describe("CheckoutScreen", () => {
       utensilsCount: 2,
     });
     (ordersApi.create as jest.Mock).mockResolvedValue({
-      id: "order-1",
+      id: "order-12345678",
       status: "new",
       total: 980,
     });
@@ -116,7 +116,7 @@ describe("CheckoutScreen", () => {
         utensilsCount: 2,
       }));
       expect(store.clearCart).toHaveBeenCalledTimes(1);
-      expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: "order-1" }));
+      expect(onSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: "order-12345678" }));
     });
   });
 
