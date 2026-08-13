@@ -7,6 +7,7 @@ import { Region } from "./catalog/region.entity";
 import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
 import { AuthorizedPhone } from "./auth/authorized-phone.entity";
 import { PhoneAccount } from "./auth/phone-account.entity";
+import { PhoneAccountSession } from "./auth/phone-account-session.entity";
 import { DevicePushToken } from "./auth/device-push-token.entity";
 import { PickupLocation } from "./catalog/pickup-location.entity";
 import { AddPickupLocationsAndPushTokens1784996000000 } from "./migrations/1784996000000-AddPickupLocationsAndPushTokens";
@@ -34,6 +35,7 @@ import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
 import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
+import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000-AddPhoneAccountSessions";
 
 try {
   process.loadEnvFile(".env");
@@ -46,7 +48,7 @@ const databaseUrl = process.env.DATABASE_URL ?? "postgresql://losos:losos@localh
 export default new DataSource({
   type: "postgres",
   url: databaseUrl,
-  entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, DevicePushToken],
+  entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, PhoneAccountSession, DevicePushToken],
   migrations: [
     BootstrapSchema1784978000000,
     AddProductCustomization1784979000000,
@@ -71,6 +73,7 @@ export default new DataSource({
     AddOrderCompletionAndSupportContact1784998000000,
     AddEduPosDeliveryIntegration1784999000000,
     AddSharedRegionContentAndOtuzAdyr1785000000000,
+    AddPhoneAccountSessions1785001000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

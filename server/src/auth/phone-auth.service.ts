@@ -14,6 +14,7 @@ import {
 } from "node:crypto";
 import {
   EntityManager,
+  LessThanOrEqual,
   MoreThan,
   Not,
   IsNull,
@@ -22,6 +23,7 @@ import {
 import { NikitaOtpService } from "./nikita-otp.service";
 import { AuthorizedPhone } from "./authorized-phone.entity";
 import { PhoneAccount } from "./phone-account.entity";
+import { PhoneAccountSession } from "./phone-account-session.entity";
 import { OrderStatus } from "../orders/order.enums";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
@@ -76,6 +78,8 @@ export class PhoneAuthService {
     private readonly authorizedPhones: Repository<AuthorizedPhone>,
     @InjectRepository(PhoneAccount)
     private readonly accounts: Repository<PhoneAccount>,
+    @InjectRepository(PhoneAccountSession)
+    private readonly sessions: Repository<PhoneAccountSession>,
   ) {}
 
   async requestCode(phone: string, captchaToken: string, remoteIp: string) {
@@ -261,15 +265,15 @@ export class PhoneAuthService {
   }
 
   async consumeVerification(phone: string, verificationToken: string, manager: EntityManager) {
-    const accounts = manager.getRepository(PhoneAccount);
-    const account = await accounts.findOne({
+    const sessions = manager.getRepository(PhoneAccountSession);
+    const session = await sessions.findOne({
       where: {
         phone,
-        sessionTokenHash: this.hash(verificationToken),
-        sessionExpiresAt: MoreThan(new Date()),
+        tokenHash: this.hash(verificationToken),
+        expiresAt: MoreThan(new Date()),
       },
     });
-    if (account) return;
+    if (session) return;
 
     const repository = manager.getRepository(PhoneAuthChallenge);
     const challenge = await repository.findOne({
@@ -424,13 +428,15 @@ export class PhoneAuthService {
   }
 
   private async requireAccount(phone: string, verificationToken: string) {
-    const account = await this.accounts.findOne({
+    const session = await this.sessions.findOne({
       where: {
         phone,
-        sessionTokenHash: this.hash(verificationToken),
-        sessionExpiresAt: MoreThan(new Date()),
+        tokenHash: this.hash(verificationToken),
+        expiresAt: MoreThan(new Date()),
       },
     });
+    if (!session) throw new UnauthorizedException("Войдите в профиль ещё раз");
+    const account = await this.accounts.findOneBy({ phone });
     if (!account) throw new UnauthorizedException("Войдите в профиль ещё раз");
     return account;
   }
@@ -492,9 +498,16 @@ export class PhoneAuthService {
     const now = new Date();
     const verificationToken = randomBytes(32).toString("hex");
     const account = await this.accounts.findOneBy({ phone }) ?? this.accounts.create({ phone });
-    account.sessionTokenHash = this.hash(verificationToken);
-    account.sessionExpiresAt = new Date(now.getTime() + ACCOUNT_SESSION_TTL_MS);
     await this.accounts.save(account);
+    await this.sessions.delete({
+      phone,
+      expiresAt: LessThanOrEqual(now),
+    });
+    await this.sessions.save(this.sessions.create({
+      tokenHash: this.hash(verificationToken),
+      phone,
+      expiresAt: new Date(now.getTime() + ACCOUNT_SESSION_TTL_MS),
+    }));
     return {
       verificationToken,
       expiresInSeconds: ACCOUNT_SESSION_TTL_MS / 1_000,

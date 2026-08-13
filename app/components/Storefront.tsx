@@ -19,7 +19,7 @@ import {
   mdiShoppingOutline,
   mdiStarFourPointsOutline,
 } from "@mdi/js";
-import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
@@ -797,6 +797,28 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const hasProfileSession = Boolean(verifiedPhone && phoneVerificationToken);
   const profileLoading = Boolean(hasProfileSession && !profileData);
   const coinHistory = useMemo(() => profileCoinHistory(profileData), [profileData]);
+  const clearProfileSession = useCallback((message = "") => {
+    setPhoneVerificationToken("");
+    setVerifiedPhone("");
+    setProfileData(null);
+    setSelectedProfileOrder(null);
+    setProfileOrderDetail(null);
+    setProfileOrderDetailError("");
+    if (message) setPhoneAuthMessage(message);
+    try {
+      window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
+    } catch {
+      // The in-memory session is already cleared.
+    }
+  }, [
+    setPhoneAuthMessage,
+    setPhoneVerificationToken,
+    setProfileData,
+    setProfileOrderDetail,
+    setProfileOrderDetailError,
+    setSelectedProfileOrder,
+    setVerifiedPhone,
+  ]);
   const openSearch = () => {
     const nav = categoryNavRef.current;
     if (nav) nav.scrollLeft = 0;
@@ -879,11 +901,16 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       headers: { Authorization: `Bearer ${phoneVerificationToken}` },
       signal: controller.signal,
     })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Profile request failed")))
+      .then((response) => {
+        if (response.status === 401) {
+          clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+        }
+        return response.ok ? response.json() : Promise.reject(new Error("Profile request failed"));
+      })
       .then((data: ProfileData) => { if (!controller.signal.aborted) setProfileData(data); })
       .catch(() => { if (!controller.signal.aborted) setProfileData(null); })
     return () => controller.abort();
-  }, [phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
+  }, [clearProfileSession, phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
 
   useEffect(() => {
     if (
@@ -905,7 +932,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       headers: { Authorization: `Bearer ${phoneVerificationToken}` },
       signal: controller.signal,
     })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Order details request failed")))
+      .then((response) => {
+        if (response.status === 401) {
+          clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+        }
+        return response.ok ? response.json() : Promise.reject(new Error("Order details request failed"));
+      })
       .then((data: ProfileOrderDetail) => {
         if (controller.signal.aborted) return;
         setProfileOrderDetail(data);
@@ -914,7 +946,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .catch(() => { if (!controller.signal.aborted) setProfileOrderDetailError("Не удалось загрузить детали заказа. Попробуйте ещё раз."); })
       .finally(() => { if (!controller.signal.aborted) setProfileOrderDetailLoading(false); });
     return () => controller.abort();
-  }, [phoneVerificationToken, profileRefreshIndex, selectedProfileOrderId, verifiedPhone]);
+  }, [clearProfileSession, phoneVerificationToken, profileRefreshIndex, selectedProfileOrderId, verifiedPhone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1353,18 +1385,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   };
 
   const logoutProfile = () => {
-    setPhoneVerificationToken("");
-    setVerifiedPhone("");
-    setProfileData(null);
-    closeProfileOrder();
+    clearProfileSession();
     setPhoneCodeRequested(false);
     setPhoneCode("");
     setPhoneAuthMessage("");
-    try {
-      window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
-    } catch {
-      // The in-memory session is already cleared.
-    }
   };
 
   const requestPhoneCode = async () => {

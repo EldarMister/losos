@@ -27,6 +27,7 @@ import {
   smsResendDelaySeconds,
 } from "../src/auth/phone-auth.service";
 import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
+import { PhoneAccountSession } from "../src/auth/phone-account-session.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
@@ -473,10 +474,13 @@ test("account deletion verifies the session and removes all phone-owned profile 
     },
   };
   const accounts = {
-    findOne: async () => ({ phone, naktaCoins: 0 }),
+    findOneBy: async () => ({ phone, naktaCoins: 0 }),
     manager: {
       transaction: async (callback: (value: typeof manager) => Promise<void>) => callback(manager),
     },
+  };
+  const sessions = {
+    findOne: async () => ({ phone, tokenHash: "stored-token", expiresAt: new Date(Date.now() + 60_000) }),
   };
   const auth = new PhoneAuthService(
     {} as never,
@@ -486,6 +490,7 @@ test("account deletion verifies the session and removes all phone-owned profile 
     {} as never,
     {} as never,
     accounts as never,
+    sessions as never,
   );
 
   assert.deepEqual(await auth.deleteAccount(phone, token), { deleted: true });
@@ -533,6 +538,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
   };
   const replies: Array<{ to: string; body: string }> = [];
   const accounts: Array<{ phone: string; sessionTokenHash: string | null; sessionExpiresAt: Date | null }> = [];
+  const sessions: PhoneAccountSession[] = [];
   const accountRepository = {
     findOneBy: async ({ phone }: { phone: string }) => accounts.find((account) => account.phone === phone) ?? null,
     create: (value: { phone: string }) => ({ ...value, sessionTokenHash: null, sessionExpiresAt: null }),
@@ -542,6 +548,22 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
       else accounts.push(value);
       return value;
     },
+  };
+  const sessionRepository = {
+    create: (value: PhoneAccountSession) => ({ ...value, createdAt: new Date() }),
+    save: async (value: PhoneAccountSession) => {
+      const index = sessions.findIndex((session) => session.tokenHash === value.tokenHash);
+      if (index >= 0) sessions[index] = value;
+      else sessions.push(value);
+      return value;
+    },
+    delete: async () => ({ affected: 0 }),
+    findOne: async ({ where }: { where: { phone: string; tokenHash: string } }) =>
+      sessions.find((session) => (
+        session.phone === where.phone
+        && session.tokenHash === where.tokenHash
+        && session.expiresAt > new Date()
+      )) ?? null,
   };
   const whatsapp = {
     createAuthUrl: (code: string) =>
@@ -560,6 +582,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
     {} as never,
     { existsBy: async () => false } as never,
     accountRepository as never,
+    sessionRepository as never,
   );
 
   const requested = await auth.requestWhatsapp("+996555123456");
@@ -591,13 +614,62 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
   assert.equal(status.verificationToken?.length, 64);
   if (status.status !== "verified") throw new Error("Expected a verified WhatsApp session");
   const sessionManager = {
-    getRepository: () => ({
-      findOne: async ({ where }: { where: { phone: string; sessionTokenHash: string; sessionExpiresAt: { _type: string; _value: Date } } }) =>
-        accounts.find((account) => account.phone === where.phone && account.sessionTokenHash === where.sessionTokenHash && account.sessionExpiresAt! > where.sessionExpiresAt._value) ?? null,
-    }),
+    getRepository: (entity: unknown) => entity === PhoneAccountSession
+      ? sessionRepository
+      : repository,
   };
   await auth.consumeVerification(status.phone, status.verificationToken, sessionManager as never);
   await auth.consumeVerification(status.phone, status.verificationToken, sessionManager as never);
+});
+
+test("website and app sessions stay valid together for the same phone account", async () => {
+  const phone = "+996555123456";
+  const account = { phone, naktaCoins: 25 };
+  const sessionRecords: PhoneAccountSession[] = [];
+  const accountRepository = {
+    findOneBy: async ({ phone: requestedPhone }: { phone: string }) =>
+      requestedPhone === phone ? account : null,
+    create: (value: { phone: string }) => ({ ...value, naktaCoins: 0 }),
+    save: async (value: typeof account) => value,
+  };
+  const sessionRepository = {
+    create: (value: PhoneAccountSession) => ({ ...value, createdAt: new Date() }),
+    save: async (value: PhoneAccountSession) => {
+      sessionRecords.push(value);
+      return value;
+    },
+    delete: async () => ({ affected: 0 }),
+    findOne: async ({ where }: { where: { phone: string; tokenHash: string } }) =>
+      sessionRecords.find((session) => (
+        session.phone === where.phone
+        && session.tokenHash === where.tokenHash
+        && session.expiresAt > new Date()
+      )) ?? null,
+  };
+  const auth = new PhoneAuthService(
+    {
+      create: (value: PhoneAuthChallenge) => value,
+      save: async (value: PhoneAuthChallenge) => value,
+    } as never,
+    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
+    {} as never,
+    {} as never,
+    { verify: async () => undefined } as never,
+    { existsBy: async () => true } as never,
+    accountRepository as never,
+    sessionRepository as never,
+  );
+
+  const website = await auth.requestCode(phone, "captcha-token-with-enough-length", "127.0.0.1");
+  const app = await auth.requestCode(phone, "captcha-token-with-enough-length", "127.0.0.1");
+  assert.equal(website.verified, true);
+  assert.equal(app.verified, true);
+  assert.ok(website.verificationToken);
+  assert.ok(app.verificationToken);
+  assert.notEqual(website.verificationToken, app.verificationToken);
+  assert.equal(sessionRecords.length, 2);
+  assert.equal((await auth.assertAccount(phone, website.verificationToken)).naktaCoins, 25);
+  assert.equal((await auth.assertAccount(phone, app.verificationToken)).naktaCoins, 25);
 });
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {
