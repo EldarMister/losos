@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import Icon from "@mdi/react";
+import { Icon } from "@mdi/react";
 import {
   mdiAccountCircleOutline,
   mdiArrowLeft,
