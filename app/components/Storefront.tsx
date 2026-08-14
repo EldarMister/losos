@@ -1951,7 +1951,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <img src="/desktop-header-20260726-v3.png" alt="Накта суши" />
         </picture>
         <img className="brand-smile" src="/смайлик.webp" alt="" aria-hidden="true" />
-        <a className="download-app download-app-nakta" href="/support" aria-label="Приложение Накта суши"><span>НАКТА СУШИ</span><small>мобильное приложение</small></a>
+        <a className="download-app download-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">
+          <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
+          <strong>Скачайте<br />приложение</strong>
+        </a>
       </section>
 
       <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
@@ -2077,7 +2080,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <footer className="footer" id="contacts">
         <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
-        <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Приложение Накта суши"><strong>НАКТА СУШИ</strong><small>мобильное приложение</small></a>
+        <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">
+          <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
+          <strong>Скачайте<br />приложение</strong>
+        </a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="/privacy">Конфиденциальность</a><span>•</span><a href="/terms">Условия</a><span>•</span><a href="/delete-account">Удаление аккаунта</a><span>•</span><a href="/legal">Все документы</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
         <p className="footer-legal">{footerLegalInfo}</p>

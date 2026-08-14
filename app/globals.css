@@ -33,10 +33,14 @@ a { color: inherit; text-decoration: none; }
 .brand-main img { display: block; width: 100%; height: auto; }
 .brand-wordmark { position: absolute; z-index: 2; width: 104px; max-width: none; left: calc(50% - 640px); top: 27px; border-radius: 18px; }
 .brand-smile { position: absolute; z-index: 2; width: 130px; max-width: none; height: auto; left: calc(50% - 300px); top: 210px; }
-.download-app { position: absolute; z-index: 2; width: 160px; max-width: none; right: calc(50% - 640px); top: 48px; }
-.download-app-nakta, .footer-app-nakta { min-height: 58px; padding: 10px 14px; display: flex; flex-direction: column; justify-content: center; border: 1px solid rgba(255,255,255,.7); border-radius: 18px; background: rgba(17,17,17,.92); color: #fff; text-align: center; box-shadow: 0 10px 28px rgba(0,0,0,.14); }
-.download-app-nakta span, .footer-app-nakta strong { font-size: 13px; line-height: 16px; font-weight: 800; letter-spacing: .7px; }
-.download-app-nakta small, .footer-app-nakta small { opacity: .72; font-size: 9px; line-height: 13px; }
+.download-app { position: absolute; z-index: 2; width: 192px; max-width: none; right: calc(50% - 640px); top: 48px; }
+.download-app-nakta, .footer-app-nakta { min-height: 60px; padding: 8px 22px 8px 25px; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 12px; border: 0; border-radius: 999px; background: #fff; color: var(--orange); text-align: left; box-shadow: 0 10px 28px rgba(185,53,0,.18); isolation: isolate; }
+.download-app-nakta::before, .download-app-nakta::after, .footer-app-nakta::before, .footer-app-nakta::after { content: ""; position: absolute; z-index: 2; width: 37px; height: 37px; background: linear-gradient(135deg, #fff74a 12%, #ffd400 52%, #ffbb00 88%); clip-path: polygon(50% 0, 62% 35%, 100% 50%, 62% 65%, 50% 100%, 38% 65%, 0 50%, 38% 35%); filter: drop-shadow(0 2px 2px rgba(196,101,0,.25)); pointer-events: none; }
+.download-app-nakta::before, .footer-app-nakta::before { right: -1px; top: -17px; }
+.download-app-nakta::after, .footer-app-nakta::after { left: -8px; bottom: -15px; }
+.app-badge-logo { position: relative; width: 34px; height: 34px; flex: 0 0 34px; overflow: hidden; border-radius: 10px; background: #fff; }
+.app-badge-logo img { position: absolute; left: 50%; top: -25%; width: 238%; max-width: none; height: auto; transform: translateX(-50%); }
+.download-app-nakta strong, .footer-app-nakta strong { font-size: 14px; line-height: 18px; font-weight: 700; letter-spacing: 0; }
 .store-shell { width: min(1280px, 100%); max-width: none; min-height: 900px; background: white; border-radius: 60px; padding-top: 27px; margin: -29px auto 0; position: relative; z-index: 3; }
 .delivery-header { width: calc(100% - 54px); height: 60px; margin: 0 27px; border-radius: 32px; background: #fff; display: flex; align-items: center; gap: 16px; padding: 0; position: sticky; top: 12px; z-index: 25; }
 .cat-avatar { width: 60px; height: 60px; flex: 0 0 60px; border-radius: 50%; background: #efeff1; overflow: hidden; }
@@ -157,7 +161,7 @@ a { color: inherit; text-decoration: none; }
 .footer-brand span { font-size: 14px; }
 .footer-app-link { grid-area: app; align-self: start; }
 .footer-app { width: 160px; filter: none; }
-.footer-app-nakta { width: 180px; }
+.footer-app-nakta { position: relative; width: 192px; }
 .footer-contacts { grid-area: contacts; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 28px; font-size: 15px; font-weight: 600; }
 .footer-contacts > b { width: 100%; font-size: 17px; }
 .footer-contacts > span { display: grid; grid-template-columns: 20px auto; column-gap: 7px; align-items: center; }
