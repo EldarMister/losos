@@ -40,6 +40,7 @@ import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
+import { createOrRecoverEduPosOrder } from "../src/edu-pos/edu-pos-order-submit";
 import {
   buildEduPosMenuExportPayload,
   normalizeEduPosWeightGrams,
@@ -1334,6 +1335,38 @@ test("EDU POS client exports the complete menu with one configured PUT request",
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("EDU POS retries recover an order before attempting another create", async () => {
+  let createCalls = 0;
+  let lookupCalls = 0;
+  const existingOrder = {
+    id: "pos-order-existing",
+    externalOrderId: "NAKTA-existing-order",
+    orderNumber: "14",
+    status: "sent_to_kitchen",
+    completed: false,
+    progress: { itemsTotal: 1, itemsReady: 0, itemsRejected: 0 },
+    items: [],
+    createdAt: null,
+    updatedAt: null,
+  };
+  const recovered = await createOrRecoverEduPosOrder({
+    externalOrderId: existingOrder.externalOrderId,
+    isRetry: true,
+    create: async () => {
+      createCalls += 1;
+      return existingOrder;
+    },
+    lookup: async () => {
+      lookupCalls += 1;
+      return existingOrder;
+    },
+  });
+
+  assert.equal(recovered.id, existingOrder.id);
+  assert.equal(lookupCalls, 1);
+  assert.equal(createCalls, 0);
 });
 
 test("EDU POS menu export preserves products, availability and modifiers", () => {

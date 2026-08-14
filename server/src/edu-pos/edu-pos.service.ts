@@ -18,6 +18,7 @@ import { OrderItem } from "../orders/order-item.entity";
 import { Order } from "../orders/order.entity";
 import { OrderStatus } from "../orders/order.enums";
 import { EduPosApiError, EduPosClient } from "./edu-pos.client";
+import { createOrRecoverEduPosOrder } from "./edu-pos-order-submit";
 import { buildEduPosMenuExportPayload } from "./edu-pos-menu-export";
 import { backfillOrderItemMappings } from "./edu-pos-order-mapping";
 import {
@@ -409,16 +410,13 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createOrRecoverOrder(order: Order) {
-    try {
-      return await this.client.createOrder(this.orderPayload(order));
-    } catch (createError) {
-      if (!order.externalOrderId) throw createError;
-      try {
-        return await this.client.order(order.externalOrderId);
-      } catch {
-        throw createError;
-      }
-    }
+    if (!order.externalOrderId) throw new Error("Order has no externalOrderId");
+    return createOrRecoverEduPosOrder({
+      externalOrderId: order.externalOrderId,
+      isRetry: order.posSyncStatus === "pos_sync_failed" || order.posRetryCount > 0,
+      create: () => this.client.createOrder(this.orderPayload(order)),
+      lookup: () => this.client.order(order.externalOrderId!),
+    });
   }
 
   private async applyPosOrder(order: Order, pos: EduPosOrder, confirmAccepted = false) {

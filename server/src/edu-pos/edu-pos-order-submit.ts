@@ -1,0 +1,33 @@
+import { EduPosApiError } from "./edu-pos.client";
+
+export async function createOrRecoverEduPosOrder<T>(options: {
+  externalOrderId: string;
+  isRetry: boolean;
+  create: () => Promise<T>;
+  lookup: () => Promise<T>;
+}): Promise<T> {
+  if (options.isRetry) {
+    try {
+      return await options.lookup();
+    } catch (lookupError) {
+      if (!(lookupError instanceof EduPosApiError) || lookupError.status !== 404) throw lookupError;
+    }
+  }
+
+  try {
+    return await options.create();
+  } catch (createError) {
+    const recoveryDelays = [0, 250, 750];
+    for (const delay of recoveryDelays) {
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+      try {
+        return await options.lookup();
+      } catch (lookupError) {
+        const notFound = lookupError instanceof EduPosApiError && lookupError.status === 404;
+        const retryable = lookupError instanceof EduPosApiError && lookupError.retryable;
+        if (!notFound && !retryable) break;
+      }
+    }
+    throw createError;
+  }
+}
