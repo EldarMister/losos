@@ -9,7 +9,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
 import { Product } from "../catalog/product.entity";
 import { regionContentSourceSlug } from "../catalog/region-content-source";
@@ -19,6 +19,7 @@ import { Order } from "../orders/order.entity";
 import { OrderStatus } from "../orders/order.enums";
 import { EduPosApiError, EduPosClient } from "./edu-pos.client";
 import { buildEduPosMenuExportPayload } from "./edu-pos-menu-export";
+import { backfillOrderItemMappings } from "./edu-pos-order-mapping";
 import {
   canSyncOrderWithEduPos,
   EDU_POS_SUBMITTABLE_ORDER_STATUSES,
@@ -222,6 +223,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
   async submitOrder(order: Order, throwOnFailure = true) {
     if (!this.client.isConfigured()) return order;
     if (!canSyncOrderWithEduPos(order.status, order.adminConfirmedAt)) return order;
+    await this.refreshOrderItemMappings(order);
     const unmapped = order.items.filter((item) => !item.posDishId);
     if (unmapped.length) {
       const error = new BadRequestException(
@@ -254,6 +256,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (!this.client.isConfigured()) {
       throw new ServiceUnavailableException("EDU POS не настроен: заказ оставлен новым");
     }
+    await this.refreshOrderItemMappings(order);
     const unmapped = order.items.filter((item) => !item.posDishId);
     if (unmapped.length) {
       throw new BadRequestException(
@@ -367,6 +370,17 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (unavailable.length) {
       throw new BadRequestException(`Сейчас недоступно: ${unavailable.map((product) => product.name).join(", ")}`);
     }
+  }
+
+  private async refreshOrderItemMappings(order: Order) {
+    const productIds = [...new Set(order.items
+      .filter((item) => !item.posDishId)
+      .map((item) => item.productId))];
+    if (!productIds.length) return;
+
+    const products = await this.products.findBy({ id: In(productIds) });
+    const updatedItems = backfillOrderItemMappings(order.items, products);
+    if (updatedItems.length) await this.orderItems.save(updatedItems);
   }
 
   private orderPayload(order: Order): EduPosCreateOrderPayload {

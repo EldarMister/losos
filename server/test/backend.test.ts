@@ -44,6 +44,7 @@ import {
   buildEduPosMenuExportPayload,
   normalizeEduPosWeightGrams,
 } from "../src/edu-pos/edu-pos-menu-export";
+import { backfillOrderItemMappings } from "../src/edu-pos/edu-pos-order-mapping";
 import type { EduPosMenuExportPayload } from "../src/edu-pos/edu-pos.types";
 import {
   canSyncOrderWithEduPos,
@@ -1386,6 +1387,42 @@ test("EDU POS menu export sends only valid integer weights", () => {
   assert.equal(normalizeEduPosWeightGrams(Number.NaN), null);
   assert.equal(normalizeEduPosWeightGrams(240), 240);
   assert.equal(normalizeEduPosWeightGrams(240.6), 241);
+});
+
+test("EDU POS mappings are backfilled into orders created before menu sync", () => {
+  const items = [{
+    productId: 42,
+    posDishId: null,
+    posVariantId: null,
+    posWeightGrams: null,
+  }, {
+    productId: 43,
+    posDishId: "existing-dish",
+    posVariantId: null,
+    posWeightGrams: null,
+  }];
+  const updated = backfillOrderItemMappings(items, [{
+    id: 42,
+    posDishId: "nakta-product-42",
+    posVariantId: "portion-large",
+    posSoldByWeight: true,
+    weight: 240.6,
+  }, {
+    id: 43,
+    posDishId: "replacement-must-not-overwrite",
+    posVariantId: null,
+    posSoldByWeight: false,
+    weight: 0,
+  }]);
+
+  assert.equal(updated.length, 1);
+  assert.deepEqual(items[0], {
+    productId: 42,
+    posDishId: "nakta-product-42",
+    posVariantId: "portion-large",
+    posWeightGrams: 241,
+  });
+  assert.equal(items[1].posDishId, "existing-dish");
 });
 
 test("public orders controller does not expose an order-details endpoint", () => {
