@@ -293,13 +293,21 @@ test("includes the product, cart and address flows", async () => {
 });
 
 test("admin menu exposes category management without a statistics search", async () => {
-  const admin = await readFile(new URL("../app/admin/AdminApp.tsx", import.meta.url), "utf8");
+  const [admin, adminCss] = await Promise.all([
+    readFile(new URL("../app/admin/AdminApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/admin.css", import.meta.url), "utf8"),
+  ]);
   assert.match(admin, /onClick=\{openCategoryManager\}>＋ Категория/);
   assert.match(admin, /tab === "categories"[\s\S]*?＋ Добавить категорию/);
   assert.match(admin, /openCategory\(category\)/);
   assert.match(admin, /tab === "products" \? <>[\s\S]*?admin-search-field/);
   assert.match(admin, /Начало рабочего дня/);
   assert.match(admin, /Бесплатная доставка от, сом/);
+  assert.match(admin, /className="admin-order-detail-body"/);
+  assert.match(admin, /className="admin-order-info-pane"/);
+  assert.match(admin, /className="admin-order-items-pane"[\s\S]*?Состав заказа/);
+  assert.match(admin, /Итого \/ К оплате/);
+  assert.match(adminCss, /\.admin-order-detail-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, \.92fr\) minmax\(0, 1\.08fr\)/);
 });
 
 test("NestJS and PostgreSQL project files are present", async () => {

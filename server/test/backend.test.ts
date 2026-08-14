@@ -1272,7 +1272,10 @@ test("EDU POS client keeps the API key server-side and validates order progress"
 test("EDU POS client classifies temporary errors without exposing credentials", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => new Response(
-    JSON.stringify({ message: "temporarily unavailable: edu_live_must_not_leak" }),
+    JSON.stringify({ message: [
+      "temporarily unavailable: edu_live_must_not_leak",
+      "menu payload rejected",
+    ] }),
     { status: 503, headers: { "Content-Type": "application/json" } },
   )) as typeof fetch;
   try {
@@ -1285,6 +1288,7 @@ test("EDU POS client classifies temporary errors without exposing credentials", 
       (error: unknown) => error instanceof EduPosApiError
         && error.status === 503
         && error.retryable
+        && error.message.includes("menu payload rejected")
         && !error.message.includes("edu_live_must_not_leak"),
     );
   } finally {

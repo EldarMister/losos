@@ -1,6 +1,17 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import { Icon } from "@mdi/react";
+import {
+  mdiAccountOutline,
+  mdiCreditCardOutline,
+  mdiMapMarkerOutline,
+  mdiMessageOutline,
+  mdiOpenInNew,
+  mdiPhoneOutline,
+  mdiReceiptTextOutline,
+  mdiSilverwareForkKnife,
+} from "@mdi/js";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor";
 import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
@@ -1447,55 +1458,63 @@ export function AdminApp() {
     {selectedOrder ? <div className="admin-editor-overlay admin-order-overlay" role="dialog" aria-modal="true" aria-label={`Заказ ${formatOrderNumber(selectedOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedOrder(null); }}>
       <section className="admin-order-detail">
         <header className="admin-order-detail-head">
-          <small>{formatOrderDate(selectedOrder.createdAt)}</small>
-          <div><b>Заказ {formatOrderNumber(selectedOrder)}</b><span className={`admin-order-status status-${selectedOrder.status}`}>{orderStatusLabels[selectedOrder.status]}</span></div>
-          <strong>{formatSom(selectedOrder.total)}</strong>
+          <div className="admin-order-head-identity">
+            <span className="admin-order-head-icon"><Icon path={mdiReceiptTextOutline} size={1.05} aria-hidden="true" /></span>
+            <span className="admin-order-head-copy"><span><b>Заказ {formatOrderNumber(selectedOrder)}</b><i className={`admin-order-status status-${selectedOrder.status}`}>{orderStatusLabels[selectedOrder.status]}</i></span><small>{formatOrderDate(selectedOrder.createdAt)}</small></span>
+          </div>
+          <div className="admin-order-head-total"><small>Итого</small><strong>{formatSom(selectedOrder.total)}</strong></div>
           <button type="button" onClick={() => setSelectedOrder(null)} aria-label="Закрыть">×</button>
         </header>
 
-        <div className="admin-order-contact">
-          <span><small>Клиент</small><b>{selectedOrder.customerName}</b></span>
-          <a className="admin-order-phone" href={`tel:${selectedOrder.phone}`}><small>Телефон</small><b>{selectedOrder.phone}</b><i aria-hidden="true">☎</i></a>
-          <div className="admin-order-address-row">
-            <span><small>{selectedOrder.deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}</small><b>{selectedOrder.address}</b></span>
-            {typeof selectedOrder.latitude === "number" && typeof selectedOrder.longitude === "number" ? <a href={`https://yandex.ru/maps/?pt=${selectedOrder.longitude},${selectedOrder.latitude}&z=17&l=map`} target="_blank" rel="noreferrer">Открыть на Яндекс Картах ↗</a> : null}
-          </div>
-          {selectedOrder.deliveryType === "delivery" && (selectedOrder.apartment || selectedOrder.entrance || selectedOrder.floor || selectedOrder.intercom) ? <span className="wide"><small>Детали адреса</small><b>{[
-            selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
-            selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
-            selectedOrder.floor && `этаж ${selectedOrder.floor}`,
-            selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
-          ].filter(Boolean).join(" · ")}</b></span> : null}
-        </div>
+        <div className="admin-order-detail-body">
+          <section className="admin-order-info-pane">
+            <div className="admin-order-person-row">
+              <span className="admin-order-detail-icon"><Icon path={mdiAccountOutline} size={1} aria-hidden="true" /></span>
+              <span><small>Клиент</small><b>{selectedOrder.customerName}</b></span>
+              <a className="admin-order-phone" href={`tel:${selectedOrder.phone}`}><span><small>Телефон</small><b>{selectedOrder.phone}</b></span><i><Icon path={mdiPhoneOutline} size={0.82} aria-hidden="true" /></i></a>
+            </div>
+            <div className="admin-order-address-row">
+              <span className="admin-order-detail-icon"><Icon path={mdiMapMarkerOutline} size={1} aria-hidden="true" /></span>
+              <span><small>{selectedOrder.deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}</small><b>{selectedOrder.address}</b></span>
+              {typeof selectedOrder.latitude === "number" && typeof selectedOrder.longitude === "number" ? <a href={`https://yandex.ru/maps/?pt=${selectedOrder.longitude},${selectedOrder.latitude}&z=17&l=map`} target="_blank" rel="noreferrer">Открыть на карте <Icon path={mdiOpenInNew} size={0.65} aria-hidden="true" /></a> : null}
+            </div>
+            {selectedOrder.deliveryType === "delivery" && (selectedOrder.apartment || selectedOrder.entrance || selectedOrder.floor || selectedOrder.intercom) ? <div className="admin-order-address-details"><small>Детали адреса</small><b>{[
+              selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
+              selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
+              selectedOrder.floor && `этаж ${selectedOrder.floor}`,
+              selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
+            ].filter(Boolean).join(" · ")}</b></div> : null}
 
-        <div className="admin-order-notes">
-          <span><i aria-hidden="true">▣</i><span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span></span>
-          <span><i aria-hidden="true">∥</i><span><small>Приборы</small><b>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} компл.`}</b></span></span>
-          {selectedOrder.comment ? <span className="wide admin-order-comment"><span><small>Комментарий</small><b>{selectedOrder.comment}</b></span></span> : null}
-        </div>
+            <div className="admin-order-notes">
+              <span><i><Icon path={mdiCreditCardOutline} size={0.9} aria-hidden="true" /></i><span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span></span>
+              <span><i><Icon path={mdiSilverwareForkKnife} size={0.9} aria-hidden="true" /></i><span><small>Приборы</small><b>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} компл.`}</b></span></span>
+            </div>
+            <div className="admin-order-comment"><span className="admin-order-detail-icon"><Icon path={mdiMessageOutline} size={0.95} aria-hidden="true" /></span><span><small>Комментарий</small><b>{selectedOrder.comment || "Без комментария"}</b></span></div>
+            {selectedOrder.posSyncStatus ? <div className="admin-order-pos-state"><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posSyncStatus === "submitting" ? "Отправляется на кухню…" : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `№${selectedOrder.posOrderNumber} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : selectedOrder.status === "new" ? "Отправится после подтверждения" : "Ожидает отправки"}</b></div> : null}
+          </section>
 
-        {selectedOrder.posSyncStatus ? <div className="admin-order-notes">
-          <span className="wide"><span><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posSyncStatus === "submitting" ? "Отправляется на кухню…" : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `№${selectedOrder.posOrderNumber} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : selectedOrder.status === "new" ? "Отправится после подтверждения" : "Ожидает отправки"}</b></span></span>
-        </div> : null}
-
-        <div className="admin-order-lines">
-          {selectedOrder.items.map((item) => <article key={item.id}>
-            <span className="admin-order-qty">{item.quantity}×</span>
-            <span><b>{item.productName}</b>{item.modifierSnapshots.map((modifier) => {
-              const contribution = modifier.totalPrice
-                * (modifier.priceScope === "per-product" ? item.quantity : 1);
-              const scopeLabel = modifier.priceScope === "per-line"
-                ? "за строку"
-                : `за ${item.quantity} шт.`;
-              return <small key={`${modifier.groupId}:${modifier.itemId}`}>
-                {modifier.groupTitle}: {modifier.itemName}
-                {modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}
-                {contribution ? ` (+${contribution} сом ${scopeLabel})` : ""}
-              </small>;
-            })}{item.posStatus ? <small>{item.posStatus === "rejected" ? `EDU POS: отклонено${item.posRejectReason ? ` — ${item.posRejectReason}` : ""}` : item.posStatus === "ready" ? "EDU POS: готово" : `EDU POS: ${item.posStatus}`}</small> : null}</span>
-            <strong>{formatSom(item.lineTotal)}</strong>
-          </article>)}
-          <div className="admin-order-summary"><span>Итого</span><strong>{formatSom(selectedOrder.total)}</strong></div>
+          <section className="admin-order-items-pane">
+            <h3>Состав заказа</h3>
+            <div className="admin-order-lines">
+              {selectedOrder.items.map((item) => <article key={item.id}>
+                <span className="admin-order-qty">{item.quantity}×</span>
+                <span><b>{item.productName}</b>{item.modifierSnapshots.map((modifier) => {
+                  const contribution = modifier.totalPrice
+                    * (modifier.priceScope === "per-product" ? item.quantity : 1);
+                  const scopeLabel = modifier.priceScope === "per-line"
+                    ? "за строку"
+                    : `за ${item.quantity} шт.`;
+                  return <small key={`${modifier.groupId}:${modifier.itemId}`}>
+                    {modifier.groupTitle}: {modifier.itemName}
+                    {modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}
+                    {contribution ? ` (+${contribution} сом ${scopeLabel})` : ""}
+                  </small>;
+                })}{item.posStatus ? <small>{item.posStatus === "rejected" ? `EDU POS: отклонено${item.posRejectReason ? ` — ${item.posRejectReason}` : ""}` : item.posStatus === "ready" ? "EDU POS: готово" : `EDU POS: ${item.posStatus}`}</small> : null}</span>
+                <strong>{formatSom(item.lineTotal)}</strong>
+              </article>)}
+            </div>
+            <div className="admin-order-summary"><span>Итого / К оплате</span><strong>{formatSom(selectedOrder.total)}</strong></div>
+          </section>
         </div>
 
         {orderStatusTransitions[selectedOrder.status].length ? <div className="admin-order-actions">

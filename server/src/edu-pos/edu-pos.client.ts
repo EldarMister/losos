@@ -63,7 +63,10 @@ export class EduPosClient {
     return this.request(path, {
       method: "PUT",
       body: JSON.stringify(payload),
-    });
+    }, Math.max(
+      10_000,
+      Number(this.config.get("EDU_POS_MENU_EXPORT_TIMEOUT_MS")) || 60_000,
+    ));
   }
 
   async createOrder(payload: EduPosCreateOrderPayload): Promise<EduPosOrder> {
@@ -87,7 +90,7 @@ export class EduPosClient {
     return this.config.get<string>("EDU_POS_API_KEY")?.trim() ?? "";
   }
 
-  private async request(path: string, init: RequestInit) {
+  private async request(path: string, init: RequestInit, timeoutOverrideMs?: number) {
     const baseUrl = this.baseUrl();
     const apiKey = this.apiKey();
     if (!baseUrl || !apiKey) {
@@ -95,7 +98,8 @@ export class EduPosClient {
     }
 
     const controller = new AbortController();
-    const timeoutMs = Math.max(1_000, Number(this.config.get("EDU_POS_TIMEOUT_MS")) || 10_000);
+    const timeoutMs = timeoutOverrideMs
+      ?? Math.max(1_000, Number(this.config.get("EDU_POS_TIMEOUT_MS")) || 10_000);
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(`${baseUrl}${path}`, {
@@ -118,7 +122,10 @@ export class EduPosClient {
       }
       if (!response.ok) {
         const responseRecord = record(body);
-        const message = text(responseRecord.message) || text(responseRecord.error)
+        const responseMessages = Array.isArray(responseRecord.message)
+          ? responseRecord.message.filter((entry): entry is string => typeof entry === "string").join(", ")
+          : text(responseRecord.message);
+        const message = responseMessages || text(responseRecord.error)
           || `EDU POS request failed with status ${response.status}`;
         throw new EduPosApiError(response.status, withoutSecret(message, apiKey), body);
       }

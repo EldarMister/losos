@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   Injectable,
@@ -116,7 +117,17 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (!categories.length) throw new BadRequestException("Для выбранного города меню пустое");
 
     const payload = buildEduPosMenuExportPayload(region.slug, menuSourceRegionSlug, categories);
-    const result = await this.client.exportMenu(payload);
+    let result: unknown;
+    try {
+      result = await this.client.exportMenu(payload);
+    } catch (error) {
+      this.rememberError("menu export", error);
+      const status = error instanceof EduPosApiError && error.status
+        ? ` (HTTP ${error.status})`
+        : "";
+      const message = error instanceof Error ? error.message : "неизвестная ошибка";
+      throw new BadGatewayException(`EDU POS не принял меню${status}: ${message}`);
+    }
     return {
       configured: true,
       regionSlug: region.slug,
