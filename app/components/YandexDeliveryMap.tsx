@@ -81,8 +81,6 @@ function loadYandexMaps(apiKey: string, suggestApiKey: string) {
       suggest_apikey: suggestApiKey,
       lang: "ru_RU",
       load: "package.full",
-      csp: "202512",
-      key_revision: "20260724-2",
     });
     script.src = `https://api-maps.yandex.ru/2.1/?${params.toString()}`;
     script.async = true;
@@ -97,6 +95,9 @@ function loadYandexMaps(apiKey: string, suggestApiKey: string) {
     };
     script.onerror = () => reject(new Error("Не удалось загрузить Яндекс Карты"));
     document.head.appendChild(script);
+  }).catch((error) => {
+    yandexMapsPromise = null;
+    throw error;
   });
 
   return yandexMapsPromise;

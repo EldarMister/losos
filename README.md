@@ -171,10 +171,26 @@ npm --prefix server run catalog:generate
 Ручные команды для Railway или локальной диагностики:
 
 ```powershell
+npm run build
+npm run start
 npm --prefix server run build
 npm --prefix server run migration:run
 npm --prefix server run seed
 ```
+
+Frontend на Railway должен собираться и запускаться стандартным Node-runtime:
+
+```text
+Build Command: npm run build
+Start Command: npm run start
+```
+
+Для карты достаточно задать в Variables frontend-сервиса `YANDEX_MAPS_API_KEY`.
+Если используются отдельные ключи сервисов Яндекса, дополнительно задайте
+`YANDEX_SUGGEST_API_KEY` и `YANDEX_GEOCODER_API_KEY`. После изменения Variables
+нужно применить staged changes и дождаться нового deployment. Проверка настройки:
+`GET /api/maps-config` должен возвращать непустые `mapsApiKey` и `suggestApiKey`,
+а `GET /api/geocode?region=bishkek&q=Манаса%201` — статус `200`.
 
 ## Проверка сборки
 
@@ -187,4 +203,5 @@ npm run api:build
 npm --prefix server test
 ```
 
-`npm run vercel-build` проверяет тот же Next.js production-путь, который используется фронтендом на Vercel.
+`npm run build` и `npm run vercel-build` проверяют Next.js production-путь,
+который используется frontend-сервисом на Railway.

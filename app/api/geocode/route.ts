@@ -1,3 +1,5 @@
+import { readServerEnv } from "../../lib/server-env";
+
 export const dynamic = "force-dynamic";
 
 type YandexAddressComponent = {
@@ -51,10 +53,10 @@ function cleanAddress(value: string, city: string) {
 }
 
 export async function GET(request: Request) {
-  const apiKey =
-    process.env.YANDEX_GEOCODER_API_KEY?.trim() ||
-    process.env.YANDEX_MAPS_API_KEY?.trim() ||
-    "";
+  const apiKey = readServerEnv(
+    "YANDEX_GEOCODER_API_KEY",
+    "YANDEX_MAPS_API_KEY",
+  );
   if (!apiKey) {
     return Response.json(
       {

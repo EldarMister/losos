@@ -59,10 +59,11 @@ test("renders the mobile CAPTCHA bridge", async () => {
 });
 
 test("includes the product, cart and address flows", async () => {
-  const [storefront, yandexMap, mapsConfigRoute, envExample, catalog, categoryPage, globals, packageJson, robots, sitemap, seo] = await Promise.all([
+  const [storefront, yandexMap, mapsConfigRoute, serverEnv, envExample, catalog, categoryPage, globals, packageJson, robots, sitemap, seo] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/YandexDeliveryMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/maps-config/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/lib/server-env.ts", import.meta.url), "utf8"),
     readFile(new URL("../.env.example", import.meta.url), "utf8"),
     readFile(new URL("../app/data/catalog.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
@@ -83,6 +84,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /Заказать сюда/);
   assert.match(storefront, /disabled=\{!deliveryLocation\}/);
   assert.match(yandexMap, /api-maps\.yandex\.ru\/2\.1/);
+  assert.doesNotMatch(yandexMap, /key_revision|csp:\s*"202512"/);
   assert.match(yandexMap, /suggest-maps\.yandex\.ru\/v1\/suggest/);
   assert.match(yandexMap, /createPortal/);
   assert.match(yandexMap, /geocodeViaApi/);
@@ -98,6 +100,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(yandexMap, /bishkek:[\s\S]*osh:/);
   assert.match(mapsConfigRoute, /YANDEX_MAPS_API_KEY/);
   assert.match(mapsConfigRoute, /YANDEX_SUGGEST_API_KEY/);
+  assert.match(mapsConfigRoute, /readServerEnv/);
+  assert.match(serverEnv, /globalThis[\s\S]*process\?/);
   assert.match(mapsConfigRoute, /Cache-Control/);
   assert.match(envExample, /YANDEX_MAPS_API_KEY=/);
   assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
@@ -266,6 +270,9 @@ test("includes the product, cart and address flows", async () => {
   assert.match(globals, /grid-template-columns:\s*repeat\(auto-fill, minmax\(180px, 1fr\)\)/);
   assert.match(globals, /\.catalog\s*\{[^}]*width:\s*min\(1216px,\s*calc\(100%\s*-\s*64px\)\)/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+  assert.match(packageJson, /"build":\s*"next build"/);
+  assert.match(packageJson, /"start":\s*"next start"/);
+  assert.match(packageJson, /"build:vinext":\s*"vinext build"/);
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
