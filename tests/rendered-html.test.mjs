@@ -59,7 +59,7 @@ test("renders the mobile CAPTCHA bridge", async () => {
 });
 
 test("includes the product, cart and address flows", async () => {
-  const [storefront, yandexMap, mapsConfigRoute, serverEnv, envExample, catalog, categoryPage, globals, packageJson, robots, sitemap, seo] = await Promise.all([
+  const [storefront, yandexMap, mapsConfigRoute, serverEnv, envExample, catalog, categoryPage, globals, packageJson, railwayConfig, robots, sitemap, seo] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/YandexDeliveryMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/maps-config/route.ts", import.meta.url), "utf8"),
@@ -69,6 +69,7 @@ test("includes the product, cart and address flows", async () => {
     readFile(new URL("../app/category/[slug]/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../railway.json", import.meta.url), "utf8"),
     readFile(new URL("../app/robots.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/sitemap.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/lib/seo.ts", import.meta.url), "utf8"),
@@ -156,6 +157,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /setDeliveryInfoOpen\(true\)/);
   assert.match(storefront, /freeDeliveryThreshold/);
   assert.match(storefront, /address-panel-expanded/);
+  assert.equal(JSON.parse(railwayConfig).build.buildCommand, "npm run build");
+  assert.equal(JSON.parse(railwayConfig).deploy.startCommand, "npm start");
   assert.ok(
     storefront.indexOf('orderingClosed ? "Закрыто" : "Далее"') < storefront.indexOf('className="phone-auth-modal"'),
     "SMS authorization must follow the cart",
