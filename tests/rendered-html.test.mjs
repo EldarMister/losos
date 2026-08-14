@@ -303,6 +303,16 @@ test("admin menu exposes category management without a statistics search", async
   assert.match(admin, /tab === "categories"[\s\S]*?＋ Добавить категорию/);
   assert.match(admin, /openCategory\(category\)/);
   assert.match(admin, /tab === "products" \? <>[\s\S]*?admin-search-field/);
+  assert.match(admin, /eduPosAction === "import" \? "Получаем…"/);
+  assert.match(admin, /eduPosAction === "export" \? "Отправляем…"/);
+  const eduPosImportHandler = admin.slice(
+    admin.indexOf("const importEduPosMenu"),
+    admin.indexOf("const exportEduPosMenu"),
+  );
+  assert.ok(
+    eduPosImportHandler.indexOf("await loadDashboard()") < eduPosImportHandler.indexOf("EDU POS: сопоставлено"),
+    "EDU POS import result must be shown after refreshing the dashboard",
+  );
   assert.match(admin, /Начало рабочего дня/);
   assert.match(admin, /Бесплатная доставка от, сом/);
   assert.match(admin, /className="admin-order-detail-body"/);

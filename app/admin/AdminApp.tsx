@@ -328,6 +328,7 @@ export function AdminApp() {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition">("main");
   const [loading, setLoading] = useState(false);
+  const [eduPosAction, setEduPosAction] = useState<"import" | "export" | null>(null);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState<"all" | string>("all");
@@ -1023,21 +1024,26 @@ export function AdminApp() {
   };
 
   const importEduPosMenu = async () => {
+    if (eduPosAction) return;
+    setEduPosAction("import");
     setLoading(true);
     setMessage("");
     try {
       const menu = await request("/admin/edu-pos/sync-menu", { method: "POST" }) as { matched?: number; received?: number };
       const stopList = await request("/admin/edu-pos/sync-stop-list", { method: "POST" }) as { unavailable?: number };
-      setMessage(`EDU POS: сопоставлено ${menu.matched || 0} из ${menu.received || 0}, недоступно ${stopList.unavailable || 0}`);
       await loadDashboard();
+      setMessage(`EDU POS: сопоставлено ${menu.matched || 0} из ${menu.received || 0}, недоступно ${stopList.unavailable || 0}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось синхронизировать EDU POS");
     } finally {
+      setEduPosAction(null);
       setLoading(false);
     }
   };
 
   const exportEduPosMenu = async () => {
+    if (eduPosAction) return;
+    setEduPosAction("export");
     setLoading(true);
     setMessage("");
     try {
@@ -1049,6 +1055,7 @@ export function AdminApp() {
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось экспортировать меню в EDU POS");
     } finally {
+      setEduPosAction(null);
       setLoading(false);
     }
   };
@@ -1186,7 +1193,7 @@ export function AdminApp() {
         <div className="admin-catalog-card">
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию блюда" /></label>
-            <div className="admin-menu-actions"><button type="button" className="admin-category-add" disabled={loading} title="Получить цены и стоп-лист из EDU POS" onClick={() => void importEduPosMenu()}>↓ Из EDU POS</button><button type="button" className="admin-category-add" disabled={loading} title="Отправить всё меню выбранного города в EDU POS" onClick={() => void exportEduPosMenu()}>↑ В EDU POS</button><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+            <div className="admin-menu-actions"><button type="button" className="admin-category-add" disabled={loading} aria-busy={eduPosAction === "import"} title="Получить цены и стоп-лист из EDU POS" onClick={() => void importEduPosMenu()}>{eduPosAction === "import" ? "Получаем…" : "↓ Из EDU POS"}</button><button type="button" className="admin-category-add" disabled={loading} aria-busy={eduPosAction === "export"} title="Отправить всё меню выбранного города в EDU POS" onClick={() => void exportEduPosMenu()}>{eduPosAction === "export" ? "Отправляем…" : "↑ В EDU POS"}</button><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
           </div>
           <div className="admin-menu-categories" aria-label="Категории меню">
             <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
