@@ -40,7 +40,10 @@ import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
-import { buildEduPosMenuExportPayload } from "../src/edu-pos/edu-pos-menu-export";
+import {
+  buildEduPosMenuExportPayload,
+  normalizeEduPosWeightGrams,
+} from "../src/edu-pos/edu-pos-menu-export";
 import type { EduPosMenuExportPayload } from "../src/edu-pos/edu-pos.types";
 import {
   canSyncOrderWithEduPos,
@@ -1375,6 +1378,14 @@ test("EDU POS menu export preserves products, availability and modifiers", () =>
   assert.equal(exported.categories[0].products[0].available, true);
   assert.equal(exported.categories[0].products[0].modifiers[0].maxSelections, 1);
   assert.equal(exported.categories[0].products[0].modifiers[0].items[0].available, true);
+});
+
+test("EDU POS menu export sends only valid integer weights", () => {
+  assert.equal(normalizeEduPosWeightGrams(0.1), null);
+  assert.equal(normalizeEduPosWeightGrams(0), null);
+  assert.equal(normalizeEduPosWeightGrams(Number.NaN), null);
+  assert.equal(normalizeEduPosWeightGrams(240), 240);
+  assert.equal(normalizeEduPosWeightGrams(240.6), 241);
 });
 
 test("public orders controller does not expose an order-details endpoint", () => {

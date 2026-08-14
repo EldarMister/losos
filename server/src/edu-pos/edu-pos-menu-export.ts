@@ -27,6 +27,11 @@ export type MenuExportCategoryInput = {
   }>;
 };
 
+export function normalizeEduPosWeightGrams(weight: number): number | null {
+  if (!Number.isFinite(weight) || weight < 1) return null;
+  return Math.round(weight);
+}
+
 export function buildEduPosMenuExportPayload(
   regionSlug: string,
   menuSourceRegionSlug: string,
@@ -57,7 +62,7 @@ export function buildEduPosMenuExportPayload(
         originalPrice: product.oldPrice,
         available: product.available && product.posAvailable,
         soldByWeight: product.posSoldByWeight,
-        weightGrams: product.weight > 0 ? product.weight : null,
+        weightGrams: normalizeEduPosWeightGrams(product.weight),
         sortOrder: product.sortOrder,
         modifiers: product.modifierGroups.map((group) => ({
           id: group.id,
