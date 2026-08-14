@@ -19,7 +19,7 @@ import {
   mdiShoppingOutline,
   mdiStarFourPointsOutline,
 } from "@mdi/js";
-import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
@@ -115,6 +115,7 @@ type StoredPhoneAuthSession = {
 };
 type ProfileOrder = {
   id: string;
+  orderNumber?: number;
   total: number;
   status: "new" | "confirmed" | "preparing" | "ready" | "delivering" | "completed" | "cancelled";
   deliveryType: DeliveryType;
@@ -159,6 +160,9 @@ type NaktaCoinTransaction = {
   description: string;
   orderId?: string;
 };
+
+const publicOrderNumber = (order: { id: string; orderNumber?: number }) =>
+  String(order.orderNumber || order.id.slice(0, 6).toUpperCase());
 type ProfileData = {
   naktaCoins: number;
   currentOrders: ProfileOrder[];
@@ -240,7 +244,7 @@ function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[]
       id: `order-${order.id}`,
       amount,
       createdAt: order.createdAt,
-      description: `Заказ №${order.id.slice(0, 6).toUpperCase()}`,
+      description: `Заказ №${publicOrderNumber(order)}`,
       orderId: order.id,
     }];
   });
@@ -797,6 +801,28 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const hasProfileSession = Boolean(verifiedPhone && phoneVerificationToken);
   const profileLoading = Boolean(hasProfileSession && !profileData);
   const coinHistory = useMemo(() => profileCoinHistory(profileData), [profileData]);
+  const clearProfileSession = useCallback((message = "") => {
+    setPhoneVerificationToken("");
+    setVerifiedPhone("");
+    setProfileData(null);
+    setSelectedProfileOrder(null);
+    setProfileOrderDetail(null);
+    setProfileOrderDetailError("");
+    if (message) setPhoneAuthMessage(message);
+    try {
+      window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
+    } catch {
+      // The in-memory session is already cleared.
+    }
+  }, [
+    setPhoneAuthMessage,
+    setPhoneVerificationToken,
+    setProfileData,
+    setProfileOrderDetail,
+    setProfileOrderDetailError,
+    setSelectedProfileOrder,
+    setVerifiedPhone,
+  ]);
   const openSearch = () => {
     const nav = categoryNavRef.current;
     if (nav) nav.scrollLeft = 0;
@@ -879,11 +905,16 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       headers: { Authorization: `Bearer ${phoneVerificationToken}` },
       signal: controller.signal,
     })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Profile request failed")))
+      .then((response) => {
+        if (response.status === 401) {
+          clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+        }
+        return response.ok ? response.json() : Promise.reject(new Error("Profile request failed"));
+      })
       .then((data: ProfileData) => { if (!controller.signal.aborted) setProfileData(data); })
       .catch(() => { if (!controller.signal.aborted) setProfileData(null); })
     return () => controller.abort();
-  }, [phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
+  }, [clearProfileSession, phoneVerificationToken, profileRefreshIndex, verifiedPhone]);
 
   useEffect(() => {
     if (
@@ -905,7 +936,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       headers: { Authorization: `Bearer ${phoneVerificationToken}` },
       signal: controller.signal,
     })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Order details request failed")))
+      .then((response) => {
+        if (response.status === 401) {
+          clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+        }
+        return response.ok ? response.json() : Promise.reject(new Error("Order details request failed"));
+      })
       .then((data: ProfileOrderDetail) => {
         if (controller.signal.aborted) return;
         setProfileOrderDetail(data);
@@ -914,7 +950,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .catch(() => { if (!controller.signal.aborted) setProfileOrderDetailError("Не удалось загрузить детали заказа. Попробуйте ещё раз."); })
       .finally(() => { if (!controller.signal.aborted) setProfileOrderDetailLoading(false); });
     return () => controller.abort();
-  }, [phoneVerificationToken, profileRefreshIndex, selectedProfileOrderId, verifiedPhone]);
+  }, [clearProfileSession, phoneVerificationToken, profileRefreshIndex, selectedProfileOrderId, verifiedPhone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1353,18 +1389,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   };
 
   const logoutProfile = () => {
-    setPhoneVerificationToken("");
-    setVerifiedPhone("");
-    setProfileData(null);
-    closeProfileOrder();
+    clearProfileSession();
     setPhoneCodeRequested(false);
     setPhoneCode("");
     setPhoneAuthMessage("");
-    try {
-      window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
-    } catch {
-      // The in-memory session is already cleared.
-    }
   };
 
   const requestPhoneCode = async () => {
@@ -1533,6 +1561,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       if (!response.ok) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
         throw new Error(message || "Не удалось отправить заказ. Попробуйте ещё раз.");
+      }
+      if (
+        !body
+        || typeof body.id !== "string"
+        || body.id.length < 8
+        || !["new", "confirmed", "preparing", "ready", "delivering", "completed", "cancelled"].includes(body.status)
+        || typeof body.total !== "number"
+      ) {
+        throw new Error("Сервер не подтвердил сохранение заказа. Корзина сохранена — попробуйте ещё раз.");
       }
       setPlacedOrder(body as PlacedOrder);
       setProfileRefreshIndex((current) => current + 1);
@@ -2081,7 +2118,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   <div className="profile-order-list">
                     {profileLoading ? <p className="profile-empty">Загружаем заказы…</p> : (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.length ? (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.map((order) => <button className="profile-order-card" type="button" key={order.id} onClick={() => openProfileOrder(order)}>
                       <span className={`profile-order-status status-${order.status}`}>{profileOrderStatuses[order.status]}</span>
-                      <span className="profile-order-main"><span><b>Заказ №{order.id.slice(0, 6).toUpperCase()}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
+                      <span className="profile-order-main"><span><b>Заказ №{publicOrderNumber(order)}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
                       <span className="profile-order-delivery"><i aria-hidden="true">▣</i><span><b>{order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{order.address || "Адрес заказа"}</small></span></span>
                     </button>) : <div className="profile-orders-empty"><span aria-hidden="true">▱</span><p>{profileOrderTab === "active" ? "Активных заказов пока нет" : "История заказов пока пуста"}</p><button type="button" onClick={() => setMenuOpen(false)}>Перейти в меню</button></div>}
                   </div>
@@ -2359,9 +2396,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       {selectedProfileOrder ? (
-        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${selectedProfileOrder.id.slice(0, 6).toUpperCase()}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
+        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${publicOrderNumber(selectedProfileOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
           <section className="order-details-modal">
-            <header><div><small>Заказ №{selectedProfileOrder.id.slice(0, 6).toUpperCase()}</small><h2>{profileOrderStatuses[profileOrderDetail?.status ?? selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
+            <header><div><small>Заказ №{publicOrderNumber(selectedProfileOrder)}</small><h2>{profileOrderStatuses[profileOrderDetail?.status ?? selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
             {profileOrderDetailLoading ? <p className="order-details-state">Загружаем детали заказа…</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
               <section className="order-status-card">
                 <b>{profileOrderDetail.posStatus ? posStatusLabels[profileOrderDetail.posStatus] || "Статус кухни" : "Статус заказа"}</b>
@@ -2497,7 +2534,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <div className="checkout-success-mark" aria-hidden="true">✓</div>
               <span>Спасибо!</span>
               <h2>Заказ принят</h2>
-              <p>Номер заказа <b>#{placedOrder.orderNumber || placedOrder.id.slice(0, 8).toUpperCase()}</b>. Мы уже передали его ресторану.</p>
+              <p>Номер заказа <b>#{publicOrderNumber(placedOrder)}</b>. Администратор скоро проверит и подтвердит его.</p>
               <div><span>К оплате</span><b><NumberTicker value={placedOrder.total} format={money} /></b></div>
               <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>Вернуться в меню</button>
             </section> : <form className="checkout-form" onSubmit={submitOrder}>

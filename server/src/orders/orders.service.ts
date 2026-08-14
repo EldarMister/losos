@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { createHash, randomUUID } from "node:crypto";
 import { In, Repository } from "typeorm";
@@ -57,6 +57,8 @@ function isUniqueViolation(error: unknown) {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order) private readonly orders: Repository<Order>,
     private readonly phoneAuth: PhoneAuthService,
@@ -70,9 +72,7 @@ export class OrdersService {
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
-      const matched = this.ensureMatchingIdempotency(existing, requestFingerprint);
-      await this.eduPos.submitOrder(matched);
-      return matched;
+      return this.ensureMatchingIdempotency(existing, requestFingerprint);
     }
 
     try {
@@ -174,19 +174,19 @@ export class OrdersService {
           subtotal,
           total: subtotal,
           status: OrderStatus.NEW,
+          adminConfirmedAt: null,
           items: lines,
         });
         return orders.save(order);
       });
-      await this.eduPos.submitOrder(created);
+      this.logger.log(`Order ${created.id} persisted as new (idempotency ${idempotencyKey})`);
       return created;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
-      const matched = this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
-      await this.eduPos.submitOrder(matched);
-      return matched;
+      this.logger.warn(`Recovered concurrent order ${racedOrder.id} (idempotency ${idempotencyKey})`);
+      return this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
     }
   }
 

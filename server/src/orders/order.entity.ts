@@ -15,6 +15,10 @@ export class Order {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Index({ unique: true })
+  @Column({ type: "int", generated: "increment" })
+  orderNumber!: number;
+
   @Index()
   @Column({ length: 100, default: "bishkek" })
   regionSlug!: string;
@@ -78,6 +82,9 @@ export class Order {
   @Column({ type: "varchar", length: 30, default: OrderStatus.NEW })
   status!: OrderStatus;
 
+  @Column({ type: "timestamp with time zone", nullable: true })
+  adminConfirmedAt!: Date | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -104,7 +111,7 @@ export class Order {
   posStatus!: string | null;
 
   @Column({ type: "varchar", length: 30, default: "pending" })
-  posSyncStatus!: "pending" | "synced" | "pos_sync_failed";
+  posSyncStatus!: "pending" | "submitting" | "synced" | "pos_sync_failed";
 
   @Column({ type: "int", default: 0 })
   posItemsTotal!: number;

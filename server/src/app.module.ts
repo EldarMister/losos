@@ -5,6 +5,7 @@ import { AdminModule } from "./admin/admin.module";
 import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
 import { AuthorizedPhone } from "./auth/authorized-phone.entity";
 import { PhoneAccount } from "./auth/phone-account.entity";
+import { PhoneAccountSession } from "./auth/phone-account-session.entity";
 import { PhoneAuthModule } from "./auth/phone-auth.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { Category } from "./catalog/category.entity";
@@ -40,6 +41,8 @@ import { AddWhatsappAuth1784989000000 } from "./migrations/1784989000000-AddWhat
 import { AddRegionDeliverySettings1784990000000 } from "./migrations/1784990000000-AddRegionDeliverySettings";
 import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/1784999000000-AddEduPosDeliveryIntegration";
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
+import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000-AddPhoneAccountSessions";
+import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "./migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 
 @Module({
   imports: [
@@ -52,7 +55,7 @@ import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/178
         return {
           type: "postgres" as const,
           url: databaseUrl,
-          entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, DevicePushToken],
+          entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, PhoneAccountSession, DevicePushToken],
           migrations: [
             BootstrapSchema1784978000000,
             AddProductCustomization1784979000000,
@@ -77,6 +80,8 @@ import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/178
             AddOrderCompletionAndSupportContact1784998000000,
             AddEduPosDeliveryIntegration1784999000000,
             AddSharedRegionContentAndOtuzAdyr1785000000000,
+            AddPhoneAccountSessions1785001000000,
+            AddShortOrderNumbersAndAdminConfirmation1785002000000,
           ],
           migrationsRun: true,
           synchronize:

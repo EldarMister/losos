@@ -9,10 +9,16 @@ import { PhoneAuthService } from "./phone-auth.service";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
 import { PushNotificationsModule } from "../notifications/push-notifications.module";
 import { CaptchaVerificationService } from "./captcha-verification.service";
+import { PhoneAccountSession } from "./phone-account-session.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PhoneAuthChallenge, AuthorizedPhone, PhoneAccount]),
+    TypeOrmModule.forFeature([
+      PhoneAuthChallenge,
+      AuthorizedPhone,
+      PhoneAccount,
+      PhoneAccountSession,
+    ]),
     PushNotificationsModule,
   ],
   controllers: [PhoneAuthController],

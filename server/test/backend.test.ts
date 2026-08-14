@@ -27,6 +27,7 @@ import {
   smsResendDelaySeconds,
 } from "../src/auth/phone-auth.service";
 import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
+import { PhoneAccountSession } from "../src/auth/phone-account-session.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
@@ -39,9 +40,15 @@ import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
+import { buildEduPosMenuExportPayload } from "../src/edu-pos/edu-pos-menu-export";
+import type { EduPosMenuExportPayload } from "../src/edu-pos/edu-pos.types";
 import {
+  canSyncOrderWithEduPos,
+  canSubmitOrderToEduPos,
   eduPosRetryDelayMs,
   internalOrderStatusForPos,
+  orderStatusAfterPosUpdate,
+  shouldSubmitOrderToEduPosAfterAdminTransition,
 } from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
 import { OrdersController } from "../src/orders/orders.controller";
@@ -54,6 +61,7 @@ import { PushNotificationsService } from "../src/notifications/push-notification
 import { AddPickupLocationsAndPushTokens1784996000000 } from "../src/migrations/1784996000000-AddPickupLocationsAndPushTokens";
 import { AddRegionDeliveryDetailsAndZone1784997000000 } from "../src/migrations/1784997000000-AddRegionDeliveryDetailsAndZone";
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "../src/migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
+import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "../src/migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -473,10 +481,13 @@ test("account deletion verifies the session and removes all phone-owned profile 
     },
   };
   const accounts = {
-    findOne: async () => ({ phone, naktaCoins: 0 }),
+    findOneBy: async () => ({ phone, naktaCoins: 0 }),
     manager: {
       transaction: async (callback: (value: typeof manager) => Promise<void>) => callback(manager),
     },
+  };
+  const sessions = {
+    findOne: async () => ({ phone, tokenHash: "stored-token", expiresAt: new Date(Date.now() + 60_000) }),
   };
   const auth = new PhoneAuthService(
     {} as never,
@@ -486,6 +497,7 @@ test("account deletion verifies the session and removes all phone-owned profile 
     {} as never,
     {} as never,
     accounts as never,
+    sessions as never,
   );
 
   assert.deepEqual(await auth.deleteAccount(phone, token), { deleted: true });
@@ -533,6 +545,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
   };
   const replies: Array<{ to: string; body: string }> = [];
   const accounts: Array<{ phone: string; sessionTokenHash: string | null; sessionExpiresAt: Date | null }> = [];
+  const sessions: PhoneAccountSession[] = [];
   const accountRepository = {
     findOneBy: async ({ phone }: { phone: string }) => accounts.find((account) => account.phone === phone) ?? null,
     create: (value: { phone: string }) => ({ ...value, sessionTokenHash: null, sessionExpiresAt: null }),
@@ -542,6 +555,22 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
       else accounts.push(value);
       return value;
     },
+  };
+  const sessionRepository = {
+    create: (value: PhoneAccountSession) => ({ ...value, createdAt: new Date() }),
+    save: async (value: PhoneAccountSession) => {
+      const index = sessions.findIndex((session) => session.tokenHash === value.tokenHash);
+      if (index >= 0) sessions[index] = value;
+      else sessions.push(value);
+      return value;
+    },
+    delete: async () => ({ affected: 0 }),
+    findOne: async ({ where }: { where: { phone: string; tokenHash: string } }) =>
+      sessions.find((session) => (
+        session.phone === where.phone
+        && session.tokenHash === where.tokenHash
+        && session.expiresAt > new Date()
+      )) ?? null,
   };
   const whatsapp = {
     createAuthUrl: (code: string) =>
@@ -560,6 +589,7 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
     {} as never,
     { existsBy: async () => false } as never,
     accountRepository as never,
+    sessionRepository as never,
   );
 
   const requested = await auth.requestWhatsapp("+996555123456");
@@ -591,13 +621,62 @@ test("WhatsApp webhook verifies the sender and unlocks polling", async () => {
   assert.equal(status.verificationToken?.length, 64);
   if (status.status !== "verified") throw new Error("Expected a verified WhatsApp session");
   const sessionManager = {
-    getRepository: () => ({
-      findOne: async ({ where }: { where: { phone: string; sessionTokenHash: string; sessionExpiresAt: { _type: string; _value: Date } } }) =>
-        accounts.find((account) => account.phone === where.phone && account.sessionTokenHash === where.sessionTokenHash && account.sessionExpiresAt! > where.sessionExpiresAt._value) ?? null,
-    }),
+    getRepository: (entity: unknown) => entity === PhoneAccountSession
+      ? sessionRepository
+      : repository,
   };
   await auth.consumeVerification(status.phone, status.verificationToken, sessionManager as never);
   await auth.consumeVerification(status.phone, status.verificationToken, sessionManager as never);
+});
+
+test("website and app sessions stay valid together for the same phone account", async () => {
+  const phone = "+996555123456";
+  const account = { phone, naktaCoins: 25 };
+  const sessionRecords: PhoneAccountSession[] = [];
+  const accountRepository = {
+    findOneBy: async ({ phone: requestedPhone }: { phone: string }) =>
+      requestedPhone === phone ? account : null,
+    create: (value: { phone: string }) => ({ ...value, naktaCoins: 0 }),
+    save: async (value: typeof account) => value,
+  };
+  const sessionRepository = {
+    create: (value: PhoneAccountSession) => ({ ...value, createdAt: new Date() }),
+    save: async (value: PhoneAccountSession) => {
+      sessionRecords.push(value);
+      return value;
+    },
+    delete: async () => ({ affected: 0 }),
+    findOne: async ({ where }: { where: { phone: string; tokenHash: string } }) =>
+      sessionRecords.find((session) => (
+        session.phone === where.phone
+        && session.tokenHash === where.tokenHash
+        && session.expiresAt > new Date()
+      )) ?? null,
+  };
+  const auth = new PhoneAuthService(
+    {
+      create: (value: PhoneAuthChallenge) => value,
+      save: async (value: PhoneAuthChallenge) => value,
+    } as never,
+    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
+    {} as never,
+    {} as never,
+    { verify: async () => undefined } as never,
+    { existsBy: async () => true } as never,
+    accountRepository as never,
+    sessionRepository as never,
+  );
+
+  const website = await auth.requestCode(phone, "captcha-token-with-enough-length", "127.0.0.1");
+  const app = await auth.requestCode(phone, "captcha-token-with-enough-length", "127.0.0.1");
+  assert.equal(website.verified, true);
+  assert.equal(app.verified, true);
+  assert.ok(website.verificationToken);
+  assert.ok(app.verificationToken);
+  assert.notEqual(website.verificationToken, app.verificationToken);
+  assert.equal(sessionRecords.length, 2);
+  assert.equal((await auth.assertAccount(phone, website.verificationToken)).naktaCoins, 25);
+  assert.equal((await auth.assertAccount(phone, app.verificationToken)).naktaCoins, 25);
 });
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {
@@ -1090,13 +1169,59 @@ test("shared region migration adds source selectors and seeds Otuz-Adyr", async 
   assert.ok(String(seed?.parameters?.[0]).includes("40.64"));
 });
 
+test("order number migration adds a short sequence and admin confirmation marker", async () => {
+  const migration = new AddShortOrderNumbersAndAdminConfirmation1785002000000();
+  const queries: string[] = [];
+  await migration.up({
+    query: async (statement: string) => {
+      queries.push(statement.replace(/\s+/g, " ").trim());
+      return [];
+    },
+  } as never);
+
+  assert.ok(queries.some((statement) => statement.includes('CREATE SEQUENCE IF NOT EXISTS "orders_order_number_seq"')));
+  assert.ok(queries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "orderNumber" integer')));
+  assert.ok(queries.some((statement) => statement.includes('CREATE UNIQUE INDEX IF NOT EXISTS "IDX_orders_order_number"')));
+  assert.ok(queries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "adminConfirmedAt"')));
+});
+
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {
+  assert.equal(canSubmitOrderToEduPos(OrderStatus.NEW), false);
+  assert.equal(canSubmitOrderToEduPos(OrderStatus.CONFIRMED), true);
+  assert.equal(canSubmitOrderToEduPos(OrderStatus.CANCELLED), false);
+  assert.equal(canSyncOrderWithEduPos(OrderStatus.CONFIRMED, null), false);
+  assert.equal(canSyncOrderWithEduPos(OrderStatus.CONFIRMED, new Date()), true);
+  assert.equal(canSyncOrderWithEduPos(OrderStatus.NEW, new Date()), false);
+  assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
+    OrderStatus.NEW,
+    OrderStatus.CONFIRMED,
+  ), true);
+  assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
+    OrderStatus.NEW,
+    OrderStatus.CANCELLED,
+  ), false);
+  assert.equal(shouldSubmitOrderToEduPosAfterAdminTransition(
+    OrderStatus.CONFIRMED,
+    OrderStatus.PREPARING,
+  ), false);
   assert.equal(internalOrderStatusForPos("sent_to_kitchen"), OrderStatus.CONFIRMED);
   assert.equal(internalOrderStatusForPos("accepted_by_kitchen"), OrderStatus.CONFIRMED);
   assert.equal(internalOrderStatusForPos("cooking"), OrderStatus.PREPARING);
   assert.equal(internalOrderStatusForPos("partially_rejected"), OrderStatus.PREPARING);
   assert.equal(internalOrderStatusForPos("ready"), OrderStatus.READY);
   assert.equal(internalOrderStatusForPos("rejected"), OrderStatus.CANCELLED);
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.NEW, "sent_to_kitchen", false),
+    OrderStatus.NEW,
+  );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.NEW, "sent_to_kitchen", true),
+    OrderStatus.CONFIRMED,
+  );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.DELIVERING, "cooking", true),
+    OrderStatus.DELIVERING,
+  );
   assert.deepEqual([1, 2, 3, 4, 5].map(eduPosRetryDelayMs), [5_000, 15_000, 30_000, 60_000, 60_000]);
 });
 
@@ -1165,6 +1290,87 @@ test("EDU POS client classifies temporary errors without exposing credentials", 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("EDU POS client exports the complete menu with one configured PUT request", async () => {
+  const originalFetch = globalThis.fetch;
+  let capturedUrl = "";
+  let capturedMethod = "";
+  let capturedBody = "";
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    capturedUrl = String(input);
+    capturedMethod = init?.method || "";
+    capturedBody = String(init?.body || "");
+    return new Response(JSON.stringify({ imported: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+  try {
+    const client = new EduPosClient(new ConfigService({
+      EDU_POS_URL: "https://pos.example/api/integration/v1",
+      EDU_POS_API_KEY: "edu_live_export_secret",
+      EDU_POS_MENU_EXPORT_PATH: "/catalog/import",
+    }));
+    const payload: EduPosMenuExportPayload = {
+      source: "nakta-sushi",
+      regionSlug: "bishkek",
+      menuSourceRegionSlug: "bishkek",
+      exportedAt: "2026-08-14T00:00:00.000Z",
+      categories: [],
+    };
+    await client.exportMenu(payload);
+    assert.equal(capturedUrl, "https://pos.example/api/integration/v1/catalog/import");
+    assert.equal(capturedMethod, "PUT");
+    assert.deepEqual(JSON.parse(capturedBody), payload);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("EDU POS menu export preserves products, availability and modifiers", () => {
+  const exported = buildEduPosMenuExportPayload(
+    "otuz-adyr",
+    "osh",
+    [{
+        id: 7,
+        slug: "rolls",
+        title: "Роллы",
+        image: "/images/rolls.png",
+        sortOrder: 1,
+        products: [{
+          id: 42,
+          sourceId: 142,
+          slug: "salmon-roll",
+          name: "Ролл с лососем",
+          description: "Описание",
+          composition: "Лосось, рис",
+          image: "/images/salmon-roll.png",
+          price: 490,
+          oldPrice: 550,
+          available: true,
+          posAvailable: true,
+          posDishId: null,
+          posSoldByWeight: false,
+          weight: 240,
+          sortOrder: 2,
+          modifierGroups: [{
+            id: "sauce",
+            title: "Соус",
+            selectionType: "single",
+            required: true,
+            items: [{ id: "soy", name: "Соевый", price: 25, image: "" }],
+          }],
+        }],
+      }],
+    new Date("2026-08-14T00:00:00.000Z"),
+  );
+  assert.equal(exported.regionSlug, "otuz-adyr");
+  assert.equal(exported.menuSourceRegionSlug, "osh");
+  assert.equal(exported.categories[0].products[0].id, "nakta-product-42");
+  assert.equal(exported.categories[0].products[0].available, true);
+  assert.equal(exported.categories[0].products[0].modifiers[0].maxSelections, 1);
+  assert.equal(exported.categories[0].products[0].modifiers[0].items[0].available, true);
 });
 
 test("public orders controller does not expose an order-details endpoint", () => {

@@ -56,3 +56,57 @@ export type EduPosMenuDish = {
   soldByWeight: boolean;
   variants: EduPosMenuVariant[];
 };
+
+export type EduPosMenuExportModifierItem = {
+  id: string;
+  name: string;
+  price: number;
+  available: boolean;
+  maxQuantity: number | null;
+};
+
+export type EduPosMenuExportModifierGroup = {
+  id: string;
+  name: string;
+  selectionType: "single" | "multiple";
+  required: boolean;
+  minSelections: number;
+  maxSelections: number | null;
+  priceScope: "per-product" | "per-line";
+  items: EduPosMenuExportModifierItem[];
+};
+
+export type EduPosMenuExportProduct = {
+  id: string;
+  sourceId: number;
+  slug: string;
+  name: string;
+  description: string;
+  composition: string;
+  imageUrl: string;
+  price: number;
+  originalPrice: number | null;
+  available: boolean;
+  soldByWeight: boolean;
+  weightGrams: number | null;
+  sortOrder: number;
+  modifiers: EduPosMenuExportModifierGroup[];
+};
+
+export type EduPosMenuExportCategory = {
+  id: string;
+  sourceId: number;
+  slug: string;
+  name: string;
+  imageUrl: string;
+  sortOrder: number;
+  products: EduPosMenuExportProduct[];
+};
+
+export type EduPosMenuExportPayload = {
+  source: "nakta-sushi";
+  regionSlug: string;
+  menuSourceRegionSlug: string;
+  exportedAt: string;
+  categories: EduPosMenuExportCategory[];
+};

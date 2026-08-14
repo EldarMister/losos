@@ -18,6 +18,8 @@ import { PhoneAccount } from "../auth/phone-account.entity";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
 import { PushNotificationsService } from "../notifications/push-notifications.service";
 import { dispatchOrderStatusPush } from "./order-status-notifier";
+import { EduPosService } from "../edu-pos/edu-pos.service";
+import { shouldSubmitOrderToEduPosAfterAdminTransition } from "../edu-pos/edu-pos.policy";
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -42,6 +44,7 @@ export class AdminService {
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
     @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
     private readonly pushNotifications: PushNotificationsService,
+    private readonly eduPos: EduPosService,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -142,6 +145,13 @@ export class AdminService {
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {
+    const current = await this.order(id);
+    if (shouldSubmitOrderToEduPosAfterAdminTransition(current.status, nextStatus)) {
+      const confirmed = await this.eduPos.confirmOrder(current);
+      dispatchOrderStatusPush(this.pushNotifications, confirmed);
+      return confirmed;
+    }
+
     const saved = await this.orderRepository.manager.transaction(async (manager) => {
       const orders = manager.getRepository(Order);
       const order = await orders.findOne({ where: { id }, relations: { items: true } });

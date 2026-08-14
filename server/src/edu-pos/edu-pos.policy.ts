@@ -1,5 +1,27 @@
 import { OrderStatus } from "../orders/order.enums";
 
+export const EDU_POS_SUBMITTABLE_ORDER_STATUSES = [
+  OrderStatus.CONFIRMED,
+  OrderStatus.PREPARING,
+  OrderStatus.READY,
+  OrderStatus.DELIVERING,
+] as const;
+
+export function canSubmitOrderToEduPos(status: OrderStatus) {
+  return (EDU_POS_SUBMITTABLE_ORDER_STATUSES as readonly OrderStatus[]).includes(status);
+}
+
+export function canSyncOrderWithEduPos(status: OrderStatus, adminConfirmedAt: Date | null) {
+  return Boolean(adminConfirmedAt) && canSubmitOrderToEduPos(status);
+}
+
+export function shouldSubmitOrderToEduPosAfterAdminTransition(
+  previousStatus: OrderStatus,
+  nextStatus: OrderStatus,
+) {
+  return previousStatus === OrderStatus.NEW && nextStatus === OrderStatus.CONFIRMED;
+}
+
 const RETRY_DELAYS_MS = [5_000, 15_000, 30_000, 60_000] as const;
 
 export function eduPosRetryDelayMs(attempt: number) {
@@ -11,4 +33,22 @@ export function internalOrderStatusForPos(status: string): OrderStatus | null {
   if (status === "ready") return OrderStatus.READY;
   if (status === "rejected" || status === "cancelled") return OrderStatus.CANCELLED;
   return null;
+}
+
+export function orderStatusAfterPosUpdate(
+  currentStatus: OrderStatus,
+  posStatus: string,
+  confirmAccepted: boolean,
+) {
+  const mappedStatus = internalOrderStatusForPos(posStatus);
+  if ([OrderStatus.DELIVERING, OrderStatus.COMPLETED].includes(currentStatus)) {
+    return currentStatus;
+  }
+  if (currentStatus === OrderStatus.NEW && !confirmAccepted) {
+    return currentStatus;
+  }
+  if (mappedStatus) return mappedStatus;
+  return confirmAccepted && currentStatus === OrderStatus.NEW
+    ? OrderStatus.CONFIRMED
+    : currentStatus;
 }
