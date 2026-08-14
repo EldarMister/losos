@@ -2285,7 +2285,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 selected={pickupLocationSelected}
               /></Suspense>}
             </div>
-            <div className={`address-panel${deliveryType === "delivery" && (draftAddress.trim() || deliveryLocation) ? " address-panel-expanded" : ""}`}>
+            <div className={`address-panel${deliveryType === "delivery" && draftAddress.trim() && !deliveryLocation ? " address-panel-expanded" : ""}`}>
               <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>
               <div className="modal-mode-switch" aria-label="Способ получения заказа">
                 <div className="modal-mode-icons">

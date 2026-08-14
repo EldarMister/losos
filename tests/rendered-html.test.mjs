@@ -278,6 +278,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(globals, /\.checkout-submit\s*\{/);
   assert.match(globals, /\.delivery-info-sheet\s*\{/);
   assert.match(globals, /\.address-panel\.address-panel-expanded\s*\{/);
+  assert.match(storefront, /draftAddress\.trim\(\) && !deliveryLocation \? " address-panel-expanded"/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);
   assert.match(globals, /\.store-shell\s*\{[^}]*width:\s*min\(1280px/);
   assert.match(globals, /\.store-shell\.header-pinned::after\s*\{[^}]*z-index:\s*24[^}]*height:\s*70px/);
@@ -308,6 +309,8 @@ test("admin menu exposes category management without a statistics search", async
   assert.match(admin, /className="admin-order-items-pane"[\s\S]*?Состав заказа/);
   assert.match(admin, /Итого \/ К оплате/);
   assert.match(adminCss, /\.admin-order-detail-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, \.92fr\) minmax\(0, 1\.08fr\)/);
+  assert.match(adminCss, /\.admin-order-detail-head > button::after\s*\{[^}]*content:\s*none/);
+  assert.match(adminCss, /\.admin-order-detail\s*\{[^}]*position:\s*fixed[^}]*width:\s*100dvw[^}]*height:\s*100dvh/);
 });
 
 test("NestJS and PostgreSQL project files are present", async () => {
