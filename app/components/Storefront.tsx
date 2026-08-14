@@ -5,18 +5,26 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@mdi/react";
 import {
+  mdiAccountOutline,
   mdiAccountCircleOutline,
   mdiArrowLeft,
+  mdiCashMultiple,
   mdiChevronRight,
   mdiClipboardTextOutline,
   mdiCogOutline,
+  mdiCreditCardOutline,
+  mdiDoorOpen,
   mdiFileDocumentOutline,
   mdiInformationOutline,
   mdiLogout,
+  mdiMapMarker,
+  mdiMessageTextOutline,
   mdiMessageReplyTextOutline,
+  mdiOfficeBuildingOutline,
   mdiPhoneOutline,
   mdiShieldAccountOutline,
   mdiShoppingOutline,
+  mdiStairs,
   mdiStarFourPointsOutline,
 } from "@mdi/js";
 import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -759,7 +767,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     floor: "",
     intercom: "",
     comment: "",
-    paymentMethod: "card_on_delivery",
+    paymentMethod: "cash",
   });
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
@@ -2545,59 +2553,57 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>Вернуться в меню</button>
             </section> : <form className="checkout-form" onSubmit={submitOrder}>
               <header className="checkout-head">
-                <button type="button" onClick={() => { setCheckoutOpen(false); setCartOpen(true); }} aria-label="Вернуться в корзину">←</button>
-                <div><small>Последний шаг</small><h2>Оформление заказа</h2></div>
-                <button type="button" onClick={() => setCheckoutOpen(false)} aria-label="Закрыть">×</button>
+                <button type="button" onClick={() => { setCheckoutOpen(false); setCartOpen(true); }} aria-label="Вернуться в корзину"><Icon path={mdiArrowLeft} size={1.12} aria-hidden="true" /></button>
+                <h2>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h2>
+                <span className="checkout-head-spacer" aria-hidden="true" />
               </header>
 
               <div className="checkout-scroll">
-                <section className="checkout-section checkout-contact">
-                  <h3>Контакты</h3>
-                  <label><span>Имя</span><input required autoComplete="name" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Как к вам обращаться" /></label>
-                  <div className="checkout-confirmed-phone"><span>Телефон</span><div><b>{checkoutForm.phone}</b><button type="button" onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthMethod("choose"); try { window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY); } catch {} setPhoneAuthOpen(true); }}>Изменить</button></div><small>✓ Номер подтверждён</small></div>
-                </section>
-
-                <section className="checkout-section checkout-destination">
-                  <div className="checkout-section-heading"><div><h3>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><p>{deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</p></div><button type="button" onClick={editCheckoutAddress}>Изменить</button></div>
-                  <strong>{address}</strong>
+                <section className="checkout-address-card">
+                  <button className="checkout-address-main" type="button" onClick={editCheckoutAddress}>
+                    <Icon path={mdiMapMarker} size={1.16} aria-hidden="true" />
+                    <strong>{address}</strong>
+                    <Icon path={mdiChevronRight} size={1.12} aria-hidden="true" />
+                  </button>
                   {deliveryType === "delivery" ? <div className="checkout-address-details">
-                    <label><span>Квартира</span><input value={checkoutForm.apartment} onChange={(event) => updateCheckoutField("apartment", event.target.value)} /></label>
-                    <label><span>Подъезд</span><input value={checkoutForm.entrance} onChange={(event) => updateCheckoutField("entrance", event.target.value)} /></label>
-                    <label><span>Этаж</span><input value={checkoutForm.floor} onChange={(event) => updateCheckoutField("floor", event.target.value)} /></label>
-                    <label><span>Домофон</span><input value={checkoutForm.intercom} onChange={(event) => updateCheckoutField("intercom", event.target.value)} /></label>
+                    <label><Icon path={mdiOfficeBuildingOutline} size={0.83} aria-hidden="true" /><input aria-label="Квартира" placeholder="Квартира" value={checkoutForm.apartment} onChange={(event) => updateCheckoutField("apartment", event.target.value)} /></label>
+                    <label><Icon path={mdiDoorOpen} size={0.83} aria-hidden="true" /><input aria-label="Подъезд" placeholder="Подъезд" value={checkoutForm.entrance} onChange={(event) => updateCheckoutField("entrance", event.target.value)} /></label>
+                    <label><Icon path={mdiStairs} size={0.83} aria-hidden="true" /><input aria-label="Этаж" placeholder="Этаж" value={checkoutForm.floor} onChange={(event) => updateCheckoutField("floor", event.target.value)} /></label>
                   </div> : null}
                 </section>
 
-                <section className="checkout-section">
-                  <h3>Оплата при получении</h3>
-                  <div className="checkout-payment" role="group" aria-label="Способ оплаты">
-                    <button type="button" className={checkoutForm.paymentMethod === "card_on_delivery" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "card_on_delivery"} onClick={() => updateCheckoutField("paymentMethod", "card_on_delivery")}><span>▣</span><b>Картой курьеру</b></button>
-                    <button type="button" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-pressed={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><span>сом</span><b>Наличными</b></button>
-                  </div>
+                <h3 className="checkout-section-title">Получатель</h3>
+                <section className="checkout-recipient-card">
+                  <label className="checkout-recipient-name">
+                    <Icon path={mdiAccountOutline} size={1.2} aria-hidden="true" />
+                    <input required autoComplete="name" aria-label="Имя получателя" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Ваше имя" />
+                  </label>
+                  <span className="checkout-recipient-divider" aria-hidden="true" />
+                  <button className="checkout-phone-button" type="button" title="Изменить номер телефона" onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthMethod("choose"); try { window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY); } catch {} setPhoneAuthOpen(true); }}>
+                    <Icon path={mdiPhoneOutline} size={1} aria-hidden="true" />
+                    <b>{checkoutForm.phone}</b>
+                  </button>
                 </section>
 
-                <section className="checkout-section">
-                  <h3>Комментарий</h3>
-                  <textarea value={checkoutForm.comment} onChange={(event) => updateCheckoutField("comment", event.target.value)} placeholder="Например, не звонить в домофон" maxLength={500} />
-                </section>
+                <h3 className="checkout-section-title checkout-payment-title">Оплата</h3>
+                <div className="checkout-payment" role="radiogroup" aria-label="Способ оплаты">
+                  <button type="button" role="radio" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-checked={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><Icon path={mdiCashMultiple} size={1.12} aria-hidden="true" /><b>Наличными</b><span className="checkout-payment-radio" aria-hidden="true"><i /></span></button>
+                  <button type="button" role="radio" className={checkoutForm.paymentMethod === "card_on_delivery" ? "active" : ""} aria-checked={checkoutForm.paymentMethod === "card_on_delivery"} onClick={() => updateCheckoutField("paymentMethod", "card_on_delivery")}><Icon path={mdiCreditCardOutline} size={1.12} aria-hidden="true" /><b>Картой</b><span className="checkout-payment-radio" aria-hidden="true"><i /></span></button>
+                </div>
 
-                <section className="checkout-section checkout-order-summary">
-                  <h3>Ваш заказ</h3>
-                  {cart.map((line) => <div className="checkout-line" key={line.key}>
-                    <span><b>{line.product.name} × {line.quantity}</b>{line.modifiers.length ? <small>{line.modifiers.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}</span>
-                    <strong><NumberTicker value={cartLineTotal(line)} format={money} /></strong>
-                  </div>)}
-                  <div className="checkout-total"><span>Итого</span><b><NumberTicker value={cartTotal} format={money} /></b></div>
-                </section>
+                <label className="checkout-comment-field">
+                  <Icon path={mdiMessageTextOutline} size={1.02} aria-hidden="true" />
+                  <textarea aria-label="Пожелания к заказу" value={checkoutForm.comment} onChange={(event) => updateCheckoutField("comment", event.target.value)} placeholder="Пожелания к заказу" maxLength={500} />
+                </label>
+                <p className="checkout-terms">Оформляя заказ, вы принимаете <a href="/terms">Условия заказа</a></p>
+                {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
               </div>
 
               <footer className="checkout-footer">
-                {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
+                <div className="checkout-total-block"><span>Итого</span><b><NumberTicker value={cartTotal} format={money} /></b></div>
                 <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || orderingClosed || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
                   <span>{checkoutSubmitting ? "Отправляем заказ…" : orderingClosed ? "Кухня закрыта" : "Заказать"}</span>
-                  <b><NumberTicker value={cartTotal} format={money} /></b>
                 </button>
-                <small>Нажимая кнопку, вы соглашаетесь с <a href="/terms">условиями заказа</a> и <a href="/privacy">политикой конфиденциальности</a></small>
               </footer>
             </form>}
           </aside>

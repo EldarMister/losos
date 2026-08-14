@@ -134,6 +134,11 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /selectedModifiersForCart/);
   assert.match(storefront, /line\.modifiers/);
   assert.match(storefront, /className="checkout-drawer"/);
+  assert.match(storefront, /className="checkout-address-card"/);
+  assert.match(storefront, /className="checkout-recipient-card"/);
+  assert.match(storefront, /className="checkout-total-block"/);
+  assert.match(storefront, /paymentMethod: "cash"/);
+  assert.match(globals, /\.checkout-footer \{ position: absolute;/);
   assert.match(storefront, /className="phone-auth-modal"/);
   assert.match(storefront, /Войдите или зарегистрируйтесь/);
   assert.match(storefront, /<TurnstileWidget/);
