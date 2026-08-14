@@ -58,6 +58,12 @@ test("renders the mobile CAPTCHA bridge", async () => {
   assert.match(source, /type:\s*"success"/);
 });
 
+test("exposes the frontend healthcheck used by Railway", async () => {
+  const response = await render("/api/health");
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: "ok", service: "nakta-sushi-web" });
+});
+
 test("includes the product, cart and address flows", async () => {
   const [storefront, yandexMap, mapsConfigRoute, serverEnv, envExample, catalog, categoryPage, globals, packageJson, railwayConfig, robots, sitemap, seo] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
@@ -159,6 +165,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /address-panel-expanded/);
   assert.equal(JSON.parse(railwayConfig).build.buildCommand, "npm run build");
   assert.equal(JSON.parse(railwayConfig).deploy.startCommand, "npm start");
+  assert.equal(JSON.parse(railwayConfig).deploy.healthcheckPath, "/api/health");
   assert.ok(
     storefront.indexOf('orderingClosed ? "Закрыто" : "Далее"') < storefront.indexOf('className="phone-auth-modal"'),
     "SMS authorization must follow the cart",
