@@ -122,9 +122,12 @@ export class EduPosClient {
       }
       if (!response.ok) {
         const responseRecord = record(body);
-        const responseMessages = Array.isArray(responseRecord.message)
-          ? responseRecord.message.filter((entry): entry is string => typeof entry === "string").join(", ")
-          : text(responseRecord.message);
+        const responseMessageList = Array.isArray(responseRecord.message)
+          ? responseRecord.message.filter((entry): entry is string => typeof entry === "string")
+          : [];
+        const responseMessages = responseMessageList.length > 3
+          ? `${responseMessageList.slice(0, 3).join(", ")} (+ ещё ${responseMessageList.length - 3})`
+          : responseMessageList.join(", ") || text(responseRecord.message);
         const message = responseMessages || text(responseRecord.error)
           || `EDU POS request failed with status ${response.status}`;
         throw new EduPosApiError(response.status, withoutSecret(message, apiKey), body);
