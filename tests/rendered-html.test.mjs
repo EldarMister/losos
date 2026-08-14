@@ -101,6 +101,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(yandexMap, /addressWithoutCity/);
   assert.match(yandexMap, /delivery-map-marker/);
   assert.match(yandexMap, /fitToViewport/);
+  assert.equal((yandexMap.match(/new ResizeObserver/g) || []).length, 2);
   assert.match(storefront, /aria-label="Очистить адрес"/);
   assert.doesNotMatch(storefront, /aria-label="Найти адрес"/);
   assert.match(yandexMap, /navigator\.geolocation\.getCurrentPosition/);

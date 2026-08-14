@@ -395,6 +395,7 @@ export function YandexDeliveryMap({
     let placemark: any;
     let placemarkVisible = false;
     let fitMapToPanel: (() => void) | null = null;
+    let mapResizeObserver: ResizeObserver | null = null;
     let fitTimers: number[] = [];
 
     const updatePoint = (point: [number, number], zoom = 15) => {
@@ -612,6 +613,8 @@ export function YandexDeliveryMap({
         placemark.events.add("dragend", () => reverseGeocode(placemark.geometry.getCoordinates()));
         fitMapToPanel = () => map?.container.fitToViewport();
         window.addEventListener("resize", fitMapToPanel);
+        mapResizeObserver = new ResizeObserver(() => fitMapToPanel?.());
+        mapResizeObserver.observe(mapContainerRef.current);
         fitTimers = [
           window.setTimeout(fitMapToPanel, 0),
           window.setTimeout(fitMapToPanel, 250),
@@ -631,6 +634,7 @@ export function YandexDeliveryMap({
     return () => {
       cancelled = true;
       fitTimers.forEach((timer) => window.clearTimeout(timer));
+      mapResizeObserver?.disconnect();
       if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
     };
@@ -768,6 +772,7 @@ export function YandexPickupMap({
     let cancelled = false;
     let map: any;
     let fitMapToPanel: (() => void) | null = null;
+    let mapResizeObserver: ResizeObserver | null = null;
     let fitTimers: number[] = [];
 
     loadYandexMaps(mapsApiKey, suggestApiKey)
@@ -796,6 +801,8 @@ export function YandexPickupMap({
         }
         fitMapToPanel = () => map?.container.fitToViewport();
         window.addEventListener("resize", fitMapToPanel);
+        mapResizeObserver = new ResizeObserver(() => fitMapToPanel?.());
+        mapResizeObserver.observe(mapContainerRef.current);
         fitTimers = [window.setTimeout(fitMapToPanel, 0), window.setTimeout(fitMapToPanel, 250)];
         setStatus("ready");
       })
@@ -809,6 +816,7 @@ export function YandexPickupMap({
     return () => {
       cancelled = true;
       fitTimers.forEach((timer) => window.clearTimeout(timer));
+      mapResizeObserver?.disconnect();
       if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
     };
