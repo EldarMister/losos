@@ -163,6 +163,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /setDeliveryInfoOpen\(true\)/);
   assert.match(storefront, /freeDeliveryThreshold/);
   assert.match(storefront, /address-panel-expanded/);
+  assert.match(globals, /\.address-panel\.address-panel-expanded \{ flex-basis: min\(520px, 64dvh\); height: min\(520px, 64dvh\); \}/);
   assert.equal(JSON.parse(railwayConfig).build.buildCommand, "npm run build");
   assert.equal(JSON.parse(railwayConfig).deploy.startCommand, "npm start");
   assert.equal(JSON.parse(railwayConfig).deploy.healthcheckPath, "/api/health");
