@@ -7,6 +7,7 @@ import {
   mdiCreditCardOutline,
   mdiMapMarkerOutline,
   mdiMessageOutline,
+  mdiOfficeBuildingOutline,
   mdiOpenInNew,
   mdiPhoneOutline,
   mdiReceiptTextOutline,
@@ -1478,12 +1479,15 @@ export function AdminApp() {
               <span><small>{selectedOrder.deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}</small><b>{selectedOrder.address}</b></span>
               {typeof selectedOrder.latitude === "number" && typeof selectedOrder.longitude === "number" ? <a href={`https://yandex.ru/maps/?pt=${selectedOrder.longitude},${selectedOrder.latitude}&z=17&l=map`} target="_blank" rel="noreferrer">Открыть на карте <Icon path={mdiOpenInNew} size={0.65} aria-hidden="true" /></a> : null}
             </div>
-            {selectedOrder.deliveryType === "delivery" && (selectedOrder.apartment || selectedOrder.entrance || selectedOrder.floor || selectedOrder.intercom) ? <div className="admin-order-address-details"><small>Детали адреса</small><b>{[
-              selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
-              selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
-              selectedOrder.floor && `этаж ${selectedOrder.floor}`,
-              selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
-            ].filter(Boolean).join(" · ")}</b></div> : null}
+            {selectedOrder.deliveryType === "delivery" && (selectedOrder.apartment || selectedOrder.entrance || selectedOrder.floor || selectedOrder.intercom) ? <div className="admin-order-address-details">
+              <span className="admin-order-detail-icon"><Icon path={mdiOfficeBuildingOutline} size={1} aria-hidden="true" /></span>
+              <span><small>Детали адреса</small><b>{[
+                selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
+                selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
+                selectedOrder.floor && `этаж ${selectedOrder.floor}`,
+                selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
+              ].filter(Boolean).join(" · ")}</b></span>
+            </div> : null}
 
             <div className="admin-order-notes">
               <span><i><Icon path={mdiCreditCardOutline} size={0.9} aria-hidden="true" /></i><span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span></span>
