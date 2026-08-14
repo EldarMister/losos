@@ -1919,7 +1919,7 @@ button { cursor: pointer; }
   from { opacity: .72; transform: translateY(14px) scale(.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-.admin-order-detail-head { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 20px 34px; border-bottom: 1px solid #e2e8f0; background: #fff; }
+.admin-order-detail-head { position: relative; z-index: 3; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 28px; padding: 20px 34px; border-bottom: 1px solid #e2e8f0; background: #fff; }
 .admin-order-detail-head > .admin-order-head-identity { min-width: 0; display: flex; align-items: center; gap: 16px; }
 .admin-order-head-icon, .admin-order-detail-icon { width: 46px; height: 46px; display: grid; place-items: center; flex: 0 0 46px; border-radius: 13px; background: #f7f8fa; color: #596275; }
 .admin-order-head-icon { border: 1px solid #e2e8f0; background: #fff; color: var(--admin-orange); }
