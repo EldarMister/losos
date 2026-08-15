@@ -8,7 +8,7 @@
     "build:apk": "powershell -ExecutionPolicy Bypass -File ./scripts/build-android-release.ps1",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "postinstall": "patch-package",
+    "postinstall": "node ./scripts/patch-react-native-yamap.mjs",
     "typecheck": "tsc --noEmit",
     "doctor": "npx expo-doctor",
     "test": "jest --runInBand"
