@@ -1,5 +1,7 @@
 import {
   HttpException,
+  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -8,7 +10,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { MoreThan, Repository } from "typeorm";
+import { LessThan, MoreThan, Repository } from "typeorm";
 import { OrderStatus } from "../orders/order.enums";
 import { AuthorizedPhone } from "./authorized-phone.entity";
 import { CaptchaVerificationService } from "./captcha-verification.service";
@@ -17,12 +19,25 @@ import { NikitaOtpService } from "./nikita-otp.service";
 import { PhoneAccount } from "./phone-account.entity";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import type { RegisterPushTokenDto } from "./phone-auth.dto";
+import { AccountNft } from "../rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { AccountSession } from "./account-session.entity";
 
 const CODE_TTL_MS = 5 * 60_000;
 const ACCOUNT_SESSION_TTL_MS = 30 * 24 * 60 * 60_000;
 const MAX_ATTEMPTS = 5;
 const MAX_SENDS_PER_PHONE_PER_HOUR = 5;
 const MAX_SENDS_PER_IP_PER_HOUR = 20;
+
+export function isWalletAddressValid(network: string, address: string) {
+  if (["polygon", "ethereum", "bsc"].includes(network)) {
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  }
+  if (network === "solana") return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
+  if (network === "ton") return /^(?:-1|0):[a-fA-F0-9]{64}$/.test(address)
+    || /^(?:EQ|UQ)[A-Za-z0-9_-]{46}$/.test(address);
+  return false;
+}
 
 export function smsResendDelaySeconds(sendNumber: number) {
   if (sendNumber <= 1) return 60;
@@ -42,6 +57,12 @@ export class PhoneAuthService {
     private readonly accounts: Repository<PhoneAccount>,
     @InjectRepository(DevicePushToken)
     private readonly pushTokens: Repository<DevicePushToken>,
+    @InjectRepository(AccountNft)
+    private readonly nfts: Repository<AccountNft>,
+    @InjectRepository(NaktaCoinTransaction)
+    private readonly coinTransactions: Repository<NaktaCoinTransaction>,
+    @InjectRepository(AccountSession)
+    private readonly sessions: Repository<AccountSession>,
     private readonly captcha: CaptchaVerificationService,
     private readonly config: ConfigService,
     private readonly otp: NikitaOtpService,
@@ -155,9 +176,28 @@ export class PhoneAuthService {
       OrderStatus.READY,
       OrderStatus.DELIVERING,
     ]);
+    const [naktaCoinHistory, nfts] = await Promise.all([
+      this.coinTransactions.find({
+        where: { phone },
+        order: { createdAt: "DESC" },
+        take: 100,
+      }),
+      this.nfts.find({
+        where: { phone },
+        order: { createdAt: "DESC" },
+        take: 200,
+      }),
+    ]);
     return {
       naktaCoins: account.naktaCoins,
-      naktaCoinTransactions: [],
+      naktaCoinHistory: naktaCoinHistory.map((entry) => ({
+        id: entry.id,
+        amount: entry.amount,
+        createdAt: entry.createdAt,
+        description: entry.description,
+        orderId: entry.orderId,
+      })),
+      nfts: nfts.map((nft) => this.publicNft(nft)),
       currentOrders: orders.filter((order) => activeStatuses.has(order.status)),
       orderHistory: orders.filter((order) => !activeStatuses.has(order.status)),
     };
@@ -181,8 +221,11 @@ export class PhoneAuthService {
   async deleteAccount(phone: string, verificationToken: string) {
     await this.requireAccount(phone, verificationToken);
     await this.accounts.manager.transaction(async (manager) => {
+      await manager.query(`DELETE FROM "account_sessions" WHERE "phone" = $1`, [phone]);
       await manager.query(`DELETE FROM "device_push_tokens" WHERE "phone" = $1`, [phone]);
       await manager.query(`DELETE FROM "phone_auth_challenges" WHERE "phone" = $1`, [phone]);
+      await manager.query(`DELETE FROM "nakta_coin_transactions" WHERE "phone" = $1`, [phone]);
+      await manager.query(`DELETE FROM "account_nfts" WHERE "phone" = $1`, [phone]);
       await manager.query(`DELETE FROM "phone_accounts" WHERE "phone" = $1`, [phone]);
     });
     return { deleted: true };
@@ -205,6 +248,39 @@ export class PhoneAuthService {
 
   assertAccount(phone: string, verificationToken: string) {
     return this.requireAccount(phone, verificationToken);
+  }
+
+  async withdrawNft(
+    phone: string,
+    verificationToken: string,
+    nftId: string,
+    walletAddress: string,
+  ) {
+    await this.requireAccount(phone, verificationToken);
+    const nft = await this.nfts.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(AccountNft);
+      const owned = await repository.findOne({
+        where: { id: nftId, phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!owned) throw new NotFoundException("NFT не найден");
+      if (["pending", "submitted"].includes(owned.status)) {
+        throw new ConflictException("Вывод этого NFT уже обрабатывается");
+      }
+      if (owned.status === "withdrawn") {
+        throw new ConflictException("Этот NFT уже выведен");
+      }
+      if (!isWalletAddressValid(owned.network, walletAddress)) {
+        throw new BadRequestException(`Некорректный адрес кошелька для сети ${owned.network}`);
+      }
+      owned.status = "pending";
+      owned.walletAddress = walletAddress;
+      owned.withdrawalRequestedAt = new Date();
+      owned.withdrawalError = null;
+      return repository.save(owned);
+    });
+
+    return this.dispatchNftWithdrawal(nft);
   }
 
   private async assertRequestAllowed(
@@ -263,23 +339,101 @@ export class PhoneAuthService {
   private async issueAccountSession(phone: string) {
     const now = new Date();
     const verificationToken = randomBytes(32).toString("hex");
+    const tokenHash = this.hash(verificationToken);
+    const expiresAt = new Date(now.getTime() + ACCOUNT_SESSION_TTL_MS);
     const account = await this.accounts.findOneBy({ phone }) ?? this.accounts.create({ phone });
-    account.sessionTokenHash = this.hash(verificationToken);
-    account.sessionExpiresAt = new Date(now.getTime() + ACCOUNT_SESSION_TTL_MS);
+    account.sessionTokenHash = tokenHash;
+    account.sessionExpiresAt = expiresAt;
     await this.accounts.save(account);
+    await this.sessions.delete({ phone, expiresAt: LessThan(now) });
+    await this.sessions.save(this.sessions.create({
+      id: randomUUID(),
+      phone,
+      tokenHash,
+      expiresAt,
+    }));
     return { verificationToken, expiresInSeconds: ACCOUNT_SESSION_TTL_MS / 1_000 };
   }
 
   private async requireAccount(phone: string, verificationToken: string) {
-    const account = await this.accounts.findOne({
-      where: {
-        phone,
-        sessionTokenHash: this.hash(verificationToken),
-        sessionExpiresAt: MoreThan(new Date()),
-      },
-    });
+    const now = new Date();
+    const tokenHash = this.hash(verificationToken);
+    const account = await this.accounts.findOneBy({ phone });
     if (!account) throw new UnauthorizedException("Войдите в профиль ещё раз");
+    const legacySessionValid = account.sessionTokenHash === tokenHash
+      && Boolean(account.sessionExpiresAt && account.sessionExpiresAt > now);
+    const deviceSessionValid = legacySessionValid || await this.sessions.exists({
+      where: { phone, tokenHash, expiresAt: MoreThan(now) },
+    });
+    if (!deviceSessionValid) throw new UnauthorizedException("Войдите в профиль ещё раз");
     return account;
+  }
+
+  private publicNft(nft: AccountNft) {
+    return {
+      id: nft.id,
+      name: nft.name,
+      image: nft.image,
+      description: nft.description,
+      network: nft.network,
+      contractAddress: nft.contractAddress,
+      tokenId: nft.tokenId,
+      status: nft.status,
+      walletAddress: nft.walletAddress,
+      txHash: nft.txHash,
+      withdrawalError: nft.withdrawalError,
+      createdAt: nft.createdAt,
+      withdrawnAt: nft.withdrawnAt,
+      orderId: nft.orderId,
+      milestoneOrderCount: nft.milestoneOrderCount,
+    };
+  }
+
+  private async dispatchNftWithdrawal(nft: AccountNft) {
+    const url = this.config.get<string>("NFT_TRANSFER_WEBHOOK_URL")?.trim();
+    if (!url) return this.publicNft(nft);
+
+    try {
+      const token = this.config.get<string>("NFT_TRANSFER_WEBHOOK_TOKEN")?.trim();
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          withdrawalId: nft.id,
+          walletAddress: nft.walletAddress,
+          network: nft.network,
+          contractAddress: nft.contractAddress || undefined,
+          metadataUri: nft.metadataUri || undefined,
+          name: nft.name,
+          description: nft.description,
+          image: nft.image,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw new Error(`provider returned ${response.status}`);
+      const result = await response.json() as {
+        status?: "submitted" | "withdrawn";
+        txHash?: string;
+        tokenId?: string;
+      };
+      if (!result.txHash) throw new Error("provider did not return txHash");
+      nft.status = result.status === "withdrawn" ? "withdrawn" : "submitted";
+      nft.txHash = result.txHash?.slice(0, 200) || null;
+      nft.tokenId = result.tokenId?.slice(0, 160) || null;
+      nft.withdrawnAt = nft.status === "withdrawn" ? new Date() : null;
+      return this.publicNft(await this.nfts.save(nft));
+    } catch (error) {
+      nft.status = "failed";
+      nft.withdrawalError = "Не удалось отправить NFT. Проверьте адрес и повторите попытку.";
+      console.error("NFT withdrawal provider failed", {
+        nftId: nft.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return this.publicNft(await this.nfts.save(nft));
+    }
   }
 
   private hash(value: string) {

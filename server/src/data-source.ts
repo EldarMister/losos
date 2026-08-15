@@ -15,8 +15,19 @@ import { AddRegionPickupAndFooter1784985000000 } from "./migrations/178498500000
 import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddProductOldPrice";
 import { AddRegionDeliveryDetails1784987000000 } from "./migrations/1784987000000-AddRegionDeliveryDetails";
 import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-AddRegionDeliveryZone";
+import { AddCaptchaProtectedPhoneAuth1784999000000 } from "./migrations/1784999000000-AddCaptchaProtectedPhoneAuth";
+import { AddOrderRewardsAndNfts1785000000000 } from "./migrations/1785000000000-AddOrderRewardsAndNfts";
+import { MoveNftRewardsToOrderMilestones1785001000000 } from "./migrations/1785001000000-MoveNftRewardsToOrderMilestones";
 import { OrderItem } from "./orders/order-item.entity";
 import { Order } from "./orders/order.entity";
+import { AuthorizedPhone } from "./auth/authorized-phone.entity";
+import { DevicePushToken } from "./auth/device-push-token.entity";
+import { PhoneAccount } from "./auth/phone-account.entity";
+import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
+import { AccountNft } from "./rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
+import { AccountSession } from "./auth/account-session.entity";
+import { AddMultiDeviceAccountSessions1785002000000 } from "./migrations/1785002000000-AddMultiDeviceAccountSessions";
 
 try {
   process.loadEnvFile(".env");
@@ -29,7 +40,21 @@ const databaseUrl = process.env.DATABASE_URL ?? "postgresql://losos:losos@localh
 export default new DataSource({
   type: "postgres",
   url: databaseUrl,
-  entities: [Region, Category, Product, Promotion, Order, OrderItem],
+  entities: [
+    Region,
+    Category,
+    Product,
+    Promotion,
+    Order,
+    OrderItem,
+    PhoneAuthChallenge,
+    AuthorizedPhone,
+    PhoneAccount,
+    DevicePushToken,
+    AccountNft,
+    NaktaCoinTransaction,
+    AccountSession,
+  ],
   migrations: [
     BootstrapSchema1784978000000,
     AddProductCustomization1784979000000,
@@ -42,6 +67,10 @@ export default new DataSource({
     AddProductOldPrice1784986000000,
     AddRegionDeliveryDetails1784987000000,
     AddRegionDeliveryZone1784988000000,
+    AddCaptchaProtectedPhoneAuth1784999000000,
+    AddOrderRewardsAndNfts1785000000000,
+    MoveNftRewardsToOrderMilestones1785001000000,
+    AddMultiDeviceAccountSessions1785002000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

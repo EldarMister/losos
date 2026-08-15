@@ -16,7 +16,8 @@ import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
 import { RequestPhoneCodeDto } from "../src/auth/phone-auth.dto";
-import { smsResendDelaySeconds } from "../src/auth/phone-auth.service";
+import { isWalletAddressValid, smsResendDelaySeconds } from "../src/auth/phone-auth.service";
+import { calculateOrderRewards, isNftMilestone } from "../src/rewards/reward-calculation";
 import { OrdersController } from "../src/orders/orders.controller";
 import {
   canTransitionOrderStatus,
@@ -61,6 +62,32 @@ test("SMS resend delays grow from a minute to a day", () => {
     [1, 2, 3, 4, 5].map(smsResendDelaySeconds),
     [60, 300, 3_600, 86_400, 86_400],
   );
+});
+
+test("NFT wallet addresses are validated for the configured network", () => {
+  assert.equal(isWalletAddressValid("polygon", `0x${"a".repeat(40)}`), true);
+  assert.equal(isWalletAddressValid("polygon", "0x1234"), false);
+  assert.equal(isWalletAddressValid("solana", "11111111111111111111111111111111"), true);
+  assert.equal(isWalletAddressValid("ton", `0:${"a".repeat(64)}`), true);
+  assert.equal(isWalletAddressValid("unknown", `0x${"a".repeat(40)}`), false);
+});
+
+test("order rewards calculate product coins without product NFT data", () => {
+  const rewards = calculateOrderRewards([
+    { quantity: 2, naktaCoinsReward: 7 },
+    { quantity: 3, naktaCoinsReward: 4 },
+  ]);
+  assert.equal(rewards.naktaCoins, 26);
+});
+
+test("NFT milestones support editable 10, 20 and 50 order intervals", () => {
+  assert.equal(isNftMilestone(10, 10), true);
+  assert.equal(isNftMilestone(20, 10), true);
+  assert.equal(isNftMilestone(20, 20), true);
+  assert.equal(isNftMilestone(40, 20), true);
+  assert.equal(isNftMilestone(50, 50), true);
+  assert.equal(isNftMilestone(19, 20), false);
+  assert.equal(isNftMilestone(50, 0), false);
 });
 
 test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => {
@@ -429,6 +456,38 @@ test("admin product DTO accepts clearing a discount and validates old price boun
 
   const invalidOldPrice = plainToInstance(UpdateProductDto, { oldPrice: -1 });
   assert.ok(validateSync(invalidOldPrice).some((error) => error.property === "oldPrice"));
+});
+
+test("admin product DTO validates an independent coin reward", () => {
+  const valid = plainToInstance(UpdateProductDto, {
+    naktaCoins: 25,
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const invalid = plainToInstance(UpdateProductDto, {
+    naktaCoins: -1,
+  });
+  assert.ok(validateSync(invalid).some((error) => error.property === "naktaCoins"));
+});
+
+test("admin region DTO validates the editable NFT order interval", () => {
+  const valid = plainToInstance(CreateRegionDto, {
+    slug: "test-city",
+    name: "Тест",
+    nftRewardEveryOrders: 20,
+    nftRewardName: "NFT NAKTA",
+    nftRewardNetwork: "polygon",
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const invalid = plainToInstance(CreateRegionDto, {
+    slug: "test-city",
+    name: "Тест",
+    nftRewardEveryOrders: -1,
+    nftRewardNetwork: "bitcoin",
+  });
+  assert.ok(validateSync(invalid).some((error) => error.property === "nftRewardEveryOrders"));
+  assert.ok(validateSync(invalid).some((error) => error.property === "nftRewardNetwork"));
 });
 
 test("delivery polygon accepts points inside and rejects points outside", () => {

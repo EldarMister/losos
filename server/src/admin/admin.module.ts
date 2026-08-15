@@ -6,12 +6,25 @@ import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
 import { OrderItem } from "../orders/order-item.entity";
 import { Order } from "../orders/order.entity";
+import { PhoneAccount } from "../auth/phone-account.entity";
+import { AccountNft } from "../rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Region, Category, Product, Promotion, Order, OrderItem])],
+  imports: [TypeOrmModule.forFeature([
+    Region,
+    Category,
+    Product,
+    Promotion,
+    Order,
+    OrderItem,
+    PhoneAccount,
+    AccountNft,
+    NaktaCoinTransaction,
+  ])],
   controllers: [AdminController],
   providers: [AdminService, AdminTokenGuard],
 })

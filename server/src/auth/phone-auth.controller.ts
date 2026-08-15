@@ -7,6 +7,7 @@ import {
   HttpCode,
   Ip,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
 } from "@nestjs/common";
@@ -14,6 +15,7 @@ import {
   RegisterPushTokenDto,
   RequestPhoneCodeDto,
   VerifyPhoneCodeDto,
+  WithdrawNftDto,
 } from "./phone-auth.dto";
 import { PhoneAuthService } from "./phone-auth.service";
 
@@ -52,11 +54,27 @@ export class PhoneAuthController {
 
   @Get("orders/:id")
   orderDetails(
-    @Param("id") id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Query("phone") phone: string | undefined,
     @Headers("authorization") authorization: string | undefined,
   ) {
     return this.auth.orderDetails(phone || "", bearerToken(authorization), id);
+  }
+
+  @Post("nfts/:id/withdraw")
+  @HttpCode(200)
+  withdrawNft(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() dto: WithdrawNftDto,
+  ) {
+    return this.auth.withdrawNft(
+      phone || "",
+      bearerToken(authorization),
+      id,
+      dto.walletAddress,
+    );
   }
 
   @Delete("account")

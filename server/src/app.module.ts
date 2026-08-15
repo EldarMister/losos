@@ -28,6 +28,12 @@ import { AddProductOldPrice1784986000000 } from "./migrations/1784986000000-AddP
 import { AddRegionDeliveryDetails1784987000000 } from "./migrations/1784987000000-AddRegionDeliveryDetails";
 import { AddRegionDeliveryZone1784988000000 } from "./migrations/1784988000000-AddRegionDeliveryZone";
 import { AddCaptchaProtectedPhoneAuth1784999000000 } from "./migrations/1784999000000-AddCaptchaProtectedPhoneAuth";
+import { AddOrderRewardsAndNfts1785000000000 } from "./migrations/1785000000000-AddOrderRewardsAndNfts";
+import { MoveNftRewardsToOrderMilestones1785001000000 } from "./migrations/1785001000000-MoveNftRewardsToOrderMilestones";
+import { AccountNft } from "./rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
+import { AccountSession } from "./auth/account-session.entity";
+import { AddMultiDeviceAccountSessions1785002000000 } from "./migrations/1785002000000-AddMultiDeviceAccountSessions";
 
 @Module({
   imports: [
@@ -51,6 +57,9 @@ import { AddCaptchaProtectedPhoneAuth1784999000000 } from "./migrations/17849990
             AuthorizedPhone,
             PhoneAccount,
             DevicePushToken,
+            AccountNft,
+            NaktaCoinTransaction,
+            AccountSession,
           ],
           migrations: [
             BootstrapSchema1784978000000,
@@ -65,6 +74,9 @@ import { AddCaptchaProtectedPhoneAuth1784999000000 } from "./migrations/17849990
             AddRegionDeliveryDetails1784987000000,
             AddRegionDeliveryZone1784988000000,
             AddCaptchaProtectedPhoneAuth1784999000000,
+            AddOrderRewardsAndNfts1785000000000,
+            MoveNftRewardsToOrderMilestones1785001000000,
+            AddMultiDeviceAccountSessions1785002000000,
           ],
           migrationsRun: true,
           synchronize:

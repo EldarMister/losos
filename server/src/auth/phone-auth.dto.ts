@@ -52,3 +52,11 @@ export class RegisterPushTokenDto {
   @IsIn(["android", "ios"])
   platform!: "android" | "ios";
 }
+
+export class WithdrawNftDto {
+  @IsString()
+  @MinLength(16)
+  @MaxLength(200)
+  @Matches(/^\S+$/, { message: "Адрес кошелька не должен содержать пробелы" })
+  walletAddress!: string;
+}

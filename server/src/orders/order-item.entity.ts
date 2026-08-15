@@ -54,6 +54,9 @@ export class OrderItem {
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   modifierSnapshots!: OrderModifierSnapshot[];
 
+  @Column({ type: "int", default: 0 })
+  naktaCoinsReward!: number;
+
   @ManyToOne(() => Order, (order) => order.items, { onDelete: "CASCADE" })
   order!: Order;
 }

@@ -21,6 +21,7 @@ import {
   UpdateProductDto,
   UpdatePromotionDto,
   UpdateRegionDto,
+  UpdateNftWithdrawalDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -66,6 +67,19 @@ export class AdminController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.admin.updateOrderStatus(id, dto.status);
+  }
+
+  @Get("nft-withdrawals")
+  nftWithdrawals(@Query("status") status?: string) {
+    return this.admin.nftWithdrawals(status);
+  }
+
+  @Patch("nft-withdrawals/:id")
+  updateNftWithdrawal(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNftWithdrawalDto,
+  ) {
+    return this.admin.updateNftWithdrawal(id, dto);
   }
 
   @Post("categories")

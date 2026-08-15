@@ -72,6 +72,9 @@ export class Product {
   @Column({ default: false })
   isNew!: boolean;
 
+  @Column({ type: "int", default: 0 })
+  naktaCoins!: number;
+
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   modifierGroups!: ProductModifierGroup[];
 

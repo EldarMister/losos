@@ -11,6 +11,10 @@ import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
+import { PhoneAccount } from "../auth/phone-account.entity";
+import { AccountNft } from "../rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { calculateOrderRewards, isNftMilestone } from "../rewards/reward-calculation";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
 import {
   CreateCategoryDto,
@@ -21,6 +25,7 @@ import {
   UpdateProductDto,
   UpdatePromotionDto,
   UpdateRegionDto,
+  UpdateNftWithdrawalDto,
 } from "./admin.dto";
 
 @Injectable()
@@ -31,6 +36,7 @@ export class AdminService {
     @InjectRepository(Product) private readonly products: Repository<Product>,
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
     @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
+    @InjectRepository(AccountNft) private readonly nftRepository: Repository<AccountNft>,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -114,13 +120,123 @@ export class AdminService {
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {
-    const order = await this.order(id);
-    if (!canTransitionOrderStatus(order.status, nextStatus)) {
-      throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
+    return this.orderRepository.manager.transaction(async (manager) => {
+      const orders = manager.getRepository(Order);
+      const order = await orders.findOne({
+        where: { id },
+        relations: { items: true },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!order) throw new NotFoundException("Order not found");
+      if (!canTransitionOrderStatus(order.status, nextStatus)) {
+        throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
+      }
+      if (order.status === nextStatus) return order;
+
+      if (nextStatus === OrderStatus.COMPLETED) {
+        await manager.query(
+          "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+          [`order-rewards:${order.phone}:${order.regionSlug}`],
+        );
+      }
+
+      order.status = nextStatus;
+      await orders.save(order);
+      if (nextStatus !== OrderStatus.COMPLETED) return order;
+
+      await manager.createQueryBuilder()
+        .insert()
+        .into(PhoneAccount)
+        .values({ phone: order.phone, sessionTokenHash: null, sessionExpiresAt: null, naktaCoins: 0 })
+        .orIgnore()
+        .execute();
+
+      const rewards = calculateOrderRewards(order.items);
+      if (rewards.naktaCoins > 0) {
+        const inserted = await manager.createQueryBuilder()
+          .insert()
+          .into(NaktaCoinTransaction)
+          .values({
+            phone: order.phone,
+            orderId: order.id,
+            amount: rewards.naktaCoins,
+            description: `Заказ №${order.id.slice(0, 8).toUpperCase()}`,
+          })
+          .orIgnore()
+          .returning(["id"])
+          .execute();
+        if (inserted.identifiers.length > 0) {
+          await manager.increment(PhoneAccount, { phone: order.phone }, "naktaCoins", rewards.naktaCoins);
+        }
+      }
+
+      const program = await manager.getRepository(Region).findOne({
+        where: { slug: order.regionSlug },
+      });
+      const completedOrders = await orders.count({
+        where: {
+          phone: order.phone,
+          regionSlug: order.regionSlug,
+          status: OrderStatus.COMPLETED,
+        },
+      });
+      if (
+        program
+        && program.nftRewardName.trim()
+        && isNftMilestone(completedOrders, program.nftRewardEveryOrders)
+      ) {
+        await manager.createQueryBuilder()
+          .insert()
+          .into(AccountNft)
+          .values({
+            phone: order.phone,
+            rewardKey: `milestone:${order.id}`,
+            orderId: order.id,
+            milestoneOrderCount: completedOrders,
+            name: program.nftRewardName,
+            image: program.nftRewardImage,
+            description: program.nftRewardDescription,
+            network: program.nftRewardNetwork,
+            contractAddress: program.nftContractAddress,
+            metadataUri: program.nftMetadataUri,
+            tokenId: null,
+            status: "owned" as const,
+            walletAddress: null,
+            txHash: null,
+            withdrawalError: null,
+            withdrawalRequestedAt: null,
+            withdrawnAt: null,
+          })
+          .orIgnore()
+          .execute();
+      }
+      return order;
+    });
+  }
+
+  nftWithdrawals(status?: string) {
+    const supported = new Set(["owned", "pending", "submitted", "withdrawn", "failed"]);
+    return this.nftRepository.find({
+      where: status && supported.has(status) ? { status: status as AccountNft["status"] } : {},
+      order: { withdrawalRequestedAt: "DESC", createdAt: "DESC" },
+      take: 200,
+    });
+  }
+
+  async updateNftWithdrawal(id: string, dto: UpdateNftWithdrawalDto) {
+    const nft = await this.nftRepository.findOne({ where: { id } });
+    if (!nft) throw new NotFoundException("NFT withdrawal not found");
+    if (dto.status !== "failed" && !dto.txHash && !nft.txHash) {
+      throw new BadRequestException("Для отправленного NFT нужен хеш транзакции");
     }
-    if (order.status === nextStatus) return order;
-    order.status = nextStatus;
-    return this.orderRepository.save(order);
+    nft.status = dto.status;
+    if (dto.txHash !== undefined) nft.txHash = dto.txHash;
+    if (dto.tokenId !== undefined) nft.tokenId = dto.tokenId;
+    nft.withdrawalError = dto.status === "failed"
+      ? dto.error || "Транзакция отклонена обработчиком"
+      : null;
+    nft.withdrawnAt = dto.status === "withdrawn" ? new Date() : null;
+    return this.nftRepository.save(nft);
   }
 
   async createCategory(dto: CreateCategoryDto) {

@@ -8,6 +8,9 @@ import { PhoneAccount } from "./phone-account.entity";
 import { PhoneAuthController } from "./phone-auth.controller";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { PhoneAuthService } from "./phone-auth.service";
+import { AccountNft } from "../rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { AccountSession } from "./account-session.entity";
 
 @Module({
   imports: [
@@ -16,6 +19,9 @@ import { PhoneAuthService } from "./phone-auth.service";
       AuthorizedPhone,
       PhoneAccount,
       DevicePushToken,
+      AccountNft,
+      NaktaCoinTransaction,
+      AccountSession,
     ]),
   ],
   controllers: [PhoneAuthController],

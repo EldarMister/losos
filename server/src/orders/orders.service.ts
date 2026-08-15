@@ -110,7 +110,10 @@ export class OrdersService {
           }
           try {
             const priced = priceOrderLine(product, entry.quantity, entry.modifiers ?? []);
-            return items.create(priced);
+            return items.create({
+              ...priced,
+              naktaCoinsReward: product.naktaCoins || 0,
+            });
           } catch (error) {
             if (error instanceof OrderPricingError) throw new BadRequestException(error.message);
             throw error;
