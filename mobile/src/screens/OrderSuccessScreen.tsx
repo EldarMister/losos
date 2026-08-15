@@ -1,6 +1,15 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { colors } from "../theme";
@@ -13,7 +22,98 @@ type Props = {
 
 export function OrderSuccessScreen({ order, onDone }: Props) {
   const insets = useSafeAreaInsets();
+  const sound = useAudioPlayer(require("../../assets/order.mp3"));
+  const soundStatus = useAudioPlayerStatus(sound);
+  const soundPlayed = useRef(false);
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardScale = useRef(new Animated.Value(0.94)).current;
+  const cardTranslateY = useRef(new Animated.Value(8)).current;
+  const checkOpacity = useRef(new Animated.Value(0)).current;
+  const checkScale = useRef(new Animated.Value(0.4)).current;
   const label = order.orderNumber ? `№ ${order.orderNumber}` : `№ ${order.id.slice(0, 8)}`;
+
+  useEffect(() => {
+    if (!soundStatus.isLoaded || soundPlayed.current) return;
+    soundPlayed.current = true;
+    sound.play();
+  }, [sound, soundStatus.isLoaded]);
+
+  useEffect(() => {
+    let active = true;
+    let animation: Animated.CompositeAnimation | undefined;
+    const easing = Easing.bezier(0.16, 1, 0.3, 1);
+    const showFinalState = () => {
+      cardOpacity.setValue(1);
+      cardScale.setValue(1);
+      cardTranslateY.setValue(0);
+      checkOpacity.setValue(1);
+      checkScale.setValue(1);
+    };
+    const startAnimation = () => {
+      animation = Animated.parallel([
+        Animated.timing(cardOpacity, {
+          toValue: 1,
+          duration: 480,
+          easing,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardScale, {
+          toValue: 1,
+          duration: 480,
+          easing,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardTranslateY, {
+          toValue: 0,
+          duration: 480,
+          easing,
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.delay(180),
+          Animated.parallel([
+            Animated.timing(checkOpacity, {
+              toValue: 1,
+              duration: 450,
+              easing,
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(checkScale, {
+                toValue: 1.12,
+                duration: 450,
+                easing,
+                useNativeDriver: true,
+              }),
+              Animated.timing(checkScale, {
+                toValue: 1,
+                duration: 300,
+                easing,
+                useNativeDriver: true,
+              }),
+            ]),
+          ]),
+        ]),
+      ]);
+      animation.start();
+    };
+
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((reduceMotion) => {
+        if (!active) return;
+        if (reduceMotion) showFinalState();
+        else startAnimation();
+      })
+      .catch(() => {
+        if (active) startAnimation();
+      });
+
+    return () => {
+      active = false;
+      animation?.stop();
+    };
+  }, [cardOpacity, cardScale, cardTranslateY, checkOpacity, checkScale]);
+
   return (
     <View
       style={[
@@ -25,16 +125,26 @@ export function OrderSuccessScreen({ order, onDone }: Props) {
       ]}
     >
       <StatusBar style="light" />
-      <View style={styles.content}>
-        <View style={styles.icon}>
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: cardOpacity,
+            transform: [{ scale: cardScale }, { translateY: cardTranslateY }],
+          },
+        ]}
+      >
+        <Animated.View
+          style={[
+            styles.icon,
+            { opacity: checkOpacity, transform: [{ scale: checkScale }] },
+          ]}
+        >
           <MaterialCommunityIcons name="check-bold" size={57} color={colors.orange} />
-        </View>
+        </Animated.View>
         <Text style={styles.title}>Заказ принят!</Text>
         <Text style={styles.order}>Заказ {label}</Text>
-        <Text style={styles.copy}>
-          Администратор скоро проверит заказ. После подтверждения мы передадим его на кухню и сообщим в уведомлении.
-        </Text>
-      </View>
+      </Animated.View>
       <PrimaryButton label="Вернуться в каталог" onPress={onDone} tone="white" />
     </View>
   );
@@ -70,13 +180,5 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 17,
     fontWeight: "700",
-  },
-  copy: {
-    maxWidth: 340,
-    marginTop: 14,
-    color: "rgba(255,255,255,0.84)",
-    textAlign: "center",
-    fontSize: 14,
-    lineHeight: 20,
   },
 });
