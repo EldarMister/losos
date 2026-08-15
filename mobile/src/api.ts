@@ -6,6 +6,7 @@ import type {
   CreatedOrder,
   OrderPayload,
   ProfileData,
+  AccountNft,
   ProfileOrderDetail,
   Product,
   Promotion,
@@ -41,7 +42,7 @@ export class ApiError extends Error {
 }
 
 export function resolveImageUrl(source: string) {
-  if (/^https?:\/\//i.test(source)) return source;
+  if (/^(?:https?:\/\/|data:|file:)/i.test(source)) return source;
   return `${WEB_URL}/${source.replace(/^\/+/, "")}`;
 }
 
@@ -226,6 +227,16 @@ export const authApi = {
       {
         method: "DELETE",
         headers: sessionHeaders(session),
+      },
+    );
+  },
+  withdrawNft(session: AuthSession, nftId: string, walletAddress: string) {
+    return request<AccountNft>(
+      `/auth/nfts/${encodeURIComponent(nftId)}/withdraw?phone=${encodeURIComponent(session.phone)}`,
+      {
+        method: "POST",
+        headers: sessionHeaders(session),
+        body: JSON.stringify({ walletAddress }),
       },
     );
   },

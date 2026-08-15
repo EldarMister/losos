@@ -10,7 +10,9 @@ jest.mock("../api", () => ({
     order: jest.fn(),
     profile: jest.fn(),
     deleteAccount: jest.fn(),
+    withdrawNft: jest.fn(),
   },
+  resolveImageUrl: (value: string) => value,
 }));
 
 jest.mock("../store", () => ({
@@ -82,6 +84,57 @@ describe("ProfileScreen order history", () => {
     expect(await screen.findByText("Начислено за предыдущие заказы")).toBeTruthy();
     expect(screen.getByText("+42")).toBeTruthy();
     expect(screen.queryByText("История операций пока пуста.")).toBeNull();
+  });
+
+  test("shows NFT separately in balance and submits a wallet withdrawal", async () => {
+    const nft = {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Лосось Genesis",
+      image: "",
+      description: "NFT за заказ",
+      network: "polygon" as const,
+      contractAddress: "",
+      tokenId: null,
+      status: "owned" as const,
+      walletAddress: null,
+      txHash: null,
+      withdrawalError: null,
+      createdAt: "2026-08-15T00:00:00.000Z",
+      withdrawnAt: null,
+      orderId: "22222222-2222-4222-8222-222222222222",
+      milestoneOrderCount: 10,
+    };
+    (authApi.profile as jest.Mock).mockResolvedValue({ ...emptyProfile, naktaCoins: 42, nfts: [nft] });
+    (authApi.withdrawNft as jest.Mock).mockResolvedValue({
+      ...nft,
+      status: "pending",
+      walletAddress: `0x${"a".repeat(40)}`,
+    });
+    const screen = await render(
+      <ProfileScreen
+        onBack={jest.fn()}
+        onLogout={jest.fn()}
+        onOpenOrder={jest.fn()}
+        section="balance"
+      />,
+    );
+
+    expect(await screen.findByText("Лосось Genesis")).toBeTruthy();
+    expect(screen.getByText("отдельно от NAKTA Coin")).toBeTruthy();
+    const wallet = `0x${"a".repeat(40)}`;
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText("Адрес кошелька для Лосось Genesis"), wallet);
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Вывести NFT" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(authApi.withdrawNft).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: "+996555123456" }),
+      nft.id,
+      wallet,
+    ));
+    expect(await screen.findByText("Polygon · Заявка на вывод принята")).toBeTruthy();
   });
 
   test("uses the original empty-order structure and returns to the menu", async () => {

@@ -4,19 +4,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { authApi } from "../api";
+import { authApi, resolveImageUrl } from "../api";
 import { formatMoney } from "../money";
 import { useStore } from "../store";
 import { colors } from "../theme";
-import type { NaktaCoinTransaction, ProfileData, ProfileOrder } from "../types";
+import type { AccountNft, NaktaCoinTransaction, ProfileData, ProfileOrder } from "../types";
 import { useOrderLiveRefresh } from "../useOrderLiveRefresh";
 
 const publicOrderNumber = (order: Pick<ProfileOrder, "id" | "orderNumber">) =>
@@ -32,6 +34,22 @@ const statuses: Record<ProfileOrder["status"], string> = {
   delivering: "В пути",
   completed: "Выполнен",
   cancelled: "Отменён",
+};
+
+const nftStatusLabels: Record<AccountNft["status"], string> = {
+  owned: "Доступен для вывода",
+  pending: "Заявка на вывод принята",
+  submitted: "Транзакция отправлена",
+  withdrawn: "Выведен на кошелёк",
+  failed: "Вывод не выполнен",
+};
+
+const nftNetworkLabels: Record<AccountNft["network"], string> = {
+  polygon: "Polygon",
+  ethereum: "Ethereum",
+  bsc: "BNB Smart Chain",
+  solana: "Solana",
+  ton: "TON",
 };
 
 function finiteCoinAmount(value: unknown) {
@@ -223,6 +241,9 @@ export function ProfileScreen({
   const [orderAddresses, setOrderAddresses] = useState<Record<string, string>>({});
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [walletDrafts, setWalletDrafts] = useState<Record<string, string>>({});
+  const [withdrawingNft, setWithdrawingNft] = useState<string | null>(null);
+  const [nftError, setNftError] = useState<Record<string, string>>({});
   const addressRequests = useRef(new Set<string>());
 
   const load = useCallback(async (refresh = false, silent = false) => {
@@ -264,6 +285,28 @@ export function ProfileScreen({
     [orderTab, profile],
   );
   const coinHistory = useMemo(() => profileCoinHistory(profile), [profile]);
+  const nfts = profile?.nfts ?? [];
+
+  const withdrawNft = async (nft: AccountNft) => {
+    const walletAddress = walletDrafts[nft.id]?.trim() || "";
+    if (!store.session || !walletAddress || withdrawingNft) return;
+    setWithdrawingNft(nft.id);
+    setNftError((current) => ({ ...current, [nft.id]: "" }));
+    try {
+      const updated = await authApi.withdrawNft(store.session, nft.id, walletAddress);
+      setProfile((current) => current ? {
+        ...current,
+        nfts: (current.nfts ?? []).map((item) => item.id === updated.id ? updated : item),
+      } : current);
+    } catch (reason) {
+      setNftError((current) => ({
+        ...current,
+        [nft.id]: reason instanceof Error ? reason.message : "Не удалось вывести NFT",
+      }));
+    } finally {
+      setWithdrawingNft(null);
+    }
+  };
 
   useEffect(() => {
     if (!store.session) return;
@@ -447,6 +490,16 @@ export function ProfileScreen({
               />
             </View>
           </View>
+          <View style={styles.nftBalanceCard}>
+            <View>
+              <Text style={styles.nftBalanceLabel}>Ваши NFT</Text>
+              <Text style={styles.nftBalanceValue}>{nfts.length}</Text>
+              <Text style={styles.nftBalanceCaption}>отдельно от NAKTA Coin</Text>
+            </View>
+            <View style={styles.nftBalanceIcon}>
+              <MaterialCommunityIcons name="hexagon-multiple-outline" size={34} color="#7C55E8" />
+            </View>
+          </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Как работают NAKTA Coin</Text>
             <Text style={styles.infoText}>
@@ -454,6 +507,91 @@ export function ProfileScreen({
               доступные монеты в заказе, когда эта возможность появится в
               оформлении.
             </Text>
+          </View>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>Мои NFT</Text>
+            <Text style={styles.infoText}>
+              NFT начисляются вместе с NAKTA Coin после завершения заказа,
+              но хранятся отдельно. Для вывода укажите адрес кошелька в нужной сети.
+            </Text>
+            {nfts.length ? (
+              <View style={styles.nftList}>
+                {nfts.map((nft) => {
+                  const canWithdraw = nft.status === "owned" || nft.status === "failed";
+                  return (
+                    <View key={nft.id} style={styles.nftCard}>
+                      <View style={styles.nftHeader}>
+                        {nft.image ? (
+                          <Image
+                            accessibilityLabel={`NFT ${nft.name}`}
+                            source={{ uri: resolveImageUrl(nft.image) }}
+                            style={styles.nftImage}
+                          />
+                        ) : (
+                          <View style={[styles.nftImage, styles.nftImagePlaceholder]}>
+                            <MaterialCommunityIcons name="hexagon-outline" size={32} color="#7C55E8" />
+                          </View>
+                        )}
+                        <View style={styles.nftCopy}>
+                          <Text style={styles.nftName}>{nft.name}</Text>
+                          <Text style={styles.nftMeta}>
+                            {nftNetworkLabels[nft.network]} · {nftStatusLabels[nft.status]}
+                          </Text>
+                          <Text style={styles.nftMeta}>
+                            Награда за {nft.milestoneOrderCount}-й завершённый заказ
+                          </Text>
+                        </View>
+                      </View>
+                      {nft.description ? <Text style={styles.nftDescription}>{nft.description}</Text> : null}
+                      {canWithdraw ? (
+                        <>
+                          <TextInput
+                            accessibilityLabel={`Адрес кошелька для ${nft.name}`}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            onChangeText={(value) => setWalletDrafts((current) => ({
+                              ...current,
+                              [nft.id]: value,
+                            }))}
+                            placeholder={`Адрес кошелька ${nftNetworkLabels[nft.network]}`}
+                            placeholderTextColor="#999999"
+                            style={styles.walletInput}
+                            value={walletDrafts[nft.id] || ""}
+                          />
+                          <Pressable
+                            accessibilityRole="button"
+                            disabled={!walletDrafts[nft.id]?.trim() || withdrawingNft === nft.id}
+                            onPress={() => void withdrawNft(nft)}
+                            style={({ pressed }) => [
+                              styles.withdrawButton,
+                              pressed && styles.withdrawButtonPressed,
+                              (!walletDrafts[nft.id]?.trim() || withdrawingNft === nft.id)
+                                && styles.withdrawButtonDisabled,
+                            ]}
+                          >
+                            {withdrawingNft === nft.id ? (
+                              <ActivityIndicator color={colors.white} size="small" />
+                            ) : (
+                              <Text style={styles.withdrawButtonText}>
+                                {nft.status === "failed" ? "Повторить вывод" : "Вывести NFT"}
+                              </Text>
+                            )}
+                          </Pressable>
+                        </>
+                      ) : nft.walletAddress ? (
+                        <Text numberOfLines={1} style={styles.walletStatus}>Кошелёк: {nft.walletAddress}</Text>
+                      ) : null}
+                      {nft.txHash ? <Text numberOfLines={1} style={styles.walletStatus}>Tx: {nft.txHash}</Text> : null}
+                      {nft.withdrawalError || nftError[nft.id] ? (
+                        <Text style={styles.nftError}>{nftError[nft.id] || nft.withdrawalError}</Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.nftEmpty}>NFT пока нет.</Text>
+            )}
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>История начислений</Text>
@@ -815,6 +953,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.orange,
   },
+  nftBalanceCard: {
+    minHeight: 132,
+    marginTop: 12,
+    marginHorizontal: 16,
+    padding: 22,
+    borderRadius: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EEE8FF",
+  },
+  nftBalanceLabel: {
+    color: "#65558D",
+    fontFamily: "Inter_500Medium",
+    fontSize: 15,
+  },
+  nftBalanceValue: {
+    marginTop: 3,
+    color: "#251B3F",
+    fontFamily: "Inter_700Bold",
+    fontSize: 38,
+    lineHeight: 44,
+  },
+  nftBalanceCaption: {
+    color: "#796B99",
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
+  nftBalanceIcon: {
+    width: 64,
+    height: 64,
+    marginLeft: "auto",
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.white,
+  },
   balanceLabel: {
     color: "rgba(255,255,255,0.76)",
     fontFamily: "Inter_400Regular",
@@ -857,6 +1031,106 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     lineHeight: 20,
+  },
+  nftList: {
+    marginTop: 14,
+    gap: 12,
+  },
+  nftCard: {
+    padding: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#DDD6EF",
+    borderRadius: 18,
+    backgroundColor: "#FBF9FF",
+  },
+  nftHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  nftImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: "#EEE8FF",
+  },
+  nftImagePlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nftCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  nftName: {
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    lineHeight: 21,
+  },
+  nftMeta: {
+    marginTop: 4,
+    color: "#796B99",
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  nftDescription: {
+    marginTop: 10,
+    color: "#666666",
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  walletInput: {
+    height: 48,
+    marginTop: 12,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: "#D8D1E8",
+    borderRadius: 13,
+    backgroundColor: colors.white,
+    color: colors.ink,
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+  },
+  withdrawButton: {
+    height: 46,
+    marginTop: 9,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#7C55E8",
+  },
+  withdrawButtonPressed: {
+    opacity: 0.8,
+  },
+  withdrawButtonDisabled: {
+    opacity: 0.45,
+  },
+  withdrawButtonText: {
+    color: colors.white,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  walletStatus: {
+    marginTop: 9,
+    color: "#796B99",
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+  },
+  nftError: {
+    marginTop: 9,
+    color: colors.danger,
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  nftEmpty: {
+    marginTop: 12,
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
   },
   coinHistory: {
     marginTop: 8,

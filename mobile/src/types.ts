@@ -224,11 +224,30 @@ export type NaktaCoinTransaction = {
   orderId?: string;
 };
 
+export type AccountNft = {
+  id: string;
+  name: string;
+  image: string;
+  description: string;
+  network: "polygon" | "ethereum" | "bsc" | "solana" | "ton";
+  contractAddress: string;
+  tokenId: string | null;
+  status: "owned" | "pending" | "submitted" | "withdrawn" | "failed";
+  walletAddress: string | null;
+  txHash: string | null;
+  withdrawalError: string | null;
+  createdAt: string;
+  withdrawnAt: string | null;
+  orderId: string;
+  milestoneOrderCount: number;
+};
+
 export type ProfileData = {
   naktaCoins: number;
   currentOrders: ProfileOrder[];
   orderHistory: ProfileOrder[];
   naktaCoinHistory?: NaktaCoinTransaction[];
+  nfts?: AccountNft[];
 };
 
 export type ProfileOrderDetail = ProfileOrder & {

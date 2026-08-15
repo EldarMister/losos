@@ -3,6 +3,24 @@ import { ProductCard } from "../components/ProductCard";
 import type { Product } from "../types";
 
 describe("ProductCard images", () => {
+  test("shows the coin reward configured for a product", async () => {
+    const product = {
+      id: 164,
+      slug: "reward-roll",
+      name: "Наградной ролл",
+      image: "https://images.example.test/reward.png",
+      price: 849,
+      naktaCoins: 25,
+      available: true,
+      modifierGroups: [],
+    } as Product;
+    const screen = await render(
+      <ProductCard onAdd={jest.fn()} onPress={jest.fn()} product={product} />,
+    );
+
+    expect(screen.getByLabelText("Начислим 25 NAKTA Coin")).toBeTruthy();
+  });
+
   test("renders the product image immediately without a prefetch gate", async () => {
     const image = "https://images.example.test/product.JPEG";
     const product = {
