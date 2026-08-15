@@ -483,10 +483,11 @@ export function ProfileScreen({
               </Text>
             </View>
             <View style={styles.coinIcon}>
-              <MaterialCommunityIcons
-                name="star-four-points"
-                size={34}
-                color="#F8A100"
+              <Image
+                accessibilityLabel="Иконка NAKTA Coin"
+                resizeMode="contain"
+                source={require("../../assets/coin.png")}
+                style={styles.coinImage}
               />
             </View>
           </View>
@@ -511,8 +512,8 @@ export function ProfileScreen({
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>Мои NFT</Text>
             <Text style={styles.infoText}>
-              NFT начисляются вместе с NAKTA Coin после завершения заказа,
-              но хранятся отдельно. Для вывода укажите адрес кошелька в нужной сети.
+              NFT начисляются вместе с NAKTA Coin после завершения заказа. Для
+              вывода укажите адрес кошелька в нужной сети.
             </Text>
             {nfts.length ? (
               <View style={styles.nftList}>
@@ -1010,6 +1011,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFF0C6",
+  },
+  coinImage: {
+    width: 56,
+    height: 56,
   },
   infoCard: {
     marginTop: 16,

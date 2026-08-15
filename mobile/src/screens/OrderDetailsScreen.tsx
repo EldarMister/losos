@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -55,6 +56,9 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
   const [order, setOrder] = useState<ProfileOrderDetail | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const lastStatus = useRef<ProfileOrderDetail["status"] | null>(null);
 
   const load = useCallback(async (
@@ -92,6 +96,32 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
     useCallback((source) => load(true, source), [load]),
     Boolean(store.session),
   );
+
+  const canCancel = order?.status === "new"
+    && !["submitting", "synced"].includes(order.posSyncStatus || "");
+
+  const cancelOrder = useCallback(async () => {
+    if (!store.session || !canCancel) return;
+    setCancelBusy(true);
+    setCancelError("");
+    try {
+      const cancelled = await authApi.cancelOrder(store.session, orderId);
+      lastStatus.current = cancelled.status;
+      setOrder((current) => current ? { ...current, status: cancelled.status } : current);
+      setCancelOpen(false);
+    } catch (reason) {
+      setCancelError(reason instanceof Error ? reason.message : "Не удалось отменить заказ");
+      void load(true);
+    } finally {
+      setCancelBusy(false);
+    }
+  }, [canCancel, load, orderId, store.session]);
+
+  const closeCancel = () => {
+    if (cancelBusy) return;
+    setCancelOpen(false);
+    setCancelError("");
+  };
 
   return (
     <View style={styles.root}>
@@ -247,8 +277,71 @@ export function OrderDetailsScreen({ orderId, onBack }: { orderId: string; onBac
             <MaterialCommunityIcons name="phone-outline" size={20} color={colors.ink} />
             <Text style={styles.supportText}>Связаться с поддержкой</Text>
           </Pressable>
+
+          {canCancel ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setCancelError("");
+                setCancelOpen(true);
+              }}
+              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.cancelButtonText}>Отменить заказ</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       ) : null}
+
+      <Modal
+        animationType="fade"
+        onRequestClose={closeCancel}
+        statusBarTranslucent
+        transparent
+        visible={Boolean(cancelOpen && canCancel)}
+      >
+        <View accessibilityViewIsModal style={styles.cancelOverlay}>
+          <Pressable
+            accessibilityLabel="Закрыть подтверждение отмены"
+            disabled={cancelBusy}
+            onPress={closeCancel}
+            style={styles.cancelBackdrop}
+          />
+          <View style={[styles.cancelConfirm, { paddingBottom: Math.max(insets.bottom, 18) + 10 }]}>
+            <View style={styles.cancelIcon}>
+              <Text style={styles.cancelIconText}>!</Text>
+            </View>
+            <Text style={styles.cancelTitle}>Отменить заказ?</Text>
+            <Text style={styles.cancelCopy}>
+              После отмены восстановить заказ не получится.
+            </Text>
+            {cancelError ? <Text style={styles.cancelError}>{cancelError}</Text> : null}
+            <Pressable
+              accessibilityRole="button"
+              disabled={cancelBusy}
+              onPress={() => void cancelOrder()}
+              style={({ pressed }) => [
+                styles.cancelConfirmButton,
+                pressed && !cancelBusy && styles.pressed,
+                cancelBusy && styles.cancelDisabled,
+              ]}
+            >
+              {cancelBusy ? <ActivityIndicator color={colors.white} /> : null}
+              <Text style={styles.cancelConfirmText}>
+                {cancelBusy ? "Отменяем…" : "Да, отменить"}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={cancelBusy}
+              onPress={closeCancel}
+              style={({ pressed }) => [styles.keepOrderButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.keepOrderText}>Оставить заказ</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -509,6 +602,105 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontFamily: "Inter_500Medium",
     fontSize: 13,
+  },
+  cancelButton: {
+    minHeight: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0F0",
+  },
+  cancelButtonText: {
+    color: colors.danger,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+  },
+  cancelOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.46)",
+  },
+  cancelBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  cancelConfirm: {
+    paddingTop: 28,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    alignItems: "center",
+    backgroundColor: colors.white,
+  },
+  cancelIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF0F0",
+  },
+  cancelIconText: {
+    color: colors.danger,
+    fontFamily: "Inter_700Bold",
+    fontSize: 28,
+    lineHeight: 32,
+  },
+  cancelTitle: {
+    marginTop: 16,
+    color: colors.ink,
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  cancelCopy: {
+    maxWidth: 310,
+    marginTop: 8,
+    color: colors.muted,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  cancelError: {
+    marginTop: 10,
+    color: colors.danger,
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+  },
+  cancelConfirmButton: {
+    width: "100%",
+    minHeight: 56,
+    marginTop: 22,
+    borderRadius: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    backgroundColor: colors.danger,
+  },
+  cancelConfirmText: {
+    color: colors.white,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  keepOrderButton: {
+    width: "100%",
+    minHeight: 56,
+    marginTop: 10,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F3F3F3",
+  },
+  keepOrderText: {
+    color: colors.ink,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+  },
+  cancelDisabled: {
+    opacity: 0.58,
   },
   pressed: {
     opacity: 0.72,

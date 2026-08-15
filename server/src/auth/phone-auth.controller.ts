@@ -61,6 +61,16 @@ export class PhoneAuthController {
     return this.auth.orderDetails(phone || "", bearerToken(authorization), id);
   }
 
+  @Post("orders/:id/cancel")
+  @HttpCode(200)
+  cancelOrder(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    return this.auth.cancelOrder(phone || "", bearerToken(authorization), id);
+  }
+
   @Post("nfts/:id/withdraw")
   @HttpCode(200)
   withdrawNft(

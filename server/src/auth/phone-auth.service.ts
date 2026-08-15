@@ -218,6 +218,31 @@ export class PhoneAuthService {
     return { ...order, items };
   }
 
+  async cancelOrder(phone: string, verificationToken: string, id: string) {
+    await this.requireAccount(phone, verificationToken);
+    return this.accounts.manager.transaction(async (manager) => {
+      const [order] = await manager.query(`
+        SELECT "id", "status"
+        FROM "orders"
+        WHERE "phone" = $1 AND "id" = $2
+        FOR UPDATE
+      `, [phone, id]) as Array<{ id: string; status: OrderStatus }>;
+      if (!order) throw new NotFoundException("Заказ не найден");
+      if (order.status === OrderStatus.CANCELLED) {
+        return { id: order.id, status: OrderStatus.CANCELLED };
+      }
+      if (order.status !== OrderStatus.NEW) {
+        throw new ConflictException("Заказ уже подтверждён и не может быть отменён");
+      }
+      await manager.query(`
+        UPDATE "orders"
+        SET "status" = $1, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "phone" = $2 AND "id" = $3
+      `, [OrderStatus.CANCELLED, phone, id]);
+      return { id: order.id, status: OrderStatus.CANCELLED };
+    });
+  }
+
   async deleteAccount(phone: string, verificationToken: string) {
     await this.requireAccount(phone, verificationToken);
     await this.accounts.manager.transaction(async (manager) => {

@@ -221,6 +221,15 @@ export const authApi = {
       { headers: sessionHeaders(session) },
     );
   },
+  cancelOrder(session: AuthSession, orderId: string) {
+    return request<{ id: string; status: "cancelled" }>(
+      `/auth/orders/${encodeURIComponent(orderId)}/cancel?phone=${encodeURIComponent(session.phone)}`,
+      {
+        method: "POST",
+        headers: sessionHeaders(session),
+      },
+    );
+  },
   deleteAccount(session: AuthSession) {
     return request<{ deleted: boolean }>(
       `/auth/account?phone=${encodeURIComponent(session.phone)}`,

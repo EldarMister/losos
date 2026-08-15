@@ -120,7 +120,9 @@ describe("ProfileScreen order history", () => {
     );
 
     expect(await screen.findByText("Лосось Genesis")).toBeTruthy();
+    expect(screen.getByLabelText("Иконка NAKTA Coin")).toBeTruthy();
     expect(screen.getByText("отдельно от NAKTA Coin")).toBeTruthy();
+    expect(screen.queryByText(/но хранятся отдельно/i)).toBeNull();
     const wallet = `0x${"a".repeat(40)}`;
     await act(async () => {
       fireEvent.changeText(screen.getByLabelText("Адрес кошелька для Лосось Genesis"), wallet);
