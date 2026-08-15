@@ -710,7 +710,20 @@ a { color: inherit; text-decoration: none; }
 .order-destination { margin: 0; font-size: 14px; line-height: 20px; }
 .order-destination-details, .order-meta, .order-comment { display: block; margin: 7px 0 0; color: #88888e; font-size: 12px; line-height: 17px; }
 .order-comment { color: #55555a; }
-.order-details-close { height: 58px; margin: 0 18px 18px; border-radius: 29px; background: var(--orange); color: #fff; font-size: 16px; font-weight: 600; }
+.order-details-actions { display: grid; gap: 10px; padding: 0 18px 18px; }
+.order-details-close, .order-cancel-open { height: 58px; border-radius: 29px; font-size: 16px; font-weight: 600; }
+.order-details-close { background: var(--orange); color: #fff; }
+.order-cancel-open { background: #fff0f0; color: #d64242; }
+.order-cancel-overlay { z-index: 160; }
+.order-cancel-confirm { width: min(420px, calc(100vw - 36px)); padding: 28px 22px 22px; border-radius: 30px; background: #fff; text-align: center; box-shadow: 0 24px 80px rgba(0,0,0,.24); }
+.order-cancel-icon { width: 52px; height: 52px; display: grid; place-items: center; margin: 0 auto; border-radius: 50%; background: #fff0f0; color: #d64242; font-size: 28px; line-height: 1; font-weight: 800; }
+.order-cancel-confirm h2 { margin: 16px 0 0; color: var(--ink); font-size: 22px; line-height: 28px; }
+.order-cancel-confirm > p { max-width: 310px; margin: 8px auto 0; color: #8b8b91; font-size: 14px; line-height: 20px; }
+.order-cancel-confirm > small { display: block; margin-top: 10px; color: #d64242; font-size: 12px; line-height: 17px; }
+.order-cancel-confirm > button { width: 100%; height: 56px; border-radius: 28px; font-size: 15px; font-weight: 600; }
+.order-cancel-confirm > button:disabled { cursor: default; opacity: .58; }
+.order-cancel-confirm-button { margin-top: 22px; background: #d64242; color: #fff; }
+.order-cancel-keep { margin-top: 10px; background: #f3f3f3; color: var(--ink); }
 .promo-overlay { position: fixed; inset: 0; z-index: 150; display: flex; align-items: flex-start; justify-content: center; background: rgba(0,0,0,.62); backdrop-filter: blur(7px); }
 .story-card { position: relative; width: min(456px, calc(100vw - 40px)); height: 811px; border-radius: 32px; overflow: hidden; background: #10a7e9; box-shadow: 0 12px 42px rgba(0,0,0,.24); }
 .story-image { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -961,7 +974,10 @@ a { color: inherit; text-decoration: none; }
   .order-details-modal header h2 { font-size: 22px; line-height: 28px; }
   .order-details-scroll { padding: 10px 12px 12px; }
   .order-status-card, .order-details-section { padding: 17px; border-radius: 22px; }
-  .order-details-close { height: 56px; margin: 0 14px max(16px, env(safe-area-inset-bottom)); }
+  .order-details-actions { padding: 0 14px max(16px, env(safe-area-inset-bottom)); }
+  .order-details-close, .order-cancel-open { height: 56px; }
+  .order-cancel-overlay { padding: 0; place-items: end stretch; }
+  .order-cancel-confirm { width: 100vw; padding: 28px 20px max(28px, calc(env(safe-area-inset-bottom) + 10px)); border-radius: 30px 30px 0 0; box-shadow: none; }
   .composition-overlay { padding: 0; place-items: start center; overflow: hidden; }
   .composition-modal { width: 100vw; height: calc(100vh - 43px); margin-top: 43px; grid-template-rows: 25px 62px minmax(0, 1fr) 55.6px; border-radius: 40px 40px 0 0; padding: 20px; }
   .composition-navigation { position: static; width: auto; height: 25px; margin: 0 -10px; padding: 0 22px 0 16px; display: flex; align-items: flex-start; justify-content: space-between; }

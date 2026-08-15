@@ -746,6 +746,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [profileOrderDetail, setProfileOrderDetail] = useState<ProfileOrderDetail | null>(null);
   const [profileOrderDetailLoading, setProfileOrderDetailLoading] = useState(false);
   const [profileOrderDetailError, setProfileOrderDetailError] = useState("");
+  const [cancelOrderOpen, setCancelOrderOpen] = useState(false);
+  const [cancelOrderBusy, setCancelOrderBusy] = useState(false);
+  const [cancelOrderError, setCancelOrderError] = useState("");
   const [profileRefreshIndex, setProfileRefreshIndex] = useState(0);
   const selectedProfileOrderId = selectedProfileOrder?.id;
   const [profileSection, setProfileSection] = useState<"menu" | "orders" | "balance" | "settings">("menu");
@@ -809,6 +812,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const hasProfileSession = Boolean(verifiedPhone && phoneVerificationToken);
   const profileLoading = Boolean(hasProfileSession && !profileData);
   const coinHistory = useMemo(() => profileCoinHistory(profileData), [profileData]);
+  const cancellableProfileOrder = profileOrderDetail ?? selectedProfileOrder;
+  const canCancelSelectedProfileOrder = cancellableProfileOrder?.status === "new"
+    && !["submitting", "synced"].includes(cancellableProfileOrder.posSyncStatus || "");
   const clearProfileSession = useCallback((message = "") => {
     setPhoneVerificationToken("");
     setVerifiedPhone("");
@@ -816,6 +822,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setSelectedProfileOrder(null);
     setProfileOrderDetail(null);
     setProfileOrderDetailError("");
+    setCancelOrderOpen(false);
+    setCancelOrderBusy(false);
+    setCancelOrderError("");
     if (message) setPhoneAuthMessage(message);
     try {
       window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
@@ -828,6 +837,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setProfileData,
     setProfileOrderDetail,
     setProfileOrderDetailError,
+    setCancelOrderBusy,
+    setCancelOrderError,
+    setCancelOrderOpen,
     setSelectedProfileOrder,
     setVerifiedPhone,
   ]);
@@ -1325,12 +1337,58 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setProfileOrderDetail(null);
     setProfileOrderDetailError("");
     setProfileOrderDetailLoading(true);
+    setCancelOrderOpen(false);
+    setCancelOrderError("");
   };
 
   const closeProfileOrder = () => {
+    if (cancelOrderBusy) return;
     setSelectedProfileOrder(null);
     setProfileOrderDetail(null);
     setProfileOrderDetailError("");
+    setCancelOrderOpen(false);
+    setCancelOrderError("");
+  };
+
+  const cancelProfileOrder = async () => {
+    if (
+      !selectedProfileOrder
+      || !verifiedPhone
+      || !phoneVerificationToken
+      || !canCancelSelectedProfileOrder
+    ) return;
+    setCancelOrderBusy(true);
+    setCancelOrderError("");
+    try {
+      const response = await fetch(
+        `${STOREFRONT_API_URL}/auth/orders/${encodeURIComponent(selectedProfileOrder.id)}/cancel?phone=${encodeURIComponent(verifiedPhone)}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${phoneVerificationToken}` },
+        },
+      );
+      const body = await response.json().catch(() => null) as {
+        message?: string | string[];
+        status?: ProfileOrder["status"];
+      } | null;
+      if (response.status === 401) {
+        clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+        return;
+      }
+      if (!response.ok || body?.status !== "cancelled") {
+        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+        throw new Error(message || "Не удалось отменить заказ");
+      }
+      setProfileOrderDetail((current) => current ? { ...current, status: "cancelled" } : current);
+      setSelectedProfileOrder((current) => current ? { ...current, status: "cancelled" } : current);
+      setCancelOrderOpen(false);
+      setProfileRefreshIndex((current) => current + 1);
+    } catch (reason) {
+      setCancelOrderError(reason instanceof Error ? reason.message : "Не удалось отменить заказ");
+      setProfileRefreshIndex((current) => current + 1);
+    } finally {
+      setCancelOrderBusy(false);
+    }
   };
 
   const continueToCheckout = () => {
@@ -2426,7 +2484,23 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               <section className="order-details-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className={`order-detail-line${item.posStatus === "rejected" ? " rejected" : ""}`} key={`${item.productName}-${index}`}><span><b>{item.productName}</b><small>{item.quantity} шт.{item.modifierSnapshots?.length ? ` · ${item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}` : ""}</small>{item.posStatus ? <small className={`kitchen-item-status status-${item.posStatus}`}>{item.posStatus === "ready" ? "Готово" : item.posStatus === "cooking" ? `Готовится${item.posReadyQuantity ? ` · готово ${item.posReadyQuantity}` : ""}` : item.posStatus === "rejected" ? `Отклонено${item.posRejectReason ? `: ${item.posRejectReason}` : ""}` : item.posStatus === "accepted" ? "Принято кухней" : "Ожидает кухню"}</small> : null}</span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
               <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><p className="order-destination">{profileOrderDetail.address || "Адрес не указан"}</p>{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).join(", ")}</small> : null}<p className="order-meta">{profileOrderDetail.paymentMethod === "cash" ? "Оплата наличными" : "Оплата картой курьеру"}{profileOrderDetail.noUtensils ? " · Без приборов" : profileOrderDetail.utensilsCount ? ` · Приборы: ${profileOrderDetail.utensilsCount}` : ""}</p>{profileOrderDetail.comment ? <p className="order-comment">Комментарий: {profileOrderDetail.comment}</p> : null}</section>
             </div> : null}
-            <button type="button" className="order-details-close" onClick={closeProfileOrder}>Готово</button>
+            <div className="order-details-actions">
+              {canCancelSelectedProfileOrder ? <button type="button" className="order-cancel-open" onClick={() => { setCancelOrderError(""); setCancelOrderOpen(true); }}>Отменить заказ</button> : null}
+              <button type="button" className="order-details-close" onClick={closeProfileOrder}>Готово</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {cancelOrderOpen && canCancelSelectedProfileOrder && selectedProfileOrder ? (
+        <div className="overlay order-cancel-overlay" role="alertdialog" aria-modal="true" aria-labelledby="cancel-order-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !cancelOrderBusy) { setCancelOrderOpen(false); setCancelOrderError(""); } }}>
+          <section className="order-cancel-confirm">
+            <span className="order-cancel-icon" aria-hidden="true">!</span>
+            <h2 id="cancel-order-title">Отменить заказ?</h2>
+            <p>После отмены восстановить заказ не получится.</p>
+            {cancelOrderError ? <small role="alert">{cancelOrderError}</small> : null}
+            <button type="button" className="order-cancel-confirm-button" disabled={cancelOrderBusy} onClick={() => void cancelProfileOrder()}>{cancelOrderBusy ? "Отменяем…" : "Да, отменить"}</button>
+            <button type="button" className="order-cancel-keep" disabled={cancelOrderBusy} onClick={() => { setCancelOrderOpen(false); setCancelOrderError(""); }}>Оставить заказ</button>
           </section>
         </div>
       ) : null}

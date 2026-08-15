@@ -125,6 +125,10 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
   assert.match(storefront, /className="profile-modal"/);
+  assert.match(storefront, /\/auth\/orders\/\$\{encodeURIComponent\(selectedProfileOrder\.id\)\}\/cancel/);
+  assert.match(storefront, />Отменить заказ<\/button>/);
+  assert.match(storefront, /После отмены восстановить заказ не получится\./);
+  assert.match(globals, /\.order-cancel-confirm/);
   assert.doesNotMatch(storefront, /auth-roskachestvo-banner/);
   assert.match(storefront, /searchOpen/);
   assert.match(storefront, /Что ищем\?/);

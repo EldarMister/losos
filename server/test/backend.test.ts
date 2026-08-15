@@ -458,6 +458,7 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
   assert.deepEqual(
     Object.getOwnPropertyNames(PhoneAuthController.prototype).sort(),
     [
+      "cancelOrder",
       "checkWhatsapp",
       "constructor",
       "deleteAccount",
@@ -472,6 +473,65 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "verifyCode",
       "verifyWhatsappWebhook",
     ],
+  );
+});
+
+test("customers can cancel only their new orders before kitchen submission", async () => {
+  const phone = "+996555123456";
+  const token = "a".repeat(64);
+  const orderId = "11111111-1111-4111-8111-111111111111";
+  let orderStatus = OrderStatus.NEW;
+  let posSyncStatus = "pending";
+  const statements: Array<{ sql: string; parameters: unknown[] }> = [];
+  const manager = {
+    query: async (sql: string, parameters: unknown[]) => {
+      const normalized = sql.replace(/\s+/g, " ").trim();
+      statements.push({ sql: normalized, parameters });
+      if (normalized.startsWith("SELECT")) {
+        return [{ id: orderId, status: orderStatus, posSyncStatus }];
+      }
+      orderStatus = OrderStatus.CANCELLED;
+      return [];
+    },
+  };
+  const accounts = {
+    findOneBy: async () => ({ phone, naktaCoins: 0 }),
+    manager: {
+      transaction: async <T>(callback: (value: typeof manager) => Promise<T>) => callback(manager),
+    },
+  };
+  const sessions = {
+    findOne: async () => ({ phone, tokenHash: "stored-token", expiresAt: new Date(Date.now() + 60_000) }),
+  };
+  const auth = new PhoneAuthService(
+    {} as never,
+    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    accounts as never,
+    sessions as never,
+  );
+
+  assert.deepEqual(
+    await auth.cancelOrder(phone, token, orderId),
+    { id: orderId, status: OrderStatus.CANCELLED },
+  );
+  assert.match(statements[0].sql, /FOR UPDATE$/);
+  assert.deepEqual(statements[1].parameters, [OrderStatus.CANCELLED, phone, orderId]);
+
+  orderStatus = OrderStatus.CONFIRMED;
+  await assert.rejects(
+    () => auth.cancelOrder(phone, token, orderId),
+    /Заказ уже подтверждён/,
+  );
+
+  orderStatus = OrderStatus.NEW;
+  posSyncStatus = "submitting";
+  await assert.rejects(
+    () => auth.cancelOrder(phone, token, orderId),
+    /Заказ уже подтверждается/,
   );
 });
 
