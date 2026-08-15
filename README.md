@@ -65,11 +65,17 @@ npm run dev
 - `POST /api/auth/whatsapp/status` — защищённая проверка статуса подтверждения;
 - `GET|POST /api/auth/whatsapp/webhook` — проверка и события Meta WhatsApp Cloud API;
 - `POST /api/auth/request-code` и `POST /api/auth/verify-code` — резервное подтверждение по SMS;
+- `GET /api/auth/profile` — заказы, баланс и история NAKTA Coin, NFT клиента;
+- `POST /api/auth/nfts/:id/withdraw` — защищённая заявка на вывод NFT на кошелёк;
 - `POST /api/orders` — создание заказа;
 - `GET /api/admin/dashboard?region=bishkek` — каталог и акции для админки;
+- `GET /api/admin/analytics?region=bishkek&period=week` — агрегированная аналитика без выгрузки заказов в браузер;
 - `GET /api/admin/orders?regionSlug=bishkek` — очередь заказов;
 - `GET /api/admin/orders/:id` — полная карточка заказа;
-- `PATCH /api/admin/orders/:id/status` — перевод заказа в следующий статус.
+- `PATCH /api/admin/orders/:id/status` — перевод заказа в следующий статус;
+- `GET /api/admin/customers?region=bishkek` — клиентская база и бонусные активы;
+- `GET /api/admin/loyalty/overview?region=bishkek` — состояние программ NAKTA Coin и NFT;
+- `GET /api/admin/nft-withdrawals` и `PATCH /api/admin/nft-withdrawals/:id` — очередь и обработка выводов NFT.
 
 Все `/api/admin/*` требуют заголовок `x-admin-token`. Публичного метода чтения заказа с телефоном и адресом нет.
 
@@ -101,6 +107,21 @@ npm run dev
 ```
 
 Клиентская цена не считается доверенной: API заново проверяет регион, доступность, required/min/max, single/multiple, количество и доплаты по актуальному каталогу.
+
+## NAKTA Coin и NFT
+
+NAKTA Coin задаются отдельно для каждого блюда и фиксируются в позиции заказа. После первого перевода заказа в статус `completed` backend создаёт уникальную запись начисления и увеличивает баланс клиента. Повторный или параллельный запрос завершения не начисляет награду второй раз.
+
+NFT — независимая программа выбранного филиала. В разделе админки «Лояльность» можно включить или остановить программу, указать выдачу за каждый 10-й, 20-й или другой завершённый заказ, изображение, сеть, контракт и metadata URI. Выданный NFT появляется отдельным активом в профиле клиента. Клиент указывает кошелёк своей сети, после чего заявка либо отправляется настроенному провайдеру, либо остаётся в очереди оператора.
+
+Для автоматической передачи задайте только на backend:
+
+```text
+NFT_TRANSFER_WEBHOOK_URL=https://provider.example/nft/transfer
+NFT_TRANSFER_WEBHOOK_TOKEN=replace-with-provider-token
+```
+
+Провайдер получает идентификатор заявки, сеть, кошелёк и metadata NFT и должен вернуть `txHash`, необязательный `tokenId` и статус `submitted` либо `withdrawn`. Без webhook URL администратор обрабатывает очередь вручную в разделе «Лояльность». Таблицы наград, уникальный ledger начислений и настройки программы создаются миграцией `1785003000000-AddLoyaltyPrograms`.
 
 ## Интеграция EDU POS
 

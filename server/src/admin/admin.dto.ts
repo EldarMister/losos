@@ -70,6 +70,13 @@ export class CreateRegionDto {
   @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000) nftRewardEveryOrders = 10;
+  @IsOptional() @IsString() @MaxLength(160) nftRewardName = "NFT NAKTA";
+  @IsOptional() @IsString() @MaxLength(2_000_000) nftRewardImage = "";
+  @IsOptional() @IsString() @MaxLength(2_000) nftRewardDescription = "";
+  @IsOptional() @IsIn(["polygon", "ethereum", "bsc", "solana", "ton"]) nftRewardNetwork = "polygon";
+  @IsOptional() @IsString() @MaxLength(200) nftContractAddress = "";
+  @IsOptional() @IsString() @MaxLength(2_000) nftMetadataUri = "";
 }
 
 export class UpdateRegionDto {
@@ -98,6 +105,13 @@ export class UpdateRegionDto {
   @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000) nftRewardEveryOrders?: number;
+  @IsOptional() @IsString() @MaxLength(160) nftRewardName?: string;
+  @IsOptional() @IsString() @MaxLength(2_000_000) nftRewardImage?: string;
+  @IsOptional() @IsString() @MaxLength(2_000) nftRewardDescription?: string;
+  @IsOptional() @IsIn(["polygon", "ethereum", "bsc", "solana", "ton"]) nftRewardNetwork?: string;
+  @IsOptional() @IsString() @MaxLength(200) nftContractAddress?: string;
+  @IsOptional() @IsString() @MaxLength(2_000) nftMetadataUri?: string;
 }
 
 export class CreatePickupLocationDto {
@@ -460,4 +474,13 @@ export class UpdatePromotionDto {
   ctaUrl?: string;
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
+}
+
+export class UpdateNftWithdrawalDto {
+  @IsIn(["submitted", "withdrawn", "failed"])
+  status!: "submitted" | "withdrawn" | "failed";
+
+  @IsOptional() @IsString() @MaxLength(200) txHash?: string;
+  @IsOptional() @IsString() @MaxLength(160) tokenId?: string;
+  @IsOptional() @IsString() @MaxLength(1_000) error?: string;
 }

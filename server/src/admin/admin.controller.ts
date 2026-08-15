@@ -11,7 +11,13 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { ListOrdersQueryDto, UpdateOrderStatusDto } from "./admin-orders.dto";
+import {
+  AdminAnalyticsQueryDto,
+  AdminCustomersQueryDto,
+  AdminNftWithdrawalsQueryDto,
+  ListOrdersQueryDto,
+  UpdateOrderStatusDto,
+} from "./admin-orders.dto";
 import {
   CreateCategoryDto,
   CreateProductDto,
@@ -24,6 +30,7 @@ import {
   CreatePickupLocationDto,
   ResolvePickupMapLinkDto,
   UpdatePickupLocationDto,
+  UpdateNftWithdrawalDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -45,6 +52,34 @@ export class AdminController {
   @Get("settings")
   settings() {
     return this.admin.settings();
+  }
+
+  @Get("analytics")
+  analytics(@Query() query: AdminAnalyticsQueryDto) {
+    return this.admin.analytics(query.region, query.period);
+  }
+
+  @Get("loyalty/overview")
+  loyaltyOverview(@Query("region") region = "bishkek") {
+    return this.admin.loyaltyOverview(region);
+  }
+
+  @Get("customers")
+  customers(@Query() query: AdminCustomersQueryDto) {
+    return this.admin.customers(query.region, query.search, query.limit, query.offset);
+  }
+
+  @Get("nft-withdrawals")
+  nftWithdrawals(@Query() query: AdminNftWithdrawalsQueryDto) {
+    return this.admin.nftWithdrawals(query.region, query.status);
+  }
+
+  @Patch("nft-withdrawals/:id")
+  updateNftWithdrawal(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNftWithdrawalDto,
+  ) {
+    return this.admin.updateNftWithdrawal(id, dto);
   }
 
   @Get("edu-pos/status")

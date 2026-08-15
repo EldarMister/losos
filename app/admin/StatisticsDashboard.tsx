@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 
 export type StatisticsPeriod = "today" | "week" | "month" | "all";
 
@@ -22,20 +22,6 @@ const periodLabels: Record<StatisticsPeriod, string> = {
   all: "Всё время",
 };
 
-const ordersLabels: Record<StatisticsPeriod, string> = {
-  today: "Завершено сегодня",
-  week: "Завершено за неделю",
-  month: "Завершено за месяц",
-  all: "Завершено за всё время",
-};
-
-const preparedLabels: Record<StatisticsPeriod, string> = {
-  today: "Блюда за сегодня",
-  week: "Блюда за неделю",
-  month: "Блюда за месяц",
-  all: "Блюда за всё время",
-};
-
 const formatSom = (value: number) => `${Math.round(value).toLocaleString("ru-RU")} сом`;
 
 export function StatisticsDashboard({
@@ -49,113 +35,74 @@ export function StatisticsDashboard({
   loading: boolean;
   onPeriodChange: (period: StatisticsPeriod) => void;
 }) {
-  const prepared = useMemo(() => {
-    const total = data.products.reduce((sum, item) => sum + item.count, 0);
-    const activeDays = Math.max(1, data.chart.filter((item) => item.amount > 0).length);
-    return {
-      total,
-      average: Math.round(total / activeDays),
-      unique: data.products.length,
-      favourite: data.products[0]?.name || "—",
-    };
-  }, [data.chart, data.products]);
+  const [detail, setDetail] = useState<"products" | "payments" | "peaks">("products");
 
   return (
     <section className="admin-statistics">
-      <div className="admin-stat-periods" aria-label="Период статистики">
-        {(Object.keys(periodLabels) as StatisticsPeriod[]).map((item) => (
-          <button
-            type="button"
-            key={item}
-            className={period === item ? "active" : ""}
-            onClick={() => onPeriodChange(item)}
-          >
-            {periodLabels[item]}
-          </button>
-        ))}
-      </div>
-
-      <div className="admin-stat-metrics">
-        <MetricCard icon={<OrdersIcon />} label={ordersLabels[period]} value={String(data.orders)} />
-        <MetricCard icon={<CheckIcon />} label="Средний чек" value={formatSom(data.average)} />
-      </div>
+      <header className="admin-stat-command">
+        <div className="admin-stat-periods" aria-label="Период статистики">
+          {(Object.keys(periodLabels) as StatisticsPeriod[]).map((item) => (
+            <button
+              type="button"
+              key={item}
+              className={period === item ? "active" : ""}
+              onClick={() => onPeriodChange(item)}
+            >
+              {periodLabels[item]}
+            </button>
+          ))}
+        </div>
+        <dl className="admin-operation-summary" aria-label="Итоги периода">
+          <div><dt>Заказы</dt><dd>{data.orders.toLocaleString("ru-RU")}</dd></div>
+          <div><dt>Выручка</dt><dd>{formatSom(data.revenue)}</dd></div>
+          <div><dt>Средний чек</dt><dd>{formatSom(data.average)}</dd></div>
+        </dl>
+      </header>
 
       <section className="admin-stat-revenue">
         <header>
-          <h2>Выручка за период</h2>
-          <div><span>{data.orders} завершено</span><strong>{formatSom(data.revenue)}</strong></div>
+          <h2>Динамика выручки</h2>
         </header>
         <RevenueChart data={data.chart} />
       </section>
 
-      <div className="admin-stat-grid">
-        <StatisticsPanel title="Способы оплаты">
+      <nav className="admin-context-tabs" aria-label="Детализация аналитики">
+        <button type="button" className={detail === "products" ? "active" : ""} onClick={() => setDetail("products")}>Блюда</button>
+        <button type="button" className={detail === "payments" ? "active" : ""} onClick={() => setDetail("payments")}>Оплата</button>
+        <button type="button" className={detail === "peaks" ? "active" : ""} onClick={() => setDetail("peaks")}>Часы пик</button>
+      </nav>
+
+      <section className="admin-stat-panel admin-stat-detail">
+        {detail === "payments" ? <>
+          <h2>Способы оплаты</h2>
           <MiniTable
             headers={["Способ", "Сумма"]}
             rows={data.payments.map((item) => [item.name, formatSom(item.amount)])}
             footer={["Итого", formatSom(data.payments.reduce((sum, item) => sum + item.amount, 0))]}
             empty="Нет завершённых оплат за период"
           />
-        </StatisticsPanel>
-        <StatisticsPanel title="Топ блюд">
+        </> : null}
+        {detail === "products" ? <>
+          <h2>Топ блюд</h2>
           <MiniTable
             headers={["Блюдо", "Кол-во", "Выручка"]}
-            rows={data.products.slice(0, 6).map((item) => [item.name, `${item.count} шт`, formatSom(item.revenue)])}
+            rows={data.products.slice(0, 20).map((item) => [item.name, `${item.count} шт`, formatSom(item.revenue)])}
             empty="Нет завершённых заказов за период"
           />
-        </StatisticsPanel>
-        <StatisticsPanel title="Статусы заказов">
-          <MiniTable
-            headers={["Статус", "Заказы"]}
-            rows={data.statuses.map((item) => [item.name, String(item.count)])}
-            empty="Нет завершённых заказов за период"
-          />
-        </StatisticsPanel>
-        <StatisticsPanel title="Часы пик">
+        </> : null}
+        {detail === "peaks" ? <>
+          <h2>Часы пик</h2>
           <MiniTable
             headers={["Время", "Выручка"]}
-            rows={data.peaks.slice(0, 5).map((item) => [item.label, formatSom(item.amount)])}
+            rows={data.peaks.map((item) => [item.label, formatSom(item.amount)])}
             empty="Нет завершённых заказов"
           />
-        </StatisticsPanel>
-      </div>
-
-      <div className="admin-stat-summary-grid">
-        <StatisticsPanel title="Приготовлено блюд">
-          <dl className="admin-stat-summary-list">
-            <div><dt>Всего позиций</dt><dd>{prepared.total} шт</dd></div>
-            <div><dt>В среднем за день</dt><dd>{prepared.average} шт</dd></div>
-            <div><dt>Уникальных блюд</dt><dd>{prepared.unique}</dd></div>
-            <div><dt>Топ-позиция</dt><dd title={prepared.favourite}>{prepared.favourite}</dd></div>
-          </dl>
-        </StatisticsPanel>
-        <StatisticsPanel title={preparedLabels[period]}>
-          <MiniTable
-            headers={["Блюдо", "Кол-во"]}
-            rows={data.products.slice(0, 6).map((item) => [item.name, `${item.count} шт`])}
-            empty="Нет приготовленных блюд"
-          />
-        </StatisticsPanel>
-        <StatisticsPanel title="Динамика завершений">
-          <MiniTable
-            headers={["Дата", "Выручка"]}
-            rows={data.chart.slice(-6).reverse().map((item) => [formatAxisLabel(item.label), formatSom(item.amount)])}
-            empty="Нет данных за период"
-          />
-        </StatisticsPanel>
-      </div>
+        </> : null}
+      </section>
 
       {loading ? <div className="admin-stat-loading" role="status">Обновляем статистику…</div> : null}
     </section>
   );
-}
-
-function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return <article className="admin-stat-metric"><span className="admin-stat-metric-icon">{icon}</span><div><small>{label}</small><strong>{value}</strong></div></article>;
-}
-
-function StatisticsPanel({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section className="admin-stat-panel"><h2>{title}</h2>{children}</section>;
 }
 
 function MiniTable({
@@ -206,7 +153,7 @@ function RevenueChart({ data }: { data: Array<{ label: string; amount: number }>
   const line = smoothPath(points);
   const baseline = svgHeight - padding.bottom;
   const area = `${line} L ${x(count - 1)} ${baseline} L ${x(0)} ${baseline} Z`;
-  const ticks = [0, .25, .5, .75, 1].map((step) => Math.round(max * step));
+  const ticks = [...new Set([0, .25, .5, .75, 1].map((step) => Math.round(max * step)))];
   const labelStep = Math.max(1, Math.ceil(count / (svgWidth < 520 ? 5 : 7)));
   const labels = data.map((_, index) => index).filter((index) => index % labelStep === 0);
   if (labels.at(-1) !== count - 1 && count - 1 - (labels.at(-1) ?? 0) >= labelStep) labels.push(count - 1);
@@ -239,13 +186,6 @@ function RevenueChart({ data }: { data: Array<{ label: string; amount: number }>
   </div>;
 }
 
-function OrdersIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M8 8h8M8 12h8M8 16h5" /></svg>;
-}
-
-function CheckIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12 2.2 2.3 4.8-4.8" /></svg>;
-}
 
 function smoothPath(points: ReadonlyArray<readonly [number, number]>) {
   if (points.length < 2) return points.length ? `M ${points[0][0]} ${points[0][1]}` : "";

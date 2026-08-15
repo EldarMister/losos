@@ -42,3 +42,11 @@ export class CheckWhatsappAuthDto {
   @Length(64, 64)
   pollToken!: string;
 }
+
+export class WithdrawNftDto {
+  @IsString()
+  @MinLength(16)
+  @MaxLength(200)
+  @Matches(/^\S+$/, { message: "Адрес кошелька не должен содержать пробелы" })
+  walletAddress!: string;
+}

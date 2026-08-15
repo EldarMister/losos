@@ -87,6 +87,27 @@ export class Region {
   @Column({ default: "" })
   footerLegalInfo!: string;
 
+  @Column({ type: "int", default: 10 })
+  nftRewardEveryOrders!: number;
+
+  @Column({ type: "varchar", length: 160, default: "NFT NAKTA" })
+  nftRewardName!: string;
+
+  @Column({ type: "text", default: "" })
+  nftRewardImage!: string;
+
+  @Column({ type: "text", default: "" })
+  nftRewardDescription!: string;
+
+  @Column({ type: "varchar", length: 20, default: "polygon" })
+  nftRewardNetwork!: string;
+
+  @Column({ type: "varchar", length: 200, default: "" })
+  nftContractAddress!: string;
+
+  @Column({ type: "text", default: "" })
+  nftMetadataUri!: string;
+
   @OneToMany(() => Category, (category) => category.region)
   categories!: Category[];
 

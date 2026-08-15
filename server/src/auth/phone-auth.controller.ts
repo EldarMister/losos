@@ -6,6 +6,7 @@ import {
   HttpCode,
   Ip,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   RawBody,
@@ -16,6 +17,7 @@ import {
   RequestPhoneCodeDto,
   RequestWhatsappAuthDto,
   VerifyPhoneCodeDto,
+  WithdrawNftDto,
 } from "./phone-auth.dto";
 import {
   PhoneAuthService,
@@ -100,6 +102,18 @@ export class PhoneAuthController {
   ) {
     const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
     return this.auth.cancelOrder(phone || "", verificationToken, id);
+  }
+
+  @Post("nfts/:id/withdraw")
+  @HttpCode(200)
+  withdrawNft(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() dto: WithdrawNftDto,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.withdrawNft(phone || "", verificationToken, id, dto.walletAddress);
   }
 
   @Post("request-code")

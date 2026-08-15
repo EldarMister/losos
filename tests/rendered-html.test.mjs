@@ -301,17 +301,37 @@ test("includes the product, cart and address flows", async () => {
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
-test("admin menu exposes category management without a statistics search", async () => {
-  const [admin, adminCss] = await Promise.all([
+test("admin exposes a dense CRM workspace, server search, loyalty, and integrations", async () => {
+  const [admin, adminCss, navigation, ordersWorkspace, loyalty, customers, integrations] = await Promise.all([
     readFile(new URL("../app/admin/AdminApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/admin.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/AdminNavigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/OrdersWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/LoyaltyCenter.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/CustomersView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/IntegrationsView.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(admin, /onClick=\{openCategoryManager\}>＋ Категория/);
-  assert.match(admin, /tab === "categories"[\s\S]*?＋ Добавить категорию/);
+  assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Каталог"[\s\S]*?label: "Клиенты"[\s\S]*?label: "Лояльность"[\s\S]*?label: "Аналитика"/);
+  assert.match(navigation, /admin-sidebar-rail[\s\S]*?data-tooltip/);
+  assert.match(admin, /useState<Tab>\("orders"\)/);
+  assert.match(admin, /tab === "orders" \? <OrdersWorkspace/);
+  assert.match(ordersWorkspace, /admin-orders-commandbar[\s\S]*?admin-orders-kanban[\s\S]*?admin-orders-table/);
+  assert.match(admin, /baseQuery\.set\("search", deferredSearch\.trim\(\)\)/);
+  assert.match(admin, /\/admin\/analytics\?\$\{query\}/);
+  assert.match(admin, /tab === "categories"[\s\S]*?Добавить категорию/);
   assert.match(admin, /openCategory\(category\)/);
-  assert.match(admin, /tab === "products" \? <>[\s\S]*?admin-search-field/);
-  assert.match(admin, /eduPosAction === "import" \? "Получаем…"/);
-  assert.match(admin, /eduPosAction === "export" \? "Отправляем…"/);
+  assert.match(admin, /tab === "customers"[\s\S]*?<CustomersView/);
+  assert.match(admin, /tab === "loyalty"[\s\S]*?<LoyaltyCenter/);
+  assert.match(admin, /tab === "integrations"[\s\S]*?<IntegrationsView/);
+  assert.match(loyalty, /Выдавать каждые N заказов/);
+  assert.match(loyalty, /NFT и выводы/);
+  assert.match(loyalty, /Настроить награды в каталоге/);
+  assert.doesNotMatch(loyalty, /admin-kpi-grid/);
+  assert.match(customers, /NAKTA Coin[\s\S]*?<th>NFT<\/th>/);
+  assert.doesNotMatch(customers, /admin-kpi-grid/);
+  assert.match(integrations, /Получить меню/);
+  assert.match(integrations, /NFT Transfer/);
+  assert.doesNotMatch(integrations, /admin-integration-hero/);
   const eduPosImportHandler = admin.slice(
     admin.indexOf("const importEduPosMenu"),
     admin.indexOf("const exportEduPosMenu"),
@@ -326,9 +346,27 @@ test("admin menu exposes category management without a statistics search", async
   assert.match(admin, /className="admin-order-info-pane"/);
   assert.match(admin, /className="admin-order-items-pane"[\s\S]*?Состав заказа/);
   assert.match(admin, /Итого \/ К оплате/);
-  assert.match(adminCss, /\.admin-order-detail-body\s*\{[^}]*grid-template-columns:\s*minmax\(0, \.92fr\) minmax\(0, 1\.08fr\)/);
-  assert.match(adminCss, /\.admin-order-detail-head > button::after\s*\{[^}]*content:\s*none/);
-  assert.match(adminCss, /\.admin-order-detail\s*\{[^}]*position:\s*fixed[^}]*width:\s*100dvw[^}]*height:\s*100dvh/);
+  assert.match(adminCss, /\.admin-crm-sidebar/);
+  assert.match(adminCss, /\.admin-data-table/);
+  assert.match(adminCss, /\.admin-orders-kanban/);
+  assert.match(adminCss, /--admin-sidebar-width:\s*64px/);
+  assert.match(adminCss, /@media\s*\(max-width:\s*980px\)/);
+  assert.match(adminCss, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.admin-order-detail/);
+});
+
+test("website profile keeps NAKTA Coin and NFT balances separate and supports wallet withdrawal", async () => {
+  const [storefront, globals] = await Promise.all([
+    readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(storefront, /type ProfileNftStatus = "owned" \| "pending" \| "submitted" \| "withdrawn" \| "failed"/);
+  assert.match(storefront, /Ваш баланс[\s\S]*?Ваши NFT/);
+  assert.match(storefront, /\/auth\/nfts\/\$\{encodeURIComponent\(nft\.id\)\}\/withdraw/);
+  assert.match(storefront, /Authorization: `Bearer \$\{phoneVerificationToken\}`/);
+  assert.match(storefront, /Вывести на кошелёк/);
+  assert.doesNotMatch(storefront, /но хранятся отдельно/i);
+  assert.match(globals, /\.profile-nft-balance-card/);
+  assert.match(globals, /\.profile-nft-withdraw-form/);
 });
 
 test("NestJS and PostgreSQL project files are present", async () => {

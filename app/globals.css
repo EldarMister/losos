@@ -617,6 +617,9 @@ a { color: inherit; text-decoration: none; }
 .profile-account-menu button > svg:last-child, .profile-account-menu a > svg:last-child { width: 20px; height: 20px; grid-column: 4; color: #a0a0a0; }
 .profile-account-menu b { font-size: 14px; line-height: 20px; font-weight: 400; }
 .profile-account-menu em { color: #77777d; font-size: 14px; font-style: normal; }
+.profile-rewards-count { display: grid; justify-items: end; gap: 1px; line-height: 1; }
+.profile-rewards-count span { color: #55555b; font-size: 13px; }
+.profile-rewards-count small { color: #7d55c7; font-size: 9px; font-weight: 700; white-space: nowrap; }
 .profile-guest-menu { margin-top: 4px; }
 .profile-menu-footer { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; flex-direction: column; align-items: center; }
 .profile-menu-footer img { width: 106px; height: 64px; object-fit: contain; }
@@ -652,9 +655,59 @@ a { color: inherit; text-decoration: none; }
 .profile-balance-card span { color: #88888e; font-size: 13px; }
 .profile-balance-card strong { margin-top: 6px; color: #1c1c20; font-size: 42px; line-height: 46px; }
 .profile-balance-card img { width: 78px; height: 78px; object-fit: contain; }
+.profile-nft-balance-card { min-height: 132px; display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 12px; padding: 22px 24px; overflow: hidden; border: 1px solid #e5dcff; border-radius: 26px; background: linear-gradient(135deg, #f3efff 0%, #ebe3ff 100%); }
+.profile-nft-balance-card > div { min-width: 0; }
+.profile-nft-balance-card span, .profile-nft-balance-card strong, .profile-nft-balance-card small { display: block; }
+.profile-nft-balance-card span { color: #756994; font-size: 13px; }
+.profile-nft-balance-card strong { margin-top: 4px; color: #332653; font-size: 38px; line-height: 42px; }
+.profile-nft-balance-card small { color: #8579a2; font-size: 10px; }
+.profile-nft-balance-card > i { width: 68px; height: 68px; display: grid; flex: 0 0 68px; place-items: center; border-radius: 21px; background: #fff; color: #7851cc; box-shadow: 0 10px 28px rgba(88,57,151,.1); font-style: normal; }
 .profile-info-card { margin-top: 14px; padding: 20px; border-radius: 22px; background: #fff; }
 .profile-info-card h3 { margin: 0 0 10px; color: #202024; font-size: 16px; line-height: 21px; }
 .profile-info-card > p { margin: 0; color: #77777d; font-size: 12px; line-height: 18px; }
+.profile-nft-section { padding: 18px; }
+.profile-nft-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.profile-nft-section-head > span { min-width: 0; }
+.profile-nft-section-head h3 { margin-bottom: 5px; }
+.profile-nft-section-head p { margin: 0; color: #77777d; font-size: 11px; line-height: 17px; }
+.profile-nft-section-head > b { min-width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; background: #f0eaff; color: #7049bd; font-size: 12px; }
+.profile-nft-list { display: grid; gap: 10px; margin-top: 16px; }
+.profile-nft-card { padding: 13px; border: 1px solid #ece9f2; border-radius: 18px; background: #fbfafc; }
+.profile-nft-main { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 12px; align-items: center; }
+.profile-nft-image { width: 58px; height: 58px; display: grid; place-items: center; overflow: hidden; border-radius: 16px; background: linear-gradient(145deg, #eee7ff, #fff); color: #7750c8; }
+.profile-nft-image img { width: 100%; height: 100%; object-fit: cover; }
+.profile-nft-copy { min-width: 0; }
+.profile-nft-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; }
+.profile-nft-title > b { min-width: 0; overflow: hidden; color: #27232f; font-size: 12px; line-height: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-nft-title > em { flex: 0 0 auto; padding: 4px 6px; border-radius: 7px; background: #eee9fa; color: #7353aa; font-size: 8px; line-height: 10px; font-style: normal; font-weight: 700; white-space: nowrap; }
+.profile-nft-title > em.status-pending, .profile-nft-title > em.status-submitted { background: #fff2dc; color: #9d6413; }
+.profile-nft-title > em.status-withdrawn { background: #e6f6ea; color: #277a3d; }
+.profile-nft-title > em.status-failed { background: #ffebe8; color: #b84635; }
+.profile-nft-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.profile-nft-meta small { padding: 3px 6px; border-radius: 6px; background: #f0eef4; color: #6f687b; font-size: 8px; line-height: 10px; }
+.profile-nft-date { display: block; margin-top: 6px; color: #99949f; font-size: 9px; }
+.profile-nft-card > p:not(.profile-nft-card-error) { margin: 10px 0 0; color: #716d77; font-size: 10px; line-height: 15px; }
+.profile-nft-address { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; margin-top: 9px; padding: 8px 9px; border-radius: 10px; background: #f3f1f6; }
+.profile-nft-address span { color: #8d8795; font-size: 9px; }
+.profile-nft-address b { overflow: hidden; color: #514b59; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.profile-nft-card-error { margin: 10px 0 0; padding: 9px 10px; border-radius: 10px; background: #fff0ee; color: #a53e32; font-size: 10px; line-height: 15px; }
+.profile-nft-withdraw-open { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 11px; padding: 8px 12px; border: 0; border-radius: 12px; background: #2f2448; color: #fff; font-size: 11px; font-weight: 700; }
+.profile-nft-withdraw-form { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #e8e3ee; }
+.profile-nft-withdraw-form > label { color: #3c3743; font-size: 10px; line-height: 14px; font-weight: 700; }
+.profile-nft-withdraw-form > input { width: 100%; min-width: 0; height: 42px; padding: 0 11px; border: 1px solid #dcd5e6; border-radius: 11px; outline: 0; background: #fff; color: #29242f; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; }
+.profile-nft-withdraw-form > input:focus { border-color: #815ac9; box-shadow: 0 0 0 3px rgba(129,90,201,.12); }
+.profile-nft-withdraw-form > input:disabled { background: #f4f2f6; color: #99939e; }
+.profile-nft-withdraw-form > small { color: #8a8490; font-size: 9px; line-height: 14px; }
+.profile-nft-withdraw-form > p { margin: 0; padding: 8px 9px; border-radius: 9px; background: #fff0ee; color: #a53e32; font-size: 9px; line-height: 14px; }
+.profile-nft-withdraw-form > div { display: grid; grid-template-columns: .8fr 1.2fr; gap: 7px; }
+.profile-nft-withdraw-form button { min-height: 38px; padding: 7px 9px; border: 0; border-radius: 11px; background: #efedf2; color: #5f5965; font-size: 9px; font-weight: 700; }
+.profile-nft-withdraw-form button[type="submit"] { background: #7a53c5; color: #fff; }
+.profile-nft-withdraw-form button:disabled { cursor: default; opacity: .58; }
+.profile-nft-feedback { margin: 14px 0 0 !important; padding: 10px 11px; border-radius: 11px; font-size: 10px !important; line-height: 15px !important; }
+.profile-nft-feedback.success { background: #eaf7ed; color: #2d7540; }
+.profile-nft-empty { min-height: 132px; display: grid; place-items: center; align-content: center; gap: 7px; margin: 14px 0 0; padding: 18px; border: 1px dashed #ddd6e8; border-radius: 16px; color: #8a7aa5; font-size: 11px; text-align: center; }
+.profile-nft-empty b { color: #403849; font-size: 12px; }
+.profile-nft-empty span { color: #88818e; font-size: 9px; line-height: 14px; }
 .profile-coin-history { display: grid; }
 .profile-coin-history button { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid #eeeef0; background: transparent; text-align: left; }
 .profile-coin-history button:disabled { cursor: default; opacity: 1; }
@@ -968,6 +1021,16 @@ a { color: inherit; text-decoration: none; }
   .profile-modal { width: 80vw; max-width: 360px; height: 100dvh; border-radius: 0 18px 18px 0; }
   .profile-account { top: 54px; padding: 18px 16px max(24px, env(safe-area-inset-bottom)); }
   .profile-account.profile-section-menu { padding: 2px 0 max(132px, calc(env(safe-area-inset-bottom) + 118px)); }
+  .profile-balance-card { min-height: 138px; padding: 20px; }
+  .profile-balance-card img { width: 68px; height: 68px; }
+  .profile-nft-balance-card { min-height: 122px; padding: 20px; }
+  .profile-nft-balance-card > i { width: 60px; height: 60px; flex-basis: 60px; border-radius: 18px; }
+  .profile-nft-card { padding: 12px; }
+  .profile-nft-main { grid-template-columns: 52px minmax(0, 1fr); gap: 10px; }
+  .profile-nft-image { width: 52px; height: 52px; border-radius: 14px; }
+  .profile-nft-title { flex-direction: column; gap: 4px; }
+  .profile-nft-title > em { align-self: flex-start; }
+  .profile-nft-withdraw-form > div { grid-template-columns: 1fr; }
   .order-details-overlay { padding: 0; place-items: end stretch; }
   .order-details-modal { width: 100vw; max-height: 100dvh; height: 100dvh; border-radius: 40px 40px 0 0; }
   .order-details-modal > header { padding: 23px 22px 16px; }

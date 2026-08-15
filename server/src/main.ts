@@ -8,6 +8,8 @@ import { AppModule } from "./app.module";
 const trustedFrontendOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "http://localhost:3100",
+  "http://127.0.0.1:3100",
   "https://naktasushi.com",
   "https://www.naktasushi.com",
   "https://losos-omega.vercel.app",

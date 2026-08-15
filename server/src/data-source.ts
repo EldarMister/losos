@@ -37,6 +37,9 @@ import { AddEduPosDeliveryIntegration1784999000000 } from "./migrations/17849990
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
 import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000-AddPhoneAccountSessions";
 import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "./migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
+import { AddLoyaltyPrograms1785003000000 } from "./migrations/1785003000000-AddLoyaltyPrograms";
+import { AccountNft } from "./rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
 
 try {
   process.loadEnvFile(".env");
@@ -49,7 +52,7 @@ const databaseUrl = process.env.DATABASE_URL ?? "postgresql://losos:losos@localh
 export default new DataSource({
   type: "postgres",
   url: databaseUrl,
-  entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, PhoneAccountSession, DevicePushToken],
+  entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, PhoneAccountSession, DevicePushToken, AccountNft, NaktaCoinTransaction],
   migrations: [
     BootstrapSchema1784978000000,
     AddProductCustomization1784979000000,
@@ -76,6 +79,7 @@ export default new DataSource({
     AddSharedRegionContentAndOtuzAdyr1785000000000,
     AddPhoneAccountSessions1785001000000,
     AddShortOrderNumbersAndAdminConfirmation1785002000000,
+    AddLoyaltyPrograms1785003000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

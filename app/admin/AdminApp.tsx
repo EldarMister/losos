@@ -13,12 +13,25 @@ import {
   mdiReceiptTextOutline,
   mdiSilverwareForkKnife,
 } from "@mdi/js";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor";
-import { StatisticsDashboard, type StatisticsPeriod } from "./StatisticsDashboard";
+import { type StatisticsData, type StatisticsPeriod } from "./StatisticsDashboard";
+import { AdminNavigation, type AdminTab } from "./AdminNavigation";
+import { AdminOverview } from "./AdminOverview";
+import OrdersWorkspace, { type OrdersWorkspaceView } from "./OrdersWorkspace";
+import { CustomersView, type AdminCustomer } from "./CustomersView";
+import {
+  LoyaltyCenter,
+  type LoyaltyOverview,
+  type LoyaltyProgramDraft,
+  type NftStatus,
+  type NftUpdatePayload,
+  type NftWithdrawal,
+} from "./LoyaltyCenter";
+import { IntegrationsView, type EduPosStatus } from "./IntegrationsView";
 
 type PickupLocation = { id: number; title: string; address: string; workingHours: string; latitude: number | null; longitude: number | null; yandexUrl: string; enabled: boolean; sortOrder: number };
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; menuSourceRegionSlug: string | null; promotionSourceRegionSlug: string | null; contactPhone: string; contactEmail: string; contactAddress: string; supportPhone: string; supportUrl: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; menuSourceRegionSlug: string | null; promotionSourceRegionSlug: string | null; contactPhone: string; contactEmail: string; contactAddress: string; supportPhone: string; supportUrl: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; pickupLocations?: PickupLocation[]; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; deliveryWorkingDays: number[]; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string; nftRewardEveryOrders: number; nftRewardName: string; nftRewardImage: string; nftRewardDescription: string; nftRewardNetwork: string; nftContractAddress: string; nftMetadataUri: string };
 type Product = {
   id: number;
   name: string;
@@ -129,7 +142,7 @@ type AdminOrder = {
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
 type OrderPeriod = "all" | "today" | "week" | "month";
-type Tab = "statistics" | "orders" | "products" | "promotions" | "categories" | "settings";
+type Tab = AdminTab;
 type EditorKind = "product" | "promotion" | "category";
 type EditorValue = string | boolean | ModifierGroup[];
 type Editor = { kind: EditorKind; id?: number; values: Record<string, EditorValue> };
@@ -154,6 +167,13 @@ type RegionEditor = {
   values: Record<string, string | boolean | number[]>;
   pickupLocations: PickupLocationEditor[];
 };
+type Confirmation = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  tone?: "default" | "danger";
+  action: () => void | Promise<void>;
+};
 
 const apiUrl = (
   process.env.NEXT_PUBLIC_API_URL ||
@@ -167,9 +187,9 @@ const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
   "otuz-adyr": [[40.64, 72.92], [40.645, 72.98], [40.625, 73.02], [40.59, 73.02], [40.565, 72.99], [40.565, 72.94], [40.585, 72.91], [40.62, 72.91]].map(([latitude, longitude]) => ({ latitude, longitude })),
 };
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, menuSourceRegionSlug: null, promotionSourceRegionSlug: null, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, menuSourceRegionSlug: null, promotionSourceRegionSlug: null, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 2, slug: "otuz-adyr", name: "Отуз-Адыр", enabled: true, sortOrder: 2, menuSourceRegionSlug: "osh", promotionSourceRegionSlug: "osh", contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones["otuz-adyr"], footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, menuSourceRegionSlug: null, promotionSourceRegionSlug: null, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "", nftRewardEveryOrders: 10, nftRewardName: "NFT NAKTA", nftRewardImage: "", nftRewardDescription: "", nftRewardNetwork: "polygon", nftContractAddress: "", nftMetadataUri: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, menuSourceRegionSlug: null, promotionSourceRegionSlug: null, contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "", nftRewardEveryOrders: 10, nftRewardName: "NFT NAKTA", nftRewardImage: "", nftRewardDescription: "", nftRewardNetwork: "polygon", nftContractAddress: "", nftMetadataUri: "" },
+  { id: 2, slug: "otuz-adyr", name: "Отуз-Адыр", enabled: true, sortOrder: 2, menuSourceRegionSlug: "osh", promotionSourceRegionSlug: "osh", contactPhone: "", contactEmail: "", contactAddress: "", supportPhone: "", supportUrl: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", pickupLocations: [], deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, deliveryWorkingDays: [0, 1, 2, 3, 4, 5, 6], freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones["otuz-adyr"], footerCompanyName: "", footerLegalInfo: "", nftRewardEveryOrders: 10, nftRewardName: "NFT NAKTA", nftRewardImage: "", nftRewardDescription: "", nftRewardNetwork: "polygon", nftContractAddress: "", nftMetadataUri: "" },
 ];
 
 function formatDeliveryZone(points: DeliveryZonePoint[] | undefined) {
@@ -214,14 +234,6 @@ function globalScheduleText(values: RegionEditor["values"]) {
     : `${String(values.deliveryOpenTime || "11:30")} – ${String(values.deliveryCloseTime || "22:30")}`;
   return `${dayLabel}, ${hours}`;
 }
-const defaultRegionByTab: Record<Tab, string> = {
-  statistics: "bishkek",
-  orders: "bishkek",
-  products: "bishkek",
-  promotions: "bishkek",
-  categories: "bishkek",
-  settings: "bishkek",
-};
 const orderStatusLabels: Record<OrderStatus, string> = {
   new: "Новый",
   confirmed: "Подтверждён",
@@ -260,7 +272,7 @@ const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
 const formatOrderNumber = (order: Pick<AdminOrder, "id" | "orderNumber">) =>
   `№${order.orderNumber || order.id.slice(0, 6).toUpperCase()}`;
 const formatSom = (value: number) => `${Math.round(value).toLocaleString("ru-RU")} сом`;
-const ordersPerPage = 10;
+const ordersPerPage = 50;
 const slugify = (value: string) => {
   const letters: Record<string, string> = { а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya" };
   return value.toLowerCase().split("").map((letter) => letters[letter] ?? letter).join("")
@@ -317,9 +329,11 @@ function fileToOptimizedDataUrl(file: File) {
 export function AdminApp() {
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
-  const [regionByTab, setRegionByTab] = useState<Record<Tab, string>>(defaultRegionByTab);
+  const [authorizing, setAuthorizing] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [region, setRegion] = useState("bishkek");
   const [availableRegions, setAvailableRegions] = useState<Region[]>(defaultRegions);
-  const [tab, setTab] = useState<Tab>("statistics");
+  const [tab, setTab] = useState<Tab>("orders");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [ordersTotal, setOrdersTotal] = useState(0);
@@ -332,28 +346,164 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState<"all" | string>("all");
-  const [statisticsOrders, setStatisticsOrders] = useState<AdminOrder[]>([]);
+  const [statistics, setStatistics] = useState<StatisticsData>({
+    orders: 0,
+    revenue: 0,
+    average: 0,
+    products: [],
+    payments: [],
+    peaks: [],
+    statuses: [],
+    chart: [],
+  });
   const [statisticsPeriod, setStatisticsPeriod] = useState<StatisticsPeriod>("week");
   const [statisticsLoading, setStatisticsLoading] = useState(false);
   const [openProductActions, setOpenProductActions] = useState<number | null>(null);
   const [orderFilter, setOrderFilter] = useState<"all" | OrderStatus>("all");
   const [orderPeriod, setOrderPeriod] = useState<OrderPeriod>("all");
+  const [orderView, setOrderView] = useState<OrdersWorkspaceView>("kanban");
   const [orderPage, setOrderPage] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Partial<Record<OrderStatus, number>>>({});
   const [regionEditor, setRegionEditor] = useState<RegionEditor | null>(null);
   const [regionEditorSection, setRegionEditorSection] = useState<"main" | "delivery" | "pickup" | "footer">("main");
   const [deletedPickupLocationIds, setDeletedPickupLocationIds] = useState<number[]>([]);
   const [pickupResolvingIndex, setPickupResolvingIndex] = useState<number | null>(null);
-  const [openOrderMenu, setOpenOrderMenu] = useState<"status" | "period" | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const orderControlsRef = useRef<HTMLDivElement>(null);
-  const region = regionByTab[tab];
+  const [customers, setCustomers] = useState<AdminCustomer[]>([]);
+  const [customersTotal, setCustomersTotal] = useState(0);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerPage, setCustomerPage] = useState(1);
+  const deferredCustomerSearch = useDeferredValue(customerSearch);
+  const [loyaltyOverview, setLoyaltyOverview] = useState<LoyaltyOverview | null>(null);
+  const [loyaltyOverviewRegion, setLoyaltyOverviewRegion] = useState("");
+  const [loyaltyDraft, setLoyaltyDraft] = useState<LoyaltyProgramDraft>({ enabled: true, everyOrders: "10", name: "NFT NAKTA", image: "", description: "", network: "polygon", contractAddress: "", metadataUri: "" });
+  const [nftWithdrawals, setNftWithdrawals] = useState<NftWithdrawal[]>([]);
+  const [nftFilter, setNftFilter] = useState<"all" | NftStatus>("all");
+  const [loyaltyOverviewLoading, setLoyaltyOverviewLoading] = useState(false);
+  const [nftWithdrawalsLoading, setNftWithdrawalsLoading] = useState(false);
+  const [loyaltySaving, setLoyaltySaving] = useState(false);
+  const [nftUpdatingId, setNftUpdatingId] = useState<string | null>(null);
+  const [eduPosStatus, setEduPosStatus] = useState<EduPosStatus | null>(null);
+  const [eduPosStatusLoading, setEduPosStatusLoading] = useState(false);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [confirmationBusy, setConfirmationBusy] = useState(false);
+  const [editorBaseline, setEditorBaseline] = useState("");
+  const [regionEditorBaseline, setRegionEditorBaseline] = useState("");
+  const ordersRequestId = useRef(0);
+  const customersRequestId = useRef(0);
+  const loyaltyOverviewRequestId = useRef(0);
+  const nftWithdrawalsRequestId = useRef(0);
+  const deferredSearch = useDeferredValue(search);
+  const selectedRegion = availableRegions.find((item) => item.slug === region) ?? availableRegions[0];
+  const activeLoyaltyOverview = loyaltyOverviewRegion === region ? loyaltyOverview : null;
+  const editorDirty = Boolean(editor && editorBaseline && JSON.stringify(editor) !== editorBaseline);
+  const regionEditorDirty = Boolean(regionEditor && regionEditorBaseline && (
+    JSON.stringify(regionEditor) !== regionEditorBaseline || deletedPickupLocationIds.length
+  ));
+  const loyaltyDirty = Boolean(activeLoyaltyOverview && (
+    loyaltyDraft.enabled !== activeLoyaltyOverview.program.enabled
+    || (loyaltyDraft.enabled ? Number(loyaltyDraft.everyOrders) : 0) !== activeLoyaltyOverview.program.everyOrders
+    || loyaltyDraft.name !== activeLoyaltyOverview.program.name
+    || loyaltyDraft.image !== activeLoyaltyOverview.program.image
+    || loyaltyDraft.description !== activeLoyaltyOverview.program.description
+    || loyaltyDraft.network !== activeLoyaltyOverview.program.network
+    || loyaltyDraft.contractAddress !== activeLoyaltyOverview.program.contractAddress
+    || loyaltyDraft.metadataUri !== activeLoyaltyOverview.program.metadataUri
+  ));
+
+  const presentEditor = (next: Editor) => {
+    setEditorBaseline(JSON.stringify(next));
+    setEditor(next);
+  };
+  const dismissEditor = () => {
+    setEditor(null);
+    setEditorBaseline("");
+  };
+  const presentRegionEditor = (next: RegionEditor) => {
+    setRegionEditorBaseline(JSON.stringify(next));
+    setRegionEditor(next);
+  };
+  const dismissRegionEditor = () => {
+    setRegionEditor(null);
+    setRegionEditorBaseline("");
+  };
+
+  const runConfirmation = async () => {
+    if (!confirmation || confirmationBusy) return;
+    setConfirmationBusy(true);
+    try {
+      await confirmation.action();
+      setConfirmation(null);
+    } finally {
+      setConfirmationBusy(false);
+    }
+  };
+
+  const closeEditor = () => {
+    if (!editorDirty) {
+      dismissEditor();
+      return;
+    }
+    setConfirmation({
+      title: "Закрыть без сохранения?",
+      description: "Изменения в карточке ещё не сохранены и будут потеряны.",
+      confirmLabel: "Закрыть",
+      tone: "danger",
+      action: dismissEditor,
+    });
+  };
+
+  const closeRegionEditor = () => {
+    if (!regionEditorDirty) {
+      dismissRegionEditor();
+      return;
+    }
+    setConfirmation({
+      title: "Закрыть настройки филиала?",
+      description: "Несохранённые изменения и удаление кухонь будут отменены.",
+      confirmLabel: "Закрыть",
+      tone: "danger",
+      action: dismissRegionEditor,
+    });
+  };
 
   const selectRegion = (slug: string) => {
-    setRegionByTab((current) => ({ ...current, [tab]: slug }));
-    setOrderPage(1);
-    setEditor(null);
+    if (slug === region) return;
+    const applyRegion = () => {
+      loyaltyOverviewRequestId.current += 1;
+      nftWithdrawalsRequestId.current += 1;
+      setRegion(slug);
+      setOrderPage(1);
+      setCustomerPage(1);
+      setLoyaltyOverview(null);
+      setLoyaltyOverviewRegion("");
+      setNftWithdrawals([]);
+      setLoyaltyOverviewLoading(false);
+      setNftWithdrawalsLoading(false);
+      dismissEditor();
+    };
+    if (loyaltyDirty) {
+      setConfirmation({
+        title: "Сменить филиал без сохранения?",
+        description: "Изменения NFT-программы текущего филиала будут потеряны.",
+        confirmLabel: "Сменить филиал",
+        tone: "danger",
+        action: applyRegion,
+      });
+      return;
+    }
+    applyRegion();
   };
+
+  useEffect(() => {
+    if (!editorDirty && !regionEditorDirty && !loyaltyDirty) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [editorDirty, loyaltyDirty, regionEditorDirty]);
 
   useEffect(() => {
     queueMicrotask(() => setToken(sessionStorage.getItem("losos-admin-token") || ""));
@@ -368,7 +518,11 @@ export function AdminApp() {
         ...init?.headers,
       },
     });
-    if (response.status === 401) throw new Error("Неверный код администратора");
+    if (response.status === 401) {
+      sessionStorage.removeItem("losos-admin-token");
+      setToken("");
+      throw new Error("Сеанс завершён. Введите код администратора ещё раз");
+    }
     if (!response.ok) {
       const body = await response.json().catch(() => null);
       const details = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
@@ -418,10 +572,9 @@ export function AdminApp() {
       const nextRegions = await request("/admin/settings") as Region[];
       if (!nextRegions.length) return;
       setAvailableRegions(nextRegions);
-      setRegionByTab((current) => (Object.keys(current) as Tab[]).reduce((next, item) => ({
-        ...next,
-        [item]: nextRegions.some((region) => region.slug === current[item]) ? current[item] : nextRegions[0].slug,
-      }), {} as Record<Tab, string>));
+      setRegion((current) => nextRegions.some((item) => item.slug === current)
+        ? current
+        : nextRegions[0].slug);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось загрузить настройки");
     }
@@ -437,15 +590,6 @@ export function AdminApp() {
     const timer = window.setTimeout(() => setMessage(""), 3_500);
     return () => window.clearTimeout(timer);
   }, [message]);
-
-  useEffect(() => {
-    if (!openOrderMenu) return;
-    const closeMenu = (event: PointerEvent) => {
-      if (!orderControlsRef.current?.contains(event.target as Node)) setOpenOrderMenu(null);
-    };
-    document.addEventListener("pointerdown", closeMenu);
-    return () => document.removeEventListener("pointerdown", closeMenu);
-  }, [openOrderMenu]);
 
   useEffect(() => {
     if (openProductActions === null) return;
@@ -486,32 +630,60 @@ export function AdminApp() {
 
   const loadOrders = useCallback(async (silent = false) => {
     if (!token) return;
+    const requestId = ++ordersRequestId.current;
     if (!silent) setOrdersLoading(true);
     try {
-      const query = new URLSearchParams({ regionSlug: region, limit: String(ordersPerPage), offset: String((orderPage - 1) * ordersPerPage) });
-      if (orderFilter !== "all") query.set("status", orderFilter);
+      const baseQuery = new URLSearchParams({ regionSlug: region });
+      if (deferredSearch.trim()) baseQuery.set("search", deferredSearch.trim());
       if (orderPeriod !== "all") {
         const now = new Date();
         const from = new Date(now);
         from.setHours(0, 0, 0, 0);
         if (orderPeriod === "week") from.setDate(from.getDate() - 6);
         if (orderPeriod === "month") from.setDate(1);
-        query.set("from", from.toISOString());
-        query.set("to", now.toISOString());
+        baseQuery.set("from", from.toISOString());
+        baseQuery.set("to", now.toISOString());
       }
-      const result = await request(`/admin/orders?${query}`) as OrdersResponse;
-      setOrders(result.items);
-      setOrdersTotal(result.total);
-      setStatusCounts(result.statusCounts || {});
+      let nextOrders: AdminOrder[];
+      let nextTotal: number;
+      let nextStatusCounts: Partial<Record<OrderStatus, number>>;
+      if (orderView === "kanban") {
+        const workflowStatuses: OrderStatus[] = orderFilter === "all"
+          ? ["new", "confirmed", "preparing", "ready", "delivering"]
+          : [orderFilter];
+        const results = await Promise.all(workflowStatuses.map(async (status) => {
+          const query = new URLSearchParams(baseQuery);
+          query.set("status", status);
+          query.set("limit", "100");
+          query.set("offset", "0");
+          return request(`/admin/orders?${query}`) as Promise<OrdersResponse>;
+        }));
+        nextOrders = results.flatMap((result) => result.items);
+        nextTotal = results.reduce((sum, result) => sum + result.total, 0);
+        nextStatusCounts = results[0]?.statusCounts || {};
+      } else {
+        const query = new URLSearchParams(baseQuery);
+        query.set("limit", String(ordersPerPage));
+        query.set("offset", String((orderPage - 1) * ordersPerPage));
+        if (orderFilter !== "all") query.set("status", orderFilter);
+        const result = await request(`/admin/orders?${query}`) as OrdersResponse;
+        nextOrders = result.items;
+        nextTotal = result.total;
+        nextStatusCounts = result.statusCounts || {};
+      }
+      if (requestId !== ordersRequestId.current) return;
+      setOrders(nextOrders);
+      setOrdersTotal(nextTotal);
+      setStatusCounts(nextStatusCounts);
       setSelectedOrder((current) => current
-        ? result.items.find((order) => order.id === current.id) || current
+        ? nextOrders.find((order) => order.id === current.id) || current
         : null);
     } catch (error) {
-      if (!silent) setMessage(error instanceof Error ? error.message : "Не удалось загрузить заказы");
+      if (!silent && requestId === ordersRequestId.current) setMessage(error instanceof Error ? error.message : "Не удалось загрузить заказы");
     } finally {
-      if (!silent) setOrdersLoading(false);
+      if (!silent && requestId === ordersRequestId.current) setOrdersLoading(false);
     }
-  }, [orderFilter, orderPage, orderPeriod, region, request, token]);
+  }, [deferredSearch, orderFilter, orderPage, orderPeriod, orderView, region, request, token]);
 
   useEffect(() => {
     if (tab !== "orders" || !token) return;
@@ -527,22 +699,14 @@ export function AdminApp() {
     if (!token) return;
     setStatisticsLoading(true);
     try {
-      const items: AdminOrder[] = [];
-      let offset = 0;
-      let total = 0;
-      do {
-        const result = await request(`/admin/orders?${new URLSearchParams({ regionSlug: region, limit: "100", offset: String(offset) })}`) as OrdersResponse;
-        items.push(...result.items);
-        total = result.total;
-        offset += result.items.length;
-      } while (offset < total && offset < 2_000);
-      setStatisticsOrders(items);
+      const query = new URLSearchParams({ region, period: statisticsPeriod });
+      setStatistics(await request(`/admin/analytics?${query}`) as StatisticsData);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось загрузить статистику");
     } finally {
       setStatisticsLoading(false);
     }
-  }, [region, request, token]);
+  }, [region, request, statisticsPeriod, token]);
 
   useEffect(() => {
     if (tab !== "statistics" || !token) return;
@@ -550,14 +714,193 @@ export function AdminApp() {
     return () => window.clearTimeout(timer);
   }, [loadStatistics, tab, token]);
 
+  const loadCustomers = useCallback(async () => {
+    if (!token) return;
+    const requestId = ++customersRequestId.current;
+    setCustomersLoading(true);
+    try {
+      const query = new URLSearchParams({
+        region,
+        search: deferredCustomerSearch.trim(),
+        limit: "50",
+        offset: String((customerPage - 1) * 50),
+      });
+      const result = await request(`/admin/customers?${query}`) as {
+        items: AdminCustomer[];
+        total: number;
+      };
+      if (requestId !== customersRequestId.current) return;
+      setCustomers(result.items.map((customer) => ({
+        ...customer,
+        ordersCount: Number(customer.ordersCount),
+        completedOrders: Number(customer.completedOrders),
+        revenue: Number(customer.revenue),
+        naktaCoins: Number(customer.naktaCoins),
+        nftCount: Number(customer.nftCount),
+        pendingNftCount: Number(customer.pendingNftCount),
+      })));
+      setCustomersTotal(Number(result.total));
+    } catch (error) {
+      if (requestId === customersRequestId.current) {
+        setMessage(error instanceof Error ? error.message : "Не удалось загрузить клиентов");
+      }
+    } finally {
+      if (requestId === customersRequestId.current) setCustomersLoading(false);
+    }
+  }, [customerPage, deferredCustomerSearch, region, request, token]);
+
+  useEffect(() => {
+    if (tab !== "customers" || !token) return;
+    const timer = window.setTimeout(() => void loadCustomers(), 180);
+    return () => {
+      window.clearTimeout(timer);
+      customersRequestId.current += 1;
+    };
+  }, [loadCustomers, tab, token]);
+
+  const loadLoyaltyOverview = useCallback(async () => {
+    if (!token) return;
+    const requestId = ++loyaltyOverviewRequestId.current;
+    setLoyaltyOverviewLoading(true);
+    try {
+      const overview = await request(`/admin/loyalty/overview?region=${encodeURIComponent(region)}`) as LoyaltyOverview;
+      if (requestId !== loyaltyOverviewRequestId.current) return;
+      setLoyaltyOverview(overview);
+      setLoyaltyOverviewRegion(region);
+      setLoyaltyDraft({
+        enabled: overview.program.enabled,
+        everyOrders: String(overview.program.everyOrders || 10),
+        name: overview.program.name || "NFT NAKTA",
+        image: overview.program.image || "",
+        description: overview.program.description || "",
+        network: overview.program.network || "polygon",
+        contractAddress: overview.program.contractAddress || "",
+        metadataUri: overview.program.metadataUri || "",
+      });
+    } catch (error) {
+      if (requestId === loyaltyOverviewRequestId.current) {
+        setMessage(error instanceof Error ? error.message : "Не удалось загрузить программу лояльности");
+      }
+    } finally {
+      if (requestId === loyaltyOverviewRequestId.current) setLoyaltyOverviewLoading(false);
+    }
+  }, [region, request, token]);
+
+  const loadNftWithdrawals = useCallback(async () => {
+    if (!token) return;
+    const requestId = ++nftWithdrawalsRequestId.current;
+    setNftWithdrawalsLoading(true);
+    try {
+      const query = new URLSearchParams({ region });
+      if (nftFilter !== "all") query.set("status", nftFilter);
+      const withdrawals = await request(`/admin/nft-withdrawals?${query}`) as NftWithdrawal[];
+      if (requestId !== nftWithdrawalsRequestId.current) return;
+      setNftWithdrawals(withdrawals);
+    } catch (error) {
+      if (requestId === nftWithdrawalsRequestId.current) {
+        setMessage(error instanceof Error ? error.message : "Не удалось загрузить NFT");
+      }
+    } finally {
+      if (requestId === nftWithdrawalsRequestId.current) setNftWithdrawalsLoading(false);
+    }
+  }, [nftFilter, region, request, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const timer = window.setTimeout(() => void loadLoyaltyOverview(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      loyaltyOverviewRequestId.current += 1;
+    };
+  }, [loadLoyaltyOverview, token]);
+
+  useEffect(() => {
+    if (tab !== "loyalty" || !token) return;
+    const timer = window.setTimeout(() => void loadNftWithdrawals(), 0);
+    return () => {
+      window.clearTimeout(timer);
+      nftWithdrawalsRequestId.current += 1;
+    };
+  }, [loadNftWithdrawals, tab, token]);
+
+  const saveLoyaltyProgram = async () => {
+    if (!selectedRegion?.id || loyaltySaving) return;
+    if (!activeLoyaltyOverview) {
+      setMessage("Дождитесь загрузки NFT-программы выбранного филиала");
+      return;
+    }
+    setLoyaltySaving(true);
+    setMessage("");
+    try {
+      const everyOrders = loyaltyDraft.enabled ? Number(loyaltyDraft.everyOrders) : 0;
+      if (loyaltyDraft.enabled && (!Number.isInteger(everyOrders) || everyOrders < 1)) {
+        throw new Error("Укажите, через сколько завершённых заказов выдавать NFT");
+      }
+      if (loyaltyDraft.enabled && !loyaltyDraft.name.trim()) {
+        throw new Error("Укажите название NFT");
+      }
+      await request(`/admin/regions/${selectedRegion.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          nftRewardEveryOrders: everyOrders,
+          nftRewardName: loyaltyDraft.name.trim(),
+          nftRewardImage: loyaltyDraft.image,
+          nftRewardDescription: loyaltyDraft.description.trim(),
+          nftRewardNetwork: loyaltyDraft.network,
+          nftContractAddress: loyaltyDraft.contractAddress.trim(),
+          nftMetadataUri: loyaltyDraft.metadataUri.trim(),
+        }),
+      });
+      await Promise.all([loadSettings(), loadLoyaltyOverview()]);
+      setMessage("NFT-программа сохранена");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить NFT-программу");
+    } finally {
+      setLoyaltySaving(false);
+    }
+  };
+
+  const updateNftWithdrawal = async (id: string, payload: NftUpdatePayload) => {
+    if (nftUpdatingId) return false;
+    setNftUpdatingId(id);
+    setMessage("");
+    try {
+      await request(`/admin/nft-withdrawals/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      await Promise.all([loadNftWithdrawals(), loadLoyaltyOverview()]);
+      setMessage("Статус вывода NFT обновлён");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось обновить вывод NFT");
+      return false;
+    } finally {
+      setNftUpdatingId(null);
+    }
+  };
+
+  const loadEduPosStatus = useCallback(async () => {
+    if (!token) return;
+    setEduPosStatusLoading(true);
+    try {
+      setEduPosStatus(await request("/admin/edu-pos/status") as EduPosStatus);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось проверить EDU POS");
+    } finally {
+      setEduPosStatusLoading(false);
+    }
+  }, [request, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const timer = window.setTimeout(() => void loadEduPosStatus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadEduPosStatus, token]);
+
   const products = useMemo(() => dashboard?.categories.flatMap((category) =>
     category.products.map((product) => ({ ...product, categoryId: category.id, categoryTitle: category.title }))) || [], [dashboard]);
   const normalizedSearch = search.trim().toLocaleLowerCase("ru");
-  const visibleOrders = useMemo(() => orders.filter((order) => {
-    const matchesStatus = orderFilter === "all" || order.status === orderFilter;
-    const haystack = `${order.id} ${order.customerName} ${order.phone} ${order.address}`.toLocaleLowerCase("ru");
-    return matchesStatus && (!normalizedSearch || haystack.includes(normalizedSearch));
-  }), [normalizedSearch, orderFilter, orders]);
   const visibleProducts = useMemo(() => products.filter((product) =>
     (productCategoryFilter === "all" || String(product.categoryId) === productCategoryFilter)
     && (!normalizedSearch || `${product.name} ${product.categoryTitle} ${product.id}`.toLocaleLowerCase("ru").includes(normalizedSearch))
@@ -568,59 +911,13 @@ export function AdminApp() {
   const visibleCategories = useMemo(() => (dashboard?.categories || []).filter((category) =>
     !normalizedSearch || `${category.title} ${category.slug}`.toLocaleLowerCase("ru").includes(normalizedSearch)
   ), [dashboard?.categories, normalizedSearch]);
-  const statistics = useMemo(() => {
-    const now = new Date();
-    const from = new Date(now);
-    if (statisticsPeriod === "today") from.setHours(0, 0, 0, 0);
-    if (statisticsPeriod === "week") { from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 6); }
-    if (statisticsPeriod === "month") { from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 29); }
-    if (statisticsPeriod === "all") from.setTime(0);
-    const completionDate = (order: AdminOrder) => new Date(order.completedAt || order.updatedAt || order.createdAt);
-    const completedOrders = statisticsOrders.filter((order) => order.status === "completed" && completionDate(order) >= from);
-    const revenue = completedOrders.reduce((sum, order) => sum + order.total, 0);
-    const byProduct = new Map<string, { name: string; count: number; revenue: number }>();
-    const byPayment = new Map<string, number>();
-    const byHour = new Map<number, number>();
-    const byStatus = new Map<OrderStatus, number>();
-    for (const order of completedOrders) {
-      byPayment.set(order.paymentMethod, (byPayment.get(order.paymentMethod) || 0) + order.total);
-      const hour = completionDate(order).getHours();
-      byHour.set(hour, (byHour.get(hour) || 0) + order.total);
-      byStatus.set(order.status, (byStatus.get(order.status) || 0) + 1);
-      for (const item of order.items) {
-        const current = byProduct.get(item.productName) || { name: item.productName, count: 0, revenue: 0 };
-        current.count += item.quantity;
-        current.revenue += item.lineTotal;
-        byProduct.set(item.productName, current);
-      }
-    }
-    const productRows = [...byProduct.values()].sort((a, b) => b.revenue - a.revenue);
-    const paymentLabels: Record<string, string> = { cash: "Наличные", card: "Картой", online: "Онлайн" };
-    const payments = [...byPayment.entries()].map(([name, amount]) => ({ name: paymentLabels[name] || name, amount })).sort((a, b) => b.amount - a.amount);
-    const peaks = [...byHour.entries()].map(([hour, amount]) => ({ label: `${String(hour).padStart(2, "0")}:00 – ${String((hour + 1) % 24).padStart(2, "0")}:00`, amount })).sort((a, b) => b.amount - a.amount);
-    const statuses = [...byStatus.entries()].map(([status, count]) => ({ name: orderStatusLabels[status], count })).sort((a, b) => b.count - a.count);
-    const days = 7;
-    const chart = Array.from({ length: days }, (_, index) => {
-      const day = new Date(now);
-      if (statisticsPeriod === "today") { day.setHours(index * 4, 0, 0, 0); }
-      else { day.setHours(0, 0, 0, 0); day.setDate(day.getDate() - (days - 1 - index)); }
-      const amount = completedOrders.filter((order) => {
-        const date = completionDate(order);
-        return statisticsPeriod === "today" ? date.getHours() >= index * 4 && date.getHours() < (index + 1) * 4 : date.toDateString() === day.toDateString();
-      }).reduce((sum, order) => sum + order.total, 0);
-      return { label: statisticsPeriod === "today" ? `${String(index * 4).padStart(2, "0")}:00` : new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short" }).format(day), amount };
-    });
-    const chartMax = Math.max(...chart.map((point) => point.amount), 1);
-    return { orders: completedOrders.length, revenue, average: completedOrders.length ? revenue / completedOrders.length : 0, products: productRows, payments, peaks, statuses, chart: chart.map((point) => ({ ...point, percent: Math.max(4, (point.amount / chartMax) * 100) })) };
-  }, [statisticsOrders, statisticsPeriod]);
-
   const openProduct = (product?: Product & { categoryId: number }) => {
     setEditorSection("main");
     if (!product) {
-      setEditor(emptyProduct(productCategoryFilter === "all" ? String(dashboard?.categories[0]?.id || "") : productCategoryFilter));
+      presentEditor(emptyProduct(productCategoryFilter === "all" ? String(dashboard?.categories[0]?.id || "") : productCategoryFilter));
       return;
     }
-    setEditor({
+    presentEditor({
       kind: "product",
       id: product.id,
       values: {
@@ -650,7 +947,7 @@ export function AdminApp() {
 
   const openPromotion = (promotion?: Promotion) => {
     setEditorSection("main");
-    setEditor(promotion ? {
+    presentEditor(promotion ? {
       kind: "promotion",
       id: promotion.id,
       values: {
@@ -669,7 +966,7 @@ export function AdminApp() {
 
   const openCategory = (category?: Category) => {
     setEditorSection("main");
-    setEditor(category ? {
+    presentEditor(category ? {
       kind: "category",
       id: category.id,
       values: { title: category.title, slug: category.slug, image: category.image || "", sortOrder: String(category.sortOrder) },
@@ -686,6 +983,16 @@ export function AdminApp() {
   const saveEditor = async (event: FormEvent) => {
     event.preventDefault();
     if (!editor) return;
+    if (editor.kind === "product" && (
+      !String(editor.values.name || "").trim()
+      || !String(editor.values.image || "").trim()
+      || !String(editor.values.categoryId || "").trim()
+      || !Number.isFinite(Number(editor.values.price))
+    )) {
+      setEditorSection("main");
+      setMessage("Заполните название, изображение, категорию и цену блюда");
+      return;
+    }
     const numberFields = ["categoryId", "price", "naktaCoins", "sortOrder", "weight", "calories", "protein", "fat", "carbs"];
     const editorValues = { ...editor.values };
     if (!editor.id && editor.kind !== "promotion") editorValues.slug = slugify(String(editorValues.title || editorValues.name || "")) || `${editor.kind}-${Date.now()}`;
@@ -700,7 +1007,7 @@ export function AdminApp() {
         method: editor.id ? "PATCH" : "POST",
         body: JSON.stringify(payload),
       });
-      setEditor(null);
+      dismissEditor();
       setMessage("Изменения сохранены");
       await loadDashboard();
     } catch (error) {
@@ -710,20 +1017,29 @@ export function AdminApp() {
     }
   };
 
-  const deleteEditor = async () => {
-    if (!editor?.id || !window.confirm("Удалить без возможности восстановления?")) return;
-    const resource = editor.kind === "product" ? "products" : editor.kind === "promotion" ? "promotions" : "categories";
-    setLoading(true);
-    try {
-      await request(`/admin/${resource}/${editor.id}`, { method: "DELETE" });
-      setEditor(null);
-      setMessage("Удалено");
-      await loadDashboard();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось удалить");
-    } finally {
-      setLoading(false);
-    }
+  const deleteEditor = () => {
+    if (!editor?.id) return;
+    const currentEditor = editor;
+    setConfirmation({
+      title: `Удалить ${currentEditor.kind === "product" ? "блюдо" : currentEditor.kind === "promotion" ? "акцию" : "категорию"}?`,
+      description: "Объект исчезнет из панели и витрины. Это действие нельзя отменить.",
+      confirmLabel: "Удалить",
+      tone: "danger",
+      action: async () => {
+        const resource = currentEditor.kind === "product" ? "products" : currentEditor.kind === "promotion" ? "promotions" : "categories";
+        setLoading(true);
+        try {
+          await request(`/admin/${resource}/${currentEditor.id}`, { method: "DELETE" });
+          dismissEditor();
+          setMessage("Удалено");
+          await loadDashboard();
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : "Не удалось удалить");
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
   const updateProductAvailability = async (product: Product) => {
@@ -740,27 +1056,46 @@ export function AdminApp() {
     }
   };
 
-  const deleteProduct = async (product: Product) => {
+  const deleteProduct = (product: Product) => {
     setOpenProductActions(null);
-    if (!window.confirm(`Удалить блюдо «${product.name}» без возможности восстановления?`)) return;
-    setLoading(true);
-    try {
-      await request(`/admin/products/${product.id}`, { method: "DELETE" });
-      setMessage("Блюдо удалено");
-      await loadDashboard();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Не удалось удалить блюдо");
-    } finally {
-      setLoading(false);
-    }
+    setConfirmation({
+      title: `Удалить «${product.name}»?`,
+      description: "Блюдо исчезнет из каталога и клиентского меню. Это действие нельзя отменить.",
+      confirmLabel: "Удалить блюдо",
+      tone: "danger",
+      action: async () => {
+        setLoading(true);
+        try {
+          await request(`/admin/products/${product.id}`, { method: "DELETE" });
+          setMessage("Блюдо удалено");
+          await loadDashboard();
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : "Не удалось удалить блюдо");
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
   };
 
-  const authorize = (event: FormEvent) => {
+  const authorize = async (event: FormEvent) => {
     event.preventDefault();
     const nextToken = tokenDraft.trim();
-    if (!nextToken) return;
-    sessionStorage.setItem("losos-admin-token", nextToken);
-    setToken(nextToken);
+    if (!nextToken || authorizing) return;
+    setAuthorizing(true);
+    setLoginError("");
+    try {
+      const response = await fetch(`${apiUrl}/admin/settings`, {
+        headers: { "x-admin-token": nextToken },
+      });
+      if (!response.ok) throw new Error(response.status === 401 ? "Неверный код администратора" : "Сервер временно недоступен");
+      sessionStorage.setItem("losos-admin-token", nextToken);
+      setToken(nextToken);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Не удалось войти");
+    } finally {
+      setAuthorizing(false);
+    }
   };
 
   const logout = () => {
@@ -771,7 +1106,19 @@ export function AdminApp() {
     setSelectedOrder(null);
   };
 
-  const updateOrderStatus = async (order: AdminOrder, status: OrderStatus) => {
+  const updateOrderStatus = async (order: AdminOrder, status: OrderStatus, confirmed = false) => {
+    if (!confirmed && (status === "cancelled" || status === "completed")) {
+      setConfirmation({
+        title: status === "cancelled" ? `Отменить ${formatOrderNumber(order)}?` : `Завершить ${formatOrderNumber(order)}?`,
+        description: status === "cancelled"
+          ? "Заказ будет остановлен и больше не сможет вернуться в работу."
+          : "Клиенту будут начислены NAKTA Coin и, если достигнут порог, NFT. Повторить начисление нельзя.",
+        confirmLabel: status === "cancelled" ? "Отменить заказ" : "Завершить заказ",
+        tone: status === "cancelled" ? "danger" : "default",
+        action: () => updateOrderStatus(order, status, true),
+      });
+      return;
+    }
     setOrdersLoading(true);
     setMessage("");
     try {
@@ -780,7 +1127,6 @@ export function AdminApp() {
         body: JSON.stringify({ status }),
       }) as AdminOrder;
       setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
-      setStatisticsOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
       setSelectedOrder(updated);
       setMessage(`${formatOrderNumber(updated)}: ${orderStatusLabels[updated.status]}`);
     } catch (error) {
@@ -794,7 +1140,7 @@ export function AdminApp() {
   const openRegion = (item?: Region) => {
     setRegionEditorSection("main");
     setDeletedPickupLocationIds([]);
-    setRegionEditor(item ? {
+    presentRegionEditor(item ? {
       id: item.id,
       values: {
         slug: item.slug,
@@ -976,10 +1322,10 @@ export function AdminApp() {
           method: "DELETE",
         })),
       ]);
-      setRegionEditor(null);
+      dismissRegionEditor();
       setDeletedPickupLocationIds([]);
       await loadSettings();
-      setRegionByTab((current) => ({ ...current, [tab]: saved.slug }));
+      setRegion(saved.slug);
       setMessage("Настройки города сохранены");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось сохранить город");
@@ -992,34 +1338,32 @@ export function AdminApp() {
     return <main className="admin-login">
       <form onSubmit={authorize}>
         <div className="admin-login-brand"><img src="/logo.webp" alt="Накта суши" /><span><b>Накта суши</b><small>Кабинет управления</small></span></div>
-        <h1>Добро пожаловать</h1>
-        <p>Управляйте заказами, меню и работой заведений в одном месте.</p>
+        <h1>Вход в панель</h1>
         <label>Код администратора
-          <span className="admin-login-input"><input type="password" name="admin-code" autoComplete="current-password" value={tokenDraft} onChange={(event) => setTokenDraft(event.target.value)} placeholder="Введите код" autoFocus /></span>
+          <span className="admin-login-input"><input type="password" name="admin-code" autoComplete="current-password" value={tokenDraft} onChange={(event) => { setTokenDraft(event.target.value); setLoginError(""); }} placeholder="Введите код" aria-invalid={Boolean(loginError)} autoFocus /></span>
         </label>
-        <button type="submit">Войти</button>
+        {loginError ? <p className="admin-login-error" role="alert">{loginError}</p> : null}
+        <button type="submit" disabled={authorizing}>{authorizing ? "Проверяем…" : "Войти"}</button>
       </form>
     </main>;
   }
 
-  const tabTitle = tab === "statistics" ? "Статистика" : tab === "orders" ? "Заказы" : tab === "products" ? "Меню" : tab === "promotions" ? "Акции" : tab === "categories" ? "Категории" : "Настройки";
-  const tabIcon: Record<Tab, string> = { statistics: "⌁", orders: "▤", products: "☰", promotions: "✦", categories: "▦", settings: "⚙" };
-  const tabIconAsset: Partial<Record<Tab, string>> = {
-    statistics: "/statistics.svg",
-    orders: "/orders.svg",
-    products: "/menu.svg",
-    settings: "/settings.svg",
+  const pageMeta: Record<Tab, string> = {
+    statistics: "Аналитика",
+    orders: "Заказы",
+    customers: "Клиенты",
+    loyalty: "Лояльность",
+    products: "Каталог",
+    categories: "Категории",
+    promotions: "Акции",
+    settings: "Филиалы",
+    integrations: "Интеграции",
   };
-  const renderTabIcon = (item: Tab) => <i aria-hidden="true">
-    {tabIconAsset[item] ? <img src={tabIconAsset[item]} alt="" /> : tabIcon[item]}
-  </i>;
+  const tabTitle = pageMeta[tab];
   const switchTab = (item: Tab) => {
-    if (item === "products" && tab === "categories") {
-      setRegionByTab((current) => ({ ...current, products: current.categories }));
-    }
     setTab(item);
     setSearch("");
-    setEditor(null);
+    dismissEditor();
     setMobileNavOpen(false);
   };
 
@@ -1031,7 +1375,7 @@ export function AdminApp() {
     try {
       const menu = await request("/admin/edu-pos/sync-menu", { method: "POST" }) as { matched?: number; received?: number };
       const stopList = await request("/admin/edu-pos/sync-stop-list", { method: "POST" }) as { unavailable?: number };
-      await loadDashboard();
+      await Promise.all([loadDashboard(), loadEduPosStatus()]);
       setMessage(`EDU POS: сопоставлено ${menu.matched || 0} из ${menu.received || 0}, недоступно ${stopList.unavailable || 0}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось синхронизировать EDU POS");
@@ -1051,6 +1395,7 @@ export function AdminApp() {
         `/admin/edu-pos/export-menu?region=${encodeURIComponent(region)}`,
         { method: "POST" },
       ) as { categories?: number; products?: number };
+      await loadEduPosStatus();
       setMessage(`Меню отправлено в EDU POS: ${exported.products || 0} блюд, ${exported.categories || 0} категорий`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Не удалось экспортировать меню в EDU POS");
@@ -1060,50 +1405,21 @@ export function AdminApp() {
     }
   };
   const openCategoryManager = () => {
-    setRegionByTab((current) => ({ ...current, categories: region }));
     setTab("categories");
     setSearch("");
-    setEditor(null);
+    dismissEditor();
   };
-  const statusOptions: { value: "all" | OrderStatus; label: string }[] = [
-    { value: "all", label: "Все статусы" },
-    { value: "new", label: "Новые" },
-    { value: "confirmed", label: "Подтверждённые" },
-    { value: "preparing", label: "Готовятся" },
-    { value: "ready", label: "Готовые" },
-    { value: "delivering", label: "В пути" },
-    { value: "completed", label: "Завершённые" },
-    { value: "cancelled", label: "Отменённые" },
-  ];
-  const periodOptions: { value: OrderPeriod; label: string }[] = [
-    { value: "all", label: "Всё время" },
-    { value: "today", label: "Сегодня" },
-    { value: "week", label: "За 7 дней" },
-    { value: "month", label: "В этом месяце" },
-  ];
-  const totalStatusCount = Object.values(statusCounts).reduce((total, count) => total + (count || 0), 0);
-  const selectedStatus = statusOptions.find((option) => option.value === orderFilter) || statusOptions[0];
-  const selectedPeriod = periodOptions.find((option) => option.value === orderPeriod) || periodOptions[0];
-  const activeOrderCount = (statusCounts.confirmed || 0) + (statusCounts.preparing || 0) + (statusCounts.ready || 0) + (statusCounts.delivering || 0);
-  const navigation = ["statistics", "orders", "products", "promotions", "settings"] as Tab[];
-  const navigationLabel = (item: Tab) => item === "statistics" ? "Статистика" : item === "orders" ? "Заказы" : item === "products" ? "Меню" : item === "promotions" ? "Акции" : "Настройки";
-  const renderNavigationButton = (item: Tab) => <button
-    key={item}
-    type="button"
-    aria-current={tab === item || (item === "products" && tab === "categories") ? "page" : undefined}
-    className={tab === item || (item === "products" && tab === "categories") ? "active" : ""}
-    onClick={() => switchTab(item)}
-  >{renderTabIcon(item)}<span>{navigationLabel(item)}</span></button>;
-  const renderSidebar = (mobile = false) => <aside className={`admin-sidebar${mobile ? " admin-sidebar-mobile" : ""}`} aria-label="Навигация администратора">
-    <div className="admin-sidebar-brand">
-      <img src="/logo.webp" alt="Накта суши" />
-      <b>НАКТА СУШИ</b>
-    </div>
-    <nav className="admin-sidebar-navigation">{navigation.map(renderNavigationButton)}</nav>
-    <div className="admin-sidebar-footer">
-      <button type="button" className="admin-logout" onClick={logout}><i aria-hidden="true">↪</i><span>Выйти</span></button>
-    </div>
-  </aside>;
+  const totalOrderPages = Math.ceil(ordersTotal / ordersPerPage);
+  const pendingNftCount = Number(activeLoyaltyOverview?.metrics.nftStatuses.pending || 0)
+    + Number(activeLoyaltyOverview?.metrics.nftStatuses.submitted || 0);
+  const renderSidebar = (mobile = false) => <AdminNavigation
+    active={tab}
+    mobile={mobile}
+    newOrders={Number(statusCounts.new || 0)}
+    pendingNfts={pendingNftCount}
+    onSelect={switchTab}
+    onLogout={logout}
+  />;
 
   return <div className={`admin-shell${selectedOrder ? " has-order" : ""}`}>
     {renderSidebar()}
@@ -1122,66 +1438,90 @@ export function AdminApp() {
           <h1>{tabTitle}</h1>
         </div>
         <div className="admin-topbar-actions">
-          <select className="admin-topbar-region-select" aria-label="Город" value={region} onChange={(event) => selectRegion(event.target.value)}>
-            {availableRegions.filter((item) => item.enabled).map((item) => <option value={item.slug} key={item.slug}>{item.name}</option>)}
-          </select>
+          <label className="admin-region-context"><small>Рабочий филиал</small><select className="admin-topbar-region-select" aria-label="Рабочий филиал" value={region} onChange={(event) => selectRegion(event.target.value)}>{availableRegions.map((item) => <option value={item.slug} key={item.slug}>{item.name}{item.enabled ? "" : " · скрыт"}</option>)}</select></label>
         </div>
       </header>
 
       <section className="admin-content">
-      {tab === "statistics" ? <StatisticsDashboard data={statistics} period={statisticsPeriod} loading={statisticsLoading} onPeriodChange={setStatisticsPeriod} /> : null}
+      {tab === "statistics" ? <AdminOverview
+        regionName={selectedRegion?.name || region}
+        data={statistics}
+        period={statisticsPeriod}
+        loading={statisticsLoading}
+        onPeriodChange={setStatisticsPeriod}
+      /> : null}
 
-      {tab === "orders" ? <>
-        <div className="admin-order-overview" aria-label="Сводка заказов">
-          <span><small>Всего</small><strong>{ordersTotal}</strong></span>
-          <i />
-          <span><small>Новые</small><strong>{statusCounts.new || 0}</strong></span>
-          <i />
-          <span><small>В работе</small><strong>{activeOrderCount}</strong></span>
-          <i />
-          <span><small>Завершены</small><strong>{statusCounts.completed || 0}</strong></span>
-        </div>
-        <div className="admin-list-tools">
-          <label><i>⌕</i><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по № заказа, клиенту или адресу..." /></label>
-          <div className="admin-order-selects" ref={orderControlsRef}>
-            <div className={`admin-select-control${openOrderMenu === "status" ? " open" : ""}${orderFilter !== "all" ? " selected" : ""}`}>
-              <button type="button" className="admin-select-trigger" aria-haspopup="listbox" aria-expanded={openOrderMenu === "status"} onClick={() => setOpenOrderMenu((current) => current === "status" ? null : "status")}>
-                <span>{selectedStatus.label}</span><em>{orderFilter === "all" ? totalStatusCount : statusCounts[orderFilter] || 0}</em>
-              </button>
-              {openOrderMenu === "status" ? <div className="admin-select-options" role="listbox" aria-label="Статус заказа">
-                {statusOptions.map((option) => {
-                  const count = option.value === "all" ? totalStatusCount : statusCounts[option.value] || 0;
-                  return <button type="button" role="option" aria-selected={orderFilter === option.value} className={orderFilter === option.value ? "selected" : ""} key={option.value} onClick={() => { setOrderFilter(option.value); setOrderPage(1); setOpenOrderMenu(null); }}><span>{option.label}</span><em>{count}</em>{orderFilter === option.value ? <b>✓</b> : null}</button>;
-                })}
-              </div> : null}
-            </div>
-            <div className={`admin-select-control admin-period-control${openOrderMenu === "period" ? " open" : ""}${orderPeriod !== "all" ? " selected" : ""}`}>
-              <button type="button" className="admin-select-trigger" aria-haspopup="listbox" aria-expanded={openOrderMenu === "period"} onClick={() => setOpenOrderMenu((current) => current === "period" ? null : "period")}><span>{selectedPeriod.label}</span></button>
-              {openOrderMenu === "period" ? <div className="admin-select-options" role="listbox" aria-label="Период заказов">
-                {periodOptions.map((option) => <button type="button" role="option" aria-selected={orderPeriod === option.value} className={orderPeriod === option.value ? "selected" : ""} key={option.value} onClick={() => { setOrderPeriod(option.value); setOrderPage(1); setOpenOrderMenu(null); }}><span>{option.label}</span>{orderPeriod === option.value ? <b>✓</b> : null}</button>)}
-              </div> : null}
-            </div>
-          </div>
-        </div>
-        <div className="admin-orders">
-          <div className="admin-table-head"><span>Заказ</span><span>Клиент</span><span>Адрес</span><span>Статус</span><span>Сумма</span><span>Время</span></div>
-        {visibleOrders.map((order) => <button className={`admin-order-card${selectedOrder?.id === order.id ? " selected" : ""}`} key={order.id} onClick={() => setSelectedOrder(order)}>
-          <span className="admin-order-number"><b>{formatOrderNumber(order)}</b><small>{order.phone}</small></span>
-          <span className="admin-order-customer"><b>{order.customerName}</b><small>{order.phone}</small></span>
-          <span className="admin-order-address">{order.deliveryType === "pickup" ? "Самовывоз" : order.address}</span>
-          <span className={`admin-order-status status-${order.status}`}>{orderStatusLabels[order.status]}</span>
-          <span className="admin-order-total">{order.total.toLocaleString("ru-RU")} сом</span>
-          <span className="admin-order-time">{formatOrderDate(order.createdAt)}</span>
-          <span className="admin-order-open">›</span>
-        </button>)}
-        {!ordersLoading && orders.length === 0 ? <div className="admin-empty"><b>Заказов пока нет</b><span>Новые заказы появятся здесь автоматически.</span></div> : null}
-        {!ordersLoading && orders.length > 0 && visibleOrders.length === 0 ? <div className="admin-empty"><b>Ничего не найдено</b><span>Попробуйте изменить поиск или фильтр.</span></div> : null}
-        <footer><span>Показано {(orderPage - 1) * ordersPerPage + visibleOrders.length} из {ordersTotal}</span>{Math.ceil(ordersTotal / ordersPerPage) > 1 ? <>
-          <button type="button" disabled={orderPage === 1} onClick={() => setOrderPage((current) => current - 1)}>‹</button>
-          {Array.from({ length: Math.ceil(ordersTotal / ordersPerPage) }, (_, index) => index + 1).map((page) => <button type="button" key={page} className={page === orderPage ? "active" : ""} onClick={() => setOrderPage(page)}>{page}</button>)}
-          <button type="button" disabled={orderPage === Math.ceil(ordersTotal / ordersPerPage)} onClick={() => setOrderPage((current) => current + 1)}>›</button>
-        </> : null}</footer>
-      </div></> : null}
+      {tab === "orders" ? <OrdersWorkspace
+        orders={orders}
+        total={ordersTotal}
+        statusCounts={statusCounts}
+        loading={ordersLoading}
+        search={search}
+        status={orderFilter}
+        period={orderPeriod}
+        view={orderView}
+        page={orderPage}
+        pageSize={ordersPerPage}
+        pageCount={Math.max(1, totalOrderPages)}
+        selectedOrderId={selectedOrder?.id}
+        onSearchChange={(value) => { setSearch(value); setOrderPage(1); }}
+        onStatusChange={(value) => { setOrderFilter(value); setOrderPage(1); }}
+        onPeriodChange={(value) => { setOrderPeriod(value); setOrderPage(1); }}
+        onViewChange={(value) => { setOrderView(value); setOrderPage(1); }}
+        onPageChange={setOrderPage}
+        onOrderOpen={setSelectedOrder}
+        onRefresh={() => void loadOrders()}
+      /> : null}
+
+      {tab === "customers" ? <CustomersView
+        customers={customers}
+        loading={customersLoading}
+        search={customerSearch}
+        total={customersTotal}
+        page={customerPage}
+        pageCount={Math.max(1, Math.ceil(customersTotal / 50))}
+        onSearchChange={(value) => { setCustomerSearch(value); setCustomerPage(1); }}
+        onPageChange={setCustomerPage}
+        onOpenOrders={(phone) => {
+          switchTab("orders");
+          setSearch(phone);
+          setOrderPage(1);
+        }}
+      /> : null}
+
+      {tab === "loyalty" ? <LoyaltyCenter
+        regionName={selectedRegion?.name || region}
+        overview={activeLoyaltyOverview}
+        draft={loyaltyDraft}
+        withdrawals={nftWithdrawals}
+        filter={nftFilter}
+        loading={loyaltyOverviewLoading || nftWithdrawalsLoading}
+        saving={loyaltySaving}
+        updatingId={nftUpdatingId}
+        onDraftChange={(patch) => setLoyaltyDraft((current) => ({ ...current, ...patch }))}
+        onFilterChange={setNftFilter}
+        onSave={saveLoyaltyProgram}
+        onWithdrawalUpdate={updateNftWithdrawal}
+        onOpenCatalog={() => switchTab("products")}
+        onImageFile={async (file) => {
+          try {
+            const image = await fileToOptimizedDataUrl(file);
+            setLoyaltyDraft((current) => ({ ...current, image }));
+          } catch (error) {
+            setMessage(error instanceof Error ? error.message : "Не удалось обработать изображение");
+          }
+        }}
+      /> : null}
+
+      {tab === "integrations" ? <IntegrationsView
+        status={eduPosStatus}
+        loading={eduPosStatusLoading}
+        action={eduPosAction}
+        nftTransferConfigured={Boolean(activeLoyaltyOverview?.transferProviderConfigured)}
+        onRefresh={loadEduPosStatus}
+        onImport={importEduPosMenu}
+        onExport={exportEduPosMenu}
+      /> : null}
 
       {tab === "products" ? <>
         <div className="admin-page-summary">
@@ -1191,16 +1531,17 @@ export function AdminApp() {
           {dashboard?.menuRegionSlug !== region ? <><i /><span>Общее меню: <b>{availableRegions.find((item) => item.slug === dashboard?.menuRegionSlug)?.name || dashboard?.menuRegionSlug}</b></span></> : null}
         </div>
         <div className="admin-catalog-card">
+          <nav className="admin-catalog-subnav" aria-label="Разделы каталога"><button type="button" className="active">Блюда</button><button type="button" onClick={openCategoryManager}>Категории</button></nav>
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию блюда" /></label>
-            <div className="admin-menu-actions"><button type="button" className="admin-category-add" disabled={loading} aria-busy={eduPosAction === "import"} title="Получить цены и стоп-лист из EDU POS" onClick={() => void importEduPosMenu()}>{eduPosAction === "import" ? "Получаем…" : "↓ Из EDU POS"}</button><button type="button" className="admin-category-add" disabled={loading} aria-busy={eduPosAction === "export"} title="Отправить всё меню выбранного города в EDU POS" onClick={() => void exportEduPosMenu()}>{eduPosAction === "export" ? "Отправляем…" : "↑ В EDU POS"}</button><button type="button" className="admin-category-add" onClick={openCategoryManager}>＋ Категория</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
+            <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("integrations")}>EDU POS</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
           </div>
           <div className="admin-menu-categories" aria-label="Категории меню">
             <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
             {(dashboard?.categories || []).map((category) => <button type="button" key={category.id} className={productCategoryFilter === String(category.id) ? "active" : ""} onClick={() => setProductCategoryFilter(String(category.id))}>{category.title} <span>{category.products.length}</span></button>)}
           </div>
           <div className="admin-products-table">
-        <div className="admin-products-head"><span>Блюдо</span><span>Категория</span><span>Цена</span><span>Статус</span><span>Действия</span></div>
+        <div className="admin-products-head"><span>Блюдо</span><span>Категория</span><span>Цена</span><span>NAKTA Coin</span><span>Статус</span><span>Действия</span></div>
         {visibleProducts.map((product) => <article className="admin-product" key={product.id} role="button" tabIndex={0} onClick={() => openProduct(product)} onKeyDown={(event) => {
           if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
           event.preventDefault();
@@ -1210,6 +1551,7 @@ export function AdminApp() {
           <span><b>{product.name}</b><small>ID: {product.id}{product.posDishId ? ` · POS: ${product.posDishId}` : " · не сопоставлено с POS"}</small></span>
           <span className="admin-product-category">{product.categoryTitle}</span>
           <strong>{product.price} сом{product.oldPrice && product.oldPrice > product.price ? <small> {product.oldPrice} сом</small> : null}</strong>
+          <span className={`admin-product-coins${product.naktaCoins ? " configured" : ""}`}>{product.naktaCoins ? `+${product.naktaCoins}` : "—"}</span>
           <i className={product.available && product.posAvailable ? "available" : ""}>{!product.available ? "Отключено" : product.posAvailable ? "В продаже" : "Стоп-лист POS"}</i>
           <div className="admin-product-actions" onClick={(event) => event.stopPropagation()}><button type="button" aria-label={`Действия: ${product.name}`} aria-expanded={openProductActions === product.id} onClick={() => setOpenProductActions((current) => current === product.id ? null : product.id)}>⋮</button>{openProductActions === product.id ? <div className="admin-product-action-menu"><button type="button" onClick={() => void updateProductAvailability(product)}>{product.available ? "Сделать неактивным" : "Сделать активным"}</button><button type="button" className="delete" onClick={() => void deleteProduct(product)}>Удалить</button></div> : null}</div>
         </article>)}
@@ -1238,9 +1580,10 @@ export function AdminApp() {
       {tab === "categories" ? <>
         <div className="admin-page-summary"><span>Категорий: <b>{dashboard?.categories.length || 0}</b></span><i /><span>Блюд: <b>{products.length}</b></span></div>
         <div className="admin-catalog-card">
+          <nav className="admin-catalog-subnav" aria-label="Разделы каталога"><button type="button" onClick={() => switchTab("products")}>Блюда</button><button type="button" className="active">Категории</button></nav>
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по категориям" /></label>
-            <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("products")}>← К меню</button><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
+            <div className="admin-menu-actions"><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
           </div>
           <div className="admin-categories">
             <div className="admin-categories-head"><span>Фото</span><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
@@ -1252,9 +1595,9 @@ export function AdminApp() {
       </> : null}
 
       {tab === "settings" ? <div className="admin-settings">
-        <div className="admin-settings-toolbar"><span>Управляйте городами, графиком, доставкой и контактами</span><button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button></div>
+        <div className="admin-settings-toolbar"><span>Всего: {availableRegions.length}</span><button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button></div>
         <section>
-          <div className="admin-settings-title"><span><b>Города и контакты</b><small>Города, доступные на витрине, и данные для связи с клиентами.</small></span></div>
+          <div className="admin-settings-title"><span><b>Города и контакты</b></span></div>
           <div className="admin-settings-list">
             {availableRegions.map((item) => <button key={item.id || item.slug} onClick={() => openRegion(item)}>
               <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug} · меню: {availableRegions.find((source) => source.slug === item.menuSourceRegionSlug)?.name || "своё"} · акции: {availableRegions.find((source) => source.slug === item.promotionSourceRegionSlug)?.name || "свои"}</small></span>
@@ -1266,19 +1609,15 @@ export function AdminApp() {
             </button>)}
           </div>
         </section>
-        <section className="admin-settings-exit">
-          <div><b>Сеанс администратора</b><small>Выход из панели на этом устройстве.</small></div>
-          <button onClick={logout}>Выйти</button>
-        </section>
       </div> : null}
       </section>
     </div>
 
-    {editor ? <div className={`admin-editor-overlay admin-editor-page${editor.kind === "category" ? " admin-category-overlay" : ""}`} role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditor(null); }}>
+    {editor ? <div className={`admin-editor-overlay admin-editor-page${editor.kind === "category" ? " admin-category-overlay" : ""}`} role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
       <form className={`admin-editor admin-editor-${editor.kind}`} onSubmit={saveEditor}>
         <div className="admin-editor-head">
           <span><b>{editor.id ? "Редактирование" : "Добавление"} {editor.kind === "product" ? "блюда" : editor.kind === "promotion" ? "акции" : "категории"}</b></span>
-          <button type="button" onClick={() => setEditor(null)} aria-label="Закрыть">×</button>
+          <button type="button" onClick={closeEditor} aria-label="Закрыть">×</button>
         </div>
 
         {editor.kind === "product" ? <>
@@ -1310,6 +1649,7 @@ export function AdminApp() {
                 </div>
                 <div className="admin-editor-inline-row">
                   <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
+                  <label className="admin-switch"><span><b>Новинка</b><small>Показывать отметку в меню</small></span><input type="checkbox" checked={Boolean(editor.values.isNew)} onChange={(event) => updateValue("isNew", event.target.checked)} /></label>
                   <label className="admin-switch"><span><b>В продаже</b><small>Можно заказать на сайте</small></span><input type="checkbox" checked={Boolean(editor.values.available)} onChange={(event) => updateValue("available", event.target.checked)} /></label>
                 </div>
               </section>
@@ -1340,18 +1680,18 @@ export function AdminApp() {
         <div className="admin-editor-actions">
           {editor.id ? <button type="button" className="admin-delete" onClick={deleteEditor}>Удалить</button> : <span />}
           <div className="admin-editor-action-buttons">
-            <button type="button" className="admin-cancel" onClick={() => setEditor(null)}>Отмена</button>
+            <button type="button" className="admin-cancel" onClick={closeEditor}>Отмена</button>
             <button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button>
           </div>
         </div>
       </form>
     </div> : null}
 
-    {regionEditor ? <div className="admin-editor-overlay admin-region-overlay" role="dialog" aria-modal="true" aria-label="Настройки города" onMouseDown={(event) => { if (event.target === event.currentTarget) setRegionEditor(null); }}>
+    {regionEditor ? <div className="admin-editor-overlay admin-region-overlay" role="dialog" aria-modal="true" aria-label="Настройки города" onMouseDown={(event) => { if (event.target === event.currentTarget) closeRegionEditor(); }}>
       <form className="admin-region-editor" onSubmit={saveRegion}>
         <div className="admin-editor-head">
           <span><small>Настройки</small><b>{regionEditor.id ? "Редактирование города" : "Новый город"}</b></span>
-          <button type="button" onClick={() => setRegionEditor(null)} aria-label="Закрыть">×</button>
+          <button type="button" onClick={closeRegionEditor} aria-label="Закрыть">×</button>
         </div>
         <nav className="admin-editor-tabs admin-region-tabs" aria-label="Разделы города">
           <button type="button" className={regionEditorSection === "main" ? "active" : ""} onClick={() => setRegionEditorSection("main")}>Основное</button>
@@ -1459,7 +1799,7 @@ export function AdminApp() {
         </div>
         </div> : null}
         </div>
-        <div className="admin-editor-actions"><span /><div className="admin-editor-action-buttons"><button type="button" className="admin-cancel" onClick={() => setRegionEditor(null)}>Отмена</button><button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button></div></div>
+        <div className="admin-editor-actions"><span /><div className="admin-editor-action-buttons"><button type="button" className="admin-cancel" onClick={closeRegionEditor}>Отмена</button><button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button></div></div>
       </form>
     </div> : null}
 
@@ -1537,6 +1877,15 @@ export function AdminApp() {
             onClick={() => void updateOrderStatus(selectedOrder, status)}
           >{status === "cancelled" ? "Отменить заказ" : selectedOrder.status === "new" && status === "confirmed" ? "→ Подтвердить заказ" : `→ ${orderStatusLabels[status]}`}</button>)}
         </div> : null}
+      </section>
+    </div> : null}
+
+    {confirmation ? <div className="admin-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-confirm-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !confirmationBusy) setConfirmation(null); }}>
+      <section className="admin-confirm-dialog">
+        <span className={`admin-confirm-icon ${confirmation.tone === "danger" ? "danger" : "default"}`} aria-hidden="true">{confirmation.tone === "danger" ? "!" : "✓"}</span>
+        <h2 id="admin-confirm-title">{confirmation.title}</h2>
+        <p>{confirmation.description}</p>
+        <div><button type="button" className="admin-secondary-button" disabled={confirmationBusy} onClick={() => setConfirmation(null)}>Оставить как есть</button><button type="button" className={confirmation.tone === "danger" ? "admin-danger-button" : "admin-primary-button"} disabled={confirmationBusy} onClick={() => void runConfirmation()}>{confirmationBusy ? "Выполняем…" : confirmation.confirmLabel}</button></div>
       </section>
     </div> : null}
   </div>;

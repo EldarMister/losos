@@ -12,10 +12,24 @@ import { AdminTokenGuard } from "./admin-token.guard";
 import { PushNotificationsModule } from "../notifications/push-notifications.module";
 import { PickupLocation } from "../catalog/pickup-location.entity";
 import { EduPosModule } from "../edu-pos/edu-pos.module";
+import { PhoneAccount } from "../auth/phone-account.entity";
+import { AccountNft } from "../rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Region, PickupLocation, Category, Product, Promotion, Order, OrderItem]),
+    TypeOrmModule.forFeature([
+      Region,
+      PickupLocation,
+      Category,
+      Product,
+      Promotion,
+      Order,
+      OrderItem,
+      PhoneAccount,
+      AccountNft,
+      NaktaCoinTransaction,
+    ]),
     PushNotificationsModule,
     EduPosModule,
   ],

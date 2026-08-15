@@ -10,6 +10,8 @@ import { WhatsappCloudService } from "./whatsapp-cloud.service";
 import { PushNotificationsModule } from "../notifications/push-notifications.module";
 import { CaptchaVerificationService } from "./captcha-verification.service";
 import { PhoneAccountSession } from "./phone-account-session.entity";
+import { AccountNft } from "../rewards/account-nft.entity";
+import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { PhoneAccountSession } from "./phone-account-session.entity";
       AuthorizedPhone,
       PhoneAccount,
       PhoneAccountSession,
+      AccountNft,
+      NaktaCoinTransaction,
     ]),
     PushNotificationsModule,
   ],
