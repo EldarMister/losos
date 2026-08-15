@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { lazy, Suspense, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
+import { WebProfileModal } from "./WebProfileModal";
 import type { DeliveryLocation, DeliveryZonePoint } from "./YandexDeliveryMap";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
@@ -1332,15 +1333,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}><span>Далее</span><b>{money(cartTotal)}</b></button> : null}
 
       {menuOpen ? (
-        <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
-          <section className="profile-modal">
-            <button className="profile-close" onClick={() => setMenuOpen(false)} aria-label="Закрыть">×</button>
-            <div className="profile-user"><span className="cat-reference" aria-hidden="true" /><div><span>Привет!</span><strong>Войдите в профиль</strong></div></div>
-            <img className="profile-award" src="https://mnogolososya.ru/_nuxt/auth-roskachestvo-banner.CHXK7t8d.png" alt="Официально лучшее приложение 2025 года для доставки готовой еды по итогам проверки Роскачества. Проверьте сами!" />
-            <nav className="profile-links" aria-label="Меню профиля"><a href="https://mnogolososya.ru/support"><img src="https://mnogolososya.ru/_nuxt/Support.xyJ2YVkd.png" alt="" />Поддержка</a><a href="https://mnogolososya.ru/page/o-nas"><img src="https://mnogolososya.ru/_nuxt/About.TR1tfEtn.png" alt="" />О нас</a></nav>
-            <button className="profile-login">Войти</button>
-          </section>
-        </div>
+        <WebProfileModal apiUrl={STOREFRONT_API_URL} onClose={() => setMenuOpen(false)} />
       ) : null}
 
       {promoOpen ? (

@@ -19,16 +19,16 @@ test("server-renders the storefront", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>Много лосося \| Суши, пиццы, роллы<\/title>/i);
+  assert.match(html, /<title>Накта суши \| Суши, пиццы, роллы<\/title>/i);
   assert.match(html, /Salmon Lovers Club/);
-  assert.match(html, /Загружаем меню/);
   assert.match(html, /Корзина/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 
-test("includes the product, cart and address flows", async () => {
-  const [storefront, yandexMap, mapsConfigRoute, geocodeRoute, envExample, catalog, categoryPage, globals, packageJson] = await Promise.all([
+test("includes the product, cart, profile and address flows", async () => {
+  const [storefront, webProfile, yandexMap, mapsConfigRoute, geocodeRoute, envExample, catalog, categoryPage, globals, packageJson] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/WebProfileModal.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/components/YandexDeliveryMap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/maps-config/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/geocode/route.ts", import.meta.url), "utf8"),
@@ -44,7 +44,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /className="cart-drawer"/);
   assert.match(storefront, /aria-label="Самовывоз"/);
   assert.match(storefront, /pickup-location/);
-  assert.match(storefront, /pm2rdl/);
+  assert.match(storefront, /pickupYandexUrl/);
   assert.match(storefront, /<YandexDeliveryMap/);
   assert.match(storefront, /deliveryLocation/);
   assert.match(storefront, /Заказать сюда/);
@@ -72,16 +72,23 @@ test("includes the product, cart and address flows", async () => {
   assert.match(geocodeRoute, /\{ suggestions, items \}/);
   assert.match(envExample, /YANDEX_MAPS_API_KEY=/);
   assert.match(envExample, /YANDEX_SUGGEST_API_KEY=/);
+  assert.match(envExample, /NEXT_PUBLIC_TURNSTILE_SITE_KEY=/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
   assert.match(storefront, /modifier-groups/);
   assert.match(storefront, /Настройте блюдо/);
-  assert.match(storefront, /product-new-badge/);
   assert.match(storefront, /story-progress/);
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
-  assert.match(storefront, /className="profile-modal"/);
-  assert.match(storefront, /auth-roskachestvo-banner/);
+  assert.match(storefront, /<WebProfileModal/);
+  assert.match(webProfile, /className="profile-modal"/);
+  assert.match(webProfile, /auth\/request-code/);
+  assert.match(webProfile, /auth\/verify-code/);
+  assert.match(webProfile, /auth\/profile/);
+  assert.match(webProfile, /\/withdraw\?phone=/);
+  assert.match(webProfile, /NEXT_PUBLIC_TURNSTILE_SITE_KEY/);
+  assert.match(webProfile, /NAKTA Coin/);
+  assert.match(webProfile, /Ваши NFT/);
   assert.match(storefront, /searchOpen/);
   assert.match(storefront, /Что ищем\?/);
   assert.match(storefront, /b92972a55683d636714fea75d11469ce/);

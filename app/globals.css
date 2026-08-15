@@ -422,18 +422,60 @@ a { color: inherit; text-decoration: none; }
 .checkout-success > div:not(.checkout-success-mark) { width: 100%; display: flex; justify-content: space-between; margin: 32px 0 18px; padding: 18px 20px; border-radius: 22px; background: var(--soft); font-size: 18px; }
 .checkout-success > button { width: 100%; height: 58px; border-radius: 30px; background: var(--orange); color: #fff; font-weight: 600; }
 .profile-overlay { z-index: 140; }
-.profile-modal { position: relative; width: 400px; height: min(632px, calc(100vh - 40px)); overflow: hidden; border-radius: 36px; background: #fff; }
+.profile-modal { position: relative; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 36px; background: #fff; scrollbar-color: #c9c9ce transparent; }
 .profile-close { position: absolute; z-index: 2; right: 30px; top: 28px; width: 24px; height: 24px; padding: 0; background: transparent; color: #929298; font-size: 30px; font-weight: 300; line-height: 22px; }
-.profile-user { position: absolute; left: 31px; top: 52px; display: flex; align-items: center; gap: 16px; }
-.profile-user > .cat-reference { flex: 0 0 60px; border-radius: 50%; background-color: #f1f1f3; }
-.profile-user span, .profile-user strong { display: block; }
-.profile-user span { font-size: 15px; line-height: 20px; }
-.profile-user strong { color: #59595f; font-size: 20px; line-height: 24px; font-weight: 600; }
-.profile-award { position: absolute; left: 21px; top: 130px; width: 355px; height: 136px; object-fit: cover; border-radius: 24px; }
-.profile-links { position: absolute; left: 21px; right: 21px; top: 298px; display: grid; }
-.profile-links a { height: 60px; display: flex; align-items: flex-start; gap: 16px; font-size: 20px; line-height: 28px; }
-.profile-links img { width: 28px; height: 28px; object-fit: contain; }
-.profile-login { position: absolute; left: 21px; right: 24px; bottom: 19px; width: auto; height: 56px; border-radius: 28px; background: var(--orange); color: #fff; font-size: 14px; font-weight: 500; }
+.web-profile-auth, .web-profile-content { min-height: 420px; padding: 42px 28px 30px; }
+.web-profile-heading { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-right: 44px; }
+.web-profile-heading > .cat-reference { flex: 0 0 60px; border-radius: 50%; background-color: #f1f1f3; }
+.web-profile-heading span, .web-profile-heading strong { display: block; }
+.web-profile-heading span { font-size: 15px; line-height: 20px; }
+.web-profile-heading strong { color: #59595f; font-size: 20px; line-height: 24px; font-weight: 600; }
+.web-profile-auth form { display: grid; gap: 10px; }
+.web-profile-auth label { color: #6f6f75; font-size: 13px; }
+.web-profile-auth input, .web-profile-wallet input { width: 100%; height: 52px; border: 1px solid #e3e3e7; border-radius: 18px; outline: none; background: #f7f7f8; padding: 0 17px; color: #202024; font: inherit; }
+.web-profile-auth input:focus, .web-profile-wallet input:focus { border-color: var(--orange); background: #fff; }
+.web-profile-captcha { min-height: 65px; margin-top: 4px; overflow: hidden; }
+.web-profile-primary, .web-profile-secondary { width: 100%; height: 54px; border-radius: 28px; font-size: 14px; font-weight: 600; }
+.web-profile-primary { margin-top: 4px; background: var(--orange); color: #fff; }
+.web-profile-primary:disabled, .web-profile-wallet button:disabled { opacity: .5; cursor: default; }
+.web-profile-secondary { background: #f2f2f4; color: #59595f; }
+.web-profile-note { margin: 0 0 10px; color: #7d7d83; font-size: 14px; }
+.web-profile-error { margin: 14px 0 0; border-radius: 14px; background: #fff0ed; padding: 12px 14px; color: #c33f27; font-size: 13px; line-height: 18px; }
+.web-profile-account { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-right: 44px; }
+.web-profile-account span, .web-profile-account strong { display: block; }
+.web-profile-account span { color: #96969c; font-size: 12px; }
+.web-profile-account strong { margin-top: 3px; font-size: 18px; }
+.web-profile-account button { height: 34px; border-radius: 18px; background: #f2f2f4; padding: 0 15px; color: #69696f; font-size: 12px; }
+.web-profile-loading { margin: 48px 0; color: #8d8d93; text-align: center; }
+.web-profile-balances { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }
+.web-profile-balances article { min-height: 142px; display: flex; flex-direction: column; border-radius: 25px; padding: 20px; }
+.web-profile-balances span { font-size: 14px; font-weight: 600; }
+.web-profile-balances strong { margin: 8px 0 4px; font-size: 36px; line-height: 39px; }
+.web-profile-balances small { margin-top: auto; font-size: 11px; }
+.web-profile-coin-card { background: #fff2cf; color: #9b6400; }
+.web-profile-nft-balance { background: #eee9ff; color: #6543c6; }
+.web-profile-orders { margin: 12px 2px 0; color: #8b8b91; font-size: 12px; }
+.web-profile-nfts { margin-top: 28px; }
+.web-profile-nfts > h2 { margin: 0; font-size: 23px; }
+.web-profile-nfts > p { margin: 8px 0 16px; color: #78787e; font-size: 13px; line-height: 19px; }
+.web-profile-nft-card { border: 1px solid #ececef; border-radius: 23px; padding: 15px; }
+.web-profile-nft-card + .web-profile-nft-card { margin-top: 10px; }
+.web-profile-nft-header { display: flex; align-items: center; gap: 13px; }
+.web-profile-nft-header > img, .web-profile-nft-placeholder { width: 68px; height: 68px; flex: 0 0 68px; border-radius: 18px; object-fit: cover; }
+.web-profile-nft-placeholder { display: grid; place-items: center; background: #eee9ff; color: #7857d6; font-size: 34px; }
+.web-profile-nft-header > div { min-width: 0; }
+.web-profile-nft-header strong, .web-profile-nft-header span, .web-profile-nft-header small { display: block; }
+.web-profile-nft-header strong { font-size: 16px; }
+.web-profile-nft-header span { margin-top: 4px; color: #7657ce; font-size: 12px; }
+.web-profile-nft-header small { margin-top: 4px; color: #929298; font-size: 11px; }
+.web-profile-nft-card > p { margin: 12px 2px 0; color: #737379; font-size: 13px; line-height: 18px; }
+.web-profile-wallet { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 8px; margin-top: 13px; }
+.web-profile-wallet input { min-width: 0; height: 46px; border-radius: 15px; font-size: 12px; }
+.web-profile-wallet button { border-radius: 15px; background: #7657ce; color: #fff; font-size: 12px; font-weight: 600; }
+.web-profile-wallet-result, .web-profile-withdraw-error { display: block; margin: 9px 2px 0; overflow-wrap: anywhere; font-size: 10px; line-height: 14px; }
+.web-profile-wallet-result { color: #77777d; }
+.web-profile-withdraw-error { color: #c33f27; }
+.web-profile-empty { border-radius: 20px; background: #f6f6f7; padding: 24px 18px; color: #8a8a90; text-align: center; font-size: 13px; line-height: 19px; }
 .promo-overlay { position: fixed; inset: 0; z-index: 150; display: flex; align-items: flex-start; justify-content: center; background: rgba(0,0,0,.62); backdrop-filter: blur(7px); }
 .story-card { position: relative; width: min(456px, calc(100vw - 40px)); height: 811px; border-radius: 32px; overflow: hidden; background: #10a7e9; box-shadow: 0 12px 42px rgba(0,0,0,.24); }
 .story-image { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -638,12 +680,13 @@ a { color: inherit; text-decoration: none; }
   .checkout-success { padding: 28px 20px; }
   .checkout-success h2 { font-size: 30px; line-height: 36px; }
   .profile-overlay { padding: 0; place-items: stretch; }
-  .profile-modal { width: 100vw; height: 100dvh; border-radius: 40px 40px 0 0; }
+  .profile-modal { width: 100vw; height: 100dvh; max-height: none; border-radius: 40px 40px 0 0; }
   .profile-close { right: 27px; top: 28px; }
-  .profile-user { left: 30px; top: 60px; }
-  .profile-award { left: 21px; top: 139px; width: calc(100% - 42px); height: auto; aspect-ratio: 355 / 136; }
-  .profile-links { top: 319px; }
-  .profile-login { left: 21px; right: 24px; bottom: 19px; }
+  .web-profile-auth, .web-profile-content { min-height: 100%; padding: 46px 20px 28px; }
+  .web-profile-balances { grid-template-columns: 1fr 1fr; }
+  .web-profile-balances article { min-height: 132px; padding: 17px; }
+  .web-profile-wallet { grid-template-columns: 1fr; }
+  .web-profile-wallet button { height: 46px; }
   .composition-overlay { padding: 0; place-items: start center; overflow: hidden; }
   .composition-modal { width: 100vw; height: calc(100vh - 43px); margin-top: 43px; grid-template-rows: 25px 62px minmax(0, 1fr) 55.6px; border-radius: 40px 40px 0 0; padding: 20px; }
   .composition-navigation { position: static; width: auto; height: 25px; margin: 0 -10px; padding: 0 22px 0 16px; display: flex; align-items: flex-start; justify-content: space-between; }

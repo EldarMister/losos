@@ -4,7 +4,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor";
 
-type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string };
+type Region = { id: number; slug: string; name: string; enabled: boolean; sortOrder: number; contactPhone: string; contactEmail: string; contactAddress: string; pickupAddress: string; pickupYandexUrl: string; pickupWorkingHours: string; deliveryOpenTime: string; deliveryCloseTime: string; deliveryIs24Hours: boolean; freeDeliveryThreshold: number; deliveryFee: number; estimatedDeliveryMinutes: number; minimumOrderAmount: number; maximumOrderAmount: number; deliveryZone: DeliveryZonePoint[]; footerCompanyName: string; footerLegalInfo: string; nftRewardEveryOrders: number; nftRewardName: string; nftRewardImage: string; nftRewardDescription: string; nftRewardNetwork: string; nftContractAddress: string; nftMetadataUri: string };
 type Product = {
   id: number;
   name: string;
@@ -15,6 +15,7 @@ type Product = {
   description: string;
   composition: string;
   isNew: boolean;
+  naktaCoins: number;
   modifierGroups: ModifierGroup[];
   available: boolean;
   sortOrder: number;
@@ -115,8 +116,8 @@ const defaultDeliveryZones: Record<string, DeliveryZonePoint[]> = {
   osh: [[40.59, 72.75], [40.6, 72.84], [40.565, 72.9], [40.505, 72.91], [40.46, 72.86], [40.445, 72.78], [40.475, 72.72], [40.535, 72.7]].map(([latitude, longitude]) => ({ latitude, longitude })),
 };
 const defaultRegions: Region[] = [
-  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "" },
-  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "" },
+  { id: 0, slug: "bishkek", name: "Бишкек", enabled: true, sortOrder: 0, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.bishkek, footerCompanyName: "", footerLegalInfo: "", nftRewardEveryOrders: 10, nftRewardName: "NFT NAKTA", nftRewardImage: "", nftRewardDescription: "", nftRewardNetwork: "polygon", nftContractAddress: "", nftMetadataUri: "" },
+  { id: 1, slug: "osh", name: "Ош", enabled: true, sortOrder: 1, contactPhone: "", contactEmail: "", contactAddress: "", pickupAddress: "", pickupYandexUrl: "", pickupWorkingHours: "", deliveryOpenTime: "11:30", deliveryCloseTime: "22:30", deliveryIs24Hours: false, freeDeliveryThreshold: 4900, deliveryFee: 99, estimatedDeliveryMinutes: 50, minimumOrderAmount: 900, maximumOrderAmount: 30000, deliveryZone: defaultDeliveryZones.osh, footerCompanyName: "", footerLegalInfo: "", nftRewardEveryOrders: 10, nftRewardName: "NFT NAKTA", nftRewardImage: "", nftRewardDescription: "", nftRewardNetwork: "polygon", nftContractAddress: "", nftMetadataUri: "" },
 ];
 
 function formatDeliveryZone(points: DeliveryZonePoint[] | undefined) {
@@ -198,6 +199,7 @@ const emptyProduct = (categoryId = ""): Editor => ({
     description: "",
     composition: "",
     isNew: false,
+    naktaCoins: "0",
     modifierGroups: [],
     available: true,
     sortOrder: "0",
@@ -497,6 +499,7 @@ export function AdminApp() {
         composition: product.composition,
         available: product.available,
         isNew: product.isNew,
+        naktaCoins: String(product.naktaCoins || 0),
         modifierGroups: product.modifierGroups || [],
         categoryId: String(product.categoryId),
         price: String(product.price),
@@ -543,7 +546,7 @@ export function AdminApp() {
   const saveEditor = async (event: FormEvent) => {
     event.preventDefault();
     if (!editor) return;
-    const numberFields = ["categoryId", "price", "sortOrder", "weight", "calories", "protein", "fat", "carbs"];
+    const numberFields = ["categoryId", "price", "sortOrder", "weight", "calories", "protein", "fat", "carbs", "naktaCoins"];
     const editorValues = { ...editor.values };
     if (!editor.id && editor.kind !== "promotion") editorValues.slug = slugify(String(editorValues.title || editorValues.name || "")) || `${editor.kind}-${Date.now()}`;
     const payload = Object.fromEntries(Object.entries(editorValues).map(([key, value]) =>
@@ -670,6 +673,13 @@ export function AdminApp() {
       deliveryZone: formatDeliveryZone(item.deliveryZone?.length ? item.deliveryZone : defaultDeliveryZones[item.slug]),
       footerCompanyName: item.footerCompanyName || "",
       footerLegalInfo: item.footerLegalInfo || "",
+      nftRewardEveryOrders: String(item.nftRewardEveryOrders ?? 10),
+      nftRewardName: item.nftRewardName || "NFT NAKTA",
+      nftRewardImage: item.nftRewardImage || "",
+      nftRewardDescription: item.nftRewardDescription || "",
+      nftRewardNetwork: item.nftRewardNetwork || "polygon",
+      nftContractAddress: item.nftContractAddress || "",
+      nftMetadataUri: item.nftMetadataUri || "",
     },
   } : {
     values: {
@@ -694,6 +704,13 @@ export function AdminApp() {
       deliveryZone: "",
       footerCompanyName: "",
       footerLegalInfo: "",
+      nftRewardEveryOrders: "10",
+      nftRewardName: "NFT NAKTA",
+      nftRewardImage: "",
+      nftRewardDescription: "",
+      nftRewardNetwork: "polygon",
+      nftContractAddress: "",
+      nftMetadataUri: "",
     },
   });
 
@@ -716,6 +733,7 @@ export function AdminApp() {
         estimatedDeliveryMinutes: Number(regionEditor.values.estimatedDeliveryMinutes),
         minimumOrderAmount: Number(regionEditor.values.minimumOrderAmount),
         maximumOrderAmount: Number(regionEditor.values.maximumOrderAmount),
+        nftRewardEveryOrders: Number(regionEditor.values.nftRewardEveryOrders),
         deliveryZone: parseDeliveryZone(String(deliveryZoneValue || "")),
         slug: String(regionEditor.values.slug).trim().toLowerCase().replace(/\s+/g, "-"),
       };
@@ -947,6 +965,7 @@ export function AdminApp() {
           <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
           <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
           <label>Состав<textarea className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
+          <label>NAKTA Coin за 1 шт.<input type="number" min="0" max="1000000" value={String(editor.values.naktaCoins || "0")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
           <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>
           <ModifierGroupsEditor value={editor.values.modifierGroups as ModifierGroup[] || []} onChange={(value) => updateValue("modifierGroups", value)} />
           <div className="admin-nutrition">
@@ -984,6 +1003,21 @@ export function AdminApp() {
           <label>Электронная почта<input type="email" value={String(regionEditor.values.contactEmail)} onChange={(event) => updateRegionValue("contactEmail", event.target.value)} placeholder="hello@example.com" /></label>
         </div>
         <label>Адрес самовывоза или офиса<input value={String(regionEditor.values.contactAddress)} onChange={(event) => updateRegionValue("contactAddress", event.target.value)} placeholder="Улица, дом" /></label>
+        <div className="admin-region-block admin-nft-program">
+          <b>Бонусная NFT-программа</b>
+          <small>NFT выдаётся отдельно от блюд за каждые N завершённых заказов пользователя. Значение 0 отключает начисление.</small>
+          <div className="admin-two-fields">
+            <label>Выдавать каждые N заказов<input type="number" min="0" max="10000" value={String(regionEditor.values.nftRewardEveryOrders)} onChange={(event) => updateRegionValue("nftRewardEveryOrders", event.target.value)} /></label>
+            <label>Название NFT<input value={String(regionEditor.values.nftRewardName)} onChange={(event) => updateRegionValue("nftRewardName", event.target.value)} placeholder="NFT NAKTA" /></label>
+          </div>
+          <label>Изображение NFT<input value={String(regionEditor.values.nftRewardImage)} onChange={(event) => updateRegionValue("nftRewardImage", event.target.value)} placeholder="https://... или data:image/..." /></label>
+          <label>Описание NFT<textarea value={String(regionEditor.values.nftRewardDescription)} onChange={(event) => updateRegionValue("nftRewardDescription", event.target.value)} /></label>
+          <div className="admin-two-fields">
+            <label>Сеть<select value={String(regionEditor.values.nftRewardNetwork)} onChange={(event) => updateRegionValue("nftRewardNetwork", event.target.value)}><option value="polygon">Polygon</option><option value="ethereum">Ethereum</option><option value="bsc">BNB Smart Chain</option><option value="solana">Solana</option><option value="ton">TON</option></select></label>
+            <label>Адрес контракта<input value={String(regionEditor.values.nftContractAddress)} onChange={(event) => updateRegionValue("nftContractAddress", event.target.value)} placeholder="Можно заполнить позже" /></label>
+          </div>
+          <label>Metadata URI<input value={String(regionEditor.values.nftMetadataUri)} onChange={(event) => updateRegionValue("nftMetadataUri", event.target.value)} placeholder="ipfs://..." /></label>
+        </div>
         <div className="admin-region-block">
           <b>Доставка</b><small>Условия и время, которые увидит клиент в приложении.</small>
           <div className="admin-two-fields"><label>Начало работы<input type="time" value={String(regionEditor.values.deliveryOpenTime)} onChange={(event) => updateRegionValue("deliveryOpenTime", event.target.value)} /></label><label>Окончание работы<input type="time" value={String(regionEditor.values.deliveryCloseTime)} onChange={(event) => updateRegionValue("deliveryCloseTime", event.target.value)} /></label></div>
