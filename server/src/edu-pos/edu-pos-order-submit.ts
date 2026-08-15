@@ -10,7 +10,12 @@ export async function createOrRecoverEduPosOrder<T>(options: {
     try {
       return await options.lookup();
     } catch (lookupError) {
-      if (!(lookupError instanceof EduPosApiError) || lookupError.status !== 404) throw lookupError;
+      const notFound = lookupError instanceof EduPosApiError && lookupError.status === 404;
+      const retryable = lookupError instanceof EduPosApiError && lookupError.retryable;
+      // A temporary failure in the POS lookup endpoint must not make every
+      // subsequent confirmation a no-op. The create request carries the same
+      // externalOrderId, so it remains the idempotent fallback for retries.
+      if (!notFound && !retryable) throw lookupError;
     }
   }
 

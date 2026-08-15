@@ -1369,6 +1369,38 @@ test("EDU POS retries recover an order before attempting another create", async 
   assert.equal(createCalls, 0);
 });
 
+test("EDU POS retries still create when lookup has a temporary database failure", async () => {
+  let createCalls = 0;
+  let lookupCalls = 0;
+  const createdOrder = {
+    id: "pos-order-created-after-lookup-failure",
+    externalOrderId: "NAKTA-retry-after-lookup-failure",
+    orderNumber: "15",
+    status: "sent_to_kitchen",
+    completed: false,
+    progress: { itemsTotal: 1, itemsReady: 0, itemsRejected: 0 },
+    items: [],
+    createdAt: null,
+    updatedAt: null,
+  };
+  const recovered = await createOrRecoverEduPosOrder({
+    externalOrderId: createdOrder.externalOrderId,
+    isRetry: true,
+    create: async () => {
+      createCalls += 1;
+      return createdOrder;
+    },
+    lookup: async () => {
+      lookupCalls += 1;
+      throw new EduPosApiError(500, "Ошибка базы данных");
+    },
+  });
+
+  assert.equal(recovered.id, createdOrder.id);
+  assert.equal(lookupCalls, 1);
+  assert.equal(createCalls, 1);
+});
+
 test("EDU POS menu export preserves products, availability and modifiers", () => {
   const exported = buildEduPosMenuExportPayload(
     "otuz-adyr",

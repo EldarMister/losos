@@ -396,6 +396,8 @@ export function YandexDeliveryMap({
     let placemarkVisible = false;
     let fitMapToPanel: (() => void) | null = null;
     let mapResizeObserver: ResizeObserver | null = null;
+    let pendingCenter: { point: [number, number]; zoom: number } | null = null;
+    let pendingCenterTimer: number | null = null;
     let fitTimers: number[] = [];
 
     const updatePoint = (point: [number, number], zoom = 15) => {
@@ -404,7 +406,15 @@ export function YandexDeliveryMap({
         placemarkVisible = true;
       }
       placemark?.geometry.setCoordinates(point);
-      map?.setCenter(point, zoom, { duration: 250 });
+      pendingCenter = { point, zoom };
+      if (pendingCenterTimer !== null) window.clearTimeout(pendingCenterTimer);
+      // Центрируем без анимации: изменение высоты мобильной панели вызывает
+      // fitToViewport и иначе прерывает плавный переход, оставляя метку за экраном.
+      map?.setCenter(point, zoom);
+      pendingCenterTimer = window.setTimeout(() => {
+        pendingCenter = null;
+        pendingCenterTimer = null;
+      }, 600);
     };
 
     const reverseGeocode = async (point: [number, number]) => {
@@ -613,7 +623,20 @@ export function YandexDeliveryMap({
         placemark.events.add("dragend", () => reverseGeocode(placemark.geometry.getCoordinates()));
         fitMapToPanel = () => map?.container.fitToViewport();
         window.addEventListener("resize", fitMapToPanel);
-        mapResizeObserver = new ResizeObserver(() => fitMapToPanel?.());
+        mapResizeObserver = new ResizeObserver(() => {
+          fitMapToPanel?.();
+          if (!pendingCenter) return;
+          if (pendingCenterTimer !== null) window.clearTimeout(pendingCenterTimer);
+          // Панель меняет высоту с CSS-переходом. Повторяем центрирование после
+          // последнего кадра ресайза и сразу забываем цель, чтобы не мешать
+          // пользователю затем свободно двигать карту.
+          pendingCenterTimer = window.setTimeout(() => {
+            const target = pendingCenter;
+            pendingCenter = null;
+            pendingCenterTimer = null;
+            if (target) map?.setCenter(target.point, target.zoom);
+          }, 60);
+        });
         mapResizeObserver.observe(mapContainerRef.current);
         fitTimers = [
           window.setTimeout(fitMapToPanel, 0),
@@ -634,6 +657,7 @@ export function YandexDeliveryMap({
     return () => {
       cancelled = true;
       fitTimers.forEach((timer) => window.clearTimeout(timer));
+      if (pendingCenterTimer !== null) window.clearTimeout(pendingCenterTimer);
       mapResizeObserver?.disconnect();
       if (fitMapToPanel) window.removeEventListener("resize", fitMapToPanel);
       map?.destroy();
