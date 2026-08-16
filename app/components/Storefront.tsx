@@ -2391,11 +2391,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   return <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading={categoryIndex === 0 && productIndex < 6 ? "eager" : "lazy"} fetchPriority={categoryIndex === 0 && productIndex < 2 ? "high" : undefined} />
-                      {product.naktaCoins && product.naktaCoins > 0 ? <span className="product-nakta-badge" aria-label={`Бонус ${product.naktaCoins} NAKTA Coin`}><img src="/nakta-coin.png" alt="" aria-hidden="true" /><span><b>+{product.naktaCoins}</b><small>NAKTA COIN</small></span></span> : null}
                       {product.available === false ? <span className="product-finished">Закончилось</span> : null}
                     </div>
                     <div className="product-body">
-                      <div className="product-name">{product.name}</div>
+                      <div className="product-name-row">
+                        <div className="product-name">{product.name}</div>
+                        {product.naktaCoins && product.naktaCoins > 0 ? <span className="product-nakta-badge" aria-label={`Бонус ${product.naktaCoins} NAKTA Coin`}><img src="/nakta-coin.png" alt="" aria-hidden="true" /><span><b>+{product.naktaCoins}</b><small>NAKTA COIN</small></span></span> : null}
+                      </div>
                       <div className={`product-actions${productCartLine ? " has-quantity" : ""}`}>{productCartLine ? <div className="product-quantity-controls" role="group" aria-label={`Количество ${product.name}`}><button type="button" aria-label={`Уменьшить ${product.name}`} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, -1); }}>−</button><span>{productCartQuantity}</span><button type="button" aria-label={`Увеличить ${product.name}`} disabled={productCartLine.quantity >= 20} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, 1); }}>+</button></div> : <><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</>}</div>
                     </div>
                   </article>;
@@ -2531,7 +2533,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className="modal-art"><ProductArt product={selected} mode="detail" /></div>
             <div className="modal-info">
               <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
-              <div className="modal-description"><h2>{selected.name}</h2>{selected.description ? <p>{selected.description}</p> : null}</div>
+              <div className="modal-description"><div className="modal-description-header"><h2>{selected.name}</h2>{selected.naktaCoins && selected.naktaCoins > 0 ? <span className="product-nakta-badge modal-nakta-badge" aria-label={`Бонус ${selected.naktaCoins} NAKTA Coin`}><img src="/nakta-coin.png" alt="" aria-hidden="true" /><span><b>+{selected.naktaCoins}</b><small>NAKTA COIN</small></span></span> : null}</div>{selected.description ? <p>{selected.description}</p> : null}</div>
               <div className="nutrition">
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
                 <div className={`nutrition-actions${selected.name === "Собери свой сет" ? " has-equipment" : ""}`}><button onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>Состав</button>{selected.name === "Собери свой сет" ? <button onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>Комплектация</button> : null}</div>

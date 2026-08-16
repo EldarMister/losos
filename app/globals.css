@@ -136,13 +136,14 @@ a { color: inherit; text-decoration: none; }
 .reference-detail-card-art.reference-card-crab-salmon { background-position: -2907px -1023px; }
 .product-card.unavailable::after { content: ""; position: absolute; inset: 0; z-index: 10; border-radius: 32px; background: rgba(255,255,255,.25); pointer-events: none; }
 .product-finished { position: absolute; z-index: 11; left: 50%; top: 70px; width: 120px; height: 40px; display: grid; place-items: center; transform: translateX(-50%); border-radius: 50px; background: rgba(255,255,255,.6); font-size: 15px; line-height: 20px; }
-.product-nakta-badge { position: absolute; z-index: 2; left: 8px; bottom: 8px; min-height: 27px; padding: 2px 6px 2px 3px; display: flex; align-items: center; gap: 3px; border: 1px solid #f3b21a; border-radius: 9px; background: #fff; box-shadow: 0 2px 8px rgba(154, 102, 0, .14); color: #171717; font-style: normal; line-height: 1; }
+.product-nakta-badge { min-height: 27px; padding: 2px 6px 2px 3px; display: flex; flex: 0 0 auto; align-items: center; gap: 3px; border: 1px solid #f3b21a; border-radius: 9px; background: #fff; box-shadow: 0 2px 8px rgba(154, 102, 0, .14); color: #171717; font-style: normal; line-height: 1; }
 .product-nakta-badge > img { width: 21px; height: 21px; display: block; flex: 0 0 auto; object-fit: contain; }
 .product-nakta-badge > span { display: flex; flex-direction: column; align-items: flex-start; }
 .product-nakta-badge b { color: #171717; font-size: 10.5px; line-height: 11px; letter-spacing: -.25px; }
 .product-nakta-badge small { color: #a56b00; font-size: 5.2px; font-weight: 800; line-height: 6px; letter-spacing: .3px; white-space: nowrap; text-transform: uppercase; }
 .product-body { height: 133.2px; flex: 0 0 133.2px; min-height: 0; padding: 10px 12px 12px 16px; display: flex; flex-direction: column; justify-content: flex-end; }
-.product-name { line-height: 22px; max-height: 44px; overflow: hidden; }
+.product-name-row { min-height: 44px; display: flex; align-items: flex-start; gap: 8px; }
+.product-name { min-width: 0; flex: 1 1 auto; line-height: 22px; max-height: 44px; overflow: hidden; }
 .product-actions { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; }
 .product-actions.has-quantity { margin-top: 12px; }
 .product-price { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
@@ -206,8 +207,10 @@ a { color: inherit; text-decoration: none; }
 .modal-arrows span { margin: 0 8px; }
 .modal-description, .nutrition { width: calc(100% - 40px); margin-left: 20px; margin-right: 20px; background: white; border-radius: 28px; }
 .modal-description { min-height: 0; height: auto; flex: 0 0 auto; padding: 16px; }
-.modal-description h2 { margin: 0 0 10px; font-size: 24px; line-height: 28.8px; font-weight: 600; }
-.modal-description h2:only-child { margin-bottom: 0; }
+.modal-description-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.modal-description-header:last-child { margin-bottom: 0; }
+.modal-description h2 { min-width: 0; flex: 1 1 auto; margin: 0; font-size: 24px; line-height: 28.8px; font-weight: 600; }
+.modal-nakta-badge { margin-top: 1px; }
 .product-modal-simple .modal-description { height: 92px; }
 .modal-description p { margin: 0; font-size: 12px; line-height: 1.45; }
 .nutrition { height: 120px; min-height: 120px; margin-top: 8px; padding: 20px 12px 12px; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: 28px 44px; column-gap: 8px; row-gap: 16px; text-align: center; }
@@ -890,7 +893,6 @@ a { color: inherit; text-decoration: none; }
   .product-card { height: 280px; border-radius: 32px; font-size: 14px; line-height: 20px; }
   .product-image-wrap { height: 156px; flex: 0 0 156px; border-radius: 32px 32px 0 0; }
   .product-image-wrap img { object-fit: contain; object-position: center; mix-blend-mode: normal; }
-  .product-nakta-badge { left: 7px; bottom: 7px; }
   .product-body { height: 124px; flex: 0 0 124px; padding: 8px 12px 12px; }
   .product-name { font-size: 15px; line-height: 22px; max-height: 44px; }
   .product-actions { font-size: 15px; line-height: 22px; }
@@ -919,8 +921,9 @@ a { color: inherit; text-decoration: none; }
   .modal-description, .nutrition { width: 100%; margin-left: 0; margin-right: 0; }
   .modal-description, .product-modal-simple .modal-description { min-height: 0; height: auto; border-radius: 28px; padding: 16px 30px 16px 16px; }
   .product-modal-simple .modal-description { height: 74px; min-height: 74px; }
-  .modal-description h2 { font-size: 24px; line-height: 30px; margin-bottom: 12px; }
-  .modal-description h2:only-child { margin-bottom: 6px; }
+  .modal-description-header { margin-bottom: 12px; }
+  .modal-description-header:last-child { margin-bottom: 6px; }
+  .modal-description h2 { font-size: 24px; line-height: 30px; }
   .modal-description p { font-size: 11px; line-height: 15.95px; }
   .nutrition { height: 120px; min-height: 120px; margin-top: 16px; padding: 20px 12px 12px; border-radius: 28px; grid-template-rows: 28px 44px; row-gap: 16px; }
   .nutrition-actions { margin-top: 0; }

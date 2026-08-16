@@ -119,6 +119,10 @@ test("includes the product, cart and address flows", async () => {
   assert.match(envExample, /SITE_URL=https:\/\/naktasushi\.com/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
+  assert.match(storefront, /className="product-name-row"[\s\S]*?className="product-nakta-badge"/);
+  assert.match(storefront, /className="modal-description-header"[\s\S]*?className="product-nakta-badge modal-nakta-badge"/);
+  assert.match(globals, /\.product-name-row\s*\{[^}]*display:\s*flex/);
+  assert.match(globals, /\.modal-description-header\s*\{[^}]*display:\s*flex/);
   assert.match(storefront, /modifier-groups/);
   assert.match(storefront, /Настройте блюдо/);
   assert.match(storefront, /story-progress/);
