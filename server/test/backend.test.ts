@@ -326,6 +326,20 @@ test("NAKTA Coin withdrawal requires a valid amount and wallet address", () => {
   assert.ok(validateSync(invalidWallet).some((error) => error.property === "walletAddress"));
 });
 
+test("NAKTA Coin withdrawals do not masquerade as order reward transactions", () => {
+  const authSource = readFileSync(
+    resolve(__dirname, "../src/auth/phone-auth.service.ts"),
+    "utf8",
+  );
+  const adminSource = readFileSync(
+    resolve(__dirname, "../src/admin/admin.service.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(authSource, /orderId:\s*withdrawal\.id/);
+  assert.doesNotMatch(adminSource, /orderId:\s*randomUUID\(\)/);
+  assert.match(authSource, /withdrawalHistory/);
+});
+
 test("NFT withdrawal is phone-owned, locked, and becomes pending once", async () => {
   const phone = "+996555123456";
   const token = "a".repeat(64);

@@ -1,6 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { randomUUID } from "node:crypto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
@@ -577,13 +576,6 @@ export class AdminService {
         if (!account) throw new NotFoundException("Аккаунт не найден");
         account.naktaCoins += withdrawal.amount;
         await accountRepository.save(account);
-        await manager.getRepository(NaktaCoinTransaction).save({
-          phone: withdrawal.phone,
-          regionSlug: withdrawal.regionSlug,
-          orderId: randomUUID(),
-          amount: withdrawal.amount,
-          description: "Возврат NAKTA Coin после отмены вывода",
-        });
       }
 
       return withdrawalRepository.save(withdrawal);

@@ -361,14 +361,36 @@ export class PhoneAuthService {
         take: 20,
       }),
     ]);
-    const coinWithdrawalIds = new Set(naktaCoinWithdrawals.map((withdrawal) => withdrawal.id));
-    const serializedCoinHistory = naktaCoinHistory.map((entry) => ({
-      id: entry.id,
-      amount: entry.amount,
-      createdAt: entry.createdAt,
-      description: entry.description,
-      orderId: coinWithdrawalIds.has(entry.orderId) ? undefined : entry.orderId,
-    }));
+    const withdrawalHistory = naktaCoinWithdrawals.flatMap((withdrawal) => {
+      const request = {
+        id: `withdrawal-${withdrawal.id}`,
+        amount: -withdrawal.amount,
+        createdAt: withdrawal.createdAt,
+        description: withdrawal.status === "withdrawn"
+          ? "Вывод NAKTA Coin завершён"
+          : "Заявка на вывод NAKTA Coin",
+        orderId: undefined,
+      };
+      return withdrawal.status === "failed"
+        ? [request, {
+          id: `withdrawal-refund-${withdrawal.id}`,
+          amount: withdrawal.amount,
+          createdAt: withdrawal.processedAt ?? withdrawal.createdAt,
+          description: "Возврат NAKTA Coin после отмены вывода",
+          orderId: undefined,
+        }]
+        : [request];
+    });
+    const serializedCoinHistory = [
+      ...naktaCoinHistory.map((entry) => ({
+        id: entry.id,
+        amount: entry.amount,
+        createdAt: entry.createdAt,
+        description: entry.description,
+        orderId: entry.orderId,
+      })),
+      ...withdrawalHistory,
+    ].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
     const serialize = (order: typeof orders[number]) => ({
       id: order.id,
       orderNumber: order.orderNumber,
@@ -570,13 +592,6 @@ export class PhoneAuthService {
 
       account.naktaCoins -= amount;
       await accountRepository.save(account);
-      await transactionRepository.save({
-        phone,
-        regionSlug,
-        orderId: withdrawal.id,
-        amount: -amount,
-        description: "Заявка на вывод NAKTA Coin",
-      });
       return withdrawal;
     });
   }
