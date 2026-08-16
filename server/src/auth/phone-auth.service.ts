@@ -392,7 +392,7 @@ export class PhoneAuthService {
     await this.requireAccount(phone, verificationToken);
     const [order] = await this.challenges.manager.query(`
       SELECT "id", "orderNumber", "total", "subtotal", "status", "deliveryType", "createdAt", "address",
-        "apartment", "entrance", "floor", "intercom", "comment", "utensilsCount", "noUtensils", "paymentMethod",
+        "apartment", "entrance", "floor", "intercom", "comment", "utensilsCount", "noUtensils", "kitItems", "paymentMethod",
         "externalOrderId", "posOrderNumber", "posStatus", "posSyncStatus", "posItemsTotal", "posItemsReady", "posItemsRejected", "posLastSyncAt"
       FROM "orders"
       WHERE "phone" = $1 AND "id" = $2
@@ -413,6 +413,7 @@ export class PhoneAuthService {
       comment: string;
       utensilsCount: number;
       noUtensils: boolean;
+      kitItems: unknown;
       paymentMethod: string;
       externalOrderId: string | null;
       posOrderNumber: string | null;
@@ -443,6 +444,7 @@ export class PhoneAuthService {
 
     return {
       ...order,
+      kitItems: Array.isArray(order.kitItems) ? order.kitItems : [],
       posProgress: {
         itemsTotal: order.posItemsTotal,
         itemsReady: order.posItemsReady,

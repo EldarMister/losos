@@ -16,6 +16,7 @@ import {
   AdminCustomersQueryDto,
   AdminNftWithdrawalsQueryDto,
   ListOrdersQueryDto,
+  UpdateOrderKitDto,
   UpdateOrderStatusDto,
 } from "./admin-orders.dto";
 import {
@@ -151,6 +152,14 @@ export class AdminController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.admin.updateOrderStatus(id, dto.status);
+  }
+
+  @Patch("orders/:id/kit")
+  updateOrderKit(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrderKitDto,
+  ) {
+    return this.admin.updateOrderKit(id, dto);
   }
 
   @Post("categories")

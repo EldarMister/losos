@@ -9,6 +9,7 @@ import {
 } from "typeorm";
 import { OrderItem } from "./order-item.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
+import type { OrderKitItem } from "./order-kit";
 
 @Entity("orders")
 export class Order {
@@ -61,6 +62,9 @@ export class Order {
 
   @Column({ default: false })
   noUtensils!: boolean;
+
+  @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
+  kitItems!: OrderKitItem[];
 
   @Column({ type: "varchar", length: 30, default: PaymentMethod.CASH })
   paymentMethod!: PaymentMethod;

@@ -386,12 +386,18 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
 
   private orderPayload(order: Order): EduPosCreateOrderPayload {
     if (!order.externalOrderId) throw new Error("Order has no externalOrderId");
+    const kit = [
+      order.noUtensils ? "без палочек" : `палочки ×${order.utensilsCount}`,
+      ...(order.kitItems ?? [])
+        .filter((item) => item.quantity > 0)
+        .map((item) => `${item.name} ×${item.quantity}`),
+    ].join(", ");
     return {
       externalOrderId: order.externalOrderId,
       customerName: order.customerName,
       customerPhone: order.phone,
       deliveryAddress: order.address,
-      comment: order.comment || undefined,
+      comment: [order.comment, `Комплектация: ${kit}`].filter(Boolean).join("\n"),
       items: order.items.map((item) => {
         if (!item.posDishId) throw new Error(`Order item ${item.id} has no EDU POS dish mapping`);
         const modifiers = item.modifierSnapshots

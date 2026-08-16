@@ -20,6 +20,7 @@ import {
   AdminAnalyticsQueryDto,
   AdminCustomersQueryDto,
   AdminNftWithdrawalsQueryDto,
+  UpdateOrderKitDto,
 } from "../src/admin/admin-orders.dto";
 import { dispatchOrderStatusPush } from "../src/admin/order-status-notifier";
 import { RegisterPushTokenDto } from "../src/auth/push-token.dto";
@@ -66,6 +67,7 @@ import {
   shouldSubmitOrderToEduPosAfterAdminTransition,
 } from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
+import { normalizeOrderKitItems } from "../src/orders/order-kit";
 import { OrdersController } from "../src/orders/orders.controller";
 import {
   canTransitionOrderStatus,
@@ -78,6 +80,7 @@ import { AddRegionDeliveryDetailsAndZone1784997000000 } from "../src/migrations/
 import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "../src/migrations/1785000000000-AddSharedRegionContentAndOtuzAdyr";
 import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "../src/migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 import { AddLoyaltyPrograms1785003000000 } from "../src/migrations/1785003000000-AddLoyaltyPrograms";
+import { AddOrderKitItems1785004000000 } from "../src/migrations/1785004000000-AddOrderKitItems";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -1116,6 +1119,43 @@ test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => 
   assert.ok(coordinateErrors.some((error) => error.property === "longitude"));
 });
 
+test("order kit validates, keeps explicit quantities, and preserves mobile defaults", () => {
+  const selections = [
+    { id: "soy-sauce", quantity: 2 },
+    { id: "wasabi", quantity: 0 },
+    { id: "pickled-ginger", quantity: 3 },
+  ];
+  const orderDto = plainToInstance(CreateOrderDto, { ...baseOrder, kitItems: selections });
+  const adminDto = plainToInstance(UpdateOrderKitDto, {
+    utensilsCount: 2,
+    noUtensils: false,
+    kitItems: selections,
+  });
+  assert.deepEqual(validateSync(orderDto), []);
+  assert.deepEqual(validateSync(adminDto), []);
+  assert.deepEqual(normalizeOrderKitItems(selections), [
+    { id: "soy-sauce", name: "Соевый соус", quantity: 2 },
+    { id: "wasabi", name: "Васаби", quantity: 0 },
+    { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 3 },
+  ]);
+  assert.deepEqual(normalizeOrderKitItems(), [
+    { id: "soy-sauce", name: "Соевый соус", quantity: 1 },
+    { id: "wasabi", name: "Васаби", quantity: 1 },
+    { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 1 },
+  ]);
+  assert.throws(() => normalizeOrderKitItems([
+    { id: "soy-sauce", quantity: 1 },
+    { id: "soy-sauce", quantity: 2 },
+  ]), /несколько раз/);
+
+  const invalid = plainToInstance(UpdateOrderKitDto, {
+    utensilsCount: 1,
+    noUtensils: false,
+    kitItems: [{ id: "unknown", quantity: 21 }],
+  });
+  assert.ok(validateSync(invalid).some((error) => error.property === "kitItems"));
+});
+
 const modifierGroups: ProductModifierGroup[] = [
   {
     id: "sauce",
@@ -1570,6 +1610,20 @@ test("order number migration adds a short sequence and admin confirmation marker
   assert.ok(queries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "orderNumber" integer')));
   assert.ok(queries.some((statement) => statement.includes('CREATE UNIQUE INDEX IF NOT EXISTS "IDX_orders_order_number"')));
   assert.ok(queries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "adminConfirmedAt"')));
+});
+
+test("order kit migration adds reversible persisted complectation", async () => {
+  const migration = new AddOrderKitItems1785004000000();
+  const upQueries: string[] = [];
+  const downQueries: string[] = [];
+  await migration.up({
+    query: async (statement: string) => { upQueries.push(statement); return []; },
+  } as never);
+  await migration.down({
+    query: async (statement: string) => { downQueries.push(statement); return []; },
+  } as never);
+  assert.ok(upQueries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "kitItems" jsonb')));
+  assert.ok(downQueries.some((statement) => statement.includes('DROP COLUMN IF EXISTS "kitItems"')));
 });
 
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {

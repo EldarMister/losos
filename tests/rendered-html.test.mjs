@@ -124,7 +124,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /story-progress/);
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
-  assert.match(storefront, /className="profile-modal"/);
+  assert.match(storefront, /profile-modal\$\{profileSection === "orders" \? " profile-orders-screen"/);
+  assert.match(globals, /\.profile-modal\.profile-orders-screen \{ width: 100vw;/);
   assert.match(storefront, /\/auth\/orders\/\$\{encodeURIComponent\(selectedProfileOrder\.id\)\}\/cancel/);
   assert.match(storefront, />Отменить заказ<\/button>/);
   assert.match(storefront, /После отмены восстановить заказ не получится\./);
@@ -166,6 +167,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, />Выйти /);
   assert.match(storefront, /PHONE_AUTH_SESSION_STORAGE_KEY/);
   assert.match(storefront, /className="cart-kit-modal"/);
+  assert.match(storefront, /kitItems: cartKitItems\.map/);
+  assert.match(storefront, /setKitQuantities/);
   assert.match(storefront, /orderingClosed \? "Закрыто" : "Далее"/);
   assert.match(storefront, /className="delivery-info-sheet"/);
   assert.match(storefront, /setDeliveryInfoOpen\(true\)/);
@@ -345,6 +348,10 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
   assert.match(admin, /className="admin-order-detail-body"/);
   assert.match(admin, /className="admin-order-info-pane"/);
   assert.match(admin, /className="admin-order-items-pane"[\s\S]*?Состав заказа/);
+  assert.match(admin, /\/admin\/orders\/\$\{selectedOrder\.id\}\/kit/);
+  assert.match(admin, /className="admin-order-kit-editor"/);
+  assert.match(admin, /formatPosOrderNumber\(selectedOrder\.posOrderNumber\)/);
+  assert.match(admin, /modifier\.groupTitle[\s\S]*?modifier\.itemName/);
   assert.match(admin, /Итого \/ К оплате/);
   assert.match(adminCss, /\.admin-crm-sidebar/);
   assert.match(adminCss, /\.admin-data-table/);

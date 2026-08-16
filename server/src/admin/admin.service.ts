@@ -16,6 +16,7 @@ import { resolvePickupMapLink } from "../catalog/pickup-map-link";
 import { OrderItem } from "../orders/order-item.entity";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
+import { normalizeOrderKitItems } from "../orders/order-kit";
 import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
@@ -24,6 +25,7 @@ import {
   type AdminAnalyticsPeriod,
   type AdminNftWithdrawalStatus,
   ListOrdersQueryDto,
+  UpdateOrderKitDto,
 } from "./admin-orders.dto";
 import { PushNotificationsService } from "../notifications/push-notifications.service";
 import { dispatchOrderStatusPush } from "./order-status-notifier";
@@ -570,6 +572,17 @@ export class AdminService {
     });
     if (!order) throw new NotFoundException("Order not found");
     return order;
+  }
+
+  async updateOrderKit(id: string, dto: UpdateOrderKitDto) {
+    const order = await this.order(id);
+    if ([OrderStatus.COMPLETED, OrderStatus.CANCELLED].includes(order.status)) {
+      throw new BadRequestException("Комплектацию завершённого или отменённого заказа изменить нельзя");
+    }
+    order.noUtensils = dto.noUtensils;
+    order.utensilsCount = dto.noUtensils ? 0 : dto.utensilsCount;
+    order.kitItems = normalizeOrderKitItems(dto.kitItems);
+    return this.orderRepository.save(order);
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {

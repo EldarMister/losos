@@ -14,6 +14,7 @@ import { OrderItem } from "./order-item.entity";
 import { Order } from "./order.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
 import { OrderPricingError, priceOrderLine } from "./order-pricing";
+import { normalizeOrderKitItems } from "./order-kit";
 
 function fingerprintRequest(dto: CreateOrderDto) {
   const items = (dto.items ?? []).map((item) => ({
@@ -28,6 +29,7 @@ function fingerprintRequest(dto: CreateOrderDto) {
       .sort((left, right) =>
         `${left.groupId}:${left.itemId}`.localeCompare(`${right.groupId}:${right.itemId}`)),
   })).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  const kitItems = normalizeOrderKitItems(dto.kitItems);
   const canonical = {
     regionSlug: dto.regionSlug || "bishkek",
     deliveryType: dto.deliveryType || DeliveryType.DELIVERY,
@@ -44,6 +46,7 @@ function fingerprintRequest(dto: CreateOrderDto) {
     paymentMethod: dto.paymentMethod || PaymentMethod.CASH,
     utensilsCount: dto.noUtensils ? 0 : (dto.utensilsCount ?? 1),
     noUtensils: dto.noUtensils ?? false,
+    kitItems,
     items,
   };
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
@@ -69,6 +72,7 @@ export class OrdersService {
     if (!dto.items?.length) throw new BadRequestException("Order must contain at least one item");
     const idempotencyKey = dto.idempotencyKey || randomUUID();
     const requestFingerprint = fingerprintRequest(dto);
+    const kitItems = normalizeOrderKitItems(dto.kitItems);
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
@@ -168,6 +172,7 @@ export class OrdersService {
           paymentMethod: dto.paymentMethod || PaymentMethod.CASH,
           utensilsCount: dto.noUtensils ? 0 : (dto.utensilsCount ?? 1),
           noUtensils: dto.noUtensils ?? false,
+          kitItems,
           idempotencyKey,
           requestFingerprint,
           externalOrderId: `NAKTA-${idempotencyKey}`,

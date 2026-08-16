@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
-import { IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { CreateOrderKitItemDto } from "../orders/create-order.dto";
 import { OrderStatus } from "../orders/order.enums";
 
 export const ADMIN_ANALYTICS_PERIODS = ["today", "week", "month", "all"] as const;
@@ -101,4 +102,21 @@ export class ListOrdersQueryDto {
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)
   status!: OrderStatus;
+}
+
+export class UpdateOrderKitDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(50)
+  utensilsCount!: number;
+
+  @IsBoolean()
+  noUtensils!: boolean;
+
+  @IsArray()
+  @ArrayMaxSize(3)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderKitItemDto)
+  kitItems!: CreateOrderKitItemDto[];
 }

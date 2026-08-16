@@ -106,6 +106,11 @@ type AdminOrderItem = {
   posReadyQuantity?: number;
   posRejectReason?: string | null;
 };
+type AdminOrderKitItem = {
+  id: string;
+  name: string;
+  quantity: number;
+};
 type AdminOrder = {
   id: string;
   orderNumber: number;
@@ -123,6 +128,7 @@ type AdminOrder = {
   comment: string;
   utensilsCount: number;
   noUtensils: boolean;
+  kitItems?: AdminOrderKitItem[];
   paymentMethod: "cash" | "card" | "online";
   subtotal: number;
   total: number;
@@ -139,6 +145,11 @@ type AdminOrder = {
   posItemsRejected?: number;
   posLastError?: string;
   items: AdminOrderItem[];
+};
+type OrderKitDraft = {
+  utensilsCount: number;
+  noUtensils: boolean;
+  kitItems: AdminOrderKitItem[];
 };
 type OrdersResponse = { items: AdminOrder[]; total: number; limit: number; offset: number; statusCounts: Partial<Record<OrderStatus, number>> };
 type OrderPeriod = "all" | "today" | "week" | "month";
@@ -271,6 +282,15 @@ const formatOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", {
 
 const formatOrderNumber = (order: Pick<AdminOrder, "id" | "orderNumber">) =>
   `№${order.orderNumber || order.id.slice(0, 6).toUpperCase()}`;
+const formatPosOrderNumber = (value: string) => `№${value.replace(/^[№#\s]+/, "")}`;
+const defaultAdminOrderKitItems: AdminOrderKitItem[] = [
+  { id: "soy-sauce", name: "Соевый соус", quantity: 1 },
+  { id: "wasabi", name: "Васаби", quantity: 1 },
+  { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 1 },
+];
+const orderKitItemsForDisplay = (order: Pick<AdminOrder, "kitItems">) => (
+  order.kitItems?.length ? order.kitItems : defaultAdminOrderKitItems
+);
 const formatSom = (value: number) => `${Math.round(value).toLocaleString("ru-RU")} сом`;
 const ordersPerPage = 50;
 const slugify = (value: string) => {
@@ -339,6 +359,8 @@ export function AdminApp() {
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [orderKitDraft, setOrderKitDraft] = useState<OrderKitDraft | null>(null);
+  const [orderKitSaving, setOrderKitSaving] = useState(false);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition">("main");
   const [loading, setLoading] = useState(false);
@@ -1106,6 +1128,47 @@ export function AdminApp() {
     setSelectedOrder(null);
   };
 
+  const openOrderKitEditor = (order: AdminOrder) => {
+    setOrderKitDraft({
+      utensilsCount: order.noUtensils ? Math.max(1, order.utensilsCount || 1) : order.utensilsCount,
+      noUtensils: order.noUtensils,
+      kitItems: orderKitItemsForDisplay(order).map((item) => ({ ...item })),
+    });
+  };
+
+  const changeOrderKitQuantity = (id: string, delta: number) => {
+    setOrderKitDraft((current) => current ? {
+      ...current,
+      kitItems: current.kitItems.map((item) => item.id === id
+        ? { ...item, quantity: Math.min(20, Math.max(0, item.quantity + delta)) }
+        : item),
+    } : current);
+  };
+
+  const saveOrderKit = async () => {
+    if (!selectedOrder || !orderKitDraft || orderKitSaving) return;
+    setOrderKitSaving(true);
+    setMessage("");
+    try {
+      const updated = await request(`/admin/orders/${selectedOrder.id}/kit`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          utensilsCount: orderKitDraft.noUtensils ? 0 : orderKitDraft.utensilsCount,
+          noUtensils: orderKitDraft.noUtensils,
+          kitItems: orderKitDraft.kitItems.map(({ id, quantity }) => ({ id, quantity })),
+        }),
+      }) as AdminOrder;
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSelectedOrder(updated);
+      setOrderKitDraft(null);
+      setMessage(`${formatOrderNumber(updated)}: комплектация сохранена`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось сохранить комплектацию");
+    } finally {
+      setOrderKitSaving(false);
+    }
+  };
+
   const updateOrderStatus = async (order: AdminOrder, status: OrderStatus, confirmed = false) => {
     if (!confirmed && (status === "cancelled" || status === "completed")) {
       setConfirmation({
@@ -1469,7 +1532,7 @@ export function AdminApp() {
         onPeriodChange={(value) => { setOrderPeriod(value); setOrderPage(1); }}
         onViewChange={(value) => { setOrderView(value); setOrderPage(1); }}
         onPageChange={setOrderPage}
-        onOrderOpen={setSelectedOrder}
+        onOrderOpen={(order) => { setOrderKitDraft(null); setSelectedOrder(order); }}
         onRefresh={() => void loadOrders()}
       /> : null}
 
@@ -1803,7 +1866,7 @@ export function AdminApp() {
       </form>
     </div> : null}
 
-    {selectedOrder ? <div className="admin-editor-overlay admin-order-overlay" role="dialog" aria-modal="true" aria-label={`Заказ ${formatOrderNumber(selectedOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedOrder(null); }}>
+    {selectedOrder ? <div className="admin-editor-overlay admin-order-overlay" role="dialog" aria-modal="true" aria-label={`Заказ ${formatOrderNumber(selectedOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) { setOrderKitDraft(null); setSelectedOrder(null); } }}>
       <section className="admin-order-detail">
         <header className="admin-order-detail-head">
           <div className="admin-order-head-identity">
@@ -1811,7 +1874,7 @@ export function AdminApp() {
             <span className="admin-order-head-copy"><span><b>Заказ {formatOrderNumber(selectedOrder)}</b><i className={`admin-order-status status-${selectedOrder.status}`}>{orderStatusLabels[selectedOrder.status]}</i></span><small>{formatOrderDate(selectedOrder.createdAt)}</small></span>
           </div>
           <div className="admin-order-head-total"><small>Итого</small><strong>{formatSom(selectedOrder.total)}</strong></div>
-          <button type="button" onClick={() => setSelectedOrder(null)} aria-label="Закрыть">×</button>
+          <button type="button" onClick={() => { setOrderKitDraft(null); setSelectedOrder(null); }} aria-label="Закрыть">×</button>
         </header>
 
         <div className="admin-order-detail-body">
@@ -1838,10 +1901,17 @@ export function AdminApp() {
 
             <div className="admin-order-notes">
               <span><i><Icon path={mdiCreditCardOutline} size={0.9} aria-hidden="true" /></i><span><small>Оплата</small><b>{selectedOrder.paymentMethod === "card" ? "Картой при получении" : selectedOrder.paymentMethod === "online" ? "Онлайн" : "Наличными"}</b></span></span>
-              <span><i><Icon path={mdiSilverwareForkKnife} size={0.9} aria-hidden="true" /></i><span><small>Приборы</small><b>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} компл.`}</b></span></span>
+              <button type="button" className="admin-order-kit-card" disabled={["completed", "cancelled"].includes(selectedOrder.status)} onClick={() => openOrderKitEditor(selectedOrder)}><i><Icon path={mdiSilverwareForkKnife} size={0.9} aria-hidden="true" /></i><span><small>Комплектация{!["completed", "cancelled"].includes(selectedOrder.status) ? " · изменить" : ""}</small><b>{selectedOrder.noUtensils ? "Без палочек" : `Палочки: ${selectedOrder.utensilsCount}`}</b></span></button>
             </div>
+            {orderKitDraft ? <form className="admin-order-kit-editor" onSubmit={(event) => { event.preventDefault(); void saveOrderKit(); }}>
+              <div className="admin-order-kit-editor-head"><span><b>Комплектация заказа</b><small>Палочки, соусы и добавки</small></span><button type="button" onClick={() => setOrderKitDraft(null)} aria-label="Закрыть редактирование">×</button></div>
+              <label className="admin-order-kit-toggle"><span><b>Палочки</b><small>{orderKitDraft.noUtensils ? "Не добавлять" : `${orderKitDraft.utensilsCount} шт.`}</small></span><input type="checkbox" checked={!orderKitDraft.noUtensils} onChange={(event) => setOrderKitDraft((current) => current ? { ...current, noUtensils: !event.target.checked } : current)} /></label>
+              {!orderKitDraft.noUtensils ? <div className="admin-order-kit-row"><span><b>Количество палочек</b></span><span className="admin-order-kit-stepper"><button type="button" onClick={() => setOrderKitDraft((current) => current ? { ...current, utensilsCount: Math.max(1, current.utensilsCount - 1) } : current)}>−</button><b>{orderKitDraft.utensilsCount}</b><button type="button" onClick={() => setOrderKitDraft((current) => current ? { ...current, utensilsCount: Math.min(50, current.utensilsCount + 1) } : current)}>+</button></span></div> : null}
+              {orderKitDraft.kitItems.map((item) => <div className="admin-order-kit-row" key={item.id}><span><b>{item.name}</b><small>{item.quantity ? `${item.quantity} шт.` : "Не добавлять"}</small></span><span className="admin-order-kit-stepper"><button type="button" onClick={() => changeOrderKitQuantity(item.id, -1)}>−</button><b>{item.quantity}</b><button type="button" onClick={() => changeOrderKitQuantity(item.id, 1)}>+</button></span></div>)}
+              <div className="admin-order-kit-editor-actions"><button type="button" onClick={() => setOrderKitDraft(null)}>Отмена</button><button type="submit" disabled={orderKitSaving}>{orderKitSaving ? "Сохраняем…" : "Сохранить"}</button></div>
+            </form> : null}
             <div className="admin-order-comment"><span className="admin-order-detail-icon"><Icon path={mdiMessageOutline} size={0.95} aria-hidden="true" /></span><span><small>Комментарий</small><b>{selectedOrder.comment || "Без комментария"}</b></span></div>
-            {selectedOrder.posSyncStatus ? <div className="admin-order-pos-state"><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posSyncStatus === "submitting" ? "Отправляется на кухню…" : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `№${selectedOrder.posOrderNumber} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : selectedOrder.status === "new" ? "Отправится после подтверждения" : "Ожидает отправки"}</b></div> : null}
+            {selectedOrder.posSyncStatus ? <div className="admin-order-pos-state"><small>EDU POS</small><b>{selectedOrder.posSyncStatus === "pos_sync_failed" ? `Ошибка синхронизации${selectedOrder.posLastError ? `: ${selectedOrder.posLastError}` : ""}` : selectedOrder.posSyncStatus === "submitting" ? "Отправляется на кухню…" : selectedOrder.posStatus ? `${selectedOrder.posOrderNumber ? `${formatPosOrderNumber(selectedOrder.posOrderNumber)} · ` : ""}${posStatusLabels[selectedOrder.posStatus] || selectedOrder.posStatus} · готово ${selectedOrder.posItemsReady || 0} из ${selectedOrder.posItemsTotal || 0}${selectedOrder.posItemsRejected ? ` · отклонено ${selectedOrder.posItemsRejected}` : ""}` : selectedOrder.status === "new" ? "Отправится после подтверждения" : "Ожидает отправки"}</b></div> : null}
           </section>
 
           <section className="admin-order-items-pane">
@@ -1849,21 +1919,21 @@ export function AdminApp() {
             <div className="admin-order-lines">
               {selectedOrder.items.map((item) => <article key={item.id}>
                 <span className="admin-order-qty">{item.quantity}×</span>
-                <span><b>{item.productName}</b>{item.modifierSnapshots.map((modifier) => {
+                <span><b>{item.productName}</b>{item.modifierSnapshots?.length ? <span className="admin-order-modifiers">{item.modifierSnapshots.map((modifier) => {
                   const contribution = modifier.totalPrice
                     * (modifier.priceScope === "per-product" ? item.quantity : 1);
                   const scopeLabel = modifier.priceScope === "per-line"
                     ? "за строку"
                     : `за ${item.quantity} шт.`;
-                  return <small key={`${modifier.groupId}:${modifier.itemId}`}>
-                    {modifier.groupTitle}: {modifier.itemName}
+                  return <small key={`${modifier.groupId}:${modifier.itemId}`}><b>{modifier.groupTitle}:</b> {modifier.itemName}
                     {modifier.quantity > 1 ? ` ×${modifier.quantity}` : ""}
                     {contribution ? ` (+${contribution} сом ${scopeLabel})` : ""}
                   </small>;
-                })}{item.posStatus ? <small>{item.posStatus === "rejected" ? `EDU POS: отклонено${item.posRejectReason ? ` — ${item.posRejectReason}` : ""}` : item.posStatus === "ready" ? "EDU POS: готово" : `EDU POS: ${item.posStatus}`}</small> : null}</span>
+                })}</span> : null}{item.posStatus ? <small>{item.posStatus === "rejected" ? `EDU POS: отклонено${item.posRejectReason ? ` — ${item.posRejectReason}` : ""}` : item.posStatus === "ready" ? "EDU POS: готово" : `EDU POS: ${item.posStatus}`}</small> : null}</span>
                 <strong>{formatSom(item.lineTotal)}</strong>
               </article>)}
             </div>
+            <div className="admin-order-kit-summary"><span><b>Комплектация</b><small>{selectedOrder.noUtensils ? "Без палочек" : `Палочки — ${selectedOrder.utensilsCount} шт.`}</small>{orderKitItemsForDisplay(selectedOrder).filter((item) => item.quantity > 0).map((item) => <small key={item.id}>{item.name} — {item.quantity} шт.</small>)}{orderKitItemsForDisplay(selectedOrder).every((item) => item.quantity === 0) ? <small>Без соусов и добавок</small> : null}</span>{!["completed", "cancelled"].includes(selectedOrder.status) ? <button type="button" onClick={() => openOrderKitEditor(selectedOrder)}>Изменить</button> : null}</div>
             <div className="admin-order-summary"><span>Итого / К оплате</span><strong>{formatSom(selectedOrder.total)}</strong></div>
           </section>
         </div>

@@ -10,16 +10,21 @@ import {
   mdiAlertCircleOutline,
   mdiArrowLeft,
   mdiCashMultiple,
+  mdiCheckCircle,
   mdiChevronRight,
   mdiClipboardTextOutline,
+  mdiCloseCircle,
   mdiCogOutline,
   mdiCreditCardOutline,
   mdiDoorOpen,
   mdiFileDocumentOutline,
+  mdiFish,
+  mdiFoodTakeoutBoxOutline,
   mdiHexagonMultipleOutline,
   mdiInformationOutline,
   mdiLogout,
   mdiMapMarker,
+  mdiMapMarkerOutline,
   mdiMessageTextOutline,
   mdiMessageReplyTextOutline,
   mdiOfficeBuildingOutline,
@@ -148,6 +153,7 @@ type ProfileOrderDetail = ProfileOrder & {
   comment: string;
   utensilsCount: number;
   noUtensils: boolean;
+  kitItems?: Array<{ id: string; name: string; quantity: number }>;
   paymentMethod: "cash" | "card_on_delivery";
   externalOrderId?: string | null;
   posOrderNumber?: string | null;
@@ -209,6 +215,7 @@ type PersistedStorefrontState = {
   pickupLocationSelected: boolean;
   utensilsCount: number;
   noUtensils: boolean;
+  kitQuantities: Record<string, number>;
   deliveryLocation: DeliveryLocation | null;
 };
 
@@ -252,6 +259,15 @@ const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + 
 const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
   new: "Принят", confirmed: "Подтверждён", preparing: "Готовим", ready: "Готов", delivering: "В пути", completed: "Выполнен", cancelled: "Отменён",
 };
+const profileOrderDetailStatuses: Record<ProfileOrder["status"], string> = {
+  new: "Заказ принят",
+  confirmed: "Заказ подтверждён",
+  preparing: "Готовим ваш заказ",
+  ready: "Заказ готов",
+  delivering: "Курьер уже в пути",
+  completed: "Заказ выполнен",
+  cancelled: "Заказ отменён",
+};
 const profileNftStatuses: Record<ProfileNftStatus, string> = {
   owned: "Доступен",
   pending: "Заявка принята",
@@ -275,7 +291,7 @@ const posStatusLabels: Record<string, string> = {
   rejected: "Кухня отклонила заказ",
   cancelled: "Заказ отменён",
 };
-const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 const profileNftDate = (value: string) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
@@ -399,28 +415,27 @@ function addressWithSingleCity(value: string, city: string) {
 
   return addressWithoutCity ? `${city}, ${addressWithoutCity}` : city;
 }
-const profileOrderSteps: Array<{ status: ProfileOrder["status"]; label: string }> = [
-  { status: "new", label: "Заказ создан" },
-  { status: "confirmed", label: "Заказ подтверждён" },
-  { status: "preparing", label: "Готовим заказ" },
-  { status: "ready", label: "Заказ готов" },
-  { status: "delivering", label: "Курьер в пути" },
-  { status: "completed", label: "Заказ завершён" },
-];
 const cartKitItems = [
   {
+    id: "soy-sauce",
     name: "Соевый соус",
     image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8a6ed9632df66e2010fc4a1eccef758c_thumb_75_1152_1152.JPEG",
   },
   {
+    id: "wasabi",
     name: "Васаби",
     image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa8eef7dfdda0436a337ddb4c0970125_thumb_75_1152_1152.JPEG",
   },
   {
+    id: "pickled-ginger",
     name: "Имбирь маринованный",
     image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71852e053134d8a7863bc1ce6a13ece_thumb_75_1152_1152.JPEG",
   },
 ] as const;
+const defaultKitQuantities = () => Object.fromEntries(cartKitItems.map((item) => [item.id, 1]));
+const orderKitItemsForDisplay = (items?: Array<{ id: string; name: string; quantity: number }>) => (
+  items?.length ? items : cartKitItems.map((item) => ({ id: item.id, name: item.name, quantity: 1 }))
+);
 const cartLineKey = (productId: number, modifiers: SelectedModifier[]) => {
   const signature = modifiers
     .map((modifier) => `${modifier.groupId}:${modifier.itemId}:${modifier.quantity}:${modifier.priceScope}`)
@@ -613,6 +628,15 @@ const parseStoredStorefrontState = (
     const utensilsCount = Number.isInteger(value.utensilsCount)
       ? Math.min(20, Math.max(0, value.utensilsCount as number))
       : 1;
+    const kitQuantities = defaultKitQuantities();
+    if (isRecord(value.kitQuantities)) {
+      for (const item of cartKitItems) {
+        const quantity = value.kitQuantities[item.id];
+        if (Number.isInteger(quantity)) {
+          kitQuantities[item.id] = Math.min(20, Math.max(0, quantity as number));
+        }
+      }
+    }
     const restoredDeliveryLocation = deliveryType === "delivery"
       ? restoreStoredDeliveryLocation(value.deliveryLocation)
       : null;
@@ -623,6 +647,7 @@ const parseStoredStorefrontState = (
       pickupLocationSelected: Boolean(address && deliveryType === "pickup" && value.pickupLocationSelected === true),
       utensilsCount,
       noUtensils: value.noUtensils === true,
+      kitQuantities,
       deliveryLocation: restoredDeliveryLocation?.address === address ? restoredDeliveryLocation : null,
     };
   } catch {
@@ -768,7 +793,6 @@ const defaultStoryGroups: StoryGroup[] = [
     pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/7c7596a0dba0e9fff9f96d6e65df547d_resize_in_box_2048_2048.jpg" }],
   },
 ];
-
 const promotionsToStories = (promotions: Promotion[]): StoryGroup[] => promotions.map((promotion) => ({
   title: promotion.title,
   kind: "pleasure",
@@ -887,6 +911,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [pendingCartLine, setPendingCartLine] = useState<PendingCartLine | null>(null);
   const [utensilsCount, setUtensilsCount] = useState(1);
   const [noUtensils, setNoUtensils] = useState(false);
+  const [kitQuantities, setKitQuantities] = useState<Record<string, number>>(defaultKitQuantities);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [resumeCheckoutAfterAddress, setResumeCheckoutAfterAddress] = useState(false);
   const [checkoutForm, setCheckoutForm] = useState<CheckoutForm>({
@@ -1138,6 +1163,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           setPickupLocationSelected(restored.pickupLocationSelected);
           setUtensilsCount(restored.utensilsCount);
           setNoUtensils(restored.noUtensils);
+          setKitQuantities(restored.kitQuantities);
           setDeliveryLocation(restored.deliveryLocation);
         }
       } catch {
@@ -1191,6 +1217,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         pickupLocationSelected,
         utensilsCount: Math.min(20, Math.max(0, utensilsCount)),
         noUtensils,
+        kitQuantities,
         deliveryLocation: (
           deliveryType === "delivery" &&
           deliveryLocation?.address === address &&
@@ -1230,6 +1257,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     deliveryLocation,
     deliveryType,
     noUtensils,
+    kitQuantities,
     pickupLocationSelected,
     regionSlug,
     storageHydrated,
@@ -1842,6 +1870,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           paymentMethod: checkoutForm.paymentMethod,
           utensilsCount: noUtensils ? 0 : utensilsCount,
           noUtensils,
+          kitItems: cartKitItems.map((item) => ({
+            id: item.id,
+            quantity: kitQuantities[item.id] ?? 1,
+          })),
           items: cart.map((line) => ({
             productId: line.product.id,
             quantity: line.quantity,
@@ -2389,11 +2421,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       {menuOpen ? (
         <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
-          <section className="profile-modal">
+          <section className={`profile-modal${profileSection === "orders" ? " profile-orders-screen" : ""}`}>
             {hasProfileSession ? <>
-              <header className={`profile-screen-header${profileSection === "menu" ? " profile-menu-header" : ""}`}>
+              <header className={`profile-screen-header${profileSection === "menu" ? " profile-menu-header" : ""}${profileSection === "orders" ? " profile-orders-header" : ""}`}>
                 <button type="button" onClick={() => profileSection === "menu" ? setMenuOpen(false) : setProfileSection("menu")} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
-                <h2>{profileSection === "orders" ? "Мои заказы" : profileSection === "balance" ? "Баланс" : profileSection === "settings" ? "Настройки" : ""}</h2>
+                <h2>{profileSection === "balance" ? "Баланс" : profileSection === "settings" ? "Настройки" : ""}</h2>
                 <span />
               </header>
               <div className={`profile-account profile-section-${profileSection}`}>
@@ -2413,6 +2445,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 </> : null}
 
                 {profileSection === "orders" ? <>
+                  <h2 className="profile-orders-title">Мои заказы</h2>
                   <div className="profile-order-tabs" role="tablist">
                     <button className={profileOrderTab === "active" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "active"} onClick={() => setProfileOrderTab("active")}>Активные</button>
                     <button className={profileOrderTab === "history" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "history"} onClick={() => setProfileOrderTab("history")}>История</button>
@@ -2421,8 +2454,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     {profileLoading ? <p className="profile-empty">Загружаем заказы…</p> : (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.length ? (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.map((order) => <button className="profile-order-card" type="button" key={order.id} onClick={() => openProfileOrder(order)}>
                       <span className={`profile-order-status status-${order.status}`}>{profileOrderStatuses[order.status]}</span>
                       <span className="profile-order-main"><span><b>Заказ №{publicOrderNumber(order)}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
-                      <span className="profile-order-delivery"><i aria-hidden="true">▣</i><span><b>{order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{order.address || "Адрес заказа"}</small></span></span>
-                    </button>) : <div className="profile-orders-empty"><span aria-hidden="true">▱</span><p>{profileOrderTab === "active" ? "Активных заказов пока нет" : "История заказов пока пуста"}</p><button type="button" onClick={() => setMenuOpen(false)}>Перейти в меню</button></div>}
+                      <span className="profile-order-delivery"><i aria-hidden="true"><Icon path={mdiShoppingOutline} size={0.8} /></i><span><b>{order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{order.address || "Загружаем адрес…"}</small></span></span>
+                    </button>) : <div className="profile-orders-empty"><span className="profile-orders-empty-art" aria-hidden="true"><Icon path={mdiFoodTakeoutBoxOutline} size={3.15} /><Icon path={mdiFish} size={1.55} /></span><p>Пока здесь пусто,<br />пора сделать первый заказ!</p><button type="button" onClick={() => setMenuOpen(false)}>Меню</button></div>}
                   </div>
                 </> : null}
 
@@ -2718,24 +2751,27 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       {selectedProfileOrder ? (
         <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${publicOrderNumber(selectedProfileOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
           <section className="order-details-modal">
-            <header><div><small>Заказ №{publicOrderNumber(selectedProfileOrder)}</small><h2>{profileOrderStatuses[profileOrderDetail?.status ?? selectedProfileOrder.status]}</h2><p>{profileOrderDate(selectedProfileOrder.createdAt)}</p></div><button type="button" onClick={closeProfileOrder} aria-label="Закрыть">×</button></header>
+            <header>
+              <button type="button" onClick={closeProfileOrder} aria-label="Назад"><Icon path={mdiArrowLeft} size={0.96} aria-hidden="true" /></button>
+              <h2>Заказ №{publicOrderNumber(profileOrderDetail ?? selectedProfileOrder)}</h2>
+              <span aria-hidden="true" />
+            </header>
             {profileOrderDetailLoading ? <p className="order-details-state">Загружаем детали заказа…</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
-              <section className="order-status-card">
-                <b>{profileOrderDetail.posStatus ? posStatusLabels[profileOrderDetail.posStatus] || "Статус кухни" : "Статус заказа"}</b>
-                {profileOrderDetail.posProgress?.itemsTotal ? <div className="kitchen-progress" role="status">
+              <section className={`order-status-summary${profileOrderDetail.status === "cancelled" ? " cancelled" : ""}`}>
+                <Icon path={profileOrderDetail.status === "cancelled" ? mdiCloseCircle : mdiCheckCircle} size={1.04} aria-hidden="true" />
+                <span><b>{profileOrderDetail.posStatus ? posStatusLabels[profileOrderDetail.posStatus] || profileOrderDetailStatuses[profileOrderDetail.status] : profileOrderDetailStatuses[profileOrderDetail.status]}</b><small>{profileOrderDate(profileOrderDetail.createdAt)}</small></span>
+              </section>
+              {profileOrderDetail.posProgress?.itemsTotal ? <section className="kitchen-progress" role="status">
                   <span>Готово {profileOrderDetail.posProgress.itemsReady} из {profileOrderDetail.posProgress.itemsTotal} блюд</span>
                   <i><em style={{ width: `${Math.min(100, (profileOrderDetail.posProgress.itemsReady / profileOrderDetail.posProgress.itemsTotal) * 100)}%` }} /></i>
                   {profileOrderDetail.posProgress.itemsRejected > 0 ? <small>Отклонено: {profileOrderDetail.posProgress.itemsRejected}</small> : null}
-                </div> : null}
-                {profileOrderDetail.status === "cancelled" ? <p className="order-cancelled">Заказ отменён</p> : <ol>{profileOrderSteps.map((step) => { const currentStep = profileOrderSteps.findIndex((candidate) => candidate.status === profileOrderDetail.status); const stepIndex = profileOrderSteps.findIndex((candidate) => candidate.status === step.status); return <li className={stepIndex <= currentStep ? "done" : ""} key={step.status}>{step.label}</li>; })}</ol>}
-              </section>
-              <section className="order-details-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className={`order-detail-line${item.posStatus === "rejected" ? " rejected" : ""}`} key={`${item.productName}-${index}`}><span><b>{item.productName}</b><small>{item.quantity} шт.{item.modifierSnapshots?.length ? ` · ${item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}` : ""}</small>{item.posStatus ? <small className={`kitchen-item-status status-${item.posStatus}`}>{item.posStatus === "ready" ? "Готово" : item.posStatus === "cooking" ? `Готовится${item.posReadyQuantity ? ` · готово ${item.posReadyQuantity}` : ""}` : item.posStatus === "rejected" ? `Отклонено${item.posRejectReason ? `: ${item.posRejectReason}` : ""}` : item.posStatus === "accepted" ? "Принято кухней" : "Ожидает кухню"}</small> : null}</span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
-              <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><p className="order-destination">{profileOrderDetail.address || "Адрес не указан"}</p>{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && `Кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).join(", ")}</small> : null}<p className="order-meta">{profileOrderDetail.paymentMethod === "cash" ? "Оплата наличными" : "Оплата картой курьеру"}{profileOrderDetail.noUtensils ? " · Без приборов" : profileOrderDetail.utensilsCount ? ` · Приборы: ${profileOrderDetail.utensilsCount}` : ""}</p>{profileOrderDetail.comment ? <p className="order-comment">Комментарий: {profileOrderDetail.comment}</p> : null}</section>
-            </div> : null}
-            <div className="order-details-actions">
+                </section> : null}
+              <section className="order-details-section order-items-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className={`order-detail-line${item.posStatus === "rejected" ? " rejected" : ""}`} key={`${item.productName}-${index}`}><i className="order-item-quantity">{item.quantity}</i><span><b>{item.productName}</b>{item.modifierSnapshots?.length ? <small>{item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}{item.posStatus ? <small className={`kitchen-item-status status-${item.posStatus}`}>{item.posStatus === "ready" ? "Готово" : item.posStatus === "cooking" ? `Готовится${item.posReadyQuantity ? ` · готово ${item.posReadyQuantity}` : ""}` : item.posStatus === "rejected" ? `Отклонено${item.posRejectReason ? `: ${item.posRejectReason}` : ""}` : item.posStatus === "accepted" ? "Принято кухней" : "Ожидает кухню"}</small> : null}</span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
+              <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><div className="order-info-row"><Icon path={mdiMapMarkerOutline} size={0.84} aria-hidden="true" /><span><p className="order-destination">{profileOrderDetail.address || "Адрес не указан"}</p>{[profileOrderDetail.apartment && `кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && `кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).join(", ")}</small> : null}</span></div>{profileOrderDetail.comment ? <p className="order-comment">Комментарий: {profileOrderDetail.comment}</p> : null}</section>
+              <section className="order-details-section"><h3>Оплата и комплектация</h3><div className="order-info-row"><Icon path={mdiWalletOutline} size={0.84} aria-hidden="true" /><span><p className="order-destination">{profileOrderDetail.paymentMethod === "cash" ? "Наличными" : "Картой"}</p><small className="order-destination-details">{profileOrderDetail.noUtensils ? "Без палочек" : `Палочки: ${profileOrderDetail.utensilsCount}`}</small><span className="order-kit-detail">{orderKitItemsForDisplay(profileOrderDetail.kitItems).filter((item) => item.quantity > 0).map((item) => <small key={item.id}>{item.name}: {item.quantity}</small>)}</span></span></div></section>
+              <a className="order-support-button" href={supportHref}><Icon path={mdiPhoneOutline} size={0.84} aria-hidden="true" />Связаться с поддержкой</a>
               {canCancelSelectedProfileOrder ? <button type="button" className="order-cancel-open" onClick={() => { setCancelOrderError(""); setCancelOrderOpen(true); }}>Отменить заказ</button> : null}
-              <button type="button" className="order-details-close" onClick={closeProfileOrder}>Готово</button>
-            </div>
+            </div> : null}
           </section>
         </div>
       ) : null}
@@ -2796,7 +2832,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <header><h2>Комплектация</h2><button type="button" onClick={() => setCartKitOpen(false)} aria-label="Закрыть">×</button></header>
             <h3>Приборы</h3>
             <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без приборов</b><small>Если не используете — это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
-            <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.name}><img src={item.image} alt="" /><span><b>{item.name}</b><small>1 шт.</small></span></div>)}</div>
+            <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.id}><img src={item.image} alt="" /><span><b>{item.name}</b><span className="kit-quantity kit-extra-quantity"><button type="button" aria-label={`Уменьшить: ${item.name}`} disabled={(kitQuantities[item.id] ?? 1) === 0} onClick={() => setKitQuantities((current) => ({ ...current, [item.id]: Math.max(0, (current[item.id] ?? 1) - 1) }))}>−</button><span>{kitQuantities[item.id] ?? 1}</span><button type="button" aria-label={`Увеличить: ${item.name}`} disabled={(kitQuantities[item.id] ?? 1) >= 20} onClick={() => setKitQuantities((current) => ({ ...current, [item.id]: Math.min(20, (current[item.id] ?? 1) + 1) }))}>+</button></span></span></div>)}</div>
             <button className="cart-kit-save" type="button" onClick={() => setCartKitOpen(false)}>Готово</button>
           </aside>
         </div>
