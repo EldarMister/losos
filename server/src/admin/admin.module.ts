@@ -9,6 +9,7 @@ import { Order } from "../orders/order.entity";
 import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -24,6 +25,7 @@ import { AdminTokenGuard } from "./admin-token.guard";
     PhoneAccount,
     AccountNft,
     NaktaCoinTransaction,
+    NaktaCoinWithdrawal,
   ])],
   controllers: [AdminController],
   providers: [AdminService, AdminTokenGuard],

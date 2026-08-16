@@ -28,6 +28,8 @@ import { AccountNft } from "./rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
 import { AccountSession } from "./auth/account-session.entity";
 import { AddMultiDeviceAccountSessions1785002000000 } from "./migrations/1785002000000-AddMultiDeviceAccountSessions";
+import { AddNaktaCoinWithdrawals1785003000000 } from "./migrations/1785003000000-AddNaktaCoinWithdrawals";
+import { NaktaCoinWithdrawal } from "./rewards/nakta-coin-withdrawal.entity";
 
 try {
   process.loadEnvFile(".env");
@@ -54,6 +56,7 @@ export default new DataSource({
     AccountNft,
     NaktaCoinTransaction,
     AccountSession,
+    NaktaCoinWithdrawal,
   ],
   migrations: [
     BootstrapSchema1784978000000,
@@ -71,6 +74,7 @@ export default new DataSource({
     AddOrderRewardsAndNfts1785000000000,
     MoveNftRewardsToOrderMilestones1785001000000,
     AddMultiDeviceAccountSessions1785002000000,
+    AddNaktaCoinWithdrawals1785003000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

@@ -11,6 +11,7 @@ import { PhoneAuthService } from "./phone-auth.service";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 import { AccountSession } from "./account-session.entity";
+import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AccountSession } from "./account-session.entity";
       AccountNft,
       NaktaCoinTransaction,
       AccountSession,
+      NaktaCoinWithdrawal,
     ]),
   ],
   controllers: [PhoneAuthController],

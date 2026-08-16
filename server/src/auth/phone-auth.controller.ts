@@ -15,6 +15,7 @@ import {
   RegisterPushTokenDto,
   RequestPhoneCodeDto,
   VerifyPhoneCodeDto,
+  WithdrawNaktaCoinsDto,
   WithdrawNftDto,
 } from "./phone-auth.dto";
 import { PhoneAuthService } from "./phone-auth.service";
@@ -84,6 +85,21 @@ export class PhoneAuthController {
       bearerToken(authorization),
       id,
       dto.walletAddress,
+    );
+  }
+
+  @Post("coins/withdraw")
+  @HttpCode(200)
+  withdrawNaktaCoins(
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() dto: WithdrawNaktaCoinsDto,
+  ) {
+    return this.auth.withdrawNaktaCoins(
+      phone || "",
+      bearerToken(authorization),
+      dto.walletAddress,
+      dto.amount,
     );
   }
 

@@ -22,6 +22,7 @@ import {
   UpdatePromotionDto,
   UpdateRegionDto,
   UpdateNftWithdrawalDto,
+  UpdateNaktaCoinWithdrawalDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -80,6 +81,19 @@ export class AdminController {
     @Body() dto: UpdateNftWithdrawalDto,
   ) {
     return this.admin.updateNftWithdrawal(id, dto);
+  }
+
+  @Get("coin-withdrawals")
+  coinWithdrawals(@Query("status") status?: string) {
+    return this.admin.coinWithdrawals(status);
+  }
+
+  @Patch("coin-withdrawals/:id")
+  updateCoinWithdrawal(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNaktaCoinWithdrawalDto,
+  ) {
+    return this.admin.updateCoinWithdrawal(id, dto);
   }
 
   @Post("categories")

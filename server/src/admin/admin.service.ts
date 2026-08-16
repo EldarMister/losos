@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Between, Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
@@ -14,6 +14,8 @@ import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
+import { randomUUID } from "node:crypto";
 import { calculateOrderRewards, isNftMilestone } from "../rewards/reward-calculation";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
 import {
@@ -26,6 +28,7 @@ import {
   UpdatePromotionDto,
   UpdateRegionDto,
   UpdateNftWithdrawalDto,
+  UpdateNaktaCoinWithdrawalDto,
 } from "./admin.dto";
 
 @Injectable()
@@ -37,6 +40,7 @@ export class AdminService {
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
     @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
     @InjectRepository(AccountNft) private readonly nftRepository: Repository<AccountNft>,
+    @InjectRepository(NaktaCoinWithdrawal) private readonly coinWithdrawalRepository: Repository<NaktaCoinWithdrawal>,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -237,6 +241,62 @@ export class AdminService {
       : null;
     nft.withdrawnAt = dto.status === "withdrawn" ? new Date() : null;
     return this.nftRepository.save(nft);
+  }
+
+  coinWithdrawals(status?: string) {
+    const supported = new Set(["pending", "submitted", "withdrawn", "failed"]);
+    return this.coinWithdrawalRepository.find({
+      where: status && supported.has(status)
+        ? { status: status as NaktaCoinWithdrawal["status"] }
+        : {},
+      order: { createdAt: "DESC" },
+      take: 200,
+    });
+  }
+
+  async updateCoinWithdrawal(id: string, dto: UpdateNaktaCoinWithdrawalDto) {
+    return this.coinWithdrawalRepository.manager.transaction(async (manager) => {
+      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
+      const withdrawal = await withdrawalRepository.findOne({
+        where: { id },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!withdrawal) throw new NotFoundException("Coin withdrawal not found");
+      if (["withdrawn", "failed"].includes(withdrawal.status)) {
+        throw new ConflictException("Coin withdrawal is already finalized");
+      }
+      if (dto.status !== "failed" && !dto.txHash && !withdrawal.txHash) {
+        throw new BadRequestException("Для отправки NAKTA Coin нужен хеш транзакции");
+      }
+
+      withdrawal.status = dto.status;
+      if (dto.txHash !== undefined) withdrawal.txHash = dto.txHash;
+      withdrawal.error = dto.status === "failed"
+        ? dto.error || "Заявка на вывод отклонена"
+        : null;
+      withdrawal.processedAt = ["withdrawn", "failed"].includes(dto.status)
+        ? new Date()
+        : null;
+
+      if (dto.status === "failed") {
+        const accountRepository = manager.getRepository(PhoneAccount);
+        const account = await accountRepository.findOne({
+          where: { phone: withdrawal.phone },
+          lock: { mode: "pessimistic_write" },
+        });
+        if (!account) throw new NotFoundException("Аккаунт не найден");
+        account.naktaCoins += withdrawal.amount;
+        await accountRepository.save(account);
+        await manager.getRepository(NaktaCoinTransaction).save({
+          phone: withdrawal.phone,
+          orderId: randomUUID(),
+          amount: withdrawal.amount,
+          description: "Возврат NAKTA Coin после отмены вывода",
+        });
+      }
+
+      return withdrawalRepository.save(withdrawal);
+    });
   }
 
   async createCategory(dto: CreateCategoryDto) {

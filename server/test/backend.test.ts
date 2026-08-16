@@ -15,7 +15,7 @@ import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
-import { RequestPhoneCodeDto } from "../src/auth/phone-auth.dto";
+import { RequestPhoneCodeDto, WithdrawNaktaCoinsDto } from "../src/auth/phone-auth.dto";
 import { isWalletAddressValid, smsResendDelaySeconds } from "../src/auth/phone-auth.service";
 import { calculateOrderRewards, isNftMilestone } from "../src/rewards/reward-calculation";
 import { OrdersController } from "../src/orders/orders.controller";
@@ -70,6 +70,29 @@ test("NFT wallet addresses are validated for the configured network", () => {
   assert.equal(isWalletAddressValid("solana", "11111111111111111111111111111111"), true);
   assert.equal(isWalletAddressValid("ton", `0:${"a".repeat(64)}`), true);
   assert.equal(isWalletAddressValid("unknown", `0x${"a".repeat(40)}`), false);
+});
+
+test("NAKTA Coin withdrawal requires a plausible wallet address", () => {
+  const valid = plainToInstance(WithdrawNaktaCoinsDto, {
+    walletAddress: `0x${"a".repeat(40)}`,
+    amount: 25,
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const short = plainToInstance(WithdrawNaktaCoinsDto, { walletAddress: "0x1234", amount: 25 });
+  assert.ok(validateSync(short).some((error) => error.property === "walletAddress"));
+
+  const spaced = plainToInstance(WithdrawNaktaCoinsDto, {
+    walletAddress: "wallet address with spaces",
+    amount: 25,
+  });
+  assert.ok(validateSync(spaced).some((error) => error.property === "walletAddress"));
+
+  const zero = plainToInstance(WithdrawNaktaCoinsDto, {
+    walletAddress: `0x${"a".repeat(40)}`,
+    amount: 0,
+  });
+  assert.ok(validateSync(zero).some((error) => error.property === "amount"));
 });
 
 test("order rewards calculate product coins without product NFT data", () => {

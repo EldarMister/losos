@@ -34,6 +34,8 @@ import { AccountNft } from "./rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
 import { AccountSession } from "./auth/account-session.entity";
 import { AddMultiDeviceAccountSessions1785002000000 } from "./migrations/1785002000000-AddMultiDeviceAccountSessions";
+import { AddNaktaCoinWithdrawals1785003000000 } from "./migrations/1785003000000-AddNaktaCoinWithdrawals";
+import { NaktaCoinWithdrawal } from "./rewards/nakta-coin-withdrawal.entity";
 
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { AddMultiDeviceAccountSessions1785002000000 } from "./migrations/1785002
             AccountNft,
             NaktaCoinTransaction,
             AccountSession,
+            NaktaCoinWithdrawal,
           ],
           migrations: [
             BootstrapSchema1784978000000,
@@ -77,6 +80,7 @@ import { AddMultiDeviceAccountSessions1785002000000 } from "./migrations/1785002
             AddOrderRewardsAndNfts1785000000000,
             MoveNftRewardsToOrderMilestones1785001000000,
             AddMultiDeviceAccountSessions1785002000000,
+            AddNaktaCoinWithdrawals1785003000000,
           ],
           migrationsRun: true,
           synchronize:

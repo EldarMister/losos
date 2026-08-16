@@ -1,10 +1,13 @@
-import { Transform } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsIn,
+  IsInt,
   IsString,
   IsUUID,
   Matches,
   MaxLength,
+  Max,
+  Min,
   MinLength,
 } from "class-validator";
 
@@ -59,4 +62,12 @@ export class WithdrawNftDto {
   @MaxLength(200)
   @Matches(/^\S+$/, { message: "Адрес кошелька не должен содержать пробелы" })
   walletAddress!: string;
+}
+
+export class WithdrawNaktaCoinsDto extends WithdrawNftDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(2_147_483_647)
+  amount!: number;
 }

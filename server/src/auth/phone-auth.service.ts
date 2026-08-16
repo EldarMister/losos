@@ -21,6 +21,7 @@ import { PhoneAuthChallenge } from "./phone-auth.entity";
 import type { RegisterPushTokenDto } from "./phone-auth.dto";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
 import { AccountSession } from "./account-session.entity";
 
 const CODE_TTL_MS = 5 * 60_000;
@@ -63,6 +64,8 @@ export class PhoneAuthService {
     private readonly coinTransactions: Repository<NaktaCoinTransaction>,
     @InjectRepository(AccountSession)
     private readonly sessions: Repository<AccountSession>,
+    @InjectRepository(NaktaCoinWithdrawal)
+    private readonly coinWithdrawals: Repository<NaktaCoinWithdrawal>,
     private readonly captcha: CaptchaVerificationService,
     private readonly config: ConfigService,
     private readonly otp: NikitaOtpService,
@@ -176,7 +179,7 @@ export class PhoneAuthService {
       OrderStatus.READY,
       OrderStatus.DELIVERING,
     ]);
-    const [naktaCoinHistory, nfts] = await Promise.all([
+    const [naktaCoinHistory, nfts, naktaCoinWithdrawals] = await Promise.all([
       this.coinTransactions.find({
         where: { phone },
         order: { createdAt: "DESC" },
@@ -187,7 +190,13 @@ export class PhoneAuthService {
         order: { createdAt: "DESC" },
         take: 200,
       }),
+      this.coinWithdrawals.find({
+        where: { phone },
+        order: { createdAt: "DESC" },
+        take: 20,
+      }),
     ]);
+    const coinWithdrawalIds = new Set(naktaCoinWithdrawals.map((withdrawal) => withdrawal.id));
     return {
       naktaCoins: account.naktaCoins,
       naktaCoinHistory: naktaCoinHistory.map((entry) => ({
@@ -195,9 +204,10 @@ export class PhoneAuthService {
         amount: entry.amount,
         createdAt: entry.createdAt,
         description: entry.description,
-        orderId: entry.orderId,
+        orderId: coinWithdrawalIds.has(entry.orderId) ? undefined : entry.orderId,
       })),
       nfts: nfts.map((nft) => this.publicNft(nft)),
+      naktaCoinWithdrawals,
       currentOrders: orders.filter((order) => activeStatuses.has(order.status)),
       orderHistory: orders.filter((order) => !activeStatuses.has(order.status)),
     };
@@ -251,6 +261,7 @@ export class PhoneAuthService {
       await manager.query(`DELETE FROM "phone_auth_challenges" WHERE "phone" = $1`, [phone]);
       await manager.query(`DELETE FROM "nakta_coin_transactions" WHERE "phone" = $1`, [phone]);
       await manager.query(`DELETE FROM "account_nfts" WHERE "phone" = $1`, [phone]);
+      await manager.query(`DELETE FROM "nakta_coin_withdrawals" WHERE "phone" = $1`, [phone]);
       await manager.query(`DELETE FROM "phone_accounts" WHERE "phone" = $1`, [phone]);
     });
     return { deleted: true };
@@ -306,6 +317,47 @@ export class PhoneAuthService {
     });
 
     return this.dispatchNftWithdrawal(nft);
+  }
+
+  async withdrawNaktaCoins(
+    phone: string,
+    verificationToken: string,
+    walletAddress: string,
+    amount: number,
+  ) {
+    await this.requireAccount(phone, verificationToken);
+    return this.accounts.manager.transaction(async (manager) => {
+      const accountRepository = manager.getRepository(PhoneAccount);
+      const account = await accountRepository.findOne({
+        where: { phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!account) throw new NotFoundException("Аккаунт не найден");
+      if (account.naktaCoins <= 0 || amount > account.naktaCoins) {
+        throw new BadRequestException("Недостаточно NAKTA Coin для вывода");
+      }
+
+      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
+      const withdrawal = await withdrawalRepository.save(withdrawalRepository.create({
+        phone,
+        amount,
+        walletAddress,
+        status: "pending",
+        txHash: null,
+        error: null,
+        processedAt: null,
+      }));
+
+      account.naktaCoins -= amount;
+      await accountRepository.save(account);
+      await manager.getRepository(NaktaCoinTransaction).save({
+        phone,
+        orderId: withdrawal.id,
+        amount: -amount,
+        description: "Заявка на вывод NAKTA Coin",
+      });
+      return withdrawal;
+    });
   }
 
   private async assertRequestAllowed(
