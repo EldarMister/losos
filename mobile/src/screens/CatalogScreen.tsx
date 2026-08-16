@@ -271,7 +271,6 @@ export function CatalogScreen({
             style={({ pressed }) => [styles.cashbackChip, pressed && styles.chipPressed]}
           >
             <Text style={styles.cashbackText}>Coin</Text>
-            <MaterialCommunityIcons name="butterfly" size={17} color={colors.orange} />
           </Pressable>
         </View>
 
@@ -599,7 +598,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
     backgroundColor: "#FFF0E8",
   },
   cashbackText: {

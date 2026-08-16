@@ -7,6 +7,7 @@ import type {
   OrderPayload,
   ProfileData,
   AccountNft,
+  NaktaCoinWithdrawal,
   ProfileOrderDetail,
   Product,
   Promotion,
@@ -246,6 +247,16 @@ export const authApi = {
         method: "POST",
         headers: sessionHeaders(session),
         body: JSON.stringify({ walletAddress }),
+      },
+    );
+  },
+  withdrawNaktaCoins(session: AuthSession, walletAddress: string, amount: number) {
+    return request<NaktaCoinWithdrawal>(
+      `/auth/coins/withdraw?phone=${encodeURIComponent(session.phone)}`,
+      {
+        method: "POST",
+        headers: sessionHeaders(session),
+        body: JSON.stringify({ walletAddress, amount }),
       },
     );
   },

@@ -11,6 +11,7 @@ jest.mock("../api", () => ({
     profile: jest.fn(),
     deleteAccount: jest.fn(),
     withdrawNft: jest.fn(),
+    withdrawNaktaCoins: jest.fn(),
   },
   resolveImageUrl: (value: string) => value,
 }));
@@ -68,6 +69,12 @@ describe("ProfileScreen order history", () => {
     expect(profileCoinHistory({ ...emptyProfile, naktaCoins: 42 })).toEqual([
       expect.objectContaining({ amount: 42, description: "Начислено за предыдущие заказы" }),
     ]);
+    expect(profileCoinHistory({
+      ...emptyProfile,
+      naktaCoinHistory: [{ id: "withdrawal-1", amount: -5 }],
+    } as unknown as ProfileData)).toEqual([
+      expect.objectContaining({ amount: -5, description: "Вывод NAKTA Coin" }),
+    ]);
   });
 
   test("shows coin accrual history for a positive balance", async () => {
@@ -83,6 +90,9 @@ describe("ProfileScreen order history", () => {
 
     expect(await screen.findByText("Начислено за предыдущие заказы")).toBeTruthy();
     expect(screen.getByText("+42")).toBeTruthy();
+    expect(screen.getByText("История операций")).toBeTruthy();
+    expect(screen.getByText(/не тратятся внутри приложения/)).toBeTruthy();
+    expect(screen.getByText(/можно вывести на свой криптокошелёк/)).toBeTruthy();
     expect(screen.queryByText("История операций пока пуста.")).toBeNull();
   });
 
@@ -119,16 +129,16 @@ describe("ProfileScreen order history", () => {
       />,
     );
 
-    expect(await screen.findByText("Лосось Genesis")).toBeTruthy();
-    expect(screen.getByLabelText("Иконка NAKTA Coin")).toBeTruthy();
-    expect(screen.getByText("отдельно от NAKTA Coin")).toBeTruthy();
-    expect(screen.queryByText(/но хранятся отдельно/i)).toBeNull();
+    await fireEvent.press(await screen.findByRole("button", { name: "Вывести" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Выбрать NFT" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Оставить заявку" }));
+    expect(authApi.withdrawNft).not.toHaveBeenCalled();
     const wallet = `0x${"a".repeat(40)}`;
     await act(async () => {
-      fireEvent.changeText(screen.getByLabelText("Адрес кошелька для Лосось Genesis"), wallet);
+      fireEvent.changeText(screen.getByLabelText("Адрес криптокошелька"), wallet);
     });
     await act(async () => {
-      fireEvent.press(screen.getByRole("button", { name: "Вывести NFT" }));
+      fireEvent.press(screen.getByRole("button", { name: "Оставить заявку" }));
       await Promise.resolve();
     });
     await waitFor(() => expect(authApi.withdrawNft).toHaveBeenCalledWith(
@@ -136,7 +146,57 @@ describe("ProfileScreen order history", () => {
       nft.id,
       wallet,
     ));
+    expect(await screen.findByText("Заявка принята")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Готово" }));
+
+    await fireEvent.press(screen.getByRole("button", { name: "Открыть Мои NFT" }));
+    expect(await screen.findByText("Лосось Genesis")).toBeTruthy();
+    expect(screen.getByLabelText("Иконка NAKTA Coin")).toBeTruthy();
+    expect(screen.getByText("Ваши NFT")).toBeTruthy();
+    expect(screen.queryByText(/но хранятся отдельно/i)).toBeNull();
     expect(await screen.findByText("Polygon · Заявка на вывод принята")).toBeTruthy();
+  });
+
+  test("submits the selected NAKTA Coin amount as a withdrawal request", async () => {
+    const wallet = `0x${"b".repeat(40)}`;
+    (authApi.profile as jest.Mock).mockResolvedValue({ ...emptyProfile, naktaCoins: 78 });
+    (authApi.withdrawNaktaCoins as jest.Mock).mockResolvedValue({
+      id: "33333333-3333-4333-8333-333333333333",
+      amount: 25,
+      walletAddress: wallet,
+      status: "pending",
+      txHash: null,
+      error: null,
+      processedAt: null,
+      createdAt: "2026-08-17T00:00:00.000Z",
+    });
+    const screen = await render(
+      <ProfileScreen
+        onBack={jest.fn()}
+        onLogout={jest.fn()}
+        onOpenOrder={jest.fn()}
+        section="balance"
+      />,
+    );
+
+    await fireEvent.press(await screen.findByRole("button", { name: "Вывести" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Выбрать NAKTA Coin" }));
+    expect(screen.getByText("Доступно: 78 NAKTA Coin")).toBeTruthy();
+    await act(async () => {
+      fireEvent.changeText(screen.getByLabelText("Количество NAKTA Coin для вывода"), "25");
+      fireEvent.changeText(screen.getByLabelText("Адрес криптокошелька"), wallet);
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "Оставить заявку" }));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(authApi.withdrawNaktaCoins).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: "+996555123456" }),
+      wallet,
+      25,
+    ));
+    expect(await screen.findByText("Заявка принята")).toBeTruthy();
   });
 
   test("uses the original empty-order structure and returns to the menu", async () => {

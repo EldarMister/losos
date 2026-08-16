@@ -242,12 +242,24 @@ export type AccountNft = {
   milestoneOrderCount: number;
 };
 
+export type NaktaCoinWithdrawal = {
+  id: string;
+  amount: number;
+  walletAddress: string;
+  status: "pending" | "submitted" | "withdrawn" | "failed";
+  txHash: string | null;
+  error: string | null;
+  processedAt: string | null;
+  createdAt: string;
+};
+
 export type ProfileData = {
   naktaCoins: number;
   currentOrders: ProfileOrder[];
   orderHistory: ProfileOrder[];
   naktaCoinHistory?: NaktaCoinTransaction[];
   nfts?: AccountNft[];
+  naktaCoinWithdrawals?: NaktaCoinWithdrawal[];
 };
 
 export type ProfileOrderDetail = ProfileOrder & {
