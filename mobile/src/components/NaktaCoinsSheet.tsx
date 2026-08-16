@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { authApi } from "../api";
 import { useStore } from "../store";
 import { colors } from "../theme";
@@ -50,7 +50,7 @@ export function NaktaCoinsSheet({ visible, onClose }: Props) {
   }, [store.session, visible]);
 
   return (
-    <BottomSheet height={350} onClose={onClose} visible={visible}>
+    <BottomSheet height={420} onClose={onClose} visible={visible}>
       <View style={styles.content}>
         <View style={styles.cardsRow}>
           <LinearGradient
@@ -112,6 +112,17 @@ export function NaktaCoinsSheet({ visible, onClose }: Props) {
             </Text>
           </View>
         </View>
+        <Pressable
+          accessibilityLabel="Понятно"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={({ pressed }) => [
+            styles.closeButton,
+            pressed && styles.closeButtonPressed,
+          ]}
+        >
+          <Text style={styles.closeButtonText}>Понятно</Text>
+        </Pressable>
       </View>
     </BottomSheet>
   );
@@ -240,5 +251,22 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 17,
+  },
+  closeButton: {
+    height: 54,
+    marginTop: 14,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F2F2F3",
+  },
+  closeButtonPressed: {
+    opacity: 0.72,
+  },
+  closeButtonText: {
+    color: colors.ink,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    lineHeight: 21,
   },
 });

@@ -156,7 +156,7 @@ export function BottomSheet({
     >
       <GestureHandlerRootView style={styles.root}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.root}
         >
           <Animated.View

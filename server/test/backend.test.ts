@@ -1,5 +1,7 @@
 import "reflect-metadata";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
@@ -93,6 +95,20 @@ test("NAKTA Coin withdrawal requires a plausible wallet address", () => {
     amount: 0,
   });
   assert.ok(validateSync(zero).some((error) => error.property === "amount"));
+});
+
+test("NAKTA Coin withdrawals do not masquerade as order reward transactions", () => {
+  const authSource = readFileSync(
+    resolve(__dirname, "../src/auth/phone-auth.service.ts"),
+    "utf8",
+  );
+  const adminSource = readFileSync(
+    resolve(__dirname, "../src/admin/admin.service.ts"),
+    "utf8",
+  );
+  assert.doesNotMatch(authSource, /orderId:\s*withdrawal\.id/);
+  assert.doesNotMatch(adminSource, /orderId:\s*randomUUID\(\)/);
+  assert.match(authSource, /withdrawalHistory/);
 });
 
 test("order rewards calculate product coins without product NFT data", () => {

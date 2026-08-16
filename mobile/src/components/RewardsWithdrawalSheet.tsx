@@ -106,9 +106,10 @@ export function RewardsWithdrawalSheet({
   };
 
   return (
-    <BottomSheet height="72%" onClose={onClose} visible={visible}>
+    <BottomSheet height="82%" onClose={onClose} visible={visible}>
       <SwipeDismissScrollView
         contentContainerStyle={styles.content}
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -210,11 +211,12 @@ export function RewardsWithdrawalSheet({
 
             {kind ? (
               <View style={styles.form}>
-                <Text style={styles.selectionHint}>
-                  {kind === "coins"
-                    ? `Доступно: ${coins} NAKTA Coin`
-                    : `К выводу: ${selectedNft?.name || "NFT"}${selectedNft ? ` · ${networkLabels[selectedNft.network]}` : ""}`}
-                </Text>
+                {kind === "nft" ? (
+                  <Text style={styles.selectionHint}>
+                    К выводу: {selectedNft?.name || "NFT"}
+                    {selectedNft ? ` · ${networkLabels[selectedNft.network]}` : ""}
+                  </Text>
+                ) : null}
                 {kind === "coins" ? (
                   <>
                     <Text style={styles.fieldLabel}>Количество NAKTA Coin</Text>

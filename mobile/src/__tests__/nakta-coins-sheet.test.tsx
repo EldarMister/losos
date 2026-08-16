@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react-native";
+import { fireEvent, render } from "@testing-library/react-native";
 import { NaktaCoinsSheet } from "../components/NaktaCoinsSheet";
 import { authApi } from "../api";
 import { useStore } from "../store";
@@ -37,12 +37,14 @@ describe("NaktaCoinsSheet", () => {
       nfts: [{ id: "nft-1" }, { id: "nft-2" }],
     });
 
-    const screen = await render(<NaktaCoinsSheet onClose={jest.fn()} visible />);
+    const onClose = jest.fn();
+    const screen = await render(<NaktaCoinsSheet onClose={onClose} visible />);
 
     expect(await screen.findByLabelText("NAKTA Coin: 78")).toBeTruthy();
     expect(screen.getByLabelText("NFT: 2")).toBeTruthy();
     expect(screen.getByText("Как работают NAKTA Coin и NFT")).toBeTruthy();
     expect(screen.getByText(/не тратятся внутри приложения/)).toBeTruthy();
-    expect(screen.queryByText("Понятно")).toBeNull();
+    fireEvent.press(screen.getByRole("button", { name: "Понятно" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

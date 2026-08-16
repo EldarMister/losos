@@ -15,7 +15,6 @@ import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
-import { randomUUID } from "node:crypto";
 import { calculateOrderRewards, isNftMilestone } from "../rewards/reward-calculation";
 import { ListOrdersQueryDto } from "./admin-orders.dto";
 import {
@@ -287,12 +286,6 @@ export class AdminService {
         if (!account) throw new NotFoundException("Аккаунт не найден");
         account.naktaCoins += withdrawal.amount;
         await accountRepository.save(account);
-        await manager.getRepository(NaktaCoinTransaction).save({
-          phone: withdrawal.phone,
-          orderId: randomUUID(),
-          amount: withdrawal.amount,
-          description: "Возврат NAKTA Coin после отмены вывода",
-        });
       }
 
       return withdrawalRepository.save(withdrawal);

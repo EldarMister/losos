@@ -196,16 +196,39 @@ export class PhoneAuthService {
         take: 20,
       }),
     ]);
-    const coinWithdrawalIds = new Set(naktaCoinWithdrawals.map((withdrawal) => withdrawal.id));
-    return {
-      naktaCoins: account.naktaCoins,
-      naktaCoinHistory: naktaCoinHistory.map((entry) => ({
+    const withdrawalHistory = naktaCoinWithdrawals.flatMap((withdrawal) => {
+      const request = {
+        id: `withdrawal-${withdrawal.id}`,
+        amount: -withdrawal.amount,
+        createdAt: withdrawal.createdAt,
+        description: withdrawal.status === "withdrawn"
+          ? "Вывод NAKTA Coin завершён"
+          : "Заявка на вывод NAKTA Coin",
+        orderId: undefined,
+      };
+      return withdrawal.status === "failed"
+        ? [request, {
+          id: `withdrawal-refund-${withdrawal.id}`,
+          amount: withdrawal.amount,
+          createdAt: withdrawal.processedAt ?? withdrawal.createdAt,
+          description: "Возврат NAKTA Coin после отмены вывода",
+          orderId: undefined,
+        }]
+        : [request];
+    });
+    const serializedCoinHistory = [
+      ...naktaCoinHistory.map((entry) => ({
         id: entry.id,
         amount: entry.amount,
         createdAt: entry.createdAt,
         description: entry.description,
-        orderId: coinWithdrawalIds.has(entry.orderId) ? undefined : entry.orderId,
+        orderId: entry.orderId,
       })),
+      ...withdrawalHistory,
+    ].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+    return {
+      naktaCoins: account.naktaCoins,
+      naktaCoinHistory: serializedCoinHistory,
       nfts: nfts.map((nft) => this.publicNft(nft)),
       naktaCoinWithdrawals,
       currentOrders: orders.filter((order) => activeStatuses.has(order.status)),
@@ -350,12 +373,6 @@ export class PhoneAuthService {
 
       account.naktaCoins -= amount;
       await accountRepository.save(account);
-      await manager.getRepository(NaktaCoinTransaction).save({
-        phone,
-        orderId: withdrawal.id,
-        amount: -amount,
-        description: "Заявка на вывод NAKTA Coin",
-      });
       return withdrawal;
     });
   }

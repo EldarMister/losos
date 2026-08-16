@@ -181,7 +181,7 @@ describe("ProfileScreen order history", () => {
 
     await fireEvent.press(await screen.findByRole("button", { name: "Вывести" }));
     await fireEvent.press(screen.getByRole("button", { name: "Выбрать NAKTA Coin" }));
-    expect(screen.getByText("Доступно: 78 NAKTA Coin")).toBeTruthy();
+    expect(screen.queryByText("Доступно: 78 NAKTA Coin")).toBeNull();
     await act(async () => {
       fireEvent.changeText(screen.getByLabelText("Количество NAKTA Coin для вывода"), "25");
       fireEvent.changeText(screen.getByLabelText("Адрес криптокошелька"), wallet);
