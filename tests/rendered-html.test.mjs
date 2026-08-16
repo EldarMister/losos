@@ -340,6 +340,11 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
   assert.match(admin, /tab === "integrations"[\s\S]*?<IntegrationsView/);
   assert.match(loyalty, /Выдавать каждые N заказов/);
   assert.match(loyalty, /NFT и выводы/);
+  assert.match(loyalty, /Заявки на вывод NAKTA Coin/);
+  assert.match(loyalty, /Одобрить — отправлено в блокчейн/);
+  assert.match(loyalty, /Отклонить и вернуть коины/);
+  assert.match(admin, /\/admin\/coin-withdrawals\?region=/);
+  assert.match(admin, /\/admin\/coin-withdrawals\/\$\{id\}/);
   assert.match(loyalty, /Настроить награды в каталоге/);
   assert.doesNotMatch(loyalty, /admin-kpi-grid/);
   assert.match(customers, /NAKTA Coin[\s\S]*?<th>NFT<\/th>/);

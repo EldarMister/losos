@@ -27,6 +27,9 @@ import OrdersWorkspace, { type OrdersWorkspaceView } from "./OrdersWorkspace";
 import { CustomersView, type AdminCustomer } from "./CustomersView";
 import {
   LoyaltyCenter,
+  type CoinUpdatePayload,
+  type CoinWithdrawal,
+  type CoinWithdrawalStatus,
   type LoyaltyOverview,
   type LoyaltyProgramDraft,
   type NftStatus,
@@ -423,10 +426,14 @@ export function AdminApp() {
   const [loyaltyDraft, setLoyaltyDraft] = useState<LoyaltyProgramDraft>({ enabled: true, everyOrders: "10", name: "NFT NAKTA", image: "", description: "", network: "polygon", contractAddress: "", metadataUri: "" });
   const [nftWithdrawals, setNftWithdrawals] = useState<NftWithdrawal[]>([]);
   const [nftFilter, setNftFilter] = useState<"all" | NftStatus>("all");
+  const [coinWithdrawals, setCoinWithdrawals] = useState<CoinWithdrawal[]>([]);
+  const [coinFilter, setCoinFilter] = useState<"all" | CoinWithdrawalStatus>("all");
   const [loyaltyOverviewLoading, setLoyaltyOverviewLoading] = useState(false);
   const [nftWithdrawalsLoading, setNftWithdrawalsLoading] = useState(false);
+  const [coinWithdrawalsLoading, setCoinWithdrawalsLoading] = useState(false);
   const [loyaltySaving, setLoyaltySaving] = useState(false);
   const [nftUpdatingId, setNftUpdatingId] = useState<string | null>(null);
+  const [coinUpdatingId, setCoinUpdatingId] = useState<string | null>(null);
   const [eduPosStatus, setEduPosStatus] = useState<EduPosStatus | null>(null);
   const [eduPosStatusLoading, setEduPosStatusLoading] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
@@ -437,6 +444,7 @@ export function AdminApp() {
   const customersRequestId = useRef(0);
   const loyaltyOverviewRequestId = useRef(0);
   const nftWithdrawalsRequestId = useRef(0);
+  const coinWithdrawalsRequestId = useRef(0);
   const deferredSearch = useDeferredValue(search);
   const selectedRegion = availableRegions.find((item) => item.slug === region) ?? availableRegions[0];
   const activeLoyaltyOverview = loyaltyOverviewRegion === region ? loyaltyOverview : null;
@@ -848,6 +856,25 @@ export function AdminApp() {
     }
   }, [nftFilter, region, request, token]);
 
+  const loadCoinWithdrawals = useCallback(async () => {
+    if (!token) return;
+    const requestId = ++coinWithdrawalsRequestId.current;
+    setCoinWithdrawalsLoading(true);
+    try {
+      const withdrawals = await request(
+        `/admin/coin-withdrawals?region=${encodeURIComponent(region)}`,
+      ) as CoinWithdrawal[];
+      if (requestId !== coinWithdrawalsRequestId.current) return;
+      setCoinWithdrawals(withdrawals);
+    } catch (error) {
+      if (requestId === coinWithdrawalsRequestId.current) {
+        setMessage(error instanceof Error ? error.message : "Не удалось загрузить заявки NAKTA Coin");
+      }
+    } finally {
+      if (requestId === coinWithdrawalsRequestId.current) setCoinWithdrawalsLoading(false);
+    }
+  }, [region, request, token]);
+
   useEffect(() => {
     if (!token) return;
     const timer = window.setTimeout(() => void loadLoyaltyOverview(), 0);
@@ -859,12 +886,16 @@ export function AdminApp() {
 
   useEffect(() => {
     if (tab !== "loyalty" || !token) return;
-    const timer = window.setTimeout(() => void loadNftWithdrawals(), 0);
+    const timer = window.setTimeout(() => {
+      void loadNftWithdrawals();
+      void loadCoinWithdrawals();
+    }, 0);
     return () => {
       window.clearTimeout(timer);
       nftWithdrawalsRequestId.current += 1;
+      coinWithdrawalsRequestId.current += 1;
     };
-  }, [loadNftWithdrawals, tab, token]);
+  }, [loadCoinWithdrawals, loadNftWithdrawals, tab, token]);
 
   const saveLoyaltyProgram = async () => {
     if (!selectedRegion?.id || loyaltySaving) return;
@@ -1151,6 +1182,28 @@ export function AdminApp() {
     setDashboard(null);
     setOrders([]);
     setSelectedOrder(null);
+  };
+
+  const updateCoinWithdrawal = async (id: string, payload: CoinUpdatePayload) => {
+    if (coinUpdatingId) return false;
+    setCoinUpdatingId(id);
+    setMessage("");
+    try {
+      await request(`/admin/coin-withdrawals/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      await Promise.all([loadCoinWithdrawals(), loadLoyaltyOverview()]);
+      setMessage(payload.status === "failed"
+        ? "Заявка отклонена, NAKTA Coin возвращены пользователю"
+        : "Статус вывода NAKTA Coin обновлён");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Не удалось обновить заявку NAKTA Coin");
+      return false;
+    } finally {
+      setCoinUpdatingId(null);
+    }
   };
 
   const openOrderKitEditor = (order: AdminOrder) => {
@@ -1500,11 +1553,14 @@ export function AdminApp() {
   const totalOrderPages = Math.ceil(ordersTotal / ordersPerPage);
   const pendingNftCount = Number(activeLoyaltyOverview?.metrics.nftStatuses.pending || 0)
     + Number(activeLoyaltyOverview?.metrics.nftStatuses.submitted || 0);
+  const pendingCoinCount = coinWithdrawals.filter((item) => (
+    item.status === "pending" || item.status === "submitted"
+  )).length;
   const renderSidebar = (mobile = false) => <AdminNavigation
     active={tab}
     mobile={mobile}
     newOrders={Number(statusCounts.new || 0)}
-    pendingNfts={pendingNftCount}
+    pendingNfts={pendingNftCount + pendingCoinCount}
     onSelect={switchTab}
     onLogout={logout}
   />;
@@ -1582,14 +1638,19 @@ export function AdminApp() {
         overview={activeLoyaltyOverview}
         draft={loyaltyDraft}
         withdrawals={nftWithdrawals}
+        coinWithdrawals={coinWithdrawals}
         filter={nftFilter}
-        loading={loyaltyOverviewLoading || nftWithdrawalsLoading}
+        coinFilter={coinFilter}
+        loading={loyaltyOverviewLoading || nftWithdrawalsLoading || coinWithdrawalsLoading}
         saving={loyaltySaving}
         updatingId={nftUpdatingId}
+        coinUpdatingId={coinUpdatingId}
         onDraftChange={(patch) => setLoyaltyDraft((current) => ({ ...current, ...patch }))}
         onFilterChange={setNftFilter}
+        onCoinFilterChange={setCoinFilter}
         onSave={saveLoyaltyProgram}
         onWithdrawalUpdate={updateNftWithdrawal}
+        onCoinWithdrawalUpdate={updateCoinWithdrawal}
         onOpenCatalog={() => switchTab("products")}
         onImageFile={async (file) => {
           try {

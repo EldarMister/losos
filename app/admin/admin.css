@@ -1497,7 +1497,30 @@
 .admin-segmented-filter button.active { border-color: var(--admin-orange); background: var(--admin-orange-soft); color: var(--admin-orange); }
 .admin-segmented-filter em { min-width: 19px; height: 19px; display: grid; place-items: center; padding: 0 5px; border-radius: 999px; background: rgb(16 24 40 / 7%); font-size: 9px; font-style: normal; }
 .admin-nft-table { min-width: 920px; }
+.admin-coin-withdrawal-table { min-width: 760px; }
 .admin-nft-table tr.requires-action { background: #fffdf7; box-shadow: inset 3px 0 var(--admin-amber); }
+.admin-coin-withdrawal-amount { display: inline-flex; align-items: center; gap: 9px; }
+.admin-coin-withdrawal-amount > i {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--admin-orange-soft);
+  color: var(--admin-orange);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 850;
+}
+.admin-coin-withdrawal-amount > b { font-size: 13px; }
+.admin-empty-coin {
+  display: grid;
+  place-items: center;
+  background: var(--admin-orange-soft) !important;
+  color: var(--admin-orange) !important;
+  font-size: 10px;
+  font-weight: 850;
+}
 .admin-nft-name { display: flex; align-items: center; gap: 10px; }
 .admin-nft-name > img,
 .admin-nft-name > i { width: 38px; height: 38px; display: grid; flex: 0 0 38px; place-items: center; border-radius: 10px; object-fit: cover; background: var(--admin-violet-soft); color: var(--admin-violet); font-size: 9px; font-style: normal; font-weight: 800; }
@@ -1575,6 +1598,13 @@
 .admin-nft-sidepanel-summary dl > div { min-height: 29px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .admin-nft-sidepanel-summary dt { color: var(--admin-muted); font-size: 10px; }
 .admin-nft-sidepanel-summary dd { margin: 0; font-size: 10px; font-weight: 650; }
+.admin-coin-withdrawal-summary { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 16px; padding: 20px; border-bottom: 1px solid var(--admin-line); }
+.admin-coin-withdrawal-summary > .admin-coin-program-logo { width: 88px; height: 88px; border-radius: 22px; }
+.admin-coin-withdrawal-summary dl { margin: 0; }
+.admin-coin-withdrawal-summary dl > div { min-height: 29px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.admin-coin-withdrawal-summary dt { color: var(--admin-muted); font-size: 10px; }
+.admin-coin-withdrawal-summary dd { margin: 0; text-align: right; font-size: 10px; font-weight: 650; }
+.admin-coin-sidepanel .admin-danger-button { width: 100%; margin-top: 3px; }
 .admin-nft-technical { display: grid; gap: 9px; padding: 18px 20px; border-bottom: 1px solid var(--admin-line); }
 .admin-nft-technical label { display: grid; gap: 4px; color: var(--admin-muted); font-size: 9px; font-weight: 650; }
 .admin-nft-technical label span { padding: 9px 10px; overflow-wrap: anywhere; border-radius: 8px; background: #f5f7fa; color: #344054; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; font-weight: 500; }
@@ -3226,6 +3256,10 @@
   }
   .admin-customers-table td:last-child::before,
   .admin-nft-table td:last-child::before { display: none; }
+  .admin-coin-withdrawal-table td:nth-child(3) { grid-column: 1 / -1; border-right: 0; }
+  .admin-coin-withdrawal-table td:nth-child(4) { grid-column: auto; border-right: 1px solid var(--admin-line); }
+  .admin-coin-withdrawal-summary { grid-template-columns: 70px minmax(0, 1fr); gap: 12px; padding: 15px; }
+  .admin-coin-withdrawal-summary > .admin-coin-program-logo { width: 70px; height: 70px; border-radius: 18px; }
 
   .admin-loyalty-program-form { grid-template-columns: 1fr; gap: 12px; padding: 10px; }
   .admin-loyalty-preview { width: 100%; display: grid; grid-template-columns: 100px minmax(0, 1fr); align-items: start; }
