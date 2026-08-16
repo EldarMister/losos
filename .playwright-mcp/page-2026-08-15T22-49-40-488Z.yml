@@ -1,0 +1,17 @@
+- generic [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img "Накта суши" [ref=e5]
+        - generic [ref=e6]:
+          - generic [ref=e7]: Накта суши
+          - generic [ref=e8]: Кабинет управления
+      - heading "Добро пожаловать" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Управляйте заказами, меню и работой заведений в одном месте.
+      - generic [ref=e11]:
+        - text: Код администратора
+        - textbox "Код администратора" [active] [ref=e13]:
+          - /placeholder: Введите код
+      - button "Войти" [ref=e14] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e20] [cursor=pointer]
+  - alert [ref=e24]

@@ -1,0 +1,154 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - button "Открыть меню" [ref=f1e6] [cursor=pointer]
+        - heading "Лояльность" [level=1] [ref=f1e274]
+      - combobox "Рабочий филиал" [ref=f1e14]:
+        - option "Бишкек" [selected]
+        - option "Ош"
+        - option "Отуз-Адыр"
+    - generic [ref=f1e275]:
+      - generic "Сводка программы лояльности" [ref=f1e276]:
+        - article [ref=f1e277]:
+          - generic [ref=f1e278]: "N"
+          - generic [ref=f1e279]:
+            - generic [ref=f1e280]: Начислено NAKTA Coin
+            - strong [ref=f1e281]: "50"
+            - emphasis [ref=f1e282]: 10 начислений
+        - article [ref=f1e283]:
+          - generic [ref=f1e286]:
+            - generic [ref=f1e287]: NFT у клиентов
+            - strong [ref=f1e288]: "1"
+            - emphasis [ref=f1e289]: за завершённые заказы
+        - article [ref=f1e290]:
+          - generic [ref=f1e293]:
+            - generic [ref=f1e294]: В обработке
+            - strong [ref=f1e295]: "1"
+            - emphasis [ref=f1e296]: заявок на вывод
+        - article [ref=f1e297]:
+          - generic [ref=f1e300]:
+            - generic [ref=f1e301]: Ошибки вывода
+            - strong [ref=f1e302]: "0"
+            - emphasis [ref=f1e303]: ручная обработка
+      - generic [ref=f1e304]:
+        - generic [ref=f1e305]:
+          - generic [ref=f1e306]:
+            - generic [ref=f1e307]:
+              - heading "NFT-программа · Бишкек" [level=2] [ref=f1e308]
+              - paragraph [ref=f1e309]: Автоматическая выдача отдельного NFT за каждый N-й завершённый заказ.
+            - generic [ref=f1e310]:
+              - generic [ref=f1e311]: Включена
+              - checkbox "Включена" [checked] [ref=f1e312] [cursor=pointer]
+          - generic [ref=f1e313]:
+            - generic [ref=f1e314]:
+              - generic [ref=f1e318] [cursor=pointer]:
+                - text: Загрузить изображение
+                - button "Загрузить изображение" [ref=f1e319]
+              - generic [ref=f1e320]:
+                - text: Ссылка на изображение
+                - textbox "Ссылка на изображение" [ref=f1e321]:
+                  - /placeholder: https://… или IPFS gateway
+            - generic [ref=f1e322]:
+              - generic [ref=f1e323]:
+                - generic [ref=f1e324]:
+                  - text: Выдавать каждые N заказов
+                  - 'spinbutton "Выдавать каждые N заказов Например: 10, 20 или 50" [ref=f1e325]': "10"
+                  - generic [ref=f1e326]: "Например: 10, 20 или 50"
+                - generic [ref=f1e327]:
+                  - text: Название NFT
+                  - textbox "Название NFT" [ref=f1e328]:
+                    - /placeholder: NFT NAKTA
+                    - text: "NAKTA Founder #1"
+              - generic [ref=f1e329]:
+                - text: Описание
+                - textbox "Описание" [ref=f1e330]:
+                  - /placeholder: За что клиент получает NFT
+                  - text: Награда за каждый десятый заказ
+              - generic [ref=f1e331]:
+                - generic [ref=f1e332]:
+                  - text: Сеть
+                  - combobox "Сеть" [ref=f1e333]:
+                    - option "Polygon" [selected]
+                    - option "Ethereum"
+                    - option "BNB Smart Chain"
+                    - option "Solana"
+                    - option "TON"
+                - generic [ref=f1e334]:
+                  - text: Адрес контракта
+                  - textbox "Адрес контракта" [ref=f1e335]:
+                    - /placeholder: Можно заполнить позже
+              - generic [ref=f1e336]:
+                - text: Metadata URI
+                - textbox "Metadata URI" [ref=f1e337]:
+                  - /placeholder: ipfs://…
+              - generic [ref=f1e338]:
+                - generic [ref=f1e339]:
+                  - generic [ref=f1e340]: 1 NFT за каждые 10 заказов
+                  - generic [ref=f1e341]: Изменение применяется к следующим завершённым заказам.
+                - button "Сохранить программу" [ref=f1e342] [cursor=pointer]
+        - complementary [ref=f1e343]:
+          - generic [ref=f1e344]:
+            - generic [ref=f1e345]: "N"
+            - generic [ref=f1e346]:
+              - heading "NAKTA Coin" [level=2] [ref=f1e347]
+              - paragraph [ref=f1e348]: Начисляются по правилам каждого блюда.
+          - generic [ref=f1e349]:
+            - generic [ref=f1e350]:
+              - term [ref=f1e351]: Блюд с наградой
+              - definition [ref=f1e352]: "0"
+            - generic [ref=f1e353]:
+              - term [ref=f1e354]: Коинов в полном меню
+              - definition [ref=f1e355]: "0"
+            - generic [ref=f1e356]:
+              - term [ref=f1e357]: История начислений
+              - definition [ref=f1e358]: "10"
+          - button "Настроить награды в каталоге" [ref=f1e359] [cursor=pointer]
+          - paragraph [ref=f1e360]: Размер награды фиксируется в заказе и не изменится, если позже отредактировать блюдо.
+      - generic [ref=f1e361]:
+        - generic [ref=f1e363]:
+          - heading "NFT и выводы на кошельки" [level=2] [ref=f1e364]
+          - paragraph [ref=f1e365]: Все выданные NFT и заявки клиентов. Ожидающие действия находятся сверху.
+        - group "Статус NFT" [ref=f1e366]:
+          - button "Все" [pressed] [ref=f1e367] [cursor=pointer]
+          - button [ref=f1e368] [cursor=pointer]:
+            - text: Ожидают
+            - emphasis [ref=f1e369]: "1"
+          - button [ref=f1e370] [cursor=pointer]:
+            - text: Отправлены
+            - emphasis [ref=f1e371]: "0"
+          - button [ref=f1e372] [cursor=pointer]:
+            - text: Завершены
+            - emphasis [ref=f1e373]: "0"
+          - button [ref=f1e374] [cursor=pointer]:
+            - text: Ошибки
+            - emphasis [ref=f1e375]: "0"
+          - button [ref=f1e376] [cursor=pointer]:
+            - text: У клиентов
+            - emphasis [ref=f1e377]: "0"
+        - table [ref=f1e379]:
+          - rowgroup [ref=f1e380]:
+            - row [ref=f1e381]:
+              - 'cell "NFT NFT NAKTA Founder #1 10-й заказ" [ref=f1e382]':
+                - text: NFT
+                - generic [ref=f1e383]:
+                  - generic [ref=f1e384]: NFT
+                  - generic [ref=f1e385]:
+                    - generic [ref=f1e386]: "NAKTA Founder #1"
+                    - generic [ref=f1e387]: 10-й заказ
+              - cell "Клиент +996555000010" [ref=f1e388]:
+                - text: Клиент
+                - generic [ref=f1e389]: "+996555000010"
+              - cell "Сеть Polygon" [ref=f1e390]
+              - cell "Кошелёк 0x1111111111111111111111111111111111111111" [ref=f1e391]:
+                - text: Кошелёк
+                - generic "0x1111111111111111111111111111111111111111" [ref=f1e392]
+              - cell "Статус Ожидает отправки" [ref=f1e393]:
+                - text: Статус
+                - generic [ref=f1e394]: Ожидает отправки
+              - cell "Дата 16 авг., 04:44" [ref=f1e395]
+              - cell [ref=f1e396]:
+                - text: Действия
+                - 'button "Открыть NFT NAKTA Founder #1" [ref=f1e397] [cursor=pointer]'
+  - button "Open Next.js Dev Tools" [ref=f1e208] [cursor=pointer]
+  - alert [ref=f1e212]

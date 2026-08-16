@@ -1010,7 +1010,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFF0C6",
   },
   coinImage: {
     width: 56,
