@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main.js",
+    "start": "typeorm -d dist/data-source.js migration:run && node dist/main.js",
     "seed": "npm run build && node dist/seed.js",
     "catalog:generate": "tsx ../scripts/generate-server-catalog-seed.ts",
     "migration:run": "npm run build && typeorm -d dist/data-source.js migration:run",

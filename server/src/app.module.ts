@@ -44,6 +44,7 @@ import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "./migrations/178
 import { AddPhoneAccountSessions1785001000000 } from "./migrations/1785001000000-AddPhoneAccountSessions";
 import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "./migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 import { AddLoyaltyPrograms1785003000000 } from "./migrations/1785003000000-AddLoyaltyPrograms";
+import { AddOrderKitItems1785004000000 } from "./migrations/1785004000000-AddOrderKitItems";
 import { AccountNft } from "./rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
 
@@ -86,6 +87,7 @@ import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
             AddPhoneAccountSessions1785001000000,
             AddShortOrderNumbersAndAdminConfirmation1785002000000,
             AddLoyaltyPrograms1785003000000,
+            AddOrderKitItems1785004000000,
           ],
           migrationsRun: true,
           synchronize:

@@ -1624,6 +1624,13 @@ test("order kit migration adds reversible persisted complectation", async () => 
   } as never);
   assert.ok(upQueries.some((statement) => statement.includes('ADD COLUMN IF NOT EXISTS "kitItems" jsonb')));
   assert.ok(downQueries.some((statement) => statement.includes('DROP COLUMN IF EXISTS "kitItems"')));
+
+  const dataSource = readFileSync(resolve(__dirname, "../src/data-source.ts"), "utf8");
+  const appModule = readFileSync(resolve(__dirname, "../src/app.module.ts"), "utf8");
+  const packageJson = readFileSync(resolve(__dirname, "../package.json"), "utf8");
+  assert.match(dataSource, /AddOrderKitItems1785004000000/);
+  assert.match(appModule, /AddOrderKitItems1785004000000/);
+  assert.match(packageJson, /typeorm -d dist\/data-source\.js migration:run && node dist\/main\.js/);
 });
 
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {
