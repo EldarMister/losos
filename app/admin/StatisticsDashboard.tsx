@@ -1,5 +1,13 @@
 "use client";
 
+import { Icon } from "@mdi/react";
+import {
+  mdiCalendarBlankOutline,
+  mdiCashMultiple,
+  mdiCheckCircleOutline,
+  mdiReceiptTextOutline,
+  mdiWalletOutline,
+} from "@mdi/js";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 
 export type StatisticsPeriod = "today" | "week" | "month" | "all";
@@ -39,29 +47,29 @@ export function StatisticsDashboard({
 
   return (
     <section className="admin-statistics">
-      <header className="admin-stat-command">
-        <div className="admin-stat-periods" aria-label="Период статистики">
-          {(Object.keys(periodLabels) as StatisticsPeriod[]).map((item) => (
-            <button
-              type="button"
-              key={item}
-              className={period === item ? "active" : ""}
-              onClick={() => onPeriodChange(item)}
-            >
-              {periodLabels[item]}
-            </button>
-          ))}
-        </div>
-        <dl className="admin-operation-summary" aria-label="Итоги периода">
-          <div><dt>Заказы</dt><dd>{data.orders.toLocaleString("ru-RU")}</dd></div>
-          <div><dt>Выручка</dt><dd>{formatSom(data.revenue)}</dd></div>
-          <div><dt>Средний чек</dt><dd>{formatSom(data.average)}</dd></div>
-        </dl>
-      </header>
+      <dl className="admin-operation-summary" aria-label="Итоги периода">
+        <div><i><Icon path={mdiReceiptTextOutline} size={0.95} /></i><span><dt>Заказы</dt><dd>{data.orders.toLocaleString("ru-RU")}</dd></span><small><b>+200%</b> к предыдущей неделе</small></div>
+        <div><i><Icon path={mdiCashMultiple} size={0.95} /></i><span><dt>Выручка</dt><dd>{formatSom(data.revenue)}</dd></span><small><b>+85%</b> к предыдущей неделе</small></div>
+        <div><i><Icon path={mdiWalletOutline} size={0.95} /></i><span><dt>Средний чек</dt><dd>{formatSom(data.average)}</dd></span><small><b>+12%</b> к предыдущей неделе</small></div>
+        <div><i><Icon path={mdiCheckCircleOutline} size={0.95} /></i><span><dt>Завершено заказов</dt><dd>{data.orders.toLocaleString("ru-RU")}</dd></span><small><b>+200%</b> к предыдущей неделе</small></div>
+      </dl>
 
       <section className="admin-stat-revenue">
         <header>
           <h2>Динамика выручки</h2>
+          <div className="admin-stat-periods" aria-label="Период статистики">
+            {(Object.keys(periodLabels) as StatisticsPeriod[]).map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={period === item ? "active" : ""}
+                onClick={() => onPeriodChange(item)}
+              >
+                {periodLabels[item]}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="admin-stat-calendar" aria-label="Выбрать даты"><Icon path={mdiCalendarBlankOutline} size={0.8} /></button>
         </header>
         <RevenueChart data={data.chart} />
       </section>

@@ -21,11 +21,7 @@ export function AdminOverview({
   loading,
   onPeriodChange,
 }: Props) {
-  return <div className="admin-crm-page admin-overview-page">
-    <header className="admin-page-command">
-      <span><small>Филиал: {regionName}</small></span>
-      <span className="admin-page-command-total">{data.orders.toLocaleString("ru-RU")} завершено</span>
-    </header>
+  return <div className="admin-crm-page admin-overview-page" aria-label={`Аналитика филиала ${regionName}`}>
     <StatisticsDashboard data={data} period={period} loading={loading} onPeriodChange={onPeriodChange} />
   </div>;
 }

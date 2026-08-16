@@ -5,13 +5,13 @@ import { Icon } from "@mdi/react";
 import {
   mdiAccountGroupOutline,
   mdiChartBoxOutline,
-  mdiConnection,
   mdiFoodOutline,
   mdiGiftOutline,
   mdiLogoutVariant,
+  mdiPuzzleOutline,
   mdiReceiptTextOutline,
   mdiSaleOutline,
-  mdiStoreMarkerOutline,
+  mdiStorefrontOutline,
 } from "@mdi/js";
 
 export type AdminTab =
@@ -37,6 +37,7 @@ type Props = {
   mobile?: boolean;
   newOrders: number;
   pendingNfts: number;
+  regionName: string;
   onSelect: (tab: AdminTab) => void;
   onLogout: () => void;
 };
@@ -48,8 +49,8 @@ const navigationItems: NavigationItem[] = [
   { id: "loyalty", label: "Лояльность", icon: mdiGiftOutline, badge: "pendingNfts" },
   { id: "statistics", label: "Аналитика", icon: mdiChartBoxOutline },
   { id: "promotions", label: "Акции", icon: mdiSaleOutline },
-  { id: "settings", label: "Филиалы", icon: mdiStoreMarkerOutline },
-  { id: "integrations", label: "Интеграции", icon: mdiConnection },
+  { id: "settings", label: "Филиалы", icon: mdiStorefrontOutline },
+  { id: "integrations", label: "Интеграции", icon: mdiPuzzleOutline },
 ];
 
 export function AdminNavigation({
@@ -57,6 +58,7 @@ export function AdminNavigation({
   mobile = false,
   newOrders,
   pendingNfts,
+  regionName,
   onSelect,
   onLogout,
 }: Props) {
@@ -70,9 +72,9 @@ export function AdminNavigation({
   >
     <div className="admin-crm-brand admin-rail-brand">
       <span className="admin-crm-brand-mark" aria-hidden="true">
-        <Image src="/logo.webp" alt="" width={40} height={40} priority />
+        <Image src="/favicon.svg" alt="" width={40} height={40} priority />
       </span>
-      <span className="admin-brand-text"><b>NAKTA</b><small>Управление</small></span>
+      <span className="admin-brand-text"><b>NAKTA</b><small>KITCHEN</small></span>
     </div>
 
     <nav className="admin-crm-nav admin-rail-nav" aria-label="Разделы системы">
@@ -99,18 +101,18 @@ export function AdminNavigation({
       })}
     </nav>
 
-    <button
-      type="button"
-      className="admin-logout admin-rail-logout"
-      aria-label="Выйти"
-      data-tooltip={mobile ? undefined : "Выйти"}
-      title={mobile ? undefined : "Выйти"}
-      onClick={onLogout}
-    >
-      <span className="admin-nav-icon" aria-hidden="true">
-        <Icon path={mdiLogoutVariant} size={0.92} />
-      </span>
-      <span className="admin-nav-text">Выйти</span>
-    </button>
+    <footer className="admin-rail-footer">
+      <div className="admin-sidebar-branch"><small>Рабочий филиал</small><b>{regionName}</b></div>
+      <button
+        type="button"
+        className="admin-logout admin-rail-logout"
+        aria-label="Выйти из панели администратора"
+        onClick={onLogout}
+      >
+        <span className="admin-admin-avatar" aria-hidden="true">A</span>
+        <span className="admin-nav-text"><b>Администратор</b><small>Выйти из системы</small></span>
+        <Icon path={mdiLogoutVariant} size={0.72} aria-hidden="true" />
+      </button>
+    </footer>
   </aside>;
 }

@@ -5,8 +5,12 @@ import {
   mdiFormatListBulleted,
   mdiMagnify,
   mdiRefresh,
+  mdiStoreOutline,
+  mdiTuneVariant,
+  mdiTruckDeliveryOutline,
   mdiViewColumnOutline,
 } from "@mdi/js";
+import { useState } from "react";
 
 export type OrdersWorkspaceStatus =
   | "new"
@@ -98,6 +102,15 @@ const formatDate = (value: string) => {
   }).format(date);
 };
 
+const formatTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
 const orderAddress = (order: OrdersWorkspaceOrder) =>
   order.deliveryType === "pickup" ? "Самовывоз" : order.address || "Адрес не указан";
 
@@ -127,9 +140,13 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
   onOrderOpen,
   onRefresh,
 }: OrdersWorkspaceProps<TOrder>) {
+  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<"all" | "delivery" | "pickup">("all");
   const visibleStatuses = status === "all"
     ? activeStatuses
     : statuses.filter((item) => item.value === status);
+  const filteredOrders = deliveryTypeFilter === "all"
+    ? orders
+    : orders.filter((order) => order.deliveryType === deliveryTypeFilter);
   const visiblePages = pageNumbers(page, pageCount);
   const countedOrders = Object.values(statusCounts)
     .reduce((sum, count) => sum + Number(count || 0), 0);
@@ -167,6 +184,17 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
         </label>
         <label>
           <select
+            aria-label="Тип заказа"
+            value={deliveryTypeFilter}
+            onChange={(event) => setDeliveryTypeFilter(event.target.value as "all" | "delivery" | "pickup")}
+          >
+            <option value="all">Все типы</option>
+            <option value="delivery">Доставка</option>
+            <option value="pickup">Самовывоз</option>
+          </select>
+        </label>
+        <label>
+          <select
             aria-label="Период заказов"
             value={period}
             onChange={(event) => onPeriodChange(event.target.value as OrdersWorkspacePeriod)}
@@ -184,6 +212,7 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
         ><Icon path={mdiRefresh} size={0.8} aria-hidden="true" /></button> : null}
       </div>
 
+      <button type="button" className="admin-orders-filter-button" aria-label="Открыть фильтры"><Icon path={mdiTuneVariant} size={0.72} aria-hidden="true" />Фильтры</button>
       <div className="admin-orders-view-switch" role="group" aria-label="Вид заказов">
         <button
           type="button"
@@ -202,14 +231,14 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
 
     {loading && orders.length === 0 ? <div className="admin-orders-loading" role="status">Загрузка заказов…</div> : null}
 
-    {!loading && orders.length === 0 ? <div className="admin-orders-empty">
+    {!loading && filteredOrders.length === 0 ? <div className="admin-orders-empty">
       <strong>Заказов не найдено</strong>
       <span>Измените поиск или фильтры.</span>
     </div> : null}
 
-    {orders.length > 0 && view === "kanban" ? <div className="admin-orders-kanban">
+    {filteredOrders.length > 0 && view === "kanban" ? <div className="admin-orders-kanban">
       {visibleStatuses.map((column) => {
-        const columnOrders = orders.filter((order) => order.status === column.value);
+        const columnOrders = filteredOrders.filter((order) => order.status === column.value);
         const headingId = `orders-column-${column.value}`;
         return <section className={`admin-orders-kanban-column status-${column.value}`} aria-labelledby={headingId} key={column.value}>
           <header>
@@ -228,12 +257,16 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
             >
               <span className="admin-orders-card-head">
                 <strong>{formatOrderNumber(order)}</strong>
-                <b>{formatMoney(order.total)}</b>
+                <time dateTime={order.createdAt}>{formatTime(order.createdAt)}</time>
               </span>
               <span className="admin-orders-card-client">{order.customerName || "Клиент не указан"}</span>
-              <span className="admin-orders-card-meta">
-                <time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time>
-                <span>{orderAddress(order)}</span>
+              <span className="admin-orders-card-delivery">
+                <Icon path={order.deliveryType === "pickup" ? mdiStoreOutline : mdiTruckDeliveryOutline} size={0.55} aria-hidden="true" />
+                {order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}
+              </span>
+              <span className="admin-orders-card-foot">
+                <span>{order.address || orderAddress(order)}</span>
+                <b>{formatMoney(order.total)}</b>
               </span>
             </button>)}
             {columnOrders.length === 0 ? <span className="admin-orders-column-empty">Нет заказов</span> : null}
@@ -241,11 +274,12 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
               ? <span className="admin-orders-column-note">Показаны последние {columnOrders.length}</span>
               : null}
           </div>
+          <button type="button" className="admin-orders-new-order">＋ Новый заказ</button>
         </section>;
       })}
     </div> : null}
 
-    {orders.length > 0 && view === "list" ? <div className="admin-orders-table-wrap">
+    {filteredOrders.length > 0 && view === "list" ? <div className="admin-orders-table-wrap">
       <table className="admin-orders-table">
         <thead><tr>
           <th scope="col">Заказ</th>
@@ -255,7 +289,7 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
           <th scope="col">Сумма</th>
           <th scope="col">Время</th>
         </tr></thead>
-        <tbody>{orders.map((order) => <tr className={selectedOrderId === order.id ? "selected" : ""} key={order.id}>
+        <tbody>{filteredOrders.map((order) => <tr className={selectedOrderId === order.id ? "selected" : ""} key={order.id}>
           <td><button type="button" className="admin-orders-order-link" onClick={() => onOrderOpen(order)}>{formatOrderNumber(order)}</button></td>
           <td>{order.customerName || "—"}</td>
           <td>{orderAddress(order)}</td>
@@ -266,7 +300,7 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
       </table>
     </div> : null}
 
-    {orders.length > 0 && view === "list" ? <footer className="admin-orders-pagination">
+    {filteredOrders.length > 0 && view === "list" ? <footer className="admin-orders-pagination">
       <span>{firstVisibleOrder}–{lastVisibleOrder} из {total}</span>
       {pageCount > 1 ? <nav aria-label="Страницы заказов">
         <button type="button" aria-label="Предыдущая страница" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</button>

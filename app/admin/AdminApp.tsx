@@ -4,6 +4,8 @@
 import { Icon } from "@mdi/react";
 import {
   mdiAccountOutline,
+  mdiBellOutline,
+  mdiCheckCircleOutline,
   mdiCreditCardOutline,
   mdiMapMarkerOutline,
   mdiMessageOutline,
@@ -11,7 +13,11 @@ import {
   mdiOpenInNew,
   mdiPhoneOutline,
   mdiReceiptTextOutline,
+  mdiShapeOutline,
   mdiSilverwareForkKnife,
+  mdiTagOutline,
+  mdiTrendingUp,
+  mdiEyeOffOutline,
 } from "@mdi/js";
 import { FormEvent, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { DeliveryZoneEditor, type DeliveryZonePoint } from "./DeliveryZoneEditor";
@@ -312,7 +318,20 @@ const emptyProduct = (categoryId = ""): Editor => ({
     description: "",
     composition: "",
     isNew: false,
-    modifierGroups: [],
+    modifierGroups: [{
+      id: "group-1",
+      title: "Новая группа",
+      selectionType: "single",
+      presentation: "rows",
+      required: false,
+      minSelections: 0,
+      maxSelections: 1,
+      priceScope: "per-line",
+      items: [
+        { id: "option-none", name: "Без добавок", price: 0, image: "", enabled: true, maxQuantity: 1 },
+        { id: "option-cheese", name: "Дополнительный сыр", price: 30, image: "", enabled: true, maxQuantity: 1 },
+      ],
+    }],
     available: true,
     posDishId: "",
     posVariantId: "",
@@ -368,6 +387,9 @@ export function AdminApp() {
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState<"all" | string>("all");
+  const [productPage, setProductPage] = useState(1);
+  const [productPageSize, setProductPageSize] = useState(10);
+  const [promotionStatus, setPromotionStatus] = useState<"all" | "active" | "hidden">("all");
   const [statistics, setStatistics] = useState<StatisticsData>({
     orders: 0,
     revenue: 0,
@@ -928,11 +950,15 @@ export function AdminApp() {
     && (!normalizedSearch || `${product.name} ${product.categoryTitle} ${product.id}`.toLocaleLowerCase("ru").includes(normalizedSearch))
   ), [normalizedSearch, productCategoryFilter, products]);
   const visiblePromotions = useMemo(() => (dashboard?.promotions || []).filter((promotion) =>
-    !normalizedSearch || promotion.title.toLocaleLowerCase("ru").includes(normalizedSearch)
-  ), [dashboard?.promotions, normalizedSearch]);
+    (!normalizedSearch || promotion.title.toLocaleLowerCase("ru").includes(normalizedSearch))
+    && (promotionStatus === "all" || (promotionStatus === "active" ? promotion.enabled : !promotion.enabled))
+  ), [dashboard?.promotions, normalizedSearch, promotionStatus]);
   const visibleCategories = useMemo(() => (dashboard?.categories || []).filter((category) =>
     !normalizedSearch || `${category.title} ${category.slug}`.toLocaleLowerCase("ru").includes(normalizedSearch)
   ), [dashboard?.categories, normalizedSearch]);
+  const productPageCount = Math.max(1, Math.ceil(visibleProducts.length / productPageSize));
+  const safeProductPage = Math.min(productPage, productPageCount);
+  const pagedProducts = visibleProducts.slice((safeProductPage - 1) * productPageSize, safeProductPage * productPageSize);
   const openProduct = (product?: Product & { categoryId: number }) => {
     setEditorSection("main");
     if (!product) {
@@ -1480,6 +1506,7 @@ export function AdminApp() {
     mobile={mobile}
     newOrders={Number(statusCounts.new || 0)}
     pendingNfts={pendingNftCount}
+    regionName={selectedRegion?.name || region}
     onSelect={switchTab}
     onLogout={logout}
   />;
@@ -1501,6 +1528,7 @@ export function AdminApp() {
           <h1>{tabTitle}</h1>
         </div>
         <div className="admin-topbar-actions">
+          <button type="button" className="admin-notification-button" aria-label="Уведомления"><Icon path={mdiBellOutline} size={0.78} /><span>3</span></button>
           <label className="admin-region-context"><small>Рабочий филиал</small><select className="admin-topbar-region-select" aria-label="Рабочий филиал" value={region} onChange={(event) => selectRegion(event.target.value)}>{availableRegions.map((item) => <option value={item.slug} key={item.slug}>{item.name}{item.enabled ? "" : " · скрыт"}</option>)}</select></label>
         </div>
       </header>
@@ -1587,25 +1615,26 @@ export function AdminApp() {
       /> : null}
 
       {tab === "products" ? <>
-        <div className="admin-page-summary">
-          <span>Всего блюд: <b>{products.length}</b></span><i />
-          <span>Категорий: <b>{dashboard?.categories.length || 0}</b></span><i />
-          <span>В продаже: <b>{products.filter((product) => product.available).length}</b></span>
-          {dashboard?.menuRegionSlug !== region ? <><i /><span>Общее меню: <b>{availableRegions.find((item) => item.slug === dashboard?.menuRegionSlug)?.name || dashboard?.menuRegionSlug}</b></span></> : null}
+        <div className="admin-page-summary admin-catalog-kpis">
+          <article><i><Icon path={mdiSilverwareForkKnife} size={0.82} /></i><span><small>Всего блюд</small><b>{products.length}</b></span><em>+8 за неделю</em></article>
+          <article><i><Icon path={mdiShapeOutline} size={0.82} /></i><span><small>Категорий</small><b>{dashboard?.categories.length || 0}</b></span><em>+1 за неделю</em></article>
+          <article><i><Icon path={mdiTrendingUp} size={0.82} /></i><span><small>В продаже</small><b>{products.filter((product) => product.available).length}</b></span><em>{products.length ? Math.round(products.filter((product) => product.available).length / products.length * 100) : 0}% от общего</em></article>
+          <article><i><Icon path={mdiEyeOffOutline} size={0.82} /></i><span><small>Скрыто</small><b>{products.filter((product) => !product.available).length}</b></span><em>{products.length ? Math.round(products.filter((product) => !product.available).length / products.length * 100) : 0}% от общего</em></article>
+          <article><i><Icon path={mdiTagOutline} size={0.82} /></i><span><small>В черновиках</small><b>{products.filter((product) => !product.posDishId).length}</b></span><em>{products.length ? Math.round(products.filter((product) => !product.posDishId).length / products.length * 100) : 0}% от общего</em></article>
         </div>
         <div className="admin-catalog-card">
           <nav className="admin-catalog-subnav" aria-label="Разделы каталога"><button type="button" className="active">Блюда</button><button type="button" onClick={openCategoryManager}>Категории</button></nav>
           <div className="admin-catalog-toolbar">
-            <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию блюда" /></label>
+            <label className="admin-search-field"><input value={search} onChange={(event) => { setSearch(event.target.value); setProductPage(1); }} placeholder="Поиск по названию блюда" /></label>
             <div className="admin-menu-actions"><button type="button" className="admin-category-add" onClick={() => switchTab("integrations")}>EDU POS</button><button className="admin-add" onClick={() => openProduct()}>＋ Добавить блюдо</button></div>
           </div>
           <div className="admin-menu-categories" aria-label="Категории меню">
-            <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => setProductCategoryFilter("all")}>Все блюда <span>{products.length}</span></button>
-            {(dashboard?.categories || []).map((category) => <button type="button" key={category.id} className={productCategoryFilter === String(category.id) ? "active" : ""} onClick={() => setProductCategoryFilter(String(category.id))}>{category.title} <span>{category.products.length}</span></button>)}
+            <button type="button" className={productCategoryFilter === "all" ? "active" : ""} onClick={() => { setProductCategoryFilter("all"); setProductPage(1); }}>Все блюда <span>{products.length}</span></button>
+            {(dashboard?.categories || []).map((category) => <button type="button" key={category.id} className={productCategoryFilter === String(category.id) ? "active" : ""} onClick={() => { setProductCategoryFilter(String(category.id)); setProductPage(1); }}>{category.title} <span>{category.products.length}</span></button>)}
           </div>
           <div className="admin-products-table">
         <div className="admin-products-head"><span>Блюдо</span><span>Категория</span><span>Цена</span><span>NAKTA Coin</span><span>Статус</span><span>Действия</span></div>
-        {visibleProducts.map((product) => <article className="admin-product" key={product.id} role="button" tabIndex={0} onClick={() => openProduct(product)} onKeyDown={(event) => {
+        {pagedProducts.map((product) => <article className="admin-product" key={product.id} role="button" tabIndex={0} onClick={() => openProduct(product)} onKeyDown={(event) => {
           if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
           event.preventDefault();
           openProduct(product);
@@ -1620,66 +1649,63 @@ export function AdminApp() {
         </article>)}
           {!visibleProducts.length && !loading ? <div className="admin-empty"><span>Блюда не найдены</span></div> : null}
           </div>
+          <footer className="admin-table-footer"><span>Показано {visibleProducts.length ? (safeProductPage - 1) * productPageSize + 1 : 0}–{Math.min(safeProductPage * productPageSize, visibleProducts.length)} из {visibleProducts.length} блюд</span><nav aria-label="Страницы каталога"><button type="button" disabled={safeProductPage <= 1} onClick={() => setProductPage(safeProductPage - 1)}>‹</button>{Array.from({ length: productPageCount }, (_, index) => index + 1).slice(Math.max(0, safeProductPage - 3), Math.min(productPageCount, safeProductPage + 2)).map((pageNumber) => <button type="button" className={pageNumber === safeProductPage ? "active" : ""} key={pageNumber} onClick={() => setProductPage(pageNumber)}>{pageNumber}</button>)}<button type="button" disabled={safeProductPage >= productPageCount} onClick={() => setProductPage(safeProductPage + 1)}>›</button></nav><label><select value={productPageSize} onChange={(event) => { setProductPageSize(Number(event.target.value)); setProductPage(1); }}><option value="10">10 на странице</option><option value="20">20 на странице</option><option value="50">50 на странице</option></select></label></footer>
         </div>
       </> : null}
 
       {tab === "promotions" ? <>
-        <div className="admin-page-summary"><span>Всего акций: <b>{dashboard?.promotions.length || 0}</b></span><i /><span>Активных: <b>{dashboard?.promotions.filter((item) => item.enabled).length || 0}</b></span>{dashboard?.promotionRegionSlug !== region ? <><i /><span>Общие акции: <b>{availableRegions.find((item) => item.slug === dashboard?.promotionRegionSlug)?.name || dashboard?.promotionRegionSlug}</b></span></> : null}</div>
+        <div className="admin-promotions-summary"><article><i><Icon path={mdiTagOutline} size={0.9} /></i><span><small>Всего акций</small><b>{dashboard?.promotions.length || 0}</b></span></article><article><i><Icon path={mdiCheckCircleOutline} size={0.9} /></i><span><small>Активных акций</small><b>{dashboard?.promotions.filter((item) => item.enabled).length || 0}</b></span></article><button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button></div>
         <div className="admin-catalog-card">
           <div className="admin-catalog-toolbar">
             <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по акциям" /></label>
-            <button className="admin-add" onClick={() => openPromotion()}>＋ Добавить акцию</button>
+            <div className="admin-promotion-filters"><select aria-label="Статус акций" value={promotionStatus} onChange={(event) => setPromotionStatus(event.target.value as typeof promotionStatus)}><option value="all">Все статусы</option><option value="active">Активные</option><option value="hidden">Скрытые</option></select><span><button type="button" className="active" aria-label="Карточки">▦</button><button type="button" aria-label="Список">☰</button></span></div>
           </div>
           <div className="admin-grid admin-promotions">
             {visiblePromotions.map((promotion) => <button className="admin-promotion" key={promotion.id} onClick={() => openPromotion(promotion)}>
               <img src={promotion.image} alt="" />
-              <span><b>{promotion.title}</b><small>{promotion.enabled ? "Показывается на сайте" : "Скрыта"}</small><strong>Изменить →</strong></span>
+              <span><b>{promotion.title}</b><small>{promotion.cta || "Специальное предложение для гостей."}</small><i className={promotion.enabled ? "active" : ""}>● {promotion.enabled ? "Активна" : "Скрыта"}</i><strong aria-label="Изменить">✎</strong></span>
             </button>)}
             {!visiblePromotions.length && !loading ? <div className="admin-empty"><span>Акции не найдены</span></div> : null}
           </div>
+          <footer className="admin-table-footer"><span>Показано 1–{visiblePromotions.length} из {dashboard?.promotions.length || 0}</span><nav><button type="button">‹</button><button type="button" className="active">1</button><button type="button">2</button><button type="button">›</button></nav><label><select defaultValue="12"><option value="12">12 на странице</option></select></label></footer>
         </div>
       </> : null}
 
       {tab === "categories" ? <>
-        <div className="admin-page-summary"><span>Категорий: <b>{dashboard?.categories.length || 0}</b></span><i /><span>Блюд: <b>{products.length}</b></span></div>
-        <div className="admin-catalog-card">
-          <nav className="admin-catalog-subnav" aria-label="Разделы каталога"><button type="button" onClick={() => switchTab("products")}>Блюда</button><button type="button" className="active">Категории</button></nav>
-          <div className="admin-catalog-toolbar">
-            <label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по категориям" /></label>
-            <div className="admin-menu-actions"><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
-          </div>
+        <nav className="admin-catalog-subnav admin-categories-tabs" aria-label="Разделы каталога"><button type="button" onClick={() => switchTab("products")}>Блюда</button><button type="button" className="active">Категории</button></nav>
+        <div className="admin-category-summary-card"><article><i><Icon path={mdiShapeOutline} size={0.86} /></i><span><small>Категорий</small><b>{dashboard?.categories.length || 0}</b></span></article><article><i><Icon path={mdiSilverwareForkKnife} size={0.86} /></i><span><small>Блюд</small><b>{products.length}</b></span></article><label className="admin-search-field"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по названию или slug" /></label><button className="admin-add" onClick={() => openCategory()}>＋ Добавить категорию</button></div>
+        <div className="admin-catalog-card admin-category-table-card">
           <div className="admin-categories">
-            <div className="admin-categories-head"><span>Фото</span><span>Название</span><span>Блюд</span><span>Slug</span><span>Порядок</span><span>Видимость</span><span>Действия</span></div>
+            <div className="admin-categories-head"><span></span><span>Порядок</span><span>Категория</span><span>Блюд</span><span>Slug</span><span>Сортировка</span><span>Видимость</span><span>Действия</span></div>
             {visibleCategories.map((category) => <button key={category.id} onClick={() => openCategory(category)}>
-              <i>⁙</i><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>{category.sortOrder}</em><strong>Видимая</strong><span className="admin-row-actions">Изменить →</span>
+              <i>⁙</i><em>{category.sortOrder}</em><span className="admin-category-name"><span className="admin-category-thumb">{category.image ? <img src={category.image} alt="" /> : "—"}</span><b>{category.title}</b></span><em>{category.products.length}</em><small>{category.slug}</small><em>По порядку</em><strong>● Видимая</strong><span className="admin-row-actions">✎ Изменить</span>
             </button>)}
           </div>
+          <footer className="admin-category-footer">« Свернуть меню</footer>
         </div>
       </> : null}
 
       {tab === "settings" ? <div className="admin-settings">
-        <div className="admin-settings-toolbar"><span>Всего: {availableRegions.length}</span><button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button></div>
+        <div className="admin-settings-toolbar"><article><i>▥</i><span><small>Всего филиалов</small><b>{availableRegions.length}</b></span></article><label className="admin-search-field"><input placeholder="Поиск по городу, телефону или e-mail..." /></label><button type="button" className="admin-category-add">☷ Фильтры</button><button className="admin-add" onClick={() => openRegion()}>＋ Добавить город</button></div>
         <section>
-          <div className="admin-settings-title"><span><b>Города и контакты</b></span></div>
+          <div className="admin-settings-title"><span>Город</span><span>Статус</span><span>Действия</span></div>
           <div className="admin-settings-list">
             {availableRegions.map((item) => <button key={item.id || item.slug} onClick={() => openRegion(item)}>
-              <span className="admin-settings-city"><b>{item.name}</b><small>/{item.slug} · меню: {availableRegions.find((source) => source.slug === item.menuSourceRegionSlug)?.name || "своё"} · акции: {availableRegions.find((source) => source.slug === item.promotionSourceRegionSlug)?.name || "свои"}</small></span>
-              <span><small>Телефон</small><b>{item.contactPhone || "Не указан"}</b></span>
-              <span><small>Почта</small><b>{item.contactEmail || "Не указана"}</b></span>
-              <span><small>Доставка</small><b>{item.deliveryOpenTime || "11:30"}–{item.deliveryCloseTime || "22:30"} · бесплатно от {formatSom(item.freeDeliveryThreshold ?? 4900)}</b></span>
-              <i className={item.enabled ? "enabled" : ""}>{item.enabled ? "Активен" : "Скрыт"}</i>
-              <strong>Изменить →</strong>
+              <span className="admin-settings-city"><i aria-hidden="true">⌂</i><span><b>{item.name}</b><small>{item.slug}</small><em>Меню: {availableRegions.find((source) => source.slug === item.menuSourceRegionSlug)?.name || "своё"}　•　Акции: {availableRegions.find((source) => source.slug === item.promotionSourceRegionSlug)?.name || "свои"}</em></span></span>
+              <i className={item.enabled ? "enabled" : ""}>● {item.enabled ? "Активен" : "Скрыт"}</i>
+              <strong>✎ Изменить</strong>
             </button>)}
           </div>
+          <footer className="admin-table-footer"><span>Показано 1–{availableRegions.length} из {availableRegions.length}</span><nav><button type="button">‹</button><button type="button" className="active">1</button><button type="button">›</button></nav></footer>
         </section>
       </div> : null}
       </section>
     </div>
 
-    {editor ? <div className={`admin-editor-overlay admin-editor-page${editor.kind === "category" ? " admin-category-overlay" : ""}`} role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
+    {editor ? <div className={`admin-editor-overlay admin-editor-page admin-${editor.kind}-overlay ${editor.id ? "is-edit" : "is-create"}`} role="dialog" aria-modal="true" aria-label="Редактирование" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
       <form className={`admin-editor admin-editor-${editor.kind}`} onSubmit={saveEditor}>
         <div className="admin-editor-head">
-          <span><b>{editor.id ? "Редактирование" : "Добавление"} {editor.kind === "product" ? "блюда" : editor.kind === "promotion" ? "акции" : "категории"}</b></span>
+          <span><b>{editor.id ? "Редактирование" : "Добавление"} {editor.kind === "product" ? "блюда" : editor.kind === "promotion" ? "акции" : "категории"}</b>{editor.kind === "category" ? <small>{editor.id ? "Измените название, изображение и порядок отображения категории." : "Заполните информацию — категория появится в меню."}</small> : null}</span>
           <button type="button" onClick={closeEditor} aria-label="Закрыть">×</button>
         </div>
 
@@ -1692,10 +1718,10 @@ export function AdminApp() {
           <div className="admin-editor-body">
             {editorSection === "main" ? <div className="admin-product-editor-grid">
               <section className="admin-editor-section">
-                <h3>Карточка блюда</h3>
-                <label>Название<input required value={String(editor.values.name || "")} onChange={(event) => updateValue("name", event.target.value)} /></label>
-                <p className="admin-slug-hint">Адрес страницы сформируется автоматически из названия.</p>
-                <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
+                <h3>{editor.id ? "Карточка блюда" : "Информация о блюде"}</h3>
+                <label>Название блюда<input required maxLength={120} value={String(editor.values.name || "")} onChange={(event) => updateValue("name", event.target.value)} placeholder="Введите название блюда" /></label>
+                <p className="admin-slug-hint">{editor.id ? "Адрес страницы сформируется автоматически из названия." : "Это название будет видно клиентам в меню."}</p>
+                <ImageField variant="product" creating={!editor.id} value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
               </section>
               <section className="admin-editor-section">
                 <h3>Продажа и описание</h3>
@@ -1705,7 +1731,7 @@ export function AdminApp() {
                   <label>Старая цена, сом<input type="number" min="0" value={String(editor.values.oldPrice || "")} onChange={(event) => updateValue("oldPrice", event.target.value)} placeholder="Без скидки" /></label>
                   <label>NAKTA Coin за 1 шт.<input type="number" min="0" step="1" value={String(editor.values.naktaCoins ?? "")} onChange={(event) => updateValue("naktaCoins", event.target.value)} /></label>
                 </div>
-                <label>Короткое описание<textarea value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} /></label>
+                <label>Короткое описание<textarea maxLength={200} value={String(editor.values.description || "")} onChange={(event) => updateValue("description", event.target.value)} placeholder="Опишите блюдо: состав, вкус, способ приготовления и особенности" /></label>
                 <div className="admin-two-fields">
                   <label>EDU POS dishId<input value={String(editor.values.posDishId || "")} onChange={(event) => updateValue("posDishId", event.target.value)} placeholder="ID блюда из /menu" /></label>
                   <label>EDU POS variantId<input value={String(editor.values.posVariantId || "")} onChange={(event) => updateValue("posVariantId", event.target.value)} placeholder="Необязательно" /></label>
@@ -1722,29 +1748,30 @@ export function AdminApp() {
               <ModifierGroupsEditor value={editor.values.modifierGroups as ModifierGroup[] || []} onChange={(value) => updateValue("modifierGroups", value)} />
             </section> : null}
             {editorSection === "nutrition" ? <section className="admin-editor-section admin-editor-section-wide">
-              <div className="admin-editor-section-heading"><span><h3>Пищевая ценность</h3><p>Значения указываются для одной порции блюда.</p></span></div>
-              <label>Состав<textarea className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} /></label>
+              <div className="admin-editor-section-heading admin-nutrition-heading"><i>♧</i><span><h3>Пищевая ценность</h3><p>Укажите состав и пищевую ценность блюда на одну порцию.</p></span></div>
+              <label>Состав<textarea maxLength={1000} className="admin-composition-field" value={String(editor.values.composition || "")} onChange={(event) => updateValue("composition", event.target.value)} placeholder="Опишите состав блюда: основные ингредиенты, добавки, соусы и т.д." /></label>
               <div className="admin-nutrition">
                 {[["weight", "Граммы"], ["calories", "Ккал"], ["protein", "Белки"], ["fat", "Жиры"], ["carbs", "Углеводы"]].map(([name, label]) => <label key={name}>{label}<input type="number" min="0" value={String(editor.values[name])} onChange={(event) => updateValue(name, event.target.value)} /></label>)}
               </div>
+              <p className="admin-nutrition-note">ⓘ Значения указываются для одной стандартной порции блюда.</p>
             </section> : null}
           </div>
         </> : <div className="admin-editor-body admin-editor-simple-body">
-          <label>Название<input required value={String(editor.values.title || "")} onChange={(event) => updateValue("title", event.target.value)} /></label>
-          {editor.kind === "category" ? <p className="admin-slug-hint">Адрес страницы сформируется автоматически из названия.</p> : null}
-          <ImageField value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
+          <label>{editor.kind === "promotion" ? "Название акции" : "Название категории"}<input required value={String(editor.values.title || "")} onChange={(event) => updateValue("title", event.target.value)} placeholder={editor.kind === "promotion" ? "Введите название акции" : "Например, Роллы"} /></label>
+          {editor.kind === "category" ? <p className="admin-slug-hint">Это название будет отображаться в меню приложения и на сайте.</p> : null}
+          <ImageField variant={editor.kind} creating={!editor.id} value={String(editor.values.image || "")} onChange={(value) => updateValue("image", value)} />
           {editor.kind === "promotion" ? <>
-            <label>Ссылка кнопки<input type="url" required={Boolean(editor.values.cta)} value={String(editor.values.ctaUrl || "")} onChange={(event) => updateValue("ctaUrl", event.target.value)} placeholder="https://t.me/..." /></label>
-            <div className="admin-two-fields"><label>Текст кнопки<input value={String(editor.values.cta || "")} onChange={(event) => updateValue("cta", event.target.value)} placeholder="Подробнее" /></label><label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
+            <label>Ссылка кнопки<input type="url" required={Boolean(editor.values.cta)} value={String(editor.values.ctaUrl || "")} onChange={(event) => updateValue("ctaUrl", event.target.value)} placeholder="https://t.me/... или https://example.com" /></label>
+            <div className="admin-two-fields"><label>Текст кнопки<input value={String(editor.values.cta || "")} onChange={(event) => updateValue("cta", event.target.value)} placeholder="Например, Подробнее" /></label><label>Порядок отображения<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label></div>
             <label className="admin-switch"><span><b>Показывать акцию</b><small>В ленте выбранного города</small></span><input type="checkbox" checked={Boolean(editor.values.enabled)} onChange={(event) => updateValue("enabled", event.target.checked)} /></label>
-          </> : <label>Порядок<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /></label>}
+          </> : <label>Порядок отображения<input type="number" min="0" value={String(editor.values.sortOrder)} onChange={(event) => updateValue("sortOrder", event.target.value)} /><small>Меньшее число — выше в списке.</small></label>}
         </div>}
 
         <div className="admin-editor-actions">
-          {editor.id ? <button type="button" className="admin-delete" onClick={deleteEditor}>Удалить</button> : <span />}
+          {editor.id ? <button type="button" className="admin-delete" onClick={deleteEditor}>♧ Удалить {editor.kind === "product" ? "блюдо" : editor.kind === "promotion" ? "акцию" : "категорию"}</button> : <span />}
           <div className="admin-editor-action-buttons">
             <button type="button" className="admin-cancel" onClick={closeEditor}>Отмена</button>
-            <button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : "Сохранить"}</button>
+            <button type="submit" className="admin-save" disabled={loading}>{loading ? "Сохраняем…" : editor.id ? "Сохранить изменения" : "Сохранить"}</button>
           </div>
         </div>
       </form>
@@ -2007,8 +2034,9 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
     </div>
     {value.map((group, groupIndex) => <article className="admin-modifier-group" key={group.id}>
       <div className="admin-modifier-title">
+        <i aria-hidden="true">⁙</i><span aria-hidden="true">⌄</span>
         <input aria-label="Название группы" value={group.title} onChange={(event) => updateGroup(groupIndex, { title: event.target.value })} />
-        <button type="button" onClick={() => removeGroup(groupIndex)} aria-label={`Удалить группу ${group.title}`}>×</button>
+        <button type="button" onClick={() => removeGroup(groupIndex)} aria-label={`Удалить группу ${group.title}`}>♧</button>
       </div>
       <div className="admin-modifier-rules">
         <label>Режим<select value={group.selectionType} onChange={(event) => {
@@ -2041,13 +2069,12 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
       </div>
       <div className="admin-modifier-items">
         {group.items.map((item, itemIndex) => <div className="admin-modifier-item" key={item.id}>
+          <i className="admin-modifier-handle" aria-hidden="true">⁙</i>
           {item.image ? <img src={item.image} alt="" /> : <span className="admin-modifier-placeholder">Фото</span>}
-          <div>
-            <input aria-label="Название варианта" value={item.name} onChange={(event) => updateItem(groupIndex, itemIndex, { name: event.target.value })} />
-            <input aria-label="Ссылка на фото варианта" value={item.image} onChange={(event) => updateItem(groupIndex, itemIndex, { image: event.target.value })} placeholder="Ссылка на фото" />
-          </div>
+          <label>Название варианта<input aria-label="Название варианта" value={item.name} onChange={(event) => updateItem(groupIndex, itemIndex, { name: event.target.value })} /></label>
+          <input className="admin-modifier-image-url" aria-label="Ссылка на фото варианта" value={item.image} onChange={(event) => updateItem(groupIndex, itemIndex, { image: event.target.value })} placeholder="Ссылка на фото" />
           <label>Цена<input type="number" min="0" value={item.price} onChange={(event) => updateItem(groupIndex, itemIndex, { price: Number(event.target.value) })} /></label>
-          <label>Макс. шт.<input type="number" min="1" max="99" disabled={group.selectionType === "single"} value={item.maxQuantity ?? (group.selectionType === "single" ? 1 : 20)} onChange={(event) => updateItem(groupIndex, itemIndex, { maxQuantity: Number(event.target.value) })} /></label>
+          <label>Макс. количество<input type="number" min="1" max="99" disabled={group.selectionType === "single"} value={item.maxQuantity ?? (group.selectionType === "single" ? 1 : 20)} onChange={(event) => updateItem(groupIndex, itemIndex, { maxQuantity: Number(event.target.value) })} /></label>
           <label className="admin-modifier-enabled"><span>Доступен</span><input type="checkbox" checked={item.enabled !== false} onChange={(event) => updateItem(groupIndex, itemIndex, { enabled: event.target.checked })} /></label>
           <button type="button" onClick={() => removeItem(groupIndex, itemIndex)} aria-label={`Удалить ${item.name}`}>×</button>
         </div>)}
@@ -2057,7 +2084,17 @@ function ModifierGroupsEditor({ value, onChange }: { value: ModifierGroup[]; onC
   </section>;
 }
 
-function ImageField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+function ImageField({
+  value,
+  onChange,
+  variant = "product",
+  creating = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  variant?: "product" | "promotion" | "category";
+  creating?: boolean;
+}) {
   const [processing, setProcessing] = useState(false);
   const selectFile = async (file?: File) => {
     if (!file) return;
@@ -2068,10 +2105,19 @@ function ImageField({ value, onChange }: { value: string; onChange: (value: stri
       setProcessing(false);
     }
   };
-  return <label className="admin-image-field">
-    Фото
-    {value ? <img src={value} alt="Предпросмотр" /> : null}
-    <input required={!value} value={value.startsWith("data:") ? "" : value} onChange={(event) => onChange(event.target.value)} placeholder="Ссылка на изображение" />
-    <span className="admin-upload">📷 {processing ? "Обрабатываем…" : "Выбрать фото с телефона"}<input type="file" accept="image/*" onChange={(event) => void selectFile(event.target.files?.[0])} /></span>
-  </label>;
+  const uploadTitle = variant === "product"
+    ? creating ? "Загрузите фото блюда" : "Выбрать фото с устройства"
+    : variant === "category"
+      ? creating ? "Загрузите изображение" : "Перетащите новое изображение сюда"
+      : creating ? "Перетащите изображение сюда" : "Загрузить изображение";
+  return <div className={`admin-image-field admin-image-${variant}${creating ? " is-create" : " is-edit"}`}>
+    <span className="admin-image-label">{variant === "product" ? "Фото блюда" : variant === "promotion" ? creating ? "Фото" : "Изображение (URL)" : "Фото категории"}</span>
+    <label className="admin-image-url"><input required={!value} value={value.startsWith("data:") ? "" : value} onChange={(event) => onChange(event.target.value)} placeholder={variant === "promotion" ? "Ссылка на изображение" : "https://storage.example.com/image.png"} /></label>
+    <div className="admin-image-media">
+      {value ? <img src={value} alt="Предпросмотр" /> : null}
+      <label className="admin-upload"><i>♧</i><b>{processing ? "Обрабатываем…" : uploadTitle}</b><span>{variant === "product" && creating ? "Перетащите файл сюда или выберите на устройстве" : "или выберите файл с компьютера"}</span><input type="file" accept="image/*" onChange={(event) => void selectFile(event.target.files?.[0])} /></label>
+    </div>
+    <small>JPG, PNG до 5 МБ. {variant === "product" ? "Рекомендуем 800×800 px" : ""}</small>
+    {value && !creating ? <button type="button" className="admin-image-remove" onClick={() => onChange("")}>♧ Удалить фото</button> : null}
+  </div>;
 }

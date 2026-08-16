@@ -314,11 +314,15 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
     readFile(new URL("../app/admin/CustomersView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/IntegrationsView.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Каталог"[\s\S]*?label: "Клиенты"[\s\S]*?label: "Лояльность"[\s\S]*?label: "Аналитика"/);
+  assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Каталог"[\s\S]*?label: "Клиенты"[\s\S]*?label: "Лояльность"[\s\S]*?label: "Аналитика"[\s\S]*?label: "Акции"[\s\S]*?label: "Филиалы"[\s\S]*?label: "Интеграции"/);
+  assert.match(navigation, /NAKTA[\s\S]*?KITCHEN/);
+  assert.match(navigation, /admin-sidebar-branch[\s\S]*?Рабочий филиал/);
   assert.match(navigation, /admin-sidebar-rail[\s\S]*?data-tooltip/);
   assert.match(admin, /useState<Tab>\("orders"\)/);
   assert.match(admin, /tab === "orders" \? <OrdersWorkspace/);
   assert.match(ordersWorkspace, /admin-orders-commandbar[\s\S]*?admin-orders-kanban[\s\S]*?admin-orders-table/);
+  assert.match(ordersWorkspace, /aria-label="Тип заказа"/);
+  assert.match(ordersWorkspace, /admin-orders-card-delivery[\s\S]*?admin-orders-card-foot/);
   assert.match(admin, /baseQuery\.set\("search", deferredSearch\.trim\(\)\)/);
   assert.match(admin, /\/admin\/analytics\?\$\{query\}/);
   assert.match(admin, /tab === "categories"[\s\S]*?Добавить категорию/);
@@ -346,6 +350,7 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
   assert.match(admin, /Начало рабочего дня/);
   assert.match(admin, /Бесплатная доставка от, сом/);
   assert.match(admin, /className="admin-order-detail-body"/);
+  assert.match(admin, /admin-catalog-kpis/);
   assert.match(admin, /className="admin-order-info-pane"/);
   assert.match(admin, /className="admin-order-items-pane"[\s\S]*?Состав заказа/);
   assert.match(admin, /\/admin\/orders\/\$\{selectedOrder\.id\}\/kit/);
@@ -357,6 +362,7 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
   assert.match(adminCss, /\.admin-data-table/);
   assert.match(adminCss, /\.admin-orders-kanban/);
   assert.match(adminCss, /--admin-sidebar-width:\s*64px/);
+  assert.match(adminCss, /--admin-sidebar-width:\s*clamp\(156px, 11vw, 180px\)/);
   assert.match(adminCss, /@media\s*\(max-width:\s*980px\)/);
   assert.match(adminCss, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.admin-order-detail/);
 });
