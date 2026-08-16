@@ -4,7 +4,6 @@
 import { Icon } from "@mdi/react";
 import {
   mdiAccountOutline,
-  mdiBellOutline,
   mdiCheckCircleOutline,
   mdiCreditCardOutline,
   mdiMapMarkerOutline,
@@ -1506,7 +1505,6 @@ export function AdminApp() {
     mobile={mobile}
     newOrders={Number(statusCounts.new || 0)}
     pendingNfts={pendingNftCount}
-    regionName={selectedRegion?.name || region}
     onSelect={switchTab}
     onLogout={logout}
   />;
@@ -1528,7 +1526,6 @@ export function AdminApp() {
           <h1>{tabTitle}</h1>
         </div>
         <div className="admin-topbar-actions">
-          <button type="button" className="admin-notification-button" aria-label="Уведомления"><Icon path={mdiBellOutline} size={0.78} /><span>3</span></button>
           <label className="admin-region-context"><small>Рабочий филиал</small><select className="admin-topbar-region-select" aria-label="Рабочий филиал" value={region} onChange={(event) => selectRegion(event.target.value)}>{availableRegions.map((item) => <option value={item.slug} key={item.slug}>{item.name}{item.enabled ? "" : " · скрыт"}</option>)}</select></label>
         </div>
       </header>
@@ -1691,7 +1688,7 @@ export function AdminApp() {
           <div className="admin-settings-title"><span>Город</span><span>Статус</span><span>Действия</span></div>
           <div className="admin-settings-list">
             {availableRegions.map((item) => <button key={item.id || item.slug} onClick={() => openRegion(item)}>
-              <span className="admin-settings-city"><i aria-hidden="true">⌂</i><span><b>{item.name}</b><small>{item.slug}</small><em>Меню: {availableRegions.find((source) => source.slug === item.menuSourceRegionSlug)?.name || "своё"}　•　Акции: {availableRegions.find((source) => source.slug === item.promotionSourceRegionSlug)?.name || "свои"}</em></span></span>
+              <span className="admin-settings-city"><span><b>{item.name}</b><small>{item.slug}</small><em>Меню: {availableRegions.find((source) => source.slug === item.menuSourceRegionSlug)?.name || "своё"}　•　Акции: {availableRegions.find((source) => source.slug === item.promotionSourceRegionSlug)?.name || "свои"}</em></span></span>
               <i className={item.enabled ? "enabled" : ""}>● {item.enabled ? "Активен" : "Скрыт"}</i>
               <strong>✎ Изменить</strong>
             </button>)}

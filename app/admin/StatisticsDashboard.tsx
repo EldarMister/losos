@@ -2,7 +2,6 @@
 
 import { Icon } from "@mdi/react";
 import {
-  mdiCalendarBlankOutline,
   mdiCashMultiple,
   mdiCheckCircleOutline,
   mdiReceiptTextOutline,
@@ -69,7 +68,6 @@ export function StatisticsDashboard({
               </button>
             ))}
           </div>
-          <button type="button" className="admin-stat-calendar" aria-label="Выбрать даты"><Icon path={mdiCalendarBlankOutline} size={0.8} /></button>
         </header>
         <RevenueChart data={data.chart} />
       </section>

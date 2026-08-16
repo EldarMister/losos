@@ -6,7 +6,6 @@ import {
   mdiMagnify,
   mdiRefresh,
   mdiStoreOutline,
-  mdiTuneVariant,
   mdiTruckDeliveryOutline,
   mdiViewColumnOutline,
 } from "@mdi/js";
@@ -212,7 +211,6 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
         ><Icon path={mdiRefresh} size={0.8} aria-hidden="true" /></button> : null}
       </div>
 
-      <button type="button" className="admin-orders-filter-button" aria-label="Открыть фильтры"><Icon path={mdiTuneVariant} size={0.72} aria-hidden="true" />Фильтры</button>
       <div className="admin-orders-view-switch" role="group" aria-label="Вид заказов">
         <button
           type="button"
@@ -274,7 +272,6 @@ export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
               ? <span className="admin-orders-column-note">Показаны последние {columnOrders.length}</span>
               : null}
           </div>
-          <button type="button" className="admin-orders-new-order">＋ Новый заказ</button>
         </section>;
       })}
     </div> : null}

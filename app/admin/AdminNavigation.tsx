@@ -37,7 +37,6 @@ type Props = {
   mobile?: boolean;
   newOrders: number;
   pendingNfts: number;
-  regionName: string;
   onSelect: (tab: AdminTab) => void;
   onLogout: () => void;
 };
@@ -58,7 +57,6 @@ export function AdminNavigation({
   mobile = false,
   newOrders,
   pendingNfts,
-  regionName,
   onSelect,
   onLogout,
 }: Props) {
@@ -102,16 +100,14 @@ export function AdminNavigation({
     </nav>
 
     <footer className="admin-rail-footer">
-      <div className="admin-sidebar-branch"><small>Рабочий филиал</small><b>{regionName}</b></div>
       <button
         type="button"
         className="admin-logout admin-rail-logout"
         aria-label="Выйти из панели администратора"
         onClick={onLogout}
       >
-        <span className="admin-admin-avatar" aria-hidden="true">A</span>
-        <span className="admin-nav-text"><b>Администратор</b><small>Выйти из системы</small></span>
         <Icon path={mdiLogoutVariant} size={0.72} aria-hidden="true" />
+        <span>Выйти</span>
       </button>
     </footer>
   </aside>;

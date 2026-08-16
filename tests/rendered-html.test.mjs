@@ -316,13 +316,17 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
   ]);
   assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Каталог"[\s\S]*?label: "Клиенты"[\s\S]*?label: "Лояльность"[\s\S]*?label: "Аналитика"[\s\S]*?label: "Акции"[\s\S]*?label: "Филиалы"[\s\S]*?label: "Интеграции"/);
   assert.match(navigation, /NAKTA[\s\S]*?KITCHEN/);
-  assert.match(navigation, /admin-sidebar-branch[\s\S]*?Рабочий филиал/);
+  assert.doesNotMatch(navigation, /admin-sidebar-branch|Администратор|admin-admin-avatar/);
+  assert.match(navigation, /admin-rail-logout[\s\S]*?>Выйти</);
   assert.match(navigation, /admin-sidebar-rail[\s\S]*?data-tooltip/);
   assert.match(admin, /useState<Tab>\("orders"\)/);
   assert.match(admin, /tab === "orders" \? <OrdersWorkspace/);
   assert.match(ordersWorkspace, /admin-orders-commandbar[\s\S]*?admin-orders-kanban[\s\S]*?admin-orders-table/);
   assert.match(ordersWorkspace, /aria-label="Тип заказа"/);
   assert.match(ordersWorkspace, /admin-orders-card-delivery[\s\S]*?admin-orders-card-foot/);
+  assert.doesNotMatch(ordersWorkspace, /admin-orders-filter-button|Новый заказ/);
+  assert.doesNotMatch(admin, /admin-notification-button|mdiBellOutline/);
+  assert.doesNotMatch(admin, /admin-settings-city"><i/);
   assert.match(admin, /baseQuery\.set\("search", deferredSearch\.trim\(\)\)/);
   assert.match(admin, /\/admin\/analytics\?\$\{query\}/);
   assert.match(admin, /tab === "categories"[\s\S]*?Добавить категорию/);
