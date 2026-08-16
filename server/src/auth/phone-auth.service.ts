@@ -32,6 +32,7 @@ import { WhatsappCloudService } from "./whatsapp-cloud.service";
 import { CaptchaVerificationService } from "./captcha-verification.service";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
 
 const CODE_TTL_MS = 5 * 60_000;
 const WHATSAPP_CODE_TTL_MS = 10 * 60_000;
@@ -343,7 +344,7 @@ export class PhoneAuthService {
       OrderStatus.READY,
       OrderStatus.DELIVERING,
     ]);
-    const [naktaCoinHistory, nfts] = await Promise.all([
+    const [naktaCoinHistory, nfts, naktaCoinWithdrawals] = await Promise.all([
       this.coinTransactions.find({
         where: { phone },
         order: { createdAt: "DESC" },
@@ -354,13 +355,19 @@ export class PhoneAuthService {
         order: { createdAt: "DESC" },
         take: 200,
       }),
+      this.accounts.manager.getRepository(NaktaCoinWithdrawal).find({
+        where: { phone },
+        order: { createdAt: "DESC" },
+        take: 20,
+      }),
     ]);
+    const coinWithdrawalIds = new Set(naktaCoinWithdrawals.map((withdrawal) => withdrawal.id));
     const serializedCoinHistory = naktaCoinHistory.map((entry) => ({
       id: entry.id,
       amount: entry.amount,
       createdAt: entry.createdAt,
       description: entry.description,
-      orderId: entry.orderId,
+      orderId: coinWithdrawalIds.has(entry.orderId) ? undefined : entry.orderId,
     }));
     const serialize = (order: typeof orders[number]) => ({
       id: order.id,
@@ -383,6 +390,7 @@ export class PhoneAuthService {
       naktaCoinHistory: serializedCoinHistory,
       naktaCoinTransactions: serializedCoinHistory,
       nfts: nfts.map((nft) => this.publicNft(nft)),
+      naktaCoinWithdrawals,
       currentOrders: orders.filter((order) => currentStatuses.has(order.status)).map(serialize),
       orderHistory: orders.filter((order) => !currentStatuses.has(order.status)).map(serialize),
     };
@@ -522,6 +530,55 @@ export class PhoneAuthService {
       return repository.save(owned);
     });
     return this.dispatchNftWithdrawal(nft);
+  }
+
+  async withdrawNaktaCoins(
+    phone: string,
+    verificationToken: string,
+    walletAddress: string,
+    amount: number,
+  ) {
+    await this.requireAccount(phone, verificationToken);
+    return this.accounts.manager.transaction(async (manager) => {
+      const accountRepository = manager.getRepository(PhoneAccount);
+      const account = await accountRepository.findOne({
+        where: { phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!account) throw new NotFoundException("Аккаунт не найден");
+      if (amount < 1 || amount > account.naktaCoins) {
+        throw new BadRequestException("Недостаточно NAKTA Coin для вывода");
+      }
+
+      const transactionRepository = manager.getRepository(NaktaCoinTransaction);
+      const latestReward = await transactionRepository.findOne({
+        where: { phone },
+        order: { createdAt: "DESC" },
+      });
+      const regionSlug = latestReward?.regionSlug || "bishkek";
+      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
+      const withdrawal = await withdrawalRepository.save(withdrawalRepository.create({
+        phone,
+        regionSlug,
+        amount,
+        walletAddress,
+        status: "pending",
+        txHash: null,
+        error: null,
+        processedAt: null,
+      }));
+
+      account.naktaCoins -= amount;
+      await accountRepository.save(account);
+      await transactionRepository.save({
+        phone,
+        regionSlug,
+        orderId: withdrawal.id,
+        amount: -amount,
+        description: "Заявка на вывод NAKTA Coin",
+      });
+      return withdrawal;
+    });
   }
 
   async deleteAccount(phone: string, verificationToken: string) {

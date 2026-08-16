@@ -17,6 +17,7 @@ import {
   RequestPhoneCodeDto,
   RequestWhatsappAuthDto,
   VerifyPhoneCodeDto,
+  WithdrawNaktaCoinsDto,
   WithdrawNftDto,
 } from "./phone-auth.dto";
 import {
@@ -114,6 +115,22 @@ export class PhoneAuthController {
   ) {
     const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
     return this.auth.withdrawNft(phone || "", verificationToken, id, dto.walletAddress);
+  }
+
+  @Post("coins/withdraw")
+  @HttpCode(200)
+  withdrawNaktaCoins(
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+    @Body() dto: WithdrawNaktaCoinsDto,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.withdrawNaktaCoins(
+      phone || "",
+      verificationToken,
+      dto.walletAddress,
+      dto.amount,
+    );
   }
 
   @Post("request-code")

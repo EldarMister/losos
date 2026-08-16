@@ -47,6 +47,8 @@ import { AddLoyaltyPrograms1785003000000 } from "./migrations/1785003000000-AddL
 import { AddOrderKitItems1785004000000 } from "./migrations/1785004000000-AddOrderKitItems";
 import { AccountNft } from "./rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
+import { NaktaCoinWithdrawal } from "./rewards/nakta-coin-withdrawal.entity";
+import { AddNaktaCoinWithdrawals1785005000000 } from "./migrations/1785005000000-AddNaktaCoinWithdrawals";
 
 @Module({
   imports: [
@@ -59,7 +61,7 @@ import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
         return {
           type: "postgres" as const,
           url: databaseUrl,
-          entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, PhoneAccountSession, DevicePushToken, AccountNft, NaktaCoinTransaction],
+          entities: [Region, Category, Product, Promotion, PickupLocation, Order, OrderItem, PhoneAuthChallenge, AuthorizedPhone, PhoneAccount, PhoneAccountSession, DevicePushToken, AccountNft, NaktaCoinTransaction, NaktaCoinWithdrawal],
           migrations: [
             BootstrapSchema1784978000000,
             AddProductCustomization1784979000000,
@@ -88,6 +90,7 @@ import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
             AddShortOrderNumbersAndAdminConfirmation1785002000000,
             AddLoyaltyPrograms1785003000000,
             AddOrderKitItems1785004000000,
+            AddNaktaCoinWithdrawals1785005000000,
           ],
           migrationsRun: true,
           synchronize:

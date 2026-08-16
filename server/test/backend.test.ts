@@ -28,6 +28,7 @@ import {
   CheckWhatsappAuthDto,
   RequestPhoneCodeDto,
   VerifyPhoneCodeDto,
+  WithdrawNaktaCoinsDto,
 } from "../src/auth/phone-auth.dto";
 import { PhoneAuthController } from "../src/auth/phone-auth.controller";
 import {
@@ -303,6 +304,26 @@ test("NFT withdrawal validates wallet addresses for supported networks", () => {
   assert.equal(isWalletAddressValid("solana", "11111111111111111111111111111111"), true);
   assert.equal(isWalletAddressValid("ton", `0:${"a".repeat(64)}`), true);
   assert.equal(isWalletAddressValid("bitcoin", "bc1qunsupported"), false);
+});
+
+test("NAKTA Coin withdrawal requires a valid amount and wallet address", () => {
+  const valid = plainToInstance(WithdrawNaktaCoinsDto, {
+    walletAddress: `0x${"a".repeat(40)}`,
+    amount: 25,
+  });
+  assert.deepEqual(validateSync(valid), []);
+
+  const invalidAmount = plainToInstance(WithdrawNaktaCoinsDto, {
+    walletAddress: `0x${"a".repeat(40)}`,
+    amount: 0,
+  });
+  assert.ok(validateSync(invalidAmount).some((error) => error.property === "amount"));
+
+  const invalidWallet = plainToInstance(WithdrawNaktaCoinsDto, {
+    walletAddress: "short",
+    amount: 25,
+  });
+  assert.ok(validateSync(invalidWallet).some((error) => error.property === "walletAddress"));
 });
 
 test("NFT withdrawal is phone-owned, locked, and becomes pending once", async () => {
@@ -788,6 +809,7 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "requestWhatsapp",
       "verifyCode",
       "verifyWhatsappWebhook",
+      "withdrawNaktaCoins",
       "withdrawNft",
     ],
   );

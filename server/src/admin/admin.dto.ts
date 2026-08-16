@@ -484,3 +484,11 @@ export class UpdateNftWithdrawalDto {
   @IsOptional() @IsString() @MaxLength(160) tokenId?: string;
   @IsOptional() @IsString() @MaxLength(1_000) error?: string;
 }
+
+export class UpdateNaktaCoinWithdrawalDto {
+  @IsIn(["submitted", "withdrawn", "failed"])
+  status!: "submitted" | "withdrawn" | "failed";
+
+  @IsOptional() @IsString() @MaxLength(200) txHash?: string;
+  @IsOptional() @IsString() @MaxLength(1_000) error?: string;
+}

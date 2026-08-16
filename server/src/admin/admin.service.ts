@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { randomUUID } from "node:crypto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
@@ -20,6 +21,7 @@ import { normalizeOrderKitItems } from "../orders/order-kit";
 import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
+import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
 import { calculateOrderRewards, isNftMilestone } from "../rewards/reward-calculation";
 import {
   type AdminAnalyticsPeriod,
@@ -43,6 +45,7 @@ import {
   CreatePickupLocationDto,
   UpdatePickupLocationDto,
   UpdateNftWithdrawalDto,
+  UpdateNaktaCoinWithdrawalDto,
 } from "./admin.dto";
 
 export type AdminStatisticsData = {
@@ -69,6 +72,8 @@ export class AdminService {
     @InjectRepository(AccountNft) private readonly nftRepository: Repository<AccountNft>,
     @InjectRepository(NaktaCoinTransaction)
     private readonly coinTransactionRepository: Repository<NaktaCoinTransaction>,
+    @InjectRepository(NaktaCoinWithdrawal)
+    private readonly coinWithdrawalRepository: Repository<NaktaCoinWithdrawal>,
     private readonly pushNotifications: PushNotificationsService,
     private readonly eduPos: EduPosService,
     private readonly config: ConfigService,
@@ -512,6 +517,76 @@ export class AdminService {
         : null;
       nft.withdrawnAt = dto.status === "withdrawn" ? new Date() : null;
       return repository.save(nft);
+    });
+  }
+
+  coinWithdrawals(regionSlug?: string, status?: string) {
+    const supported = new Set(["pending", "submitted", "withdrawn", "failed"]);
+    const query = this.coinWithdrawalRepository.createQueryBuilder("withdrawal");
+    if (regionSlug) {
+      query.andWhere('withdrawal."regionSlug" = :regionSlug', { regionSlug });
+    }
+    if (status && supported.has(status)) {
+      query.andWhere("withdrawal.status = :status", { status });
+    }
+    return query
+      .orderBy(`CASE withdrawal.status
+        WHEN 'pending' THEN 0
+        WHEN 'failed' THEN 1
+        WHEN 'submitted' THEN 2
+        ELSE 3
+      END`, "ASC")
+      .addOrderBy('withdrawal."createdAt"', "DESC")
+      .take(200)
+      .getMany();
+  }
+
+  async updateCoinWithdrawal(id: string, dto: UpdateNaktaCoinWithdrawalDto) {
+    return this.coinWithdrawalRepository.manager.transaction(async (manager) => {
+      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
+      const withdrawal = await withdrawalRepository.findOne({
+        where: { id },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!withdrawal) throw new NotFoundException("Заявка на вывод не найдена");
+      if (["withdrawn", "failed"].includes(withdrawal.status)) {
+        throw new ConflictException("Заявка уже завершена");
+      }
+      const nextTxHash = dto.txHash !== undefined
+        ? dto.txHash.trim() || null
+        : withdrawal.txHash;
+      if (dto.status !== "failed" && !nextTxHash) {
+        throw new BadRequestException("Для отправки NAKTA Coin нужен хеш транзакции");
+      }
+
+      withdrawal.status = dto.status;
+      withdrawal.txHash = nextTxHash;
+      withdrawal.error = dto.status === "failed"
+        ? dto.error?.trim() || "Заявка на вывод отклонена"
+        : null;
+      withdrawal.processedAt = ["withdrawn", "failed"].includes(dto.status)
+        ? new Date()
+        : null;
+
+      if (dto.status === "failed") {
+        const accountRepository = manager.getRepository(PhoneAccount);
+        const account = await accountRepository.findOne({
+          where: { phone: withdrawal.phone },
+          lock: { mode: "pessimistic_write" },
+        });
+        if (!account) throw new NotFoundException("Аккаунт не найден");
+        account.naktaCoins += withdrawal.amount;
+        await accountRepository.save(account);
+        await manager.getRepository(NaktaCoinTransaction).save({
+          phone: withdrawal.phone,
+          regionSlug: withdrawal.regionSlug,
+          orderId: randomUUID(),
+          amount: withdrawal.amount,
+          description: "Возврат NAKTA Coin после отмены вывода",
+        });
+      }
+
+      return withdrawalRepository.save(withdrawal);
     });
   }
 
