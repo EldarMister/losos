@@ -342,13 +342,15 @@ export function ProductSheet({
               style={styles.heroImage}
               testID="product-sheet-hero-image"
             />
-            {product.naktaCoins ? (
-              <NaktaCoinBadge amount={product.naktaCoins} style={styles.heroCoinBadge} />
-            ) : null}
           </View>
 
           <View style={styles.infoCard}>
-            <Text style={styles.title}>{product.name}</Text>
+            <View style={styles.infoHeader} testID="product-sheet-title-row">
+              <Text style={styles.title}>{product.name}</Text>
+              {product.naktaCoins ? (
+                <NaktaCoinBadge amount={product.naktaCoins} style={styles.titleCoinBadge} />
+              ) : null}
+            </View>
             {product.description ? (
               <Text style={styles.description}>{product.description}</Text>
             ) : null}
@@ -645,17 +647,22 @@ const styles = StyleSheet.create({
     borderRadius: radii.medium,
     backgroundColor: colors.white,
   },
+  infoHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
   title: {
+    flex: 1,
     color: colors.ink,
     fontFamily: "Inter_700Bold",
     fontSize: 32,
     lineHeight: 38,
     letterSpacing: -0.55,
   },
-  heroCoinBadge: {
-    position: "absolute",
-    left: 14,
-    bottom: 14,
+  titleCoinBadge: {
+    flexShrink: 0,
+    marginTop: 3,
   },
   description: {
     marginTop: 12,

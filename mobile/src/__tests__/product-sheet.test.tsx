@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, within } from "@testing-library/react-native";
 import { catalogApi } from "../api";
 import { ProductSheet } from "../components/ProductSheet";
 import { useStore } from "../store";
@@ -72,6 +72,21 @@ describe("ProductSheet toppings", () => {
         quantity: 1,
       })],
     );
+  });
+
+  test("places the NAKTA Coin badge in the title block", async () => {
+    (useStore as jest.Mock).mockReturnValue({ addCartLine: jest.fn() });
+    const screen = await render(
+      <ProductSheet
+        product={{ ...product, name: "Ролл Филадельфия", naktaCoins: 5 }}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(
+      within(screen.getByTestId("product-sheet-title-row"))
+        .getByLabelText("Начислим 5 NAKTA Coin"),
+    ).toBeTruthy();
   });
 
   test("loads equipment photos from the full catalog, including Toppings", async () => {

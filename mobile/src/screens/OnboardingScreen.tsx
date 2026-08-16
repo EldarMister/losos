@@ -7,6 +7,12 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  ReduceMotion,
+  SlideInRight,
+  SlideOutLeft,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "../components/PrimaryButton";
 import { RipplePressable } from "../components/RipplePressable";
@@ -28,6 +34,23 @@ type Page = {
 };
 
 const PROGRESS_SEGMENTS = 4;
+const CASCADE_DELAY = 65;
+
+function cascadeEntering(step: number) {
+  return SlideInRight
+    .duration(420)
+    .delay(step * CASCADE_DELAY)
+    .easing(Easing.out(Easing.cubic))
+    .reduceMotion(ReduceMotion.System);
+}
+
+function cascadeExiting(step: number) {
+  return SlideOutLeft
+    .duration(260)
+    .delay(step * 35)
+    .easing(Easing.in(Easing.cubic))
+    .reduceMotion(ReduceMotion.System);
+}
 
 const pages: Page[] = [
   {
@@ -141,7 +164,12 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
           },
         ]}
       >
-        <View style={styles.progressRow}>
+        <Animated.View
+          entering={cascadeEntering(0)}
+          exiting={cascadeExiting(0)}
+          key={`progress-${pageIndex}`}
+          style={styles.progressRow}
+        >
           {Array.from({ length: PROGRESS_SEGMENTS }, (_, index) => (
             <View
               key={index}
@@ -152,23 +180,33 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
               ]}
             />
           ))}
-        </View>
+        </Animated.View>
 
-        <View style={[
-          styles.visual,
-          compact && styles.visualCompact,
-          isNotificationPage && styles.notificationVisual,
-          isFinalPage && styles.finalVisual,
-        ]}>
+        <Animated.View
+          entering={cascadeEntering(1)}
+          exiting={cascadeExiting(1)}
+          key={`visual-${pageIndex}`}
+          style={[
+            styles.visual,
+            compact && styles.visualCompact,
+            isNotificationPage && styles.notificationVisual,
+            isFinalPage && styles.finalVisual,
+          ]}
+        >
           <Image
             accessibilityLabel={current.assetLabel}
             resizeMode="contain"
             source={current.image}
             style={{ width: assetWidth, height: assetHeight }}
           />
-        </View>
+        </Animated.View>
 
-        {!isFinalPage ? <View style={styles.copyBlock}>
+        {!isFinalPage ? <Animated.View
+          entering={cascadeEntering(2)}
+          exiting={cascadeExiting(2)}
+          key={`copy-${pageIndex}`}
+          style={styles.copyBlock}
+        >
           <Text style={[
             styles.title,
             compact && styles.titleCompact,
@@ -189,9 +227,14 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
           ]}>
             {current.copy}
           </Text>
-        </View> : null}
+        </Animated.View> : null}
 
-        <View style={[styles.actions, compact && styles.actionsCompact]}>
+        <Animated.View
+          entering={cascadeEntering(3)}
+          exiting={cascadeExiting(3)}
+          key={`actions-${pageIndex}`}
+          style={[styles.actions, compact && styles.actionsCompact]}
+        >
           {isNotificationPage ? (
             <PrimaryButton
               label="Включить пуш-уведомления"
@@ -232,7 +275,7 @@ export function OnboardingScreen({ onComplete, onLogin }: Props) {
               <Text style={styles.loginText}>Войти</Text>
             </RipplePressable>
           ) : null}
-        </View>
+        </Animated.View>
       </View>
     </View>
   );
