@@ -2,8 +2,17 @@ import {
   shouldActivateSheetDrag,
   shouldDismissSheet,
 } from "../components/SwipeDismiss";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 describe("swipe-to-dismiss thresholds", () => {
+  test("lets Android resize the window instead of shifting sheets twice", () => {
+    const appConfig = JSON.parse(readFileSync(resolve(__dirname, "../../app.json"), "utf8"));
+    const sheetSource = readFileSync(resolve(__dirname, "../components/Sheet.tsx"), "utf8");
+    expect(appConfig.expo.android.softwareKeyboardLayoutMode).toBe("resize");
+    expect(sheetSource).toContain('Platform.OS === "ios" ? "padding" : undefined');
+  });
+
   test("dismisses only after the panel is pulled well below a light swipe", () => {
     expect(shouldDismissSheet(111, 0)).toBe(true);
     expect(shouldDismissSheet(110, 0)).toBe(false);
