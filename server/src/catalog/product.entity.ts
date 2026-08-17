@@ -7,6 +7,7 @@ export type ProductModifierItem = {
   id: string;
   name: string;
   price: number;
+  naktaCoins?: number;
   image: string;
   enabled?: boolean;
   maxQuantity?: number;

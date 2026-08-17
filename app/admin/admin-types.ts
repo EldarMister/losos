@@ -18,10 +18,19 @@ export type OrderStatus =
   | "cancelled";
 
 export type OrderModifier = {
+  groupId?: string;
+  groupTitle?: string;
   itemId: string;
   itemName: string;
   quantity: number;
   totalPrice: number;
+  priceScope?: "per-product" | "per-line";
+};
+
+export type OrderKitItem = {
+  id: string;
+  name: string;
+  quantity: number;
 };
 
 export type OrderItem = {
@@ -48,6 +57,7 @@ export type AdminOrder = {
   comment: string;
   utensilsCount: number;
   noUtensils: boolean;
+  kitItems?: OrderKitItem[];
   paymentMethod: "cash" | "card" | "online";
   subtotal: number;
   total: number;
@@ -71,10 +81,42 @@ export type Product = {
   name: string;
   slug: string;
   price: number;
+  naktaCoins: number;
+  oldPrice: number | null;
   image: string;
   description: string;
+  composition: string;
+  isNew: boolean;
+  modifierGroups: ModifierGroup[];
   available: boolean;
   sortOrder: number;
+  weight: number;
+  calories: number;
+  protein: number;
+  fat: number;
+  carbs: number;
+};
+
+export type ModifierItem = {
+  id: string;
+  name: string;
+  price: number;
+  naktaCoins?: number;
+  image: string;
+  enabled?: boolean;
+  maxQuantity?: number;
+};
+
+export type ModifierGroup = {
+  id: string;
+  title: string;
+  selectionType: "single" | "multiple";
+  presentation?: "rows" | "cards";
+  required: boolean;
+  minSelections?: number;
+  maxSelections?: number;
+  priceScope?: "per-product" | "per-line";
+  items: ModifierItem[];
 };
 
 export type Category = {
@@ -98,7 +140,19 @@ export type Promotion = {
 
 export type PickupLocation = {
   id: number;
+  title: string;
   address: string;
+  workingHours: string;
+  latitude: number | null;
+  longitude: number | null;
+  yandexUrl: string;
+  enabled: boolean;
+  sortOrder: number;
+};
+
+export type DeliveryZonePoint = {
+  latitude: number;
+  longitude: number;
 };
 
 export type Region = {
@@ -112,9 +166,20 @@ export type Region = {
   deliveryOpenTime: string;
   deliveryCloseTime: string;
   deliveryIs24Hours: boolean;
+  deliveryWorkingDays: number[];
+  freeDeliveryThreshold: number;
   deliveryFee: number;
   minimumOrderAmount: number;
+  maximumOrderAmount: number;
   estimatedDeliveryMinutes: number;
+  deliveryZone: DeliveryZonePoint[];
+  nftRewardEveryOrders: number;
+  nftRewardName: string;
+  nftRewardImage: string;
+  nftRewardDescription: string;
+  nftRewardNetwork: string;
+  nftContractAddress: string;
+  nftMetadataUri: string;
   pickupLocations?: PickupLocation[];
 };
 

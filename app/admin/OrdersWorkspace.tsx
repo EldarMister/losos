@@ -13,6 +13,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import type {
   AdminOrder,
   AdminRequest,
+  OrderKitItem,
   OrdersResponse,
   OrderStatus,
 } from "./admin-types";
@@ -108,6 +109,18 @@ function StatusBadge({ status }: { status: OrderStatus }) {
   );
 }
 
+const defaultKitItems: OrderKitItem[] = [
+  { id: "soy-sauce", name: "Соевый соус", quantity: 1 },
+  { id: "wasabi", name: "Васаби", quantity: 1 },
+  { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 1 },
+];
+
+type KitDraft = {
+  noUtensils: boolean;
+  utensilsCount: number;
+  kitItems: OrderKitItem[];
+};
+
 function EmptyOrders({ filtered }: { filtered: boolean }) {
   return (
     <div className="grid min-h-64 place-items-center px-6 py-12 text-center">
@@ -129,8 +142,10 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  const [kitSaving, setKitSaving] = useState(false);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
 
@@ -189,6 +204,46 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
       onNotice(updateError instanceof Error ? updateError.message : "Не удалось изменить статус заказа", "error");
     } finally {
       setActionOrderId(null);
+    }
+  };
+
+  const openKitEditor = (order: AdminOrder) => {
+    setKitDraft({
+      noUtensils: order.noUtensils,
+      utensilsCount: Math.max(1, order.utensilsCount || 1),
+      kitItems: (order.kitItems?.length ? order.kitItems : defaultKitItems).map((item) => ({ ...item })),
+    });
+  };
+
+  const changeKitQuantity = (id: string, delta: number) => {
+    setKitDraft((current) => current ? {
+      ...current,
+      kitItems: current.kitItems.map((item) => item.id === id
+        ? { ...item, quantity: Math.min(20, Math.max(0, item.quantity + delta)) }
+        : item),
+    } : current);
+  };
+
+  const saveKit = async () => {
+    if (!selectedOrder || !kitDraft || kitSaving) return;
+    setKitSaving(true);
+    try {
+      const updated = await request<AdminOrder>(`/admin/orders/${selectedOrder.id}/kit`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          noUtensils: kitDraft.noUtensils,
+          utensilsCount: kitDraft.noUtensils ? 0 : kitDraft.utensilsCount,
+          kitItems: kitDraft.kitItems.map(({ id, quantity }) => ({ id, quantity })),
+        }),
+      });
+      setOrders((current) => current.map((order) => order.id === updated.id ? updated : order));
+      setSelectedOrder(updated);
+      setKitDraft(null);
+      onNotice(`${orderNumber(updated)} — комплектация сохранена`, "success");
+    } catch (saveError) {
+      onNotice(saveError instanceof Error ? saveError.message : "Не удалось сохранить комплектацию", "error");
+    } finally {
+      setKitSaving(false);
     }
   };
 
@@ -460,6 +515,23 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                   </div>
                 </section>
 
+                <section aria-labelledby="kit-title">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 id="kit-title" className="text-sm font-semibold text-slate-950">Комплектация</h3>
+                    {!(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
+                      <button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50" onClick={() => openKitEditor(selectedOrder)}>Изменить комплектацию</button>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 rounded-xl border border-slate-200 p-4 text-sm">
+                    <div className="flex justify-between gap-4"><span className="text-slate-500">Приборы</span><strong className="font-medium text-slate-900">{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} персон`}</strong></div>
+                    <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3">
+                      {(selectedOrder.kitItems?.length ? selectedOrder.kitItems : defaultKitItems).map((kitItem) => (
+                        <div key={kitItem.id} className="flex justify-between gap-4 text-slate-700"><span>{kitItem.name}</span><strong className="font-medium">{kitItem.quantity} шт.</strong></div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
                 {selectedOrder.posLastError ? (
                   <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
                     <strong className="block">Ошибка передачи на кухню</strong>
@@ -496,6 +568,20 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                 ) : null}
               </div>
             </footer>
+          </section>
+        </div>
+      ) : null}
+
+      {selectedOrder && kitDraft ? (
+        <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/55 p-0 sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setKitDraft(null); }}>
+          <section className="flex min-h-dvh w-full max-w-lg flex-col bg-white shadow-2xl sm:min-h-0 sm:rounded-xl" role="dialog" aria-modal="true" aria-labelledby="kit-editor-title">
+            <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><h2 id="kit-editor-title" className="text-lg font-semibold text-slate-950">Комплектация {orderNumber(selectedOrder)}</h2><p className="mt-1 text-sm text-slate-500">Укажите точное количество для кухни.</p></div><button type="button" aria-label="Закрыть редактор комплектации" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600" onClick={() => setKitDraft(null)}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button></header>
+            <div className="grid gap-4 overflow-y-auto p-5">
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-800"><span>Без приборов</span><input type="checkbox" className="size-5 accent-blue-600" checked={kitDraft.noUtensils} onChange={(event) => setKitDraft({ ...kitDraft, noUtensils: event.target.checked })} /></label>
+              {!kitDraft.noUtensils ? <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"><span><strong className="block text-sm text-slate-900">Количество персон</strong><small className="mt-1 block text-xs text-slate-500">Палочки и салфетки</small></span><span className="flex items-center gap-3"><button type="button" aria-label="Уменьшить количество персон" className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.max(1, kitDraft.utensilsCount - 1) })}>−</button><strong className="min-w-6 text-center text-base">{kitDraft.utensilsCount}</strong><button type="button" aria-label="Увеличить количество персон" className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.min(50, kitDraft.utensilsCount + 1) })}>+</button></span></div> : null}
+              <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">{kitDraft.kitItems.map((kitItem) => <div key={kitItem.id} className="flex items-center justify-between gap-4 p-4"><strong className="text-sm font-medium text-slate-900">{kitItem.name}</strong><span className="flex items-center gap-3"><button type="button" aria-label={`Уменьшить ${kitItem.name}`} className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700" onClick={() => changeKitQuantity(kitItem.id, -1)}>−</button><strong className="min-w-6 text-center text-base">{kitItem.quantity}</strong><button type="button" aria-label={`Увеличить ${kitItem.name}`} className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700" onClick={() => changeKitQuantity(kitItem.id, 1)}>+</button></span></div>)}</div>
+            </div>
+            <footer className="grid gap-2 border-t border-slate-200 p-4 sm:grid-cols-2"><button type="button" className="min-h-11 rounded-lg border border-slate-300 text-sm font-medium text-slate-700" onClick={() => setKitDraft(null)}>Отменить</button><button type="button" className="min-h-11 rounded-lg bg-blue-600 text-sm font-semibold text-white disabled:opacity-60" disabled={kitSaving} onClick={() => void saveKit()}>{kitSaving ? "Сохраняем…" : "Сохранить комплектацию"}</button></footer>
           </section>
         </div>
       ) : null}

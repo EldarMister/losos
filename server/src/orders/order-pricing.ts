@@ -134,14 +134,21 @@ export function priceOrderLine(
       const quantity = requestedQuantities.get(`${group.id}\u0000${item.id}`) ?? 1;
       const price = safeMoney(item.price, `modifier price for ${item.id}`);
       const totalPrice = safeMoney(price * quantity, `modifier total for ${item.id}`);
+      const naktaCoins = safeMoney(item.naktaCoins ?? 0, `modifier NAKTA Coin for ${item.id}`);
+      const totalNaktaCoins = safeMoney(
+        naktaCoins * quantity,
+        `modifier NAKTA Coin total for ${item.id}`,
+      );
       modifierSnapshots.push({
         groupId: group.id,
         groupTitle: group.title,
         itemId: item.id,
         itemName: item.name,
         price,
+        naktaCoins,
         quantity,
         totalPrice,
+        totalNaktaCoins,
         priceScope: resolveModifierPriceScope(group),
       });
     }

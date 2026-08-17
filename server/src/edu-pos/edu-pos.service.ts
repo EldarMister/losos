@@ -26,6 +26,7 @@ import {
   EDU_POS_SUBMITTABLE_ORDER_STATUSES,
   eduPosRetryDelayMs,
   orderStatusAfterPosUpdate,
+  posOrderStatusWithProgress,
 } from "./edu-pos.policy";
 import type {
   EduPosCreateOrderPayload,
@@ -373,6 +374,26 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async checkConnection() {
+    if (!this.client.isConfigured()) {
+      throw new ServiceUnavailableException("EDU POS не настроен на сервере");
+    }
+    try {
+      const dishes = this.parseMenu(await this.client.menu());
+      this.lastError = "";
+      return {
+        configured: true,
+        connected: true,
+        dishes: dishes.length,
+        checkedAt: new Date(),
+      };
+    } catch (error) {
+      this.rememberError("connection check", error);
+      const message = error instanceof Error ? error.message : "неизвестная ошибка";
+      throw new BadGatewayException(`Не удалось подключиться к EDU POS: ${message}`);
+    }
+  }
+
   private async refreshOrderItemMappings(order: Order) {
     const productIds = [...new Set(order.items
       .filter((item) => !item.posDishId)
@@ -433,9 +454,15 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (linkedOrder && linkedOrder.id !== order.id) {
       throw new EduPosApiError(409, "Ответ EDU POS уже связан с другим заказом");
     }
+    const effectivePosStatus = posOrderStatusWithProgress(
+      pos.status,
+      pos.progress.itemsTotal,
+      pos.progress.itemsReady,
+      pos.progress.itemsRejected,
+    );
     order.posOrderId = pos.id;
     order.posOrderNumber = pos.orderNumber || null;
-    order.posStatus = pos.status;
+    order.posStatus = effectivePosStatus;
     order.posSyncStatus = "synced";
     order.posItemsTotal = pos.progress.itemsTotal;
     order.posItemsReady = pos.progress.itemsReady;
@@ -446,7 +473,7 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     order.posRetryCount = 0;
     order.posNextRetryAt = null;
     order.posLastError = "";
-    order.status = orderStatusAfterPosUpdate(order.status, pos.status, confirmAccepted);
+    order.status = orderStatusAfterPosUpdate(order.status, effectivePosStatus, confirmAccepted);
     if (confirmAccepted && order.status !== OrderStatus.NEW) {
       order.adminConfirmedAt = order.adminConfirmedAt ?? new Date();
     }

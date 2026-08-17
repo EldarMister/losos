@@ -65,6 +65,7 @@ import {
   eduPosRetryDelayMs,
   internalOrderStatusForPos,
   orderStatusAfterPosUpdate,
+  posOrderStatusWithProgress,
   shouldSubmitOrderToEduPosAfterAdminTransition,
 } from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
@@ -1201,7 +1202,7 @@ const modifierGroups: ProductModifierGroup[] = [
     minSelections: 1,
     maxSelections: 1,
     items: [
-      { id: "cheese", name: "Сырный", price: 20, image: "", enabled: true },
+      { id: "cheese", name: "Сырный", price: 20, naktaCoins: 2, image: "", enabled: true },
       { id: "spicy", name: "Острый", price: 30, image: "", enabled: true },
     ],
   },
@@ -1241,6 +1242,8 @@ test("legacy modifier groups default to per-product pricing and quantity 20", ()
   assert.equal(line.unitPrice, 149);
   assert.equal(line.lineTotal, 298);
   assert.equal(line.pricingVersion, "scoped-v2");
+  assert.equal(line.modifierSnapshots[0].naktaCoins, 2);
+  assert.equal(line.modifierSnapshots[0].totalNaktaCoins, 2);
   assert.deepEqual(
     line.modifierSnapshots.map(
       ({ itemId, quantity, totalPrice, priceScope }) =>
@@ -1689,7 +1692,7 @@ test("EDU POS status mapping and retry schedule follow the delivery contract", (
     OrderStatus.PREPARING,
   ), false);
   assert.equal(internalOrderStatusForPos("sent_to_kitchen"), OrderStatus.CONFIRMED);
-  assert.equal(internalOrderStatusForPos("accepted_by_kitchen"), OrderStatus.CONFIRMED);
+  assert.equal(internalOrderStatusForPos("accepted_by_kitchen"), OrderStatus.PREPARING);
   assert.equal(internalOrderStatusForPos("cooking"), OrderStatus.PREPARING);
   assert.equal(internalOrderStatusForPos("partially_rejected"), OrderStatus.PREPARING);
   assert.equal(internalOrderStatusForPos("ready"), OrderStatus.READY);
@@ -1706,6 +1709,21 @@ test("EDU POS status mapping and retry schedule follow the delivery contract", (
     orderStatusAfterPosUpdate(OrderStatus.DELIVERING, "cooking", true),
     OrderStatus.DELIVERING,
   );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.PREPARING, "accepted_by_kitchen", true),
+    OrderStatus.PREPARING,
+  );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.READY, "cooking", true),
+    OrderStatus.READY,
+  );
+  assert.equal(
+    orderStatusAfterPosUpdate(OrderStatus.PREPARING, "ready", true),
+    OrderStatus.READY,
+  );
+  assert.equal(posOrderStatusWithProgress("cooking", 3, 3, 0), "ready");
+  assert.equal(posOrderStatusWithProgress("cooking", 3, 2, 0), "cooking");
+  assert.equal(posOrderStatusWithProgress("partially_rejected", 3, 2, 1), "partially_rejected");
   assert.deepEqual([1, 2, 3, 4, 5].map(eduPosRetryDelayMs), [5_000, 15_000, 30_000, 60_000, 60_000]);
 });
 

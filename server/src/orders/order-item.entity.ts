@@ -8,8 +8,10 @@ export type OrderModifierSnapshot = {
   itemId: string;
   itemName: string;
   price: number;
+  naktaCoins: number;
   quantity: number;
   totalPrice: number;
+  totalNaktaCoins: number;
   priceScope: ModifierPriceScope;
 };
 

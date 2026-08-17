@@ -119,7 +119,13 @@ export class OrdersService {
           }
           try {
             const priced = priceOrderLine(product, entry.quantity, entry.modifiers ?? []);
-            const naktaCoins = product.naktaCoins * entry.quantity;
+            const modifierNaktaCoins = priced.modifierSnapshots.reduce(
+              (total, modifier) => total + modifier.totalNaktaCoins * (
+                modifier.priceScope === "per-product" ? entry.quantity : 1
+              ),
+              0,
+            );
+            const naktaCoins = product.naktaCoins * entry.quantity + modifierNaktaCoins;
             if (!Number.isSafeInteger(naktaCoins) || naktaCoins > POSTGRES_INTEGER_MAX) {
               throw new BadRequestException("NAKTA Coin для позиции заказа превышает допустимое значение");
             }

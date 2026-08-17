@@ -105,6 +105,11 @@ export class AdminController {
     return this.eduPos.status();
   }
 
+  @Post("edu-pos/check")
+  checkEduPosConnection() {
+    return this.eduPos.checkConnection();
+  }
+
   @Post("edu-pos/sync-menu")
   syncEduPosMenu() {
     return this.eduPos.syncMenu();

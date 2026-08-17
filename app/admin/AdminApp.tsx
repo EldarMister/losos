@@ -8,12 +8,12 @@ import {
   AnalyticsView,
   CategoriesView,
   FinanceView,
-  MenuView,
-  PromotionsView,
-  SettingsView,
   UsersView,
 } from "./AdminSections";
+import { MenuWorkspace } from "./MenuWorkspace";
 import OrdersWorkspace from "./OrdersWorkspace";
+import { PromotionsWorkspace } from "./PromotionsWorkspace";
+import { SettingsWorkspace } from "./SettingsWorkspace";
 import type { AdminRequest, AdminSection, Region } from "./admin-types";
 
 const apiUrl = (
@@ -210,12 +210,12 @@ export function AdminApp() {
         <main className="mx-auto w-full max-w-[1500px] p-4 sm:p-6 lg:p-8">
           {section === "orders" ? <OrdersWorkspace {...viewProps} /> : null}
           {section === "analytics" ? <AnalyticsView {...viewProps} /> : null}
-          {section === "menu" ? <MenuView {...viewProps} /> : null}
+          {section === "menu" ? <MenuWorkspace {...viewProps} /> : null}
           {section === "categories" ? <CategoriesView {...viewProps} /> : null}
           {section === "users" ? <UsersView {...viewProps} /> : null}
           {section === "finance" ? <FinanceView {...viewProps} /> : null}
-          {section === "promotions" ? <PromotionsView {...viewProps} /> : null}
-          {section === "settings" ? <SettingsView {...viewProps} /> : null}
+          {section === "promotions" ? <PromotionsWorkspace {...viewProps} /> : null}
+          {section === "settings" ? <SettingsWorkspace {...viewProps} /> : null}
         </main>
       </div>
 
