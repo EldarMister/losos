@@ -20,3 +20,14 @@ jest.mock("react-native-webview", () => {
     WebView: (props: Record<string, unknown>) => React.createElement(View, props),
   };
 });
+jest.mock("expo-camera", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  return {
+    CameraView: (props: Record<string, unknown>) => React.createElement(View, props),
+    useCameraPermissions: () => [
+      { granted: true, canAskAgain: true, status: "granted" },
+      jest.fn(() => Promise.resolve({ granted: true, canAskAgain: true, status: "granted" })),
+    ],
+  };
+});

@@ -4,6 +4,7 @@ import { authApi } from "../api";
 import { ProfileScreen, profileCoinHistory } from "../screens/ProfileScreen";
 import { useStore } from "../store";
 import type { ProfileData } from "../types";
+import { walletAddressFromQr } from "../components/RewardsWithdrawalSheet";
 
 jest.mock("../api", () => ({
   authApi: {
@@ -131,14 +132,16 @@ describe("ProfileScreen order history", () => {
 
     await fireEvent.press(await screen.findByRole("button", { name: "Вывести" }));
     await fireEvent.press(screen.getByRole("button", { name: "Выбрать NFT" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Оставить заявку" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Продолжить" }));
     expect(authApi.withdrawNft).not.toHaveBeenCalled();
     const wallet = `0x${"a".repeat(40)}`;
     await act(async () => {
       fireEvent.changeText(screen.getByLabelText("Адрес криптокошелька"), wallet);
     });
+    fireEvent.press(screen.getByRole("button", { name: "Продолжить" }));
+    expect(await screen.findByText("Подтверждение вывода")).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole("button", { name: "Оставить заявку" }));
+      fireEvent.press(screen.getByRole("button", { name: "Подтвердить вывод" }));
       await Promise.resolve();
     });
     await waitFor(() => expect(authApi.withdrawNft).toHaveBeenCalledWith(
@@ -186,8 +189,11 @@ describe("ProfileScreen order history", () => {
       fireEvent.changeText(screen.getByLabelText("Количество NAKTA Coin для вывода"), "25");
       fireEvent.changeText(screen.getByLabelText("Адрес криптокошелька"), wallet);
     });
+    fireEvent.press(screen.getByRole("button", { name: "Продолжить" }));
+    expect(await screen.findByText("Подтверждение вывода")).toBeTruthy();
+    expect(screen.getByText("25 NAKTA Coin")).toBeTruthy();
     await act(async () => {
-      fireEvent.press(screen.getByRole("button", { name: "Оставить заявку" }));
+      fireEvent.press(screen.getByRole("button", { name: "Подтвердить вывод" }));
       await Promise.resolve();
     });
 
@@ -197,6 +203,15 @@ describe("ProfileScreen order history", () => {
       25,
     ));
     expect(await screen.findByText("Заявка принята")).toBeTruthy();
+  });
+
+  test("extracts wallet addresses from plain and payment QR codes", () => {
+    const evmAddress = `0x${"a".repeat(40)}`;
+    const tonAddress = `EQ${"b".repeat(46)}`;
+    expect(walletAddressFromQr(evmAddress)).toBe(evmAddress);
+    expect(walletAddressFromQr(`ethereum:${evmAddress}@137?value=1`)).toBe(evmAddress);
+    expect(walletAddressFromQr(`ton://transfer/${tonAddress}?amount=1`)).toBe(tonAddress);
+    expect(walletAddressFromQr(`https://example.com/${"a".repeat(42)}`)).toBe("");
   });
 
   test("uses the original empty-order structure and returns to the menu", async () => {

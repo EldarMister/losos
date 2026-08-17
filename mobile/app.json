@@ -90,6 +90,13 @@
           }
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Разрешите Накта суши использовать камеру для сканирования QR-кода криптокошелька.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-secure-store",
       [
         "expo-location",
