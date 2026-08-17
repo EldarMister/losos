@@ -1,114 +1,87 @@
 "use client";
 
-import Image from "next/image";
 import { Icon } from "@mdi/react";
 import {
   mdiAccountGroupOutline,
   mdiChartBoxOutline,
+  mdiCogOutline,
   mdiFoodOutline,
-  mdiGiftOutline,
   mdiLogoutVariant,
-  mdiPuzzleOutline,
   mdiReceiptTextOutline,
   mdiSaleOutline,
-  mdiStorefrontOutline,
+  mdiShapeOutline,
+  mdiWalletOutline,
 } from "@mdi/js";
+import type { AdminSection } from "./admin-types";
 
-export type AdminTab =
-  | "statistics"
-  | "orders"
-  | "products"
-  | "categories"
-  | "promotions"
-  | "customers"
-  | "loyalty"
-  | "settings"
-  | "integrations";
-
-type NavigationItem = {
-  id: Exclude<AdminTab, "categories">;
+export const adminSections: Array<{
+  id: AdminSection;
   label: string;
+  description: string;
   icon: string;
-  badge?: "newOrders" | "pendingNfts";
-};
+}> = [
+  { id: "orders", label: "Заказы", description: "Приём и управление заказами", icon: mdiReceiptTextOutline },
+  { id: "analytics", label: "Аналитика", description: "Основные показатели", icon: mdiChartBoxOutline },
+  { id: "menu", label: "Меню", description: "Блюда и доступность", icon: mdiFoodOutline },
+  { id: "categories", label: "Категории", description: "Категории по городам", icon: mdiShapeOutline },
+  { id: "users", label: "Пользователи", description: "Клиентская база", icon: mdiAccountGroupOutline },
+  { id: "finance", label: "Финансы", description: "Выводы средств", icon: mdiWalletOutline },
+  { id: "promotions", label: "Акции", description: "Скидки и предложения", icon: mdiSaleOutline },
+  { id: "settings", label: "Настройки", description: "Основные параметры", icon: mdiCogOutline },
+];
 
-type Props = {
-  active: AdminTab;
-  mobile?: boolean;
-  newOrders: number;
-  pendingNfts: number;
-  onSelect: (tab: AdminTab) => void;
+type AdminNavigationProps = {
+  active: AdminSection;
+  onSelect: (section: AdminSection) => void;
   onLogout: () => void;
 };
 
-const navigationItems: NavigationItem[] = [
-  { id: "orders", label: "Заказы", icon: mdiReceiptTextOutline, badge: "newOrders" },
-  { id: "products", label: "Каталог", icon: mdiFoodOutline },
-  { id: "customers", label: "Клиенты", icon: mdiAccountGroupOutline },
-  { id: "loyalty", label: "Лояльность", icon: mdiGiftOutline, badge: "pendingNfts" },
-  { id: "statistics", label: "Аналитика", icon: mdiChartBoxOutline },
-  { id: "promotions", label: "Акции", icon: mdiSaleOutline },
-  { id: "settings", label: "Филиалы", icon: mdiStorefrontOutline },
-  { id: "integrations", label: "Интеграции", icon: mdiPuzzleOutline },
-];
+export function AdminNavigation({ active, onSelect, onLogout }: AdminNavigationProps) {
+  return (
+    <div className="flex h-full flex-col bg-slate-950 text-white">
+      <div className="flex h-20 items-center border-b border-white/10 px-6">
+        <span className="grid size-10 place-items-center rounded-xl bg-blue-600 text-sm font-bold">N</span>
+        <span className="ml-3 min-w-0">
+          <strong className="block text-sm font-semibold tracking-wide">NAKTA</strong>
+          <small className="block text-xs text-slate-400">Панель управления</small>
+        </span>
+      </div>
 
-export function AdminNavigation({
-  active,
-  mobile = false,
-  newOrders,
-  pendingNfts,
-  onSelect,
-  onLogout,
-}: Props) {
-  const badges = { newOrders, pendingNfts };
-  const isActive = (item: AdminTab) => active === item
-    || (item === "products" && active === "categories");
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Разделы админ-панели">
+        {adminSections.map((item) => {
+          const selected = item.id === active;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={selected ? "page" : undefined}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
+                selected ? "bg-white text-slate-950" : "text-slate-300 hover:bg-white/8 hover:text-white"
+              }`}
+              onClick={() => onSelect(item.id)}
+            >
+              <Icon path={item.icon} size={0.88} aria-hidden="true" className="shrink-0" />
+              <span className="min-w-0">
+                <strong className="block truncate text-sm font-medium">{item.label}</strong>
+                <small className={`block truncate text-[11px] ${selected ? "text-slate-500" : "text-slate-500"}`}>
+                  {item.description}
+                </small>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
 
-  return <aside
-    className={`admin-sidebar admin-crm-sidebar admin-sidebar-rail${mobile ? " admin-sidebar-mobile" : ""}`}
-    aria-label="Основная навигация"
-  >
-    <div className="admin-crm-brand admin-rail-brand">
-      <span className="admin-crm-brand-mark" aria-hidden="true">
-        <Image src="/favicon.svg" alt="" width={40} height={40} priority />
-      </span>
-      <span className="admin-brand-text"><b>NAKTA</b><small>KITCHEN</small></span>
-    </div>
-
-    <nav className="admin-crm-nav admin-rail-nav" aria-label="Разделы системы">
-      {navigationItems.map((item) => {
-        const badge = item.badge ? badges[item.badge] : 0;
-        const selected = isActive(item.id);
-
-        return <button
+      <div className="border-t border-white/10 p-3">
+        <button
           type="button"
-          className={`admin-nav-item${selected ? " active" : ""}`}
-          aria-label={item.label}
-          aria-current={selected ? "page" : undefined}
-          data-tooltip={mobile ? undefined : item.label}
-          title={mobile ? undefined : item.label}
-          key={item.id}
-          onClick={() => onSelect(item.id)}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm text-slate-300 transition-colors hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
+          onClick={onLogout}
         >
-          <span className="admin-nav-icon" aria-hidden="true">
-            <Icon path={item.icon} size={0.94} />
-          </span>
-          <span className="admin-nav-text">{item.label}</span>
-          {badge > 0 ? <em className="admin-nav-badge" aria-label={`${badge} требуют внимания`}>{badge}</em> : null}
-        </button>;
-      })}
-    </nav>
-
-    <footer className="admin-rail-footer">
-      <button
-        type="button"
-        className="admin-logout admin-rail-logout"
-        aria-label="Выйти из панели администратора"
-        onClick={onLogout}
-      >
-        <Icon path={mdiLogoutVariant} size={0.72} aria-hidden="true" />
-        <span>Выйти</span>
-      </button>
-    </footer>
-  </aside>;
+          <Icon path={mdiLogoutVariant} size={0.82} aria-hidden="true" />
+          <span>Выйти из системы</span>
+        </button>
+      </div>
+    </div>
+  );
 }

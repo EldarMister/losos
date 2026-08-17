@@ -1,0 +1,12 @@
+[     331ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/admin:0
+[   52266ms] TypeError: Cannot read properties of undefined (reading 'length')
+    at v (http://localhost:3000/_next/static/chunks/0ohvc~bq2hecv.js:1:8033)
+    at ay (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:62886)
+    at oJ (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:83143)
+    at iu (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:94745)
+    at sd (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:137985)
+    at http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:137830
+    at sf (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:137838)
+    at se (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:133759)
+    at s$ (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:159536)
+    at MessagePort.O (http://localhost:3000/_next/static/chunks/0m_p1bxtorv5i.js:1:7701)

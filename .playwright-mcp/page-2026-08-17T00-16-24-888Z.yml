@@ -1,0 +1,113 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - complementary "Мобильное меню" [ref=f2e77]:
+      - generic [ref=f2e78]:
+        - generic [ref=f2e79]:
+          - generic [ref=f2e80]: "N"
+          - generic [ref=f2e81]:
+            - strong [ref=f2e82]: NAKTA
+            - generic [ref=f2e83]: Панель управления
+        - navigation "Разделы админ-панели" [ref=f2e84]:
+          - button "Заказы Приём и управление заказами" [ref=f2e85] [cursor=pointer]:
+            - generic [ref=f2e88]:
+              - strong [ref=f2e89]: Заказы
+              - generic [ref=f2e90]: Приём и управление заказами
+          - button "Аналитика Основные показатели" [ref=f2e91] [cursor=pointer]:
+            - generic [ref=f2e94]:
+              - strong [ref=f2e95]: Аналитика
+              - generic [ref=f2e96]: Основные показатели
+          - button "Меню Блюда и доступность" [ref=f2e97] [cursor=pointer]:
+            - generic [ref=f2e100]:
+              - strong [ref=f2e101]: Меню
+              - generic [ref=f2e102]: Блюда и доступность
+          - button "Категории Категории по городам" [ref=f2e103] [cursor=pointer]:
+            - generic [ref=f2e106]:
+              - strong [ref=f2e107]: Категории
+              - generic [ref=f2e108]: Категории по городам
+          - button "Пользователи Клиентская база" [ref=f2e109] [cursor=pointer]:
+            - generic [ref=f2e112]:
+              - strong [ref=f2e113]: Пользователи
+              - generic [ref=f2e114]: Клиентская база
+          - button "Финансы Выводы средств" [ref=f2e115] [cursor=pointer]:
+            - generic [ref=f2e118]:
+              - strong [ref=f2e119]: Финансы
+              - generic [ref=f2e120]: Выводы средств
+          - button "Акции Скидки и предложения" [ref=f2e121] [cursor=pointer]:
+            - generic [ref=f2e124]:
+              - strong [ref=f2e125]: Акции
+              - generic [ref=f2e126]: Скидки и предложения
+          - button "Настройки Основные параметры" [ref=f2e127] [cursor=pointer]:
+            - generic [ref=f2e130]:
+              - strong [ref=f2e131]: Настройки
+              - generic [ref=f2e132]: Основные параметры
+        - button "Выйти из системы" [ref=f2e134] [cursor=pointer]
+      - button "Закрыть меню" [ref=f2e138] [cursor=pointer]
+    - generic [ref=f2e3]:
+      - banner [ref=f2e4]:
+        - generic [ref=f2e5]:
+          - button "Меню" [active] [ref=f2e6] [cursor=pointer]
+          - heading "Заказы" [level=1] [ref=f2e10]
+          - combobox [ref=f2e12]:
+            - option "Бишкек" [selected]
+      - main [ref=f2e13]:
+        - generic [ref=f2e14]:
+          - region "Фильтры заказов" [ref=f2e15]:
+            - generic [ref=f2e16]:
+              - generic [ref=f2e17]:
+                - generic [ref=f2e18]:
+                  - generic [ref=f2e19]: Найти заказ
+                  - searchbox "Найти заказ" [ref=f2e20]
+                - button "Найти" [ref=f2e21] [cursor=pointer]
+              - button "Обновить список" [ref=f2e22] [cursor=pointer]
+            - list "Фильтр по статусу" [ref=f2e26]:
+              - button "Все 2" [ref=f2e27] [cursor=pointer]
+              - button "Новые 1" [pressed] [ref=f2e28] [cursor=pointer]
+              - button "Принятые 0" [ref=f2e29] [cursor=pointer]
+              - button "Готовятся 1" [ref=f2e30] [cursor=pointer]
+              - button "Готовы 0" [ref=f2e31] [cursor=pointer]
+              - button "В пути 0" [ref=f2e32] [cursor=pointer]
+              - button "Завершённые 0" [ref=f2e33] [cursor=pointer]
+              - button "Отменённые 0" [ref=f2e34] [cursor=pointer]
+          - paragraph [ref=f2e36]:
+            - text: "Показано:"
+            - strong [ref=f2e37]: "2"
+            - text: из 2
+          - region "Список заказов" [ref=f2e38]:
+            - generic [ref=f2e39]:
+              - article [ref=f2e40]:
+                - button "№2841 17 авг., 06:14 Новый Клиент Айдана Садыкова Сумма 2 400 сом Доставка · ул. Киевская, 120" [ref=f2e41] [cursor=pointer]:
+                  - generic [ref=f2e42]:
+                    - generic [ref=f2e43]:
+                      - strong [ref=f2e44]: №2841
+                      - generic [ref=f2e45]: 17 авг., 06:14
+                    - generic [ref=f2e46]: Новый
+                  - generic [ref=f2e47]:
+                    - generic [ref=f2e48]:
+                      - generic [ref=f2e49]: Клиент
+                      - strong [ref=f2e50]: Айдана Садыкова
+                    - generic [ref=f2e51]:
+                      - generic [ref=f2e52]: Сумма
+                      - strong [ref=f2e53]: 2 400 сом
+                  - generic [ref=f2e54]: Доставка · ул. Киевская, 120
+                - generic [ref=f2e55]:
+                  - button "Принять заказ" [ref=f2e56] [cursor=pointer]
+                  - button "Открыть заказ" [ref=f2e57] [cursor=pointer]
+              - article [ref=f2e58]:
+                - button "№2840 17 авг., 05:59 Готовится Клиент Руслан Сумма 1 290 сом Самовывоз · Точка на Манаса" [ref=f2e59] [cursor=pointer]:
+                  - generic [ref=f2e60]:
+                    - generic [ref=f2e61]:
+                      - strong [ref=f2e62]: №2840
+                      - generic [ref=f2e63]: 17 авг., 05:59
+                    - generic [ref=f2e64]: Готовится
+                  - generic [ref=f2e65]:
+                    - generic [ref=f2e66]:
+                      - generic [ref=f2e67]: Клиент
+                      - strong [ref=f2e68]: Руслан
+                    - generic [ref=f2e69]:
+                      - generic [ref=f2e70]: Сумма
+                      - strong [ref=f2e71]: 1 290 сом
+                  - generic [ref=f2e72]: Самовывоз · Точка на Манаса
+                - generic [ref=f2e73]:
+                  - button "Отметить готовым" [ref=f2e74] [cursor=pointer]
+                  - button "Открыть заказ" [ref=f2e75] [cursor=pointer]
+  - alert [ref=f2e76]

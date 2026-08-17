@@ -2,314 +2,503 @@
 
 import { Icon } from "@mdi/react";
 import {
-  mdiFormatListBulleted,
+  mdiChevronRight,
+  mdiClose,
   mdiMagnify,
+  mdiMapMarkerOutline,
+  mdiPhoneOutline,
   mdiRefresh,
-  mdiStoreOutline,
-  mdiTruckDeliveryOutline,
-  mdiViewColumnOutline,
 } from "@mdi/js";
-import { useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import type {
+  AdminOrder,
+  AdminRequest,
+  OrdersResponse,
+  OrderStatus,
+} from "./admin-types";
 
-export type OrdersWorkspaceStatus =
-  | "new"
-  | "confirmed"
-  | "preparing"
-  | "ready"
-  | "delivering"
-  | "completed"
-  | "cancelled";
-
-export type OrdersWorkspacePeriod = "all" | "today" | "week" | "month";
-export type OrdersWorkspaceView = "kanban" | "list";
-
-export type OrdersWorkspaceOrder = {
-  id: string;
-  orderNumber: number;
-  deliveryType: "delivery" | "pickup";
-  customerName: string;
-  address: string;
-  total: number;
-  status: OrdersWorkspaceStatus;
-  createdAt: string;
+type OrdersWorkspaceProps = {
+  region: string;
+  request: AdminRequest;
+  onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
-export type OrdersWorkspaceProps<TOrder extends OrdersWorkspaceOrder = OrdersWorkspaceOrder> = {
-  orders: readonly TOrder[];
-  total: number;
-  statusCounts: Partial<Record<OrdersWorkspaceStatus, number>>;
-  loading: boolean;
-  search: string;
-  status: "all" | OrdersWorkspaceStatus;
-  period: OrdersWorkspacePeriod;
-  view: OrdersWorkspaceView;
-  page: number;
-  pageSize: number;
-  pageCount: number;
-  selectedOrderId?: string | null;
-  onSearchChange: (value: string) => void;
-  onStatusChange: (status: "all" | OrdersWorkspaceStatus) => void;
-  onPeriodChange: (period: OrdersWorkspacePeriod) => void;
-  onViewChange: (view: OrdersWorkspaceView) => void;
-  onPageChange: (page: number) => void;
-  onOrderOpen: (order: TOrder) => void;
-  onRefresh?: () => void;
+const statusLabels: Record<OrderStatus, string> = {
+  new: "Новый",
+  confirmed: "Принят",
+  preparing: "Готовится",
+  ready: "Готов",
+  delivering: "В пути",
+  completed: "Завершён",
+  cancelled: "Отменён",
 };
 
-type StatusDefinition = {
-  value: OrdersWorkspaceStatus;
-  label: string;
+const statusStyles: Record<OrderStatus, string> = {
+  new: "border-blue-200 bg-blue-50 text-blue-700",
+  confirmed: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  preparing: "border-amber-200 bg-amber-50 text-amber-800",
+  ready: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  delivering: "border-violet-200 bg-violet-50 text-violet-700",
+  completed: "border-slate-200 bg-slate-100 text-slate-700",
+  cancelled: "border-red-200 bg-red-50 text-red-700",
 };
 
-const statuses: readonly StatusDefinition[] = [
+const filterOptions: Array<{ value: "all" | OrderStatus; label: string }> = [
+  { value: "all", label: "Все" },
   { value: "new", label: "Новые" },
-  { value: "confirmed", label: "Подтверждены" },
+  { value: "confirmed", label: "Принятые" },
   { value: "preparing", label: "Готовятся" },
   { value: "ready", label: "Готовы" },
-  { value: "delivering", label: "В доставке" },
-  { value: "completed", label: "Завершены" },
-  { value: "cancelled", label: "Отменены" },
+  { value: "delivering", label: "В пути" },
+  { value: "completed", label: "Завершённые" },
+  { value: "cancelled", label: "Отменённые" },
 ];
 
-const activeStatuses = statuses.filter(({ value }) => value !== "completed" && value !== "cancelled");
+function formatMoney(value: number) {
+  return `${Math.round(value).toLocaleString("ru-RU")} сом`;
+}
 
-const periods: readonly { value: OrdersWorkspacePeriod; label: string }[] = [
-  { value: "all", label: "Всё время" },
-  { value: "today", label: "Сегодня" },
-  { value: "week", label: "7 дней" },
-  { value: "month", label: "Месяц" },
-];
-
-const statusLabels = Object.fromEntries(
-  statuses.map(({ value, label }) => [value, label]),
-) as Record<OrdersWorkspaceStatus, string>;
-
-const formatOrderNumber = (order: OrdersWorkspaceOrder) =>
-  `№${order.orderNumber || order.id.slice(0, 6).toUpperCase()}`;
-
-const formatMoney = (value: number) =>
-  `${Math.round(Number(value) || 0).toLocaleString("ru-RU")} сом`;
-
-const formatDate = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
-};
+  }).format(new Date(value));
+}
 
-const formatTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("ru-RU", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
+function orderNumber(order: AdminOrder) {
+  return `№${order.orderNumber || order.id.slice(0, 6).toUpperCase()}`;
+}
 
-const orderAddress = (order: OrdersWorkspaceOrder) =>
-  order.deliveryType === "pickup" ? "Самовывоз" : order.address || "Адрес не указан";
+function deliveryLabel(order: AdminOrder) {
+  return order.deliveryType === "pickup" ? "Самовывоз" : "Доставка";
+}
 
-const pageNumbers = (page: number, pageCount: number) =>
-  [...new Set([1, page - 1, page, page + 1, pageCount])]
-    .filter((value) => value >= 1 && value <= pageCount)
-    .sort((left, right) => left - right);
+function paymentLabel(method: AdminOrder["paymentMethod"]) {
+  if (method === "cash") return "Наличными";
+  if (method === "online") return "Оплачено онлайн";
+  return "Картой";
+}
 
-export default function OrdersWorkspace<TOrder extends OrdersWorkspaceOrder>({
-  orders,
-  total,
-  statusCounts,
-  loading,
-  search,
-  status,
-  period,
-  view,
-  page,
-  pageSize,
-  pageCount,
-  selectedOrderId,
-  onSearchChange,
-  onStatusChange,
-  onPeriodChange,
-  onViewChange,
-  onPageChange,
-  onOrderOpen,
-  onRefresh,
-}: OrdersWorkspaceProps<TOrder>) {
-  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState<"all" | "delivery" | "pickup">("all");
-  const visibleStatuses = status === "all"
-    ? activeStatuses
-    : statuses.filter((item) => item.value === status);
-  const filteredOrders = deliveryTypeFilter === "all"
-    ? orders
-    : orders.filter((order) => order.deliveryType === deliveryTypeFilter);
-  const visiblePages = pageNumbers(page, pageCount);
-  const countedOrders = Object.values(statusCounts)
-    .reduce((sum, count) => sum + Number(count || 0), 0);
-  const allStatusCount = countedOrders || total;
-  const firstVisibleOrder = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const lastVisibleOrder = Math.min((page - 1) * pageSize + orders.length, total);
+function primaryTransition(order: AdminOrder): { status: OrderStatus; label: string } | null {
+  switch (order.status) {
+    case "new":
+      return { status: "confirmed", label: "Принять заказ" };
+    case "confirmed":
+      return { status: "preparing", label: "Начать готовить" };
+    case "preparing":
+      return { status: "ready", label: "Отметить готовым" };
+    case "ready":
+      return order.deliveryType === "delivery"
+        ? { status: "delivering", label: "Передать курьеру" }
+        : { status: "completed", label: "Выдать заказ" };
+    case "delivering":
+      return { status: "completed", label: "Завершить заказ" };
+    default:
+      return null;
+  }
+}
 
-  return <section className="admin-orders-workspace" aria-busy={loading}>
-    <header className="admin-orders-commandbar">
-      <label className="admin-orders-search">
-        <Icon path={mdiMagnify} size={0.82} aria-hidden="true" />
-        <input
-          type="search"
-          aria-label="Поиск заказов"
-          value={search}
-          placeholder="Заказ, клиент, телефон или адрес"
-          onChange={(event) => onSearchChange(event.target.value)}
-        />
-      </label>
+function StatusBadge({ status }: { status: OrderStatus }) {
+  return (
+    <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyles[status]}`}>
+      {statusLabels[status]}
+    </span>
+  );
+}
 
-      <div className="admin-orders-filters" role="group" aria-label="Фильтры заказов">
-        <label>
-          <select
-            aria-label="Статус заказа"
-            value={status}
-            onChange={(event) => onStatusChange(event.target.value as "all" | OrdersWorkspaceStatus)}
-          >
-            <option value="all">{view === "kanban" ? "Активные" : "Все статусы"} · {view === "kanban"
-              ? activeStatuses.reduce((sum, item) => sum + Number(statusCounts[item.value] || 0), 0)
-              : allStatusCount}</option>
-            {statuses.map((item) => <option value={item.value} key={item.value}>
-              {item.label} · {Number(statusCounts[item.value] || 0)}
-            </option>)}
-          </select>
-        </label>
-        <label>
-          <select
-            aria-label="Тип заказа"
-            value={deliveryTypeFilter}
-            onChange={(event) => setDeliveryTypeFilter(event.target.value as "all" | "delivery" | "pickup")}
-          >
-            <option value="all">Все типы</option>
-            <option value="delivery">Доставка</option>
-            <option value="pickup">Самовывоз</option>
-          </select>
-        </label>
-        <label>
-          <select
-            aria-label="Период заказов"
-            value={period}
-            onChange={(event) => onPeriodChange(event.target.value as OrdersWorkspacePeriod)}
-          >
-            {periods.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}
-          </select>
-        </label>
-        {onRefresh ? <button
-          type="button"
-          className="admin-orders-refresh"
-          disabled={loading}
-          aria-label="Обновить заказы"
-          title="Обновить"
-          onClick={onRefresh}
-        ><Icon path={mdiRefresh} size={0.8} aria-hidden="true" /></button> : null}
+function EmptyOrders({ filtered }: { filtered: boolean }) {
+  return (
+    <div className="grid min-h-64 place-items-center px-6 py-12 text-center">
+      <div>
+        <p className="text-base font-semibold text-slate-900">{filtered ? "Заказы не найдены" : "Новых заказов пока нет"}</p>
+        <p className="mt-2 text-sm text-slate-500">
+          {filtered ? "Измените фильтр или поисковый запрос." : "Список обновляется автоматически каждые 20 секунд."}
+        </p>
       </div>
+    </div>
+  );
+}
 
-      <div className="admin-orders-view-switch" role="group" aria-label="Вид заказов">
-        <button
-          type="button"
-          className={view === "kanban" ? "active" : ""}
-          aria-pressed={view === "kanban"}
-          onClick={() => onViewChange("kanban")}
-        ><Icon path={mdiViewColumnOutline} size={0.78} aria-hidden="true" /><span>Канбан</span></button>
-        <button
-          type="button"
-          className={view === "list" ? "active" : ""}
-          aria-pressed={view === "list"}
-          onClick={() => onViewChange("list")}
-        ><Icon path={mdiFormatListBulleted} size={0.78} aria-hidden="true" /><span>Список</span></button>
-      </div>
-    </header>
+export default function OrdersWorkspace({ region, request, onNotice }: OrdersWorkspaceProps) {
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<OrdersResponse["statusCounts"]>({});
+  const [filter, setFilter] = useState<"all" | OrderStatus>("new");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const requestSequence = useRef(0);
 
-    {loading && orders.length === 0 ? <div className="admin-orders-loading" role="status">Загрузка заказов…</div> : null}
+  const loadOrders = useCallback(async (quiet = false) => {
+    const sequence = ++requestSequence.current;
+    if (!quiet) setLoading(true);
+    setError("");
+    try {
+      const query = new URLSearchParams({ regionSlug: region, limit: "100", offset: "0" });
+      if (filter !== "all") query.set("status", filter);
+      if (search) query.set("search", search);
+      const result = await request<OrdersResponse>(`/admin/orders?${query}`);
+      if (sequence !== requestSequence.current) return;
+      setOrders(result.items);
+      setTotal(result.total);
+      setCounts(result.statusCounts);
+      setSelectedOrder((current) => current
+        ? result.items.find((item) => item.id === current.id) ?? current
+        : null);
+    } catch (loadError) {
+      if (sequence !== requestSequence.current) return;
+      setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить заказы");
+    } finally {
+      if (sequence === requestSequence.current && !quiet) setLoading(false);
+    }
+  }, [filter, region, request, search]);
 
-    {!loading && filteredOrders.length === 0 ? <div className="admin-orders-empty">
-      <strong>Заказов не найдено</strong>
-      <span>Измените поиск или фильтры.</span>
-    </div> : null}
+  useEffect(() => {
+    const initialTimer = window.setTimeout(() => void loadOrders(), 0);
+    const timer = window.setInterval(() => void loadOrders(true), 20_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [loadOrders]);
 
-    {filteredOrders.length > 0 && view === "kanban" ? <div className="admin-orders-kanban">
-      {visibleStatuses.map((column) => {
-        const columnOrders = filteredOrders.filter((order) => order.status === column.value);
-        const headingId = `orders-column-${column.value}`;
-        return <section className={`admin-orders-kanban-column status-${column.value}`} aria-labelledby={headingId} key={column.value}>
-          <header>
-            <h2 id={headingId}>{column.label}</h2>
-            <span>{columnOrders.length < Number(statusCounts[column.value] || 0)
-              ? `${columnOrders.length}/${Number(statusCounts[column.value] || 0)}`
-              : Number(statusCounts[column.value] || 0)}</span>
-          </header>
-          <div className="admin-orders-kanban-cards">
-            {columnOrders.map((order) => <button
-              type="button"
-              className={`admin-orders-kanban-card${selectedOrderId === order.id ? " selected" : ""}`}
-              aria-label={`${formatOrderNumber(order)}, ${order.customerName}, ${formatMoney(order.total)}`}
-              key={order.id}
-              onClick={() => onOrderOpen(order)}
-            >
-              <span className="admin-orders-card-head">
-                <strong>{formatOrderNumber(order)}</strong>
-                <time dateTime={order.createdAt}>{formatTime(order.createdAt)}</time>
-              </span>
-              <span className="admin-orders-card-client">{order.customerName || "Клиент не указан"}</span>
-              <span className="admin-orders-card-delivery">
-                <Icon path={order.deliveryType === "pickup" ? mdiStoreOutline : mdiTruckDeliveryOutline} size={0.55} aria-hidden="true" />
-                {order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}
-              </span>
-              <span className="admin-orders-card-foot">
-                <span>{order.address || orderAddress(order)}</span>
-                <b>{formatMoney(order.total)}</b>
-              </span>
-            </button>)}
-            {columnOrders.length === 0 ? <span className="admin-orders-column-empty">Нет заказов</span> : null}
-            {columnOrders.length > 0 && columnOrders.length < Number(statusCounts[column.value] || 0)
-              ? <span className="admin-orders-column-note">Показаны последние {columnOrders.length}</span>
-              : null}
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    setSearch(searchDraft.trim());
+  };
+
+  const updateStatus = async (order: AdminOrder, status: OrderStatus) => {
+    if (actionOrderId) return;
+    if (status === "cancelled" && !window.confirm(`Отменить заказ ${orderNumber(order)}? Вернуть его в работу будет нельзя.`)) return;
+    setActionOrderId(order.id);
+    try {
+      const updated = await request<AdminOrder>(`/admin/orders/${order.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setSelectedOrder((current) => current?.id === updated.id ? updated : current);
+      onNotice(`${orderNumber(updated)} — ${statusLabels[updated.status]}`, "success");
+      await loadOrders(true);
+    } catch (updateError) {
+      onNotice(updateError instanceof Error ? updateError.message : "Не удалось изменить статус заказа", "error");
+    } finally {
+      setActionOrderId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-xl border border-slate-200 bg-white" aria-label="Фильтры заказов">
+        <div className="grid gap-3 border-b border-slate-200 p-4 md:grid-cols-[minmax(260px,1fr)_auto] md:items-center">
+          <form className="flex min-w-0 gap-2" onSubmit={submitSearch}>
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Найти заказ</span>
+              <Icon path={mdiMagnify} size={0.78} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-slate-400" />
+              <input
+                type="search"
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
+                placeholder="Номер, имя или телефон"
+              />
+            </label>
+            <button type="submit" className="h-11 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">
+              Найти
+            </button>
+          </form>
+          <button
+            type="button"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            onClick={() => void loadOrders()}
+          >
+            <Icon path={mdiRefresh} size={0.78} aria-hidden="true" />
+            Обновить список
+          </button>
+        </div>
+
+        <div className="overflow-x-auto px-4 py-3">
+          <div className="flex min-w-max gap-2" role="list" aria-label="Фильтр по статусу">
+            {filterOptions.map((option) => {
+              const active = option.value === filter;
+              const count = option.value === "all"
+                ? Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0)
+                : counts[option.value] ?? 0;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-slate-950 bg-slate-950 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900"
+                  }`}
+                  onClick={() => setFilter(option.value)}
+                >
+                  {option.label} <span className={active ? "text-slate-300" : "text-slate-400"}>{count}</span>
+                </button>
+              );
+            })}
           </div>
-        </section>;
-      })}
-    </div> : null}
+        </div>
+      </section>
 
-    {filteredOrders.length > 0 && view === "list" ? <div className="admin-orders-table-wrap">
-      <table className="admin-orders-table">
-        <thead><tr>
-          <th scope="col">Заказ</th>
-          <th scope="col">Клиент</th>
-          <th scope="col">Адрес</th>
-          <th scope="col">Статус</th>
-          <th scope="col">Сумма</th>
-          <th scope="col">Время</th>
-        </tr></thead>
-        <tbody>{filteredOrders.map((order) => <tr className={selectedOrderId === order.id ? "selected" : ""} key={order.id}>
-          <td><button type="button" className="admin-orders-order-link" onClick={() => onOrderOpen(order)}>{formatOrderNumber(order)}</button></td>
-          <td>{order.customerName || "—"}</td>
-          <td>{orderAddress(order)}</td>
-          <td><span className={`admin-order-status status-${order.status}`}>{statusLabels[order.status]}</span></td>
-          <td>{formatMoney(order.total)}</td>
-          <td><time dateTime={order.createdAt}>{formatDate(order.createdAt)}</time></td>
-        </tr>)}</tbody>
-      </table>
-    </div> : null}
+      <div className="flex items-center justify-between gap-4 px-1">
+        <p className="text-sm text-slate-500">Показано: <strong className="font-semibold text-slate-900">{orders.length}</strong> из {total}</p>
+        {loading ? <span className="text-sm text-slate-500" role="status">Обновляем…</span> : null}
+      </div>
 
-    {filteredOrders.length > 0 && view === "list" ? <footer className="admin-orders-pagination">
-      <span>{firstVisibleOrder}–{lastVisibleOrder} из {total}</span>
-      {pageCount > 1 ? <nav aria-label="Страницы заказов">
-        <button type="button" aria-label="Предыдущая страница" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>‹</button>
-        {visiblePages.map((value) => <button
-          type="button"
-          className={value === page ? "active" : ""}
-          aria-current={value === page ? "page" : undefined}
-          key={value}
-          onClick={() => onPageChange(value)}
-        >{value}</button>)}
-        <button type="button" aria-label="Следующая страница" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)}>›</button>
-      </nav> : null}
-    </footer> : null}
-  </section>;
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+          <strong className="block font-semibold">Не удалось показать заказы</strong>
+          <span className="mt-1 block">{error}</span>
+          <button type="button" className="mt-3 font-semibold underline" onClick={() => void loadOrders()}>Повторить загрузку</button>
+        </div>
+      ) : null}
+
+      {!error ? (
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Список заказов">
+          {orders.length === 0 && !loading ? <EmptyOrders filtered={Boolean(search) || filter !== "new"} /> : null}
+
+          {orders.length > 0 ? (
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[920px] border-collapse text-left">
+                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3.5">Заказ</th>
+                    <th className="px-5 py-3.5">Клиент</th>
+                    <th className="px-5 py-3.5">Получение</th>
+                    <th className="px-5 py-3.5">Сумма</th>
+                    <th className="px-5 py-3.5">Статус</th>
+                    <th className="px-5 py-3.5 text-right">Действие</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {orders.map((order) => {
+                    const transition = primaryTransition(order);
+                    return (
+                      <tr key={order.id} className="group hover:bg-slate-50/80">
+                        <td className="px-5 py-4 align-top">
+                          <button type="button" className="text-left" onClick={() => setSelectedOrder(order)}>
+                            <strong className="block text-sm font-semibold text-slate-950">{orderNumber(order)}</strong>
+                            <span className="mt-1 block text-xs text-slate-500">{formatDate(order.createdAt)}</span>
+                          </button>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <strong className="block max-w-52 truncate text-sm font-medium text-slate-900">{order.customerName || "Без имени"}</strong>
+                          <span className="mt-1 block text-xs text-slate-500">{order.phone}</span>
+                        </td>
+                        <td className="px-5 py-4 align-top">
+                          <span className="block text-sm text-slate-900">{deliveryLabel(order)}</span>
+                          <span className="mt-1 block max-w-64 truncate text-xs text-slate-500">{order.address || "Адрес не указан"}</span>
+                        </td>
+                        <td className="px-5 py-4 align-top text-sm font-semibold text-slate-950">{formatMoney(order.total)}</td>
+                        <td className="px-5 py-4 align-top"><StatusBadge status={order.status} /></td>
+                        <td className="px-5 py-4 align-top">
+                          <div className="flex justify-end gap-2">
+                            {transition ? (
+                              <button
+                                type="button"
+                                disabled={actionOrderId === order.id}
+                                className="min-h-10 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+                                onClick={() => void updateStatus(order, transition.status)}
+                              >
+                                {actionOrderId === order.id ? "Сохраняем…" : transition.label}
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                              onClick={() => setSelectedOrder(order)}
+                            >
+                              Подробнее <Icon path={mdiChevronRight} size={0.65} aria-hidden="true" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+
+          {orders.length > 0 ? (
+            <div className="divide-y divide-slate-200 md:hidden">
+              {orders.map((order) => {
+                const transition = primaryTransition(order);
+                return (
+                  <article key={order.id} className="p-4">
+                    <button type="button" className="w-full text-left" onClick={() => setSelectedOrder(order)}>
+                      <span className="flex items-start justify-between gap-3">
+                        <span>
+                          <strong className="block text-base font-semibold text-slate-950">{orderNumber(order)}</strong>
+                          <small className="mt-1 block text-xs text-slate-500">{formatDate(order.createdAt)}</small>
+                        </span>
+                        <StatusBadge status={order.status} />
+                      </span>
+                      <span className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                        <span>
+                          <small className="block text-xs text-slate-500">Клиент</small>
+                          <strong className="mt-1 block truncate font-medium text-slate-900">{order.customerName || "Без имени"}</strong>
+                        </span>
+                        <span>
+                          <small className="block text-xs text-slate-500">Сумма</small>
+                          <strong className="mt-1 block font-semibold text-slate-950">{formatMoney(order.total)}</strong>
+                        </span>
+                      </span>
+                      <span className="mt-3 block border-t border-slate-100 pt-3 text-sm text-slate-600">
+                        {deliveryLabel(order)} · {order.address || "Адрес не указан"}
+                      </span>
+                    </button>
+                    <div className="mt-4 grid gap-2">
+                      {transition ? (
+                        <button
+                          type="button"
+                          disabled={actionOrderId === order.id}
+                          className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                          onClick={() => void updateStatus(order, transition.status)}
+                        >
+                          {actionOrderId === order.id ? "Сохраняем…" : transition.label}
+                        </button>
+                      ) : null}
+                      <button type="button" className="min-h-11 rounded-lg border border-slate-300 text-sm font-medium text-slate-700" onClick={() => setSelectedOrder(order)}>
+                        Открыть заказ
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {selectedOrder ? (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setSelectedOrder(null);
+        }}>
+          <section className="flex h-dvh w-full flex-col bg-white shadow-2xl md:max-w-2xl" role="dialog" aria-modal="true" aria-labelledby="order-detail-title">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 md:px-7 md:py-5">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 id="order-detail-title" className="text-xl font-semibold text-slate-950">Заказ {orderNumber(selectedOrder)}</h2>
+                  <StatusBadge status={selectedOrder.status} />
+                </div>
+                <p className="mt-1 text-sm text-slate-500">Создан {formatDate(selectedOrder.createdAt)}</p>
+              </div>
+              <button type="button" aria-label="Закрыть карточку заказа" className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => setSelectedOrder(null)}>
+                <Icon path={mdiClose} size={0.8} aria-hidden="true" />
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7">
+              <div className="grid gap-6">
+                <section aria-labelledby="customer-title">
+                  <h3 id="customer-title" className="text-sm font-semibold text-slate-950">Клиент и получение</h3>
+                  <div className="mt-3 rounded-xl border border-slate-200 p-4 text-sm">
+                    <strong className="block text-base text-slate-950">{selectedOrder.customerName || "Без имени"}</strong>
+                    <a className="mt-3 flex items-center gap-2 text-blue-700" href={`tel:${selectedOrder.phone}`}>
+                      <Icon path={mdiPhoneOutline} size={0.72} aria-hidden="true" />
+                      <span>Позвонить: {selectedOrder.phone}</span>
+                    </a>
+                    <div className="mt-3 flex items-start gap-2 text-slate-700">
+                      <Icon path={mdiMapMarkerOutline} size={0.72} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      <span>
+                        <strong className="block font-medium">{deliveryLabel(selectedOrder)}</strong>
+                        <span className="mt-1 block text-slate-600">{selectedOrder.address || "Адрес не указан"}</span>
+                        {selectedOrder.deliveryType === "delivery" ? (
+                          <small className="mt-1 block text-slate-500">
+                            {[
+                              selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
+                              selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
+                              selectedOrder.floor && `этаж ${selectedOrder.floor}`,
+                              selectedOrder.intercom && `домофон ${selectedOrder.intercom}`,
+                            ].filter(Boolean).join(" · ") || "Без дополнительных деталей"}
+                          </small>
+                        ) : null}
+                      </span>
+                    </div>
+                    {selectedOrder.comment ? (
+                      <div className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-900">
+                        <strong className="block text-xs font-semibold uppercase tracking-wide">Комментарий клиента</strong>
+                        <p className="mt-1">{selectedOrder.comment}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+
+                <section aria-labelledby="items-title">
+                  <h3 id="items-title" className="text-sm font-semibold text-slate-950">Состав заказа</h3>
+                  <div className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200">
+                    {selectedOrder.items.map((item) => (
+                      <div key={item.id} className="flex items-start justify-between gap-4 p-4">
+                        <div className="min-w-0">
+                          <strong className="block text-sm font-medium text-slate-950">{item.quantity} × {item.productName}</strong>
+                          {item.modifierSnapshots?.length ? (
+                            <ul className="mt-1 space-y-0.5 text-xs text-slate-500">
+                              {item.modifierSnapshots.map((modifier) => (
+                                <li key={`${item.id}-${modifier.itemId}`}>{modifier.itemName}{modifier.quantity > 1 ? ` × ${modifier.quantity}` : ""}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold text-slate-950">{formatMoney(item.lineTotal)}</span>
+                      </div>
+                    ))}
+                    <div className="grid gap-2 bg-slate-50 p-4 text-sm">
+                      <div className="flex justify-between gap-4 text-slate-600"><span>Оплата</span><span>{paymentLabel(selectedOrder.paymentMethod)}</span></div>
+                      <div className="flex justify-between gap-4 text-slate-600"><span>Приборы</span><span>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} шт.`}</span></div>
+                      <div className="flex justify-between gap-4 border-t border-slate-200 pt-3 text-base font-semibold text-slate-950"><span>Итого</span><span>{formatMoney(selectedOrder.total)}</span></div>
+                    </div>
+                  </div>
+                </section>
+
+                {selectedOrder.posLastError ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+                    <strong className="block">Ошибка передачи на кухню</strong>
+                    <span className="mt-1 block">{selectedOrder.posLastError}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <footer className="border-t border-slate-200 bg-white p-4 md:px-7">
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                {primaryTransition(selectedOrder) ? (
+                  <button
+                    type="button"
+                    disabled={actionOrderId === selectedOrder.id}
+                    className="min-h-12 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                    onClick={() => {
+                      const transition = primaryTransition(selectedOrder);
+                      if (transition) void updateStatus(selectedOrder, transition.status);
+                    }}
+                  >
+                    {actionOrderId === selectedOrder.id ? "Сохраняем…" : primaryTransition(selectedOrder)?.label}
+                  </button>
+                ) : <div />}
+                {!(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
+                  <button
+                    type="button"
+                    disabled={actionOrderId === selectedOrder.id}
+                    className="min-h-12 rounded-lg border border-red-200 px-5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    onClick={() => void updateStatus(selectedOrder, "cancelled")}
+                  >
+                    Отменить заказ
+                  </button>
+                ) : null}
+              </div>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+    </div>
+  );
 }
