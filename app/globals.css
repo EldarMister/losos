@@ -730,6 +730,107 @@ a { color: inherit; text-decoration: none; }
 .profile-coin-history span small { margin-top: 3px; color: #929298; font-size: 10px; }
 .profile-coin-history > button > strong { color: #2c8a43; font-size: 14px; }
 .profile-coin-history > button > strong.negative { color: #c54835; }
+.profile-reward-withdraw-button { width: 100%; min-height: 54px; display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 14px; border-radius: 18px; background: #151515; color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 10px 24px rgba(0,0,0,.12); }
+.profile-reward-withdraw-button:disabled { cursor: default; opacity: .38; box-shadow: none; }
+.profile-reward-explainer { position: relative; overflow: hidden; padding-left: 58px; border: 1px solid #eeeef0; box-shadow: 0 8px 24px rgba(0,0,0,.04); }
+.profile-reward-explainer::before { position: absolute; left: 18px; top: 20px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #f5f5f5; color: #202024; font-size: 16px; font-weight: 700; content: "i"; }
+.profile-reward-history { border: 1px solid #eeeef0; box-shadow: 0 8px 24px rgba(0,0,0,.04); }
+.profile-reward-history > h3 { margin-bottom: 2px; }
+.profile-history-row { padding: 12px 0; border-top: 1px solid #eeeef0; }
+.profile-history-row:first-child { border-top: 0; }
+.profile-history-main { width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; background: transparent; text-align: left; }
+button.profile-history-main:disabled { cursor: default; opacity: 1; }
+.profile-history-main > span { min-width: 0; }
+.profile-history-main b, .profile-history-main small { display: block; }
+.profile-history-main b { color: #29292e; font-size: 12px; line-height: 17px; }
+.profile-history-main small { margin-top: 3px; color: #929298; font-size: 10px; line-height: 15px; }
+.profile-history-main > strong { flex: 0 0 auto; color: #2c8a43; font-size: 14px; }
+.profile-history-main > strong.negative { color: #c54835; }
+.profile-history-main > strong.nft-status { padding: 5px 8px; border-radius: 8px; background: #eee9fa; color: #7353aa; font-size: 9px; }
+.profile-history-main > strong.nft-status.status-failed { background: #ffebe8; color: #b84635; }
+.profile-history-main > strong.nft-status.status-withdrawn { background: #e6f6ea; color: #277a3d; }
+.profile-withdrawal-reason { margin: 8px 0 0 !important; padding: 9px 10px; border-radius: 10px; background: #fff0ee; color: #a53e32 !important; font-size: 10px !important; line-height: 15px !important; white-space: pre-wrap; overflow-wrap: anywhere; }
+.profile-withdrawal-address { margin: 7px 0 0 !important; overflow: hidden; color: #87828d !important; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 9px !important; line-height: 14px !important; text-overflow: ellipsis; white-space: nowrap; }
+.profile-cancel-withdrawal { min-height: 36px; margin-top: 9px; padding: 7px 12px; border: 1px solid #f0c7c1; border-radius: 11px; background: #fff; color: #b84332; font-size: 10px; font-weight: 700; }
+
+.reward-withdrawal-overlay { z-index: 180; place-items: center; padding: 20px; background: rgba(20,20,22,.58); }
+.reward-withdrawal-dialog { position: relative; width: min(620px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; border: 1px solid rgba(255,255,255,.8); border-radius: 34px; background: rgba(255,255,255,.98); box-shadow: 0 28px 90px rgba(0,0,0,.25); scrollbar-width: none; }
+.reward-withdrawal-dialog::-webkit-scrollbar { display: none; }
+.reward-withdrawal-close { position: absolute; z-index: 3; right: 22px; top: 22px; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: #f4f4f5; color: #29292d; }
+.reward-withdrawal-content { padding: 42px 42px 38px; }
+.reward-withdrawal-content > h2, .reward-withdrawal-success h2 { margin: 0; padding-right: 50px; color: #111114; font-size: 32px; line-height: 39px; letter-spacing: -.7px; }
+.reward-withdrawal-subtitle, .reward-withdrawal-heading p { margin: 7px 0 0; color: #8b8b91; font-size: 15px; line-height: 21px; }
+.reward-withdrawal-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 26px; }
+.reward-kind-card { position: relative; height: 150px; display: flex; flex-direction: column; align-items: flex-start; padding: 22px; overflow: hidden; border: 2px solid transparent; border-radius: 27px; text-align: left; box-shadow: 0 12px 30px rgba(0,0,0,.08); transition: transform .18s ease, border-color .18s ease; }
+.reward-kind-card:hover:not(:disabled) { transform: translateY(-2px); }
+.reward-kind-card:disabled { cursor: default; opacity: .35; box-shadow: none; }
+.reward-kind-card.coin { background: linear-gradient(135deg, #ff751b 0%, #ff3f08 100%); color: #fff; }
+.reward-kind-card.nft { background: linear-gradient(135deg, #f8f4ff 0%, #e9dfff 100%); color: #392b5d; }
+.reward-kind-card.selected { border-color: #161619; }
+.reward-kind-card.nft.selected { border-color: #7a53d4; }
+.reward-kind-card span { font-size: 16px; font-weight: 600; }
+.reward-kind-card strong { margin-top: auto; font-size: 46px; line-height: 50px; }
+.reward-kind-card i { position: absolute; right: 18px; bottom: 18px; width: 52px; height: 52px; display: grid; place-items: center; border-radius: 17px; background: #fff; color: #7a53d4; box-shadow: 0 8px 22px rgba(85,55,148,.12); font-style: normal; }
+.reward-withdrawal-form { display: grid; gap: 18px; margin-top: 28px; }
+.reward-withdrawal-form > label { display: grid; gap: 9px; color: #242428; font-size: 14px; line-height: 19px; font-weight: 700; }
+.reward-withdrawal-form > label > input, .reward-wallet-field { width: 100%; height: 62px; border: 1px solid #dcdce0; border-radius: 19px; outline: 0; background: #fafafb; }
+.reward-withdrawal-form > label > input { padding: 0 17px; color: #242428; font-size: 16px; font-weight: 600; }
+.reward-withdrawal-form input:focus, .reward-wallet-field:focus-within { border-color: #ff5a16; box-shadow: 0 0 0 4px rgba(255,90,22,.1); }
+.reward-withdrawal-form small.invalid { margin-top: -2px; color: #c84837; font-size: 11px; font-weight: 500; }
+.reward-wallet-field { display: flex; align-items: center; overflow: hidden; }
+.reward-wallet-field input { min-width: 0; height: 100%; flex: 1; padding: 0 16px; border: 0; outline: 0; background: transparent; color: #242428; font-size: 14px; }
+.reward-wallet-field button { width: 54px; height: 36px; display: grid; flex: 0 0 54px; place-items: center; border-left: 1px solid #dfdfe2; background: transparent; color: #29292d; }
+.reward-withdrawal-hint { margin: -7px 0 0; color: #8b8b91; font-size: 12px; line-height: 18px; }
+.reward-withdrawal-selection { margin: 0; padding: 14px 16px; border-radius: 15px; background: #f5f1ff; color: #4f3a78; font-size: 13px; line-height: 19px; font-weight: 700; }
+.reward-withdrawal-error { margin: 0; padding: 11px 13px; border-radius: 12px; background: #fff0ed; color: #bd4432; font-size: 12px; line-height: 18px; white-space: pre-wrap; }
+.reward-withdrawal-primary, .reward-withdrawal-secondary { width: 100%; min-height: 58px; border-radius: 19px; font-size: 16px; font-weight: 700; }
+.reward-withdrawal-primary { margin-top: 4px; background: linear-gradient(135deg, #ff731a, #ff3e08); color: #fff; box-shadow: 0 10px 24px rgba(255,75,8,.2); }
+.reward-withdrawal-primary:disabled { cursor: default; opacity: .38; box-shadow: none; }
+.reward-withdrawal-secondary { margin-top: 10px; background: #f4f4f5; color: #303034; }
+.reward-nft-selector { display: grid; gap: 8px; margin: 24px 0 0; padding: 0; border: 0; }
+.reward-nft-selector legend { margin-bottom: 8px; color: #242428; font-size: 14px; font-weight: 700; }
+.reward-nft-selector label { min-height: 60px; display: flex; align-items: center; gap: 10px; padding: 10px 13px; border: 1px solid #e2ddec; border-radius: 16px; background: #fff; cursor: pointer; }
+.reward-nft-selector label.selected { border-color: #7a53d4; background: #faf8ff; }
+.reward-nft-selector input { accent-color: #7a53d4; }
+.reward-nft-selector span { min-width: 0; }
+.reward-nft-selector b, .reward-nft-selector small { display: block; }
+.reward-nft-selector b { color: #2d2737; font-size: 13px; }
+.reward-nft-selector small { margin-top: 3px; color: #8d859a; font-size: 10px; }
+.reward-withdrawal-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 13px; }
+.reward-withdrawal-heading > button, .reward-withdrawal-scanner header button { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; background: #f4f4f5; color: #29292d; }
+.reward-withdrawal-heading h2 { margin: 0; color: #111114; font-size: 29px; line-height: 36px; }
+.reward-withdrawal-summary { margin: 28px 0 0; padding: 0 20px; border: 1px solid #e2e2e5; border-radius: 24px; background: #fcfcfd; box-shadow: 0 8px 26px rgba(0,0,0,.04); }
+.reward-withdrawal-summary > div { min-height: 68px; display: grid; grid-template-columns: minmax(120px, .7fr) minmax(0, 1.3fr); align-items: center; gap: 18px; border-top: 1px solid #e6e6e8; }
+.reward-withdrawal-summary > div:first-child { border-top: 0; }
+.reward-withdrawal-summary dt { color: #939398; font-size: 14px; font-weight: 600; }
+.reward-withdrawal-summary dd { min-width: 0; margin: 0; overflow: hidden; color: #19191c; font-size: 14px; font-weight: 700; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.reward-withdrawal-warning { display: flex; align-items: center; gap: 13px; margin-top: 22px; padding: 16px; border-radius: 19px; background: linear-gradient(135deg, #fff6f1, #fff0e9); }
+.reward-withdrawal-warning > span { width: 36px; height: 36px; display: grid; flex: 0 0 36px; place-items: center; border-radius: 50%; background: #ffe3d5; color: #ff5a1f; }
+.reward-withdrawal-warning p { margin: 0; color: #4f4845; font-size: 12px; line-height: 18px; }
+.reward-withdrawal-content > .reward-withdrawal-error { margin-top: 16px; }
+.reward-withdrawal-scanner { min-height: 600px; padding: 30px; background: #121214; color: #fff; }
+.reward-withdrawal-scanner header { display: grid; grid-template-columns: 42px minmax(0, 1fr) 42px; align-items: center; gap: 12px; }
+.reward-withdrawal-scanner h2 { margin: 0; font-size: 20px; text-align: center; }
+.reward-withdrawal-camera { position: relative; height: 430px; margin-top: 28px; overflow: hidden; border-radius: 26px; background: #000; }
+.reward-withdrawal-camera video { width: 100%; height: 100%; object-fit: cover; }
+.reward-withdrawal-camera > span { position: absolute; left: 50%; top: 50%; width: 230px; height: 230px; transform: translate(-50%, -50%); border: 4px solid #fff; border-radius: 28px; box-shadow: 0 0 0 999px rgba(0,0,0,.38); }
+.reward-withdrawal-scanner > p { margin: 18px 0 0; color: #d0d0d4; font-size: 13px; line-height: 19px; text-align: center; }
+.reward-withdrawal-scanner > p.reward-scanner-error { margin-top: 12px; padding: 11px 13px; border-radius: 13px; background: rgba(255,82,54,.16); color: #ffb4a6; }
+.reward-withdrawal-success { min-height: 480px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 45px; text-align: center; }
+.reward-withdrawal-success > span { width: 74px; height: 74px; display: grid; place-items: center; border-radius: 26px; background: linear-gradient(135deg, #ecfff3, #dff7e8); color: #27804f; }
+.reward-withdrawal-success h2 { margin-top: 24px; padding: 0; }
+.reward-withdrawal-success p { max-width: 400px; margin: 12px 0 22px; color: #7d7d83; font-size: 14px; line-height: 21px; }
+.reward-withdrawal-success .reward-withdrawal-primary { max-width: 360px; }
+.reward-cancel-overlay { z-index: 190; place-items: center; }
+.reward-cancel-dialog { width: min(430px, 100%); padding: 30px; border-radius: 28px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.24); }
+.reward-cancel-icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 16px; background: #fff0ed; color: #c44735; }
+.reward-cancel-dialog h2 { margin: 18px 0 0; color: #1d1d20; font-size: 24px; }
+.reward-cancel-dialog > p:not(.reward-withdrawal-error) { margin: 10px 0 0; color: #77777d; font-size: 13px; line-height: 20px; }
+.reward-cancel-dialog > .reward-withdrawal-error { margin-top: 14px; }
+.reward-cancel-dialog > div { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 22px; }
+.reward-cancel-dialog > div button { min-height: 48px; border-radius: 15px; background: #f3f3f4; color: #333337; font-size: 13px; font-weight: 700; }
+.reward-cancel-dialog > div button:last-child { background: #c84a37; color: #fff; }
+.reward-cancel-dialog button:disabled { opacity: .5; }
 .profile-settings-field { margin-bottom: 12px; padding: 18px 20px; border-radius: 20px; background: #fff; }
 .profile-settings-field span, .profile-settings-field strong { display: block; }
 .profile-settings-field span { color: #909096; font-size: 11px; }
@@ -1052,6 +1153,26 @@ a { color: inherit; text-decoration: none; }
   .profile-nft-title { flex-direction: column; gap: 4px; }
   .profile-nft-title > em { align-self: flex-start; }
   .profile-nft-withdraw-form > div { grid-template-columns: 1fr; }
+  .reward-withdrawal-overlay { padding: 0; place-items: end stretch; }
+  .reward-withdrawal-dialog { width: 100vw; max-height: 92dvh; border: 0; border-radius: 30px 30px 0 0; }
+  .reward-withdrawal-content { padding: 30px 20px max(30px, calc(env(safe-area-inset-bottom) + 18px)); }
+  .reward-withdrawal-close { right: 18px; top: 18px; }
+  .reward-withdrawal-content > h2, .reward-withdrawal-success h2 { font-size: 28px; line-height: 35px; }
+  .reward-withdrawal-kinds { gap: 10px; margin-top: 23px; }
+  .reward-kind-card { height: 130px; padding: 18px; border-radius: 23px; }
+  .reward-kind-card span { font-size: 14px; }
+  .reward-kind-card strong { font-size: 39px; line-height: 43px; }
+  .reward-kind-card i { right: 13px; bottom: 13px; width: 43px; height: 43px; border-radius: 14px; }
+  .reward-withdrawal-heading { grid-template-columns: 42px minmax(0, 1fr); }
+  .reward-withdrawal-heading h2 { font-size: 24px; line-height: 30px; }
+  .reward-withdrawal-summary { padding: 0 16px; }
+  .reward-withdrawal-summary > div { min-height: 64px; grid-template-columns: .75fr 1.25fr; gap: 12px; }
+  .reward-withdrawal-summary dt, .reward-withdrawal-summary dd { font-size: 12px; }
+  .reward-withdrawal-scanner { min-height: 82dvh; padding: 24px 18px max(24px, env(safe-area-inset-bottom)); }
+  .reward-withdrawal-camera { height: min(56dvh, 460px); }
+  .reward-withdrawal-success { min-height: 70dvh; padding: 34px 22px max(34px, env(safe-area-inset-bottom)); }
+  .reward-cancel-overlay { padding: 0; place-items: end stretch; }
+  .reward-cancel-dialog { width: 100vw; padding: 28px 20px max(28px, calc(env(safe-area-inset-bottom) + 12px)); border-radius: 28px 28px 0 0; }
   .order-cancel-overlay { padding: 0; place-items: end stretch; }
   .order-cancel-confirm { width: 100vw; padding: 28px 20px max(28px, calc(env(safe-area-inset-bottom) + 10px)); border-radius: 30px 30px 0 0; box-shadow: none; }
   .composition-overlay { padding: 0; place-items: start center; overflow: hidden; }

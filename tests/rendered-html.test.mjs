@@ -380,19 +380,29 @@ test("admin exposes a dense CRM workspace, server search, loyalty, and integrati
   assert.match(adminCss, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.admin-order-detail/);
 });
 
-test("website profile keeps NAKTA Coin and NFT balances separate and supports wallet withdrawal", async () => {
-  const [storefront, globals] = await Promise.all([
+test("website profile supports confirmed reward withdrawals, QR input, and cancellation without a duplicate NFT block", async () => {
+  const [storefront, withdrawalDialog, globals] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/components/RewardsWithdrawalDialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
   assert.match(storefront, /type ProfileNftStatus = "owned" \| "pending" \| "submitted" \| "withdrawn" \| "failed"/);
   assert.match(storefront, /Ваш баланс[\s\S]*?Ваши NFT/);
-  assert.match(storefront, /\/auth\/nfts\/\$\{encodeURIComponent\(nft\.id\)\}\/withdraw/);
+  assert.match(storefront, /\/auth\/coins\/withdraw/);
+  assert.match(storefront, /\/auth\/nfts\/\$\{encodeURIComponent\(nft!\.id\)\}\/withdraw/);
+  assert.match(storefront, /\/auth\/coins\/withdrawals\/\$\{encodeURIComponent\(rewardCancelTarget\.id\)\}\/cancel/);
+  assert.match(storefront, /\/auth\/nfts\/\$\{encodeURIComponent\(rewardCancelTarget\.id\)\}\/withdrawal\/cancel/);
   assert.match(storefront, /Authorization: `Bearer \$\{phoneVerificationToken\}`/);
-  assert.match(storefront, /Вывести на кошелёк/);
+  assert.match(storefront, /История операций/);
+  assert.match(storefront, /withdrawalReason/);
+  assert.doesNotMatch(storefront, /<h3>Мои NFT<\/h3>/);
+  assert.match(withdrawalDialog, /Подтверждение вывода/);
+  assert.match(withdrawalDialog, /BarcodeDetector/);
+  assert.match(withdrawalDialog, /walletAddressFromQr/);
   assert.doesNotMatch(storefront, /но хранятся отдельно/i);
   assert.match(globals, /\.profile-nft-balance-card/);
-  assert.match(globals, /\.profile-nft-withdraw-form/);
+  assert.match(globals, /\.reward-withdrawal-dialog/);
+  assert.match(globals, /\.profile-cancel-withdrawal/);
 });
 
 test("NestJS and PostgreSQL project files are present", async () => {

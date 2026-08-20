@@ -9,6 +9,7 @@ import {
   mdiAccountCircleOutline,
   mdiAlertCircleOutline,
   mdiArrowLeft,
+  mdiBankTransferOut,
   mdiCashMultiple,
   mdiCheckCircle,
   mdiChevronRight,
@@ -39,6 +40,10 @@ import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
+import {
+  RewardsWithdrawalDialog,
+  type RewardWithdrawalInput,
+} from "./RewardsWithdrawalDialog";
 import { TurnstileWidget } from "./TurnstileWidget";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
@@ -176,6 +181,9 @@ type NaktaCoinTransaction = {
   createdAt?: string;
   description: string;
   orderId?: string;
+  withdrawalId?: string;
+  withdrawalStatus?: "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
+  withdrawalReason?: string | null;
 };
 type ProfileNftStatus = "owned" | "pending" | "submitted" | "withdrawn" | "failed";
 type ProfileNftNetwork = "polygon" | "ethereum" | "bsc" | "solana" | "ton";
@@ -191,11 +199,22 @@ type ProfileNft = {
   walletAddress: string | null;
   txHash: string | null;
   withdrawalError: string | null;
+  withdrawalRequestedAt?: string | null;
   createdAt: string;
   withdrawnAt: string | null;
   orderId: string;
   regionSlug: string;
   milestoneOrderCount: number;
+};
+type NaktaCoinWithdrawal = {
+  id: string;
+  amount: number;
+  walletAddress: string;
+  status: "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
+  txHash: string | null;
+  error: string | null;
+  processedAt: string | null;
+  createdAt: string;
 };
 
 const publicOrderNumber = (order: { id: string; orderNumber?: number }) =>
@@ -207,6 +226,7 @@ type ProfileData = {
   naktaCoinHistory?: NaktaCoinTransaction[];
   naktaCoinTransactions?: NaktaCoinTransaction[];
   nfts?: ProfileNft[];
+  naktaCoinWithdrawals?: NaktaCoinWithdrawal[];
 };
 type PersistedStorefrontState = {
   cart: CartLine[];
@@ -292,16 +312,6 @@ const posStatusLabels: Record<string, string> = {
   cancelled: "Заказ отменён",
 };
 const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-const profileNftDate = (value: string) => {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "—"
-    : new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(date);
-};
-const nftWalletPlaceholder = (network: ProfileNftNetwork) => (
-  network === "ton" ? "EQ… или UQ…" : network === "solana" ? "Адрес кошелька Solana" : "0x…"
-);
-
 function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[] {
   if (!profile) return [];
   const serverHistory = profile.naktaCoinHistory ?? profile.naktaCoinTransactions ?? [];
@@ -326,80 +336,6 @@ function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[]
     amount: profile.naktaCoins,
     description: "Начислено за предыдущие заказы",
   }] : [];
-}
-
-function ProfileNftArtwork({ src }: { src: string }) {
-  const [failed, setFailed] = useState(false);
-  return src && !failed
-    ? <img src={src} alt="" onError={() => setFailed(true)} />
-    : <Icon path={mdiHexagonMultipleOutline} size={1.45} aria-hidden="true" />;
-}
-
-function ProfileNftCard({
-  nft,
-  withdrawalOpen,
-  walletAddress,
-  busy,
-  error,
-  onOpen,
-  onClose,
-  onWalletAddressChange,
-  onSubmit,
-}: {
-  nft: ProfileNft;
-  withdrawalOpen: boolean;
-  walletAddress: string;
-  busy: boolean;
-  error: string;
-  onOpen: (nft: ProfileNft) => void;
-  onClose: () => void;
-  onWalletAddressChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>, nft: ProfileNft) => void;
-}) {
-  const canWithdraw = nft.status === "owned" || nft.status === "failed";
-  const showWithdrawalForm = withdrawalOpen && canWithdraw;
-  const network = profileNftNetworks[nft.network];
-  return <article className="profile-nft-card">
-    <div className="profile-nft-main">
-      <span className="profile-nft-image">
-        <ProfileNftArtwork key={nft.image} src={nft.image} />
-      </span>
-      <span className="profile-nft-copy">
-        <span className="profile-nft-title"><b>{nft.name}</b><em className={`status-${nft.status}`}>{profileNftStatuses[nft.status]}</em></span>
-        <span className="profile-nft-meta"><small>{network}</small><small>За {nft.milestoneOrderCount}-й заказ</small></span>
-        <small className="profile-nft-date">Получен {profileNftDate(nft.createdAt)}</small>
-      </span>
-    </div>
-    {nft.description ? <p>{nft.description}</p> : null}
-    {nft.walletAddress ? <div className="profile-nft-address"><span>Кошелёк</span><b title={nft.walletAddress}>{nft.walletAddress}</b></div> : null}
-    {nft.tokenId ? <div className="profile-nft-address"><span>Token ID</span><b title={nft.tokenId}>{nft.tokenId}</b></div> : null}
-    {nft.txHash ? <div className="profile-nft-address"><span>Транзакция</span><b title={nft.txHash}>{nft.txHash}</b></div> : null}
-    {nft.status === "failed" && nft.withdrawalError && !showWithdrawalForm ? <p className="profile-nft-card-error" role="status">{nft.withdrawalError}</p> : null}
-    {canWithdraw && !showWithdrawalForm ? <button type="button" className="profile-nft-withdraw-open" onClick={() => onOpen(nft)}><Icon path={mdiWalletOutline} size={0.82} aria-hidden="true" />{nft.status === "failed" ? "Повторить вывод" : "Вывести на кошелёк"}</button> : null}
-    {showWithdrawalForm ? <form className="profile-nft-withdraw-form" onSubmit={(event) => onSubmit(event, nft)}>
-      <label htmlFor={`nft-wallet-${nft.id}`}>Адрес кошелька в сети {network}</label>
-      <input
-        id={`nft-wallet-${nft.id}`}
-        name="walletAddress"
-        value={walletAddress}
-        onChange={(event) => onWalletAddressChange(event.target.value)}
-        placeholder={nftWalletPlaceholder(nft.network)}
-        minLength={16}
-        maxLength={200}
-        autoComplete="off"
-        spellCheck={false}
-        disabled={busy}
-        autoFocus
-        required
-      />
-      <small>Проверьте сеть и адрес: отменить отправку после подтверждения нельзя.</small>
-      {error ? <p role="alert">{error}</p> : null}
-      <div>
-        <button type="button" onClick={onClose} disabled={busy}>Отмена</button>
-        <button type="submit" disabled={busy}>{busy ? "Отправляем…" : "Подтвердить вывод"}</button>
-      </div>
-    </form> : null}
-  </article>;
 }
 
 function addressWithSingleCity(value: string, city: string) {
@@ -895,11 +831,14 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [cancelOrderOpen, setCancelOrderOpen] = useState(false);
   const [cancelOrderBusy, setCancelOrderBusy] = useState(false);
   const [cancelOrderError, setCancelOrderError] = useState("");
-  const [nftWithdrawalId, setNftWithdrawalId] = useState<string | null>(null);
-  const [nftWalletAddress, setNftWalletAddress] = useState("");
-  const [nftWithdrawalBusy, setNftWithdrawalBusy] = useState(false);
-  const [nftWithdrawalError, setNftWithdrawalError] = useState("");
-  const [nftWithdrawalSuccess, setNftWithdrawalSuccess] = useState("");
+  const [rewardWithdrawalOpen, setRewardWithdrawalOpen] = useState(false);
+  const [rewardCancelTarget, setRewardCancelTarget] = useState<{
+    kind: "coins" | "nft";
+    id: string;
+    label: string;
+  } | null>(null);
+  const [rewardCancelBusy, setRewardCancelBusy] = useState(false);
+  const [rewardCancelError, setRewardCancelError] = useState("");
   const [profileRefreshIndex, setProfileRefreshIndex] = useState(0);
   const selectedProfileOrderId = selectedProfileOrder?.id;
   const [profileSection, setProfileSection] = useState<"menu" | "orders" | "balance" | "settings">("menu");
@@ -979,11 +918,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCancelOrderOpen(false);
     setCancelOrderBusy(false);
     setCancelOrderError("");
-    setNftWithdrawalId(null);
-    setNftWalletAddress("");
-    setNftWithdrawalBusy(false);
-    setNftWithdrawalError("");
-    setNftWithdrawalSuccess("");
+    setRewardWithdrawalOpen(false);
+    setRewardCancelTarget(null);
+    setRewardCancelBusy(false);
+    setRewardCancelError("");
     if (message) setPhoneAuthMessage(message);
     try {
       window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
@@ -1000,11 +938,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCancelOrderBusy,
     setCancelOrderError,
     setCancelOrderOpen,
-    setNftWalletAddress,
-    setNftWithdrawalBusy,
-    setNftWithdrawalError,
-    setNftWithdrawalId,
-    setNftWithdrawalSuccess,
+    setRewardCancelBusy,
+    setRewardCancelError,
+    setRewardCancelTarget,
+    setRewardWithdrawalOpen,
     setSelectedProfileOrder,
     setVerifiedPhone,
   ]);
@@ -1568,84 +1505,106 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
   };
 
-  const openNftWithdrawal = (nft: ProfileNft) => {
-    if (nftWithdrawalBusy) return;
-    setNftWithdrawalId(nft.id);
-    setNftWalletAddress(nft.walletAddress || "");
-    setNftWithdrawalError("");
-    setNftWithdrawalSuccess("");
-  };
-
-  const closeNftWithdrawal = () => {
-    if (nftWithdrawalBusy) return;
-    setNftWithdrawalId(null);
-    setNftWalletAddress("");
-    setNftWithdrawalError("");
-  };
-
-  const withdrawProfileNft = async (event: FormEvent<HTMLFormElement>, nft: ProfileNft) => {
-    event.preventDefault();
-    if (!verifiedPhone || !phoneVerificationToken || nftWithdrawalBusy) return;
-    const walletAddress = nftWalletAddress.trim();
-    if (walletAddress.length < 16) {
-      setNftWithdrawalError("Проверьте адрес кошелька — он указан не полностью.");
-      return;
+  const submitRewardWithdrawal = async (input: RewardWithdrawalInput) => {
+    if (!verifiedPhone || !phoneVerificationToken) {
+      throw new Error("Сессия истекла. Войдите в профиль ещё раз.");
     }
-    setNftWithdrawalBusy(true);
-    setNftWithdrawalError("");
-    setNftWithdrawalSuccess("");
+    const nft = input.kind === "nft"
+      ? profileNfts.find((item) => item.id === input.nftId)
+      : null;
+    if (input.kind === "nft" && !nft) throw new Error("Выберите NFT для вывода");
+    if (input.kind === "coins" && !input.amount) throw new Error("Укажите количество NAKTA Coin");
+
+    const endpoint = input.kind === "coins"
+      ? "/auth/coins/withdraw"
+      : `/auth/nfts/${encodeURIComponent(nft!.id)}/withdraw`;
+    const response = await fetch(
+      `${STOREFRONT_API_URL}${endpoint}?phone=${encodeURIComponent(verifiedPhone)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${phoneVerificationToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input.kind === "coins"
+          ? { walletAddress: input.walletAddress, amount: input.amount }
+          : { walletAddress: input.walletAddress }),
+      },
+    );
+    const body = await response.json().catch(() => null) as ((ProfileNft | NaktaCoinWithdrawal) & {
+      message?: string | string[];
+    }) | null;
+    if (response.status === 401) {
+      clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+      throw new Error("Сессия истекла. Войдите в профиль ещё раз.");
+    }
+    if (!response.ok || !body?.id) {
+      const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
+      throw new Error(message || "Не удалось оставить заявку на вывод");
+    }
+
+    if (input.kind === "coins") {
+      const withdrawal = body as NaktaCoinWithdrawal;
+      setProfileData((current) => current ? {
+        ...current,
+        naktaCoins: Math.max(0, current.naktaCoins - withdrawal.amount),
+        naktaCoinWithdrawals: [
+          withdrawal,
+          ...(current.naktaCoinWithdrawals ?? []).filter((item) => item.id !== withdrawal.id),
+        ],
+        naktaCoinHistory: [{
+          id: `withdrawal-${withdrawal.id}`,
+          amount: -withdrawal.amount,
+          createdAt: withdrawal.createdAt,
+          description: "Заявка на вывод NAKTA Coin",
+          withdrawalId: withdrawal.id,
+          withdrawalStatus: withdrawal.status,
+          withdrawalReason: withdrawal.error,
+        }, ...(current.naktaCoinHistory ?? [])],
+      } : current);
+    } else {
+      const updated = body as ProfileNft;
+      setProfileData((current) => current ? {
+        ...current,
+        nfts: (current.nfts ?? []).map((item) => item.id === updated.id ? updated : item),
+      } : current);
+    }
+    setProfileRefreshIndex((current) => current + 1);
+  };
+
+  const cancelRewardWithdrawal = async () => {
+    if (!rewardCancelTarget || !verifiedPhone || !phoneVerificationToken || rewardCancelBusy) return;
+    setRewardCancelBusy(true);
+    setRewardCancelError("");
     try {
+      const endpoint = rewardCancelTarget.kind === "coins"
+        ? `/auth/coins/withdrawals/${encodeURIComponent(rewardCancelTarget.id)}/cancel`
+        : `/auth/nfts/${encodeURIComponent(rewardCancelTarget.id)}/withdrawal/cancel`;
       const response = await fetch(
-        `${STOREFRONT_API_URL}/auth/nfts/${encodeURIComponent(nft.id)}/withdraw?phone=${encodeURIComponent(verifiedPhone)}`,
+        `${STOREFRONT_API_URL}${endpoint}?phone=${encodeURIComponent(verifiedPhone)}`,
         {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${phoneVerificationToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ walletAddress }),
+          headers: { Authorization: `Bearer ${phoneVerificationToken}` },
         },
       );
-      const body = await response.json().catch(() => null) as (ProfileNft & {
+      const body = await response.json().catch(() => null) as {
+        id?: string;
         message?: string | string[];
-      }) | null;
+      } | null;
       if (response.status === 401) {
         clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
         return;
       }
       if (!response.ok || !body?.id) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        throw new Error(message || "Не удалось отправить NFT на кошелёк");
+        throw new Error(message || "Не удалось отменить вывод");
       }
-      setProfileData((current) => {
-        if (!current) return current;
-        const nfts = current.nfts ?? [];
-        return {
-          ...current,
-          nfts: nfts.some((item) => item.id === body.id)
-            ? nfts.map((item) => item.id === body.id ? body : item)
-            : [body, ...nfts],
-        };
-      });
+      setRewardCancelTarget(null);
       setProfileRefreshIndex((current) => current + 1);
-      if (body.status === "failed") {
-        setNftWithdrawalError(body.withdrawalError || "Не удалось отправить NFT. Проверьте адрес и повторите попытку.");
-        return;
-      }
-      setNftWithdrawalId(null);
-      setNftWalletAddress("");
-      setNftWithdrawalSuccess(
-        body.status === "withdrawn"
-          ? "NFT успешно выведен на ваш кошелёк."
-          : body.status === "submitted"
-            ? "NFT отправлен в сеть. Статус обновится после подтверждения транзакции."
-            : "Заявка на вывод NFT принята.",
-      );
     } catch (reason) {
-      setNftWithdrawalError(reason instanceof Error ? reason.message : "Не удалось отправить NFT на кошелёк");
-      setProfileRefreshIndex((current) => current + 1);
+      setRewardCancelError(reason instanceof Error ? reason.message : "Не удалось отменить вывод");
     } finally {
-      setNftWithdrawalBusy(false);
+      setRewardCancelBusy(false);
     }
   };
 
@@ -2464,24 +2423,21 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 {profileSection === "balance" ? <>
                   <section className="profile-balance-card"><div><span>Ваш баланс</span><strong>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</strong></div><img src="/nakta-coin.png" alt="NAKTA Coin" /></section>
                   <section className="profile-nft-balance-card"><div><span>Ваши NFT</span><strong>{new Intl.NumberFormat("ru-RU").format(profileNfts.length)}</strong><small>цифровых наград</small></div><i aria-hidden="true"><Icon path={mdiHexagonMultipleOutline} size={1.5} /></i></section>
-                  <section className="profile-info-card"><h3>Как работают NAKTA Coin</h3><p>Баланс и начисления приходят с сервера Накта суши. Используйте доступные коины при оформлении заказа.</p></section>
-                  <section className="profile-info-card profile-nft-section">
-                    <div className="profile-nft-section-head"><span><h3>Мои NFT</h3><p>NFT начисляются после выполнения нужного количества заказов. Для вывода укажите адрес кошелька в нужной сети.</p></span><b>{profileNfts.length}</b></div>
-                    {nftWithdrawalSuccess ? <p className="profile-nft-feedback success" role="status">{nftWithdrawalSuccess}</p> : null}
-                    {profileLoadError && !profileData ? <div className="profile-nft-empty"><Icon path={mdiAlertCircleOutline} size={1.4} aria-hidden="true" /><b>Не удалось загрузить NFT</b><span role="alert">{profileLoadError}</span><button type="button" className="profile-nft-withdraw-open" onClick={() => { setProfileLoadError(""); setProfileRefreshIndex((current) => current + 1); }}>Повторить</button></div> : profileLoading ? <p className="profile-nft-empty">Загружаем NFT…</p> : profileNfts.length > 0 ? <div className="profile-nft-list">{profileNfts.map((nft) => <ProfileNftCard
-                      key={nft.id}
-                      nft={nft}
-                      withdrawalOpen={nftWithdrawalId === nft.id}
-                      walletAddress={nftWithdrawalId === nft.id ? nftWalletAddress : ""}
-                      busy={nftWithdrawalBusy && nftWithdrawalId === nft.id}
-                      error={nftWithdrawalId === nft.id ? nftWithdrawalError : ""}
-                      onOpen={openNftWithdrawal}
-                      onClose={closeNftWithdrawal}
-                      onWalletAddressChange={setNftWalletAddress}
-                      onSubmit={withdrawProfileNft}
-                    />)}</div> : <div className="profile-nft-empty"><Icon path={mdiHexagonMultipleOutline} size={1.4} aria-hidden="true" /><b>NFT пока нет</b><span>Первая награда появится после выполнения указанного в программе количества заказов.</span></div>}
-                  </section>
-                  <section className="profile-info-card"><h3>История начислений</h3>{coinHistory.length ? <div className="profile-coin-history">{coinHistory.map((entry) => <button type="button" disabled={!entry.orderId} key={entry.id} onClick={() => { const order = [...(profileData?.currentOrders ?? []), ...(profileData?.orderHistory ?? [])].find((item) => item.id === entry.orderId); if (order) openProfileOrder(order); }}><span><b>{entry.description}</b>{entry.createdAt ? <small>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(entry.createdAt))}</small> : null}</span><strong className={entry.amount < 0 ? "negative" : ""}>{entry.amount > 0 ? "+" : ""}{new Intl.NumberFormat("ru-RU").format(entry.amount)}</strong></button>)}</div> : <p>Начислений пока нет.</p>}</section>
+                  <button type="button" className="profile-reward-withdraw-button" disabled={(profileData?.naktaCoins ?? 0) <= 0 && !profileNfts.some((nft) => nft.status === "owned" || nft.status === "failed")} onClick={() => setRewardWithdrawalOpen(true)}><Icon path={mdiBankTransferOut} size={1} aria-hidden="true" />Вывести</button>
+                  <section className="profile-info-card profile-reward-explainer"><h3>Как работают NAKTA Coin и NFT</h3><p>Награды не тратятся внутри сайта. Накопленные коины и NFT можно вывести на свой криптокошелёк.</p></section>
+                  <section className="profile-info-card profile-reward-history"><h3>История операций</h3>{coinHistory.length || profileNfts.some((nft) => nft.status !== "owned" || nft.withdrawalError) ? <div className="profile-coin-history">
+                    {coinHistory.map((entry) => <article className="profile-history-row" key={entry.id}>
+                      <button type="button" className="profile-history-main" disabled={!entry.orderId} onClick={() => { const order = [...(profileData?.currentOrders ?? []), ...(profileData?.orderHistory ?? [])].find((item) => item.id === entry.orderId); if (order) openProfileOrder(order); }}><span><b>{entry.description}</b>{entry.createdAt ? <small>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(entry.createdAt))}</small> : null}</span><strong className={entry.amount < 0 ? "negative" : ""}>{entry.amount > 0 ? "+" : ""}{new Intl.NumberFormat("ru-RU").format(entry.amount)}</strong></button>
+                      {entry.withdrawalReason ? <p className="profile-withdrawal-reason">Причина: {entry.withdrawalReason}</p> : null}
+                      {entry.withdrawalStatus === "pending" && entry.withdrawalId ? <button type="button" className="profile-cancel-withdrawal" onClick={() => { setRewardCancelError(""); setRewardCancelTarget({ kind: "coins", id: entry.withdrawalId!, label: `${Math.abs(entry.amount)} NAKTA Coin` }); }}>Отменить вывод</button> : null}
+                    </article>)}
+                    {profileNfts.filter((nft) => nft.status !== "owned" || nft.withdrawalError).map((nft) => <article className="profile-history-row profile-nft-operation" key={`nft-operation-${nft.id}`}>
+                      <div className="profile-history-main"><span><b>Вывод NFT «{nft.name}»</b><small>{profileNftNetworks[nft.network]} · {profileNftStatuses[nft.status]}</small></span><strong className={`nft-status status-${nft.status}`}>NFT</strong></div>
+                      {nft.walletAddress ? <p className="profile-withdrawal-address" title={nft.walletAddress}>Кошелёк: {nft.walletAddress}</p> : null}
+                      {nft.withdrawalError ? <p className="profile-withdrawal-reason">Причина: {nft.withdrawalError}</p> : null}
+                      {nft.status === "pending" ? <button type="button" className="profile-cancel-withdrawal" onClick={() => { setRewardCancelError(""); setRewardCancelTarget({ kind: "nft", id: nft.id, label: `NFT «${nft.name}»` }); }}>Отменить вывод</button> : null}
+                    </article>)}
+                  </div> : <p>Операций пока нет.</p>}</section>
                 </> : null}
 
                 {profileSection === "settings" ? <>
@@ -2506,6 +2462,23 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           </section>
         </div>
       ) : null}
+
+      {menuOpen && profileSection === "balance" && rewardWithdrawalOpen ? <RewardsWithdrawalDialog
+        coins={profileData?.naktaCoins ?? 0}
+        nfts={profileNfts}
+        onClose={() => setRewardWithdrawalOpen(false)}
+        onSubmit={submitRewardWithdrawal}
+      /> : null}
+
+      {rewardCancelTarget ? <div className="overlay reward-cancel-overlay" role="dialog" aria-modal="true" aria-labelledby="reward-cancel-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !rewardCancelBusy) setRewardCancelTarget(null); }}>
+        <section className="reward-cancel-dialog">
+          <span className="reward-cancel-icon"><Icon path={mdiAlertCircleOutline} size={1.1} /></span>
+          <h2 id="reward-cancel-title">Отменить вывод?</h2>
+          <p>{rewardCancelTarget.kind === "coins" ? `${rewardCancelTarget.label} сразу вернутся на ваш баланс.` : `${rewardCancelTarget.label} снова станет доступен для вывода.`} Отменить заявку можно только до начала обработки.</p>
+          {rewardCancelError ? <p className="reward-withdrawal-error" role="alert">{rewardCancelError}</p> : null}
+          <div><button type="button" disabled={rewardCancelBusy} onClick={() => setRewardCancelTarget(null)}>Не отменять</button><button type="button" disabled={rewardCancelBusy} onClick={() => void cancelRewardWithdrawal()}>{rewardCancelBusy ? "Отменяем…" : "Отменить вывод"}</button></div>
+        </section>
+      </div> : null}
 
       {promoOpen ? (
         <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={currentStory.title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>

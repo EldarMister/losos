@@ -716,6 +716,7 @@ export class PhoneAuthService {
       walletAddress: nft.walletAddress,
       txHash: nft.txHash,
       withdrawalError: nft.withdrawalError,
+      withdrawalRequestedAt: nft.withdrawalRequestedAt,
       createdAt: nft.createdAt,
       withdrawnAt: nft.withdrawnAt,
       orderId: nft.orderId,
