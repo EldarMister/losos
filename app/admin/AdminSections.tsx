@@ -3,6 +3,7 @@
 import { Icon } from "@mdi/react";
 import { mdiClose, mdiMagnify, mdiPlus, mdiRefresh } from "@mdi/js";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ImageUpload } from "./ImageUpload";
 import type {
   AdminRequest,
   Analytics,
@@ -241,10 +242,168 @@ export function CategoriesView({ region, request, onNotice }: ViewProps) {
   const [error, setError] = useState("");
   const load = useCallback(async () => { setLoading(true); setError(""); try { setDashboard(await request<Dashboard>(`/admin/dashboard?region=${encodeURIComponent(region)}`)); } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить категории"); } finally { setLoading(false); } }, [region, request]);
   useInitialLoad(load);
-  const save = async (event: FormEvent) => { event.preventDefault(); if (!editor) return; setSaving(true); try { const common = { title: editor.title.trim(), slug: editor.slug.trim() || slugify(editor.title), image: editor.image.trim(), sortOrder: Number(editor.sortOrder) }; if (editor.category) await request(`/admin/categories/${editor.category.id}`, { method: "PATCH", body: JSON.stringify(common) }); else await request("/admin/categories", { method: "POST", body: JSON.stringify({ ...common, regionSlug: dashboard?.menuRegionSlug || region }) }); onNotice(editor.category ? "Категория обновлена" : "Категория добавлена", "success"); setEditor(null); await load(); } catch (saveError) { onNotice(saveError instanceof Error ? saveError.message : "Не удалось сохранить категорию", "error"); } finally { setSaving(false); } };
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editor) return;
+    if (!editor.image) {
+      onNotice("Загрузите изображение категории", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const common = {
+        title: editor.title.trim(),
+        slug: editor.slug.trim() || slugify(editor.title),
+        image: editor.image.trim(),
+        sortOrder: Number(editor.sortOrder),
+      };
+      if (editor.category) {
+        await request(`/admin/categories/${editor.category.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(common),
+        });
+      } else {
+        await request("/admin/categories", {
+          method: "POST",
+          body: JSON.stringify({
+            ...common,
+            regionSlug: dashboard?.menuRegionSlug || region,
+          }),
+        });
+      }
+      onNotice(editor.category ? "Категория обновлена" : "Категория добавлена", "success");
+      setEditor(null);
+      await load();
+    } catch (saveError) {
+      onNotice(saveError instanceof Error ? saveError.message : "Не удалось сохранить категорию", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
   if (loading && !dashboard) return <LoadingBlock />;
   if (error && !dashboard) return <ErrorBlock message={error} onRetry={() => void load()} />;
-  return <div className="space-y-4"><SectionToolbar><p className="text-sm text-slate-600">Категории показаны для выбранного города.</p><button type="button" className={primaryButton} onClick={() => setEditor({ title: "", slug: "", image: "", sortOrder: String(dashboard?.categories.length ?? 0) })}><Icon path={mdiPlus} size={0.75} aria-hidden="true" />Добавить категорию</button></SectionToolbar><section className="overflow-hidden rounded-xl border border-slate-200 bg-white">{dashboard?.categories.length ? <div className="divide-y divide-slate-200">{dashboard.categories.map((category) => <article key={category.id} className="grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:px-5"><div><strong className="block text-slate-950">{category.title}</strong><span className="mt-1 block text-sm text-slate-500">{category.products.length} блюд · порядок {category.sortOrder + 1}</span></div><span className="text-sm text-slate-500">/{category.slug}</span><button type="button" className={secondaryButton} onClick={() => setEditor({ category, title: category.title, slug: category.slug, image: category.image, sortOrder: String(category.sortOrder) })}>Редактировать категорию</button></article>)}</div> : <EmptyBlock title="Категорий пока нет" description="Создайте первую категорию для меню этого города." />}</section>{editor ? <Modal title={editor.category ? "Редактировать категорию" : "Добавить категорию"} onClose={() => setEditor(null)}><form className="grid gap-4 p-5" onSubmit={save}><label className={labelClass}>Название<input required className={inputClass} value={editor.title} onChange={(event) => setEditor({ ...editor, title: event.target.value, slug: editor.category ? editor.slug : slugify(event.target.value) })} /></label><label className={labelClass}>Системное имя<input required className={inputClass} value={editor.slug} onChange={(event) => setEditor({ ...editor, slug: event.target.value })} /></label><label className={labelClass}>Адрес изображения<input required type="url" className={inputClass} value={editor.image} onChange={(event) => setEditor({ ...editor, image: event.target.value })} /></label><label className={labelClass}>Порядок<input required min="0" type="number" className={inputClass} value={editor.sortOrder} onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })} /></label><div className="grid gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2"><button type="button" className={secondaryButton} onClick={() => setEditor(null)}>Отменить</button><button type="submit" className={primaryButton} disabled={saving}>{saving ? "Сохраняем…" : editor.category ? "Сохранить изменения" : "Добавить категорию"}</button></div></form></Modal> : null}</div>;
+  return (
+    <div className="space-y-4">
+      <SectionToolbar>
+        <p className="text-sm text-slate-600">Категории показаны для выбранного города.</p>
+        <button
+          type="button"
+          className={primaryButton}
+          onClick={() => setEditor({
+            title: "",
+            slug: "",
+            image: "",
+            sortOrder: String(dashboard?.categories.length ?? 0),
+          })}
+        >
+          <Icon path={mdiPlus} size={0.75} aria-hidden="true" />
+          Добавить категорию
+        </button>
+      </SectionToolbar>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {dashboard?.categories.length ? (
+          <div className="divide-y divide-slate-200">
+            {dashboard.categories.map((category) => (
+              <article key={category.id} className="grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:px-5">
+                <div>
+                  <strong className="block text-slate-950">{category.title}</strong>
+                  <span className="mt-1 block text-sm text-slate-500">
+                    {category.products.length} блюд · порядок {category.sortOrder + 1}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  onClick={() => setEditor({
+                    category,
+                    title: category.title,
+                    slug: category.slug,
+                    image: category.image,
+                    sortOrder: String(category.sortOrder),
+                  })}
+                >
+                  Редактировать категорию
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyBlock title="Категорий пока нет" description="Создайте первую категорию для меню этого города." />
+        )}
+      </section>
+
+      {editor ? (
+        <Modal
+          title={editor.category ? "Редактировать категорию" : "Добавить категорию"}
+          onClose={() => setEditor(null)}
+        >
+          <form className="grid gap-5 overflow-y-auto p-5" onSubmit={save}>
+            <label className={labelClass}>
+              Название
+              <input
+                required
+                className={inputClass}
+                value={editor.title}
+                onChange={(event) => setEditor({
+                  ...editor,
+                  title: event.target.value,
+                  slug: editor.category ? editor.slug : slugify(event.target.value),
+                })}
+              />
+            </label>
+
+            <ImageUpload
+              label="Изображение категории"
+              value={editor.image}
+              hint="Выберите фотографию с телефона или компьютера. Рекомендуемый размер — 1200×600 px."
+              onChange={(image) => setEditor({ ...editor, image })}
+              onError={(message) => onNotice(message, "error")}
+            />
+
+            <label className={labelClass}>
+              Порядок
+              <input
+                required
+                min="0"
+                type="number"
+                className={inputClass}
+                value={editor.sortOrder}
+                onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })}
+              />
+            </label>
+
+            <details className="rounded-xl border border-slate-200 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+                Дополнительные настройки
+              </summary>
+              <label className={`${labelClass} mt-4`}>
+                Системное имя для ссылки
+                <input
+                  required
+                  className={inputClass}
+                  value={editor.slug}
+                  onChange={(event) => setEditor({ ...editor, slug: slugify(event.target.value) })}
+                />
+                <small className="font-normal leading-5 text-slate-500">
+                  Например, «Горячие роллы» станет «goryachie-rolly». Обычно менять это поле не нужно.
+                </small>
+              </label>
+            </details>
+
+            <div className="grid gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2">
+              <button type="button" className={secondaryButton} onClick={() => setEditor(null)}>
+                Отменить
+              </button>
+              <button type="submit" className={primaryButton} disabled={saving}>
+                {saving ? "Сохраняем…" : editor.category ? "Сохранить изменения" : "Добавить категорию"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      ) : null}
+    </div>
+  );
 }
 
 export function UsersView({ region, request }: ViewProps) {

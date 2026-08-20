@@ -40,8 +40,7 @@ export function AdminNavigation({ active, onSelect, onLogout }: AdminNavigationP
   return (
     <div className="flex h-full flex-col bg-slate-950 text-white">
       <div className="flex h-20 items-center border-b border-white/10 px-6">
-        <span className="grid size-10 place-items-center rounded-xl bg-blue-600 text-sm font-bold">N</span>
-        <span className="ml-3 min-w-0">
+        <span className="min-w-0">
           <strong className="block text-sm font-semibold tracking-wide">NAKTA</strong>
           <small className="block text-xs text-slate-400">Панель управления</small>
         </span>

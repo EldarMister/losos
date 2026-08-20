@@ -25,6 +25,14 @@ const apiUrl = (
 
 type Notice = { message: string; tone: "success" | "error" };
 
+async function fetchAdminApi(path: string, init?: RequestInit) {
+  try {
+    return await fetch(`${apiUrl}${path}`, init);
+  } catch {
+    throw new Error("Сервер временно недоступен. Попробуйте войти через минуту.");
+  }
+}
+
 export function AdminApp() {
   const [hydrated, setHydrated] = useState(false);
   const [token, setToken] = useState("");
@@ -52,7 +60,7 @@ export function AdminApp() {
   }, []);
 
   const request = useCallback(async <T,>(path: string, init?: RequestInit): Promise<T> => {
-    const response = await fetch(`${apiUrl}${path}`, {
+    const response = await fetchAdminApi(path, {
       ...init,
       headers: {
         ...(init?.body ? { "content-type": "application/json" } : {}),
@@ -110,7 +118,7 @@ export function AdminApp() {
     setAuthorizing(true);
     setLoginError("");
     try {
-      const response = await fetch(`${apiUrl}/admin/settings`, { headers: { "x-admin-token": nextToken } });
+      const response = await fetchAdminApi("/admin/settings", { headers: { "x-admin-token": nextToken } });
       if (!response.ok) throw new Error(response.status === 401 ? "Неверный код администратора" : "Сервер временно недоступен");
       const items = await response.json() as Region[];
       sessionStorage.setItem("losos-admin-token", nextToken);
@@ -138,8 +146,7 @@ export function AdminApp() {
     return (
       <main className="admin-root grid min-h-dvh place-items-center bg-slate-50 px-4 py-10">
         <section className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" aria-labelledby="login-title">
-          <span className="grid size-12 place-items-center rounded-xl bg-slate-950 text-base font-bold text-white">N</span>
-          <h1 id="login-title" className="mt-6 text-2xl font-semibold tracking-tight text-slate-950">Вход в админ-панель</h1>
+          <h1 id="login-title" className="text-2xl font-semibold tracking-tight text-slate-950">Вход в админ-панель</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">Введите код администратора, чтобы управлять заказами и меню.</p>
           <form className="mt-6 grid gap-4" onSubmit={authorize}>
             <label className="grid gap-1.5 text-sm font-medium text-slate-700">

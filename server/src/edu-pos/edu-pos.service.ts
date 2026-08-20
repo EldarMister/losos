@@ -79,11 +79,14 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn("EDU POS integration is disabled: EDU_POS_URL or EDU_POS_API_KEY is missing");
       return;
     }
-    this.schedule(() => void this.syncMenu(), 1_000);
-    this.schedule(() => void this.syncStopList(), 2_000);
-    this.every(() => void this.syncMenu(), 5 * 60_000);
-    this.every(() => void this.syncStopList(), 45_000);
-    this.every(() => void this.syncActiveOrders(), 7_500);
+    this.schedule(() => this.runBackground(() => this.syncMenu()), 1_000);
+    this.schedule(() => this.runBackground(() => this.syncStopList()), 2_000);
+    this.every(() => this.runBackground(() => this.syncMenu()), 5 * 60_000);
+    this.every(() => this.runBackground(() => this.syncStopList()), 45_000);
+    this.every(
+      () => this.runBackground(() => this.syncActiveOrders(), "order sync"),
+      7_500,
+    );
   }
 
   onModuleDestroy() {
@@ -576,6 +579,15 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     const message = error instanceof Error ? error.message : "Unknown error";
     this.lastError = `${operation}: ${message}`.slice(0, 1_000);
     this.logger.error(`EDU POS ${operation} failed${status}: ${message}`);
+  }
+
+  private runBackground(task: () => Promise<unknown>, fallbackOperation?: string) {
+    void task().catch((error: unknown) => {
+      // Menu and stop-list jobs record their own detailed error before rejecting.
+      // The scheduled runner must absorb that rejection so an external POS outage
+      // cannot terminate the API process. Other jobs use the fallback label here.
+      if (fallbackOperation) this.rememberError(fallbackOperation, error);
+    });
   }
 
   private schedule(callback: () => void, delay: number) {
