@@ -89,6 +89,11 @@ export function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransa
         ?? (amount > 0 ? "Начисление NAKTA Coin" : "Вывод NAKTA Coin"),
       ),
       orderId,
+      withdrawalId: typeof entry.withdrawalId === "string" ? entry.withdrawalId : undefined,
+      withdrawalStatus: ["pending", "submitted", "withdrawn", "failed", "cancelled"].includes(String(entry.withdrawalStatus))
+        ? entry.withdrawalStatus as NaktaCoinTransaction["withdrawalStatus"]
+        : undefined,
+      withdrawalReason: typeof entry.withdrawalReason === "string" ? entry.withdrawalReason : null,
     } satisfies NaktaCoinTransaction];
   });
   if (normalized.length) return normalized;
@@ -244,6 +249,7 @@ export function ProfileScreen({
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [withdrawalVisible, setWithdrawalVisible] = useState(false);
+  const [cancelingRewardId, setCancelingRewardId] = useState<string | null>(null);
   const [expandedBalancePanel, setExpandedBalancePanel] = useState<"nfts" | "history" | null>(null);
   const addressRequests = useRef(new Set<string>());
 
@@ -329,6 +335,60 @@ export function ProfileScreen({
       ...current,
       nfts: (current.nfts ?? []).map((item) => item.id === updated.id ? updated : item),
     } : current);
+  };
+
+  const cancelCoinWithdrawal = async (withdrawalId: string) => {
+    if (!store.session || cancelingRewardId) return;
+    setCancelingRewardId(withdrawalId);
+    try {
+      await authApi.cancelNaktaCoinWithdrawal(store.session, withdrawalId);
+      await load(false, true);
+    } catch (reason) {
+      Alert.alert(
+        "Не удалось отменить вывод",
+        reason instanceof Error ? reason.message : "Попробуйте ещё раз",
+      );
+    } finally {
+      setCancelingRewardId(null);
+    }
+  };
+
+  const confirmCoinWithdrawalCancellation = (withdrawalId: string) => {
+    Alert.alert(
+      "Отменить вывод?",
+      "NAKTA Coin сразу вернутся на ваш баланс. Отменить заявку можно только до начала обработки.",
+      [
+        { text: "Не отменять", style: "cancel" },
+        { text: "Отменить вывод", style: "destructive", onPress: () => void cancelCoinWithdrawal(withdrawalId) },
+      ],
+    );
+  };
+
+  const cancelNftWithdrawal = async (nftId: string) => {
+    if (!store.session || cancelingRewardId) return;
+    setCancelingRewardId(nftId);
+    try {
+      await authApi.cancelNftWithdrawal(store.session, nftId);
+      await load(false, true);
+    } catch (reason) {
+      Alert.alert(
+        "Не удалось отменить вывод NFT",
+        reason instanceof Error ? reason.message : "Попробуйте ещё раз",
+      );
+    } finally {
+      setCancelingRewardId(null);
+    }
+  };
+
+  const confirmNftWithdrawalCancellation = (nftId: string) => {
+    Alert.alert(
+      "Отменить вывод NFT?",
+      "NFT снова станет доступен для вывода. После начала обработки отмена невозможна.",
+      [
+        { text: "Не отменять", style: "cancel" },
+        { text: "Отменить вывод", style: "destructive", onPress: () => void cancelNftWithdrawal(nftId) },
+      ],
+    );
   };
 
   useEffect(() => {
@@ -624,6 +684,23 @@ export function ProfileScreen({
                       {nft.withdrawalError ? (
                         <Text style={styles.nftError}>{nft.withdrawalError}</Text>
                       ) : null}
+                      {nft.status === "pending" ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={cancelingRewardId !== null}
+                          onPress={() => confirmNftWithdrawalCancellation(nft.id)}
+                          style={({ pressed }) => [
+                            styles.cancelWithdrawalButton,
+                            pressed && styles.cancelWithdrawalButtonPressed,
+                            cancelingRewardId !== null && styles.cancelWithdrawalButtonDisabled,
+                          ]}
+                        >
+                          {cancelingRewardId === nft.id ? <ActivityIndicator color={colors.danger} size="small" /> : null}
+                          <Text style={styles.cancelWithdrawalButtonText}>
+                            {cancelingRewardId === nft.id ? "Отменяем…" : "Отменить вывод"}
+                          </Text>
+                        </Pressable>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -685,6 +762,23 @@ export function ProfileScreen({
                             year: "numeric",
                           }).format(new Date(entry.createdAt))}
                         </Text>
+                      ) : null}
+                      {entry.withdrawalStatus === "pending" && entry.withdrawalId ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          disabled={cancelingRewardId !== null}
+                          onPress={() => confirmCoinWithdrawalCancellation(entry.withdrawalId!)}
+                          style={({ pressed }) => [
+                            styles.historyCancelButton,
+                            pressed && styles.cancelWithdrawalButtonPressed,
+                            cancelingRewardId !== null && styles.cancelWithdrawalButtonDisabled,
+                          ]}
+                        >
+                          {cancelingRewardId === entry.withdrawalId ? <ActivityIndicator color={colors.danger} size="small" /> : null}
+                          <Text style={styles.historyCancelButtonText}>
+                            {cancelingRewardId === entry.withdrawalId ? "Отменяем…" : "Отменить вывод"}
+                          </Text>
+                        </Pressable>
                       ) : null}
                     </View>
                     <Text style={[
@@ -1298,6 +1392,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  cancelWithdrawalButton: {
+    minHeight: 42,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#F1B9B4",
+    borderRadius: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#FFF7F6",
+  },
+  cancelWithdrawalButtonPressed: {
+    opacity: 0.7,
+  },
+  cancelWithdrawalButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelWithdrawalButtonText: {
+    color: colors.danger,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+  },
   nftEmpty: {
     paddingHorizontal: 18,
     paddingBottom: 20,
@@ -1336,6 +1454,24 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     lineHeight: 16,
+  },
+  historyCancelButton: {
+    alignSelf: "flex-start",
+    minHeight: 34,
+    marginTop: 8,
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: "#F1B9B4",
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFF7F6",
+  },
+  historyCancelButtonText: {
+    color: colors.danger,
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
   },
   coinHistoryAmount: {
     color: colors.success,

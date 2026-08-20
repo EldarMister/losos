@@ -13,6 +13,8 @@ jest.mock("../api", () => ({
     deleteAccount: jest.fn(),
     withdrawNft: jest.fn(),
     withdrawNaktaCoins: jest.fn(),
+    cancelNaktaCoinWithdrawal: jest.fn(),
+    cancelNftWithdrawal: jest.fn(),
   },
   resolveImageUrl: (value: string) => value,
 }));
@@ -212,6 +214,66 @@ describe("ProfileScreen order history", () => {
     expect(walletAddressFromQr(`ethereum:${evmAddress}@137?value=1`)).toBe(evmAddress);
     expect(walletAddressFromQr(`ton://transfer/${tonAddress}?amount=1`)).toBe(tonAddress);
     expect(walletAddressFromQr(`https://example.com/${"a".repeat(42)}`)).toBe("");
+  });
+
+  test("cancels a pending coin withdrawal and shows the complete return reason", async () => {
+    const withdrawalId = "44444444-4444-4444-8444-444444444444";
+    const pendingProfile: ProfileData = {
+      ...emptyProfile,
+      naktaCoins: 70,
+      naktaCoinHistory: [{
+        id: `withdrawal-${withdrawalId}`,
+        amount: -8,
+        createdAt: "2026-08-20T08:00:00.000Z",
+        description: "Заявка на вывод NAKTA Coin",
+        withdrawalId,
+        withdrawalStatus: "pending",
+      }],
+    };
+    const returnedProfile: ProfileData = {
+      ...emptyProfile,
+      naktaCoins: 78,
+      naktaCoinHistory: [{
+        id: `withdrawal-refund-${withdrawalId}`,
+        amount: 8,
+        createdAt: "2026-08-20T08:05:00.000Z",
+        description: "Возврат NAKTA Coin после отмены вывода. Причина: Отменено пользователем по запросу владельца кошелька",
+        withdrawalId,
+        withdrawalStatus: "cancelled",
+        withdrawalReason: "Отменено пользователем по запросу владельца кошелька",
+      }],
+    };
+    (authApi.profile as jest.Mock)
+      .mockResolvedValueOnce(pendingProfile)
+      .mockResolvedValue(returnedProfile);
+    (authApi.cancelNaktaCoinWithdrawal as jest.Mock).mockResolvedValue({
+      id: withdrawalId,
+      status: "cancelled",
+    });
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => undefined);
+    const screen = await render(
+      <ProfileScreen
+        onBack={jest.fn()}
+        onLogout={jest.fn()}
+        onOpenOrder={jest.fn()}
+        section="balance"
+      />,
+    );
+
+    await fireEvent.press(await screen.findByRole("button", { name: "Открыть историю операций" }));
+    await fireEvent.press(screen.getByText("Отменить вывод"));
+    const destructive = (alert.mock.calls[0]?.[2] || []).find((button) => button.style === "destructive");
+    await act(async () => {
+      destructive?.onPress?.();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(authApi.cancelNaktaCoinWithdrawal).toHaveBeenCalledWith(
+      expect.objectContaining({ phone: "+996555123456" }),
+      withdrawalId,
+    ));
+    expect((await screen.findAllByText(returnedProfile.naktaCoinHistory![0].description)).length).toBeGreaterThanOrEqual(1);
+    alert.mockRestore();
   });
 
   test("uses the original empty-order structure and returns to the menu", async () => {

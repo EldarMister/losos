@@ -23,7 +23,7 @@ export function NotificationPermissionPrompt({ busy, onAllow, onDeny, visible }:
               «Накта суши» запрашивает разрешение на отправку уведомлений
             </Text>
             <Text style={styles.copy}>
-              Уведомления могут содержать информацию по вашему заказу и напоминания.
+              Уведомления сообщат о статусе заказов и заявок на вывод наград.
             </Text>
           </View>
           <Pressable

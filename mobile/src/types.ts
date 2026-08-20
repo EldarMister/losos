@@ -222,6 +222,9 @@ export type NaktaCoinTransaction = {
   createdAt?: string;
   description: string;
   orderId?: string;
+  withdrawalId?: string;
+  withdrawalStatus?: "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
+  withdrawalReason?: string | null;
 };
 
 export type AccountNft = {
@@ -246,7 +249,7 @@ export type NaktaCoinWithdrawal = {
   id: string;
   amount: number;
   walletAddress: string;
-  status: "pending" | "submitted" | "withdrawn" | "failed";
+  status: "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
   txHash: string | null;
   error: string | null;
   processedAt: string | null;

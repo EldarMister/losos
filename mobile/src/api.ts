@@ -260,6 +260,24 @@ export const authApi = {
       },
     );
   },
+  cancelNaktaCoinWithdrawal(session: AuthSession, withdrawalId: string) {
+    return request<NaktaCoinWithdrawal>(
+      `/auth/coins/withdrawals/${encodeURIComponent(withdrawalId)}/cancel?phone=${encodeURIComponent(session.phone)}`,
+      {
+        method: "POST",
+        headers: sessionHeaders(session),
+      },
+    );
+  },
+  cancelNftWithdrawal(session: AuthSession, nftId: string) {
+    return request<AccountNft>(
+      `/auth/nfts/${encodeURIComponent(nftId)}/withdrawal/cancel?phone=${encodeURIComponent(session.phone)}`,
+      {
+        method: "POST",
+        headers: sessionHeaders(session),
+      },
+    );
+  },
   registerPushToken(
     session: AuthSession,
     input: {

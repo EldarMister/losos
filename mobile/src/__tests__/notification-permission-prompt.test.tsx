@@ -14,7 +14,7 @@ describe("NotificationPermissionPrompt", () => {
     );
 
     expect(screen.getByText(/запрашивает разрешение на отправку уведомлений/)).toBeTruthy();
-    expect(screen.getByText(/информацию по вашему заказу/)).toBeTruthy();
+    expect(screen.getByText(/статусе заказов и заявок на вывод наград/)).toBeTruthy();
 
     fireEvent.press(screen.getByLabelText("Разрешить уведомления"));
     expect(onAllow).toHaveBeenCalledTimes(1);

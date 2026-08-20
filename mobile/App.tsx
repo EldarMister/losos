@@ -37,7 +37,7 @@ import {
   syncChangedOrderPushToken,
   unregisterOrderPush,
 } from "./src/pushNotifications";
-import { notificationOrderId } from "./src/notificationRouting";
+import { notificationOpensRewardBalance, notificationOrderId } from "./src/notificationRouting";
 import { canStartCheckout } from "./src/navigationRules";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { CatalogScreen } from "./src/screens/CatalogScreen";
@@ -309,6 +309,7 @@ function MobileApp() {
   const store = useStore();
   const [openLoginAfterOnboarding, setOpenLoginAfterOnboarding] = useState(false);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [pendingRewardBalance, setPendingRewardBalance] = useState(false);
   const [notificationPromptVisible, setNotificationPromptVisible] = useState(false);
   const [requestingNotificationPermission, setRequestingNotificationPermission] = useState(false);
 
@@ -415,6 +416,15 @@ function MobileApp() {
     else navigationRef.navigate("Auth", { next: "order", orderId });
   }, [store.session]);
 
+  const openRewardBalance = useCallback(() => {
+    if (!navigationRef.isReady()) {
+      setPendingRewardBalance(true);
+      return;
+    }
+    if (store.session) navigationRef.navigate("Profile", { section: "balance" });
+    else navigationRef.navigate("Auth", { next: "profile" });
+  }, [store.session]);
+
   useEffect(() => {
     if (!store.hydrated) return;
     void Notifications.getLastNotificationResponseAsync().then((response) => {
@@ -422,14 +432,18 @@ function MobileApp() {
       if (orderId) {
         openOrder(orderId);
         void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
+      } else if (notificationOpensRewardBalance(response)) {
+        openRewardBalance();
+        void Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
       }
     });
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const orderId = notificationOrderId(response);
       if (orderId) openOrder(orderId);
+      else if (notificationOpensRewardBalance(response)) openRewardBalance();
     });
     return () => subscription.remove();
-  }, [openOrder, store.hydrated]);
+  }, [openOrder, openRewardBalance, store.hydrated]);
 
   if (!store.hydrated) return <Splash />;
 
@@ -447,7 +461,7 @@ function MobileApp() {
       <NavigationContainer
       linking={{
         prefixes: ["naktasushi://"],
-        config: { screens: { OrderDetails: "orders/:orderId" } },
+        config: { screens: { OrderDetails: "orders/:orderId", Profile: "profile/:section" } },
       }}
       onReady={() => {
         if (openLoginAfterOnboarding) {
@@ -459,6 +473,9 @@ function MobileApp() {
           } else {
             navigationRef.navigate("Auth");
           }
+        } else if (pendingRewardBalance) {
+          setPendingRewardBalance(false);
+          openRewardBalance();
         } else if (pendingOrderId) {
           setPendingOrderId(null);
           openOrder(pendingOrderId);

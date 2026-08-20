@@ -12,3 +12,11 @@ export function notificationOrderId(
   const match = /^naktasushi:\/\/orders\/([^/?#]+)/i.exec(url);
   return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
+
+export function notificationOpensRewardBalance(
+  response: Notifications.NotificationResponse | null | undefined,
+) {
+  const data = response?.notification.request.content.data;
+  if (data?.type === "reward-withdrawal") return true;
+  return data?.url === "naktasushi://profile/balance";
+}

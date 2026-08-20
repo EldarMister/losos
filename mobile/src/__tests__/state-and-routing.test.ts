@@ -6,7 +6,7 @@ import {
   canStartCheckout,
   createOrderIdempotencyKey,
 } from "../navigationRules";
-import { notificationOrderId } from "../notificationRouting";
+import { notificationOpensRewardBalance, notificationOrderId } from "../notificationRouting";
 import { isPersistedOrderReceipt } from "../orderReceipt";
 import { groupSearchResults } from "../searchResults";
 import { brandPromotion } from "../promotionBranding";
@@ -142,6 +142,24 @@ describe("mobile state and routing", () => {
       },
     } as never)).toBe("order 42");
     expect(notificationOrderId(null)).toBeNull();
+  });
+
+  test("recognizes reward withdrawal notifications as balance links", () => {
+    expect(notificationOpensRewardBalance({
+      notification: {
+        request: {
+          content: { data: { type: "reward-withdrawal" } },
+        },
+      },
+    } as never)).toBe(true);
+    expect(notificationOpensRewardBalance({
+      notification: {
+        request: {
+          content: { data: { url: "naktasushi://profile/balance" } },
+        },
+      },
+    } as never)).toBe(true);
+    expect(notificationOpensRewardBalance(null)).toBe(false);
   });
 
   test("never exposes legacy promotion branding or destinations", () => {

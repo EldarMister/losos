@@ -31,7 +31,7 @@ function pushIsAvailable() {
 async function ensureOrderNotificationChannel() {
   if (Platform.OS !== "android") return;
   await Notifications.setNotificationChannelAsync("orders", {
-    name: "Статусы заказов",
+    name: "Заказы и вывод наград",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 180, 250],
     lightColor: "#FF4D00",
