@@ -205,6 +205,9 @@ export type Customer = {
   completedOrders: number;
   revenue: number;
   lastOrderAt: string;
+  naktaCoins: number;
+  nftCount: number;
+  pendingNftCount: number;
 };
 
 export type CoinWithdrawalStatus = "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
@@ -245,6 +248,36 @@ export type NftWithdrawal = {
   withdrawnAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type CustomerOrderSummary = {
+  id: string;
+  orderNumber: number;
+  total: number;
+  status: OrderStatus;
+  deliveryType: "delivery" | "pickup";
+  paymentMethod: "cash" | "card" | "online";
+  address: string;
+  createdAt: string;
+};
+
+export type CustomerRewardAdjustment = {
+  id: string;
+  phone: string;
+  regionSlug: string;
+  asset: "coin" | "nft";
+  delta: number;
+  balanceAfter: number;
+  reason: string;
+  createdAt: string;
+};
+
+export type CustomerDetail = Customer & {
+  regionSlug: string;
+  availableNftCount: number;
+  orders: CustomerOrderSummary[];
+  nfts: NftWithdrawal[];
+  adjustments: CustomerRewardAdjustment[];
 };
 
 export type AdminRequest = <T>(path: string, init?: RequestInit) => Promise<T>;

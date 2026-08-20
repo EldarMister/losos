@@ -7,13 +7,13 @@ import { AdminNavigation, adminSections } from "./AdminNavigation";
 import {
   AnalyticsView,
   CategoriesView,
-  UsersView,
 } from "./AdminSections";
 import { FinanceWorkspace } from "./FinanceWorkspace";
 import { MenuWorkspace } from "./MenuWorkspace";
 import OrdersWorkspace from "./OrdersWorkspace";
 import { PromotionsWorkspace } from "./PromotionsWorkspace";
 import { SettingsWorkspace } from "./SettingsWorkspace";
+import { UsersWorkspace } from "./UsersWorkspace";
 import type { AdminRequest, AdminSection, Region } from "./admin-types";
 
 const apiUrl = (
@@ -219,7 +219,7 @@ export function AdminApp() {
           {section === "analytics" ? <AnalyticsView {...viewProps} /> : null}
           {section === "menu" ? <MenuWorkspace {...viewProps} /> : null}
           {section === "categories" ? <CategoriesView {...viewProps} /> : null}
-          {section === "users" ? <UsersView {...viewProps} /> : null}
+          {section === "users" ? <UsersWorkspace key={region} {...viewProps} /> : null}
           {section === "finance" ? <FinanceWorkspace {...viewProps} /> : null}
           {section === "promotions" ? <PromotionsWorkspace {...viewProps} /> : null}
           {section === "settings" ? <SettingsWorkspace {...viewProps} /> : null}

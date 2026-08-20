@@ -20,6 +20,7 @@ import {
   AdminAnalyticsQueryDto,
   AdminCustomersQueryDto,
   AdminNftWithdrawalsQueryDto,
+  AdjustCustomerRewardsDto,
   UpdateOrderKitDto,
 } from "../src/admin/admin-orders.dto";
 import { dispatchOrderStatusPush } from "../src/admin/order-status-notifier";
@@ -308,6 +309,36 @@ test("NFT withdrawal validates wallet addresses for supported networks", () => {
   assert.equal(isWalletAddressValid("solana", "11111111111111111111111111111111"), true);
   assert.equal(isWalletAddressValid("ton", `0:${"a".repeat(64)}`), true);
   assert.equal(isWalletAddressValid("bitcoin", "bc1qunsupported"), false);
+});
+
+test("admin reward adjustments require a signed non-zero amount and an audit reason", () => {
+  const credit = plainToInstance(AdjustCustomerRewardsDto, {
+    region: "bishkek",
+    asset: "coin",
+    delta: "25",
+    reason: "Компенсация за задержку заказа",
+  });
+  assert.deepEqual(validateSync(credit), []);
+  assert.equal(credit.delta, 25);
+
+  const debit = plainToInstance(AdjustCustomerRewardsDto, {
+    region: "bishkek",
+    asset: "nft",
+    delta: -1,
+    reason: "Исправление ошибочного начисления",
+  });
+  assert.deepEqual(validateSync(debit), []);
+
+  const invalid = plainToInstance(AdjustCustomerRewardsDto, {
+    region: "bishkek",
+    asset: "money",
+    delta: 0,
+    reason: "",
+  });
+  const errors = validateSync(invalid);
+  assert.ok(errors.some((error) => error.property === "asset"));
+  assert.ok(errors.some((error) => error.property === "delta"));
+  assert.ok(errors.some((error) => error.property === "reason"));
 });
 
 test("NAKTA Coin withdrawal requires a valid amount and wallet address", () => {

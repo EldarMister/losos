@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
+import { randomUUID } from "node:crypto";
 import { Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
 import {
@@ -21,10 +22,12 @@ import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
+import { CustomerRewardAdjustment } from "../rewards/customer-reward-adjustment.entity";
 import { calculateOrderRewards, isNftMilestone } from "../rewards/reward-calculation";
 import {
   type AdminAnalyticsPeriod,
   type AdminNftWithdrawalStatus,
+  AdjustCustomerRewardsDto,
   ListOrdersQueryDto,
   UpdateOrderKitDto,
 } from "./admin-orders.dto";
@@ -73,6 +76,10 @@ export class AdminService {
     private readonly coinTransactionRepository: Repository<NaktaCoinTransaction>,
     @InjectRepository(NaktaCoinWithdrawal)
     private readonly coinWithdrawalRepository: Repository<NaktaCoinWithdrawal>,
+    @InjectRepository(PhoneAccount)
+    private readonly accountRepository: Repository<PhoneAccount>,
+    @InjectRepository(CustomerRewardAdjustment)
+    private readonly rewardAdjustmentRepository: Repository<CustomerRewardAdjustment>,
     private readonly pushNotifications: PushNotificationsService,
     private readonly eduPos: EduPosService,
     private readonly config: ConfigService,
@@ -465,6 +472,162 @@ export class AdminService {
       pendingNftCount: Number(row.pendingNftCount),
     }));
     return { items, total: Number(total), limit, offset };
+  }
+
+  async customer(phone: string, regionSlug: string) {
+    await this.requireRegion(regionSlug);
+    const [summary] = await this.orderRepository.query(`
+      SELECT
+        orders."phone",
+        (array_agg(orders."customerName" ORDER BY orders."createdAt" DESC))[1] AS "customerName",
+        COUNT(*)::int AS "ordersCount",
+        COUNT(*) FILTER (WHERE orders."status" = $3)::int AS "completedOrders",
+        COALESCE(SUM(orders."total") FILTER (WHERE orders."status" = $3), 0)::bigint AS "revenue",
+        MAX(orders."createdAt") AS "lastOrderAt"
+      FROM "orders" orders
+      WHERE orders."phone" = $1 AND orders."regionSlug" = $2
+      GROUP BY orders."phone"
+    `, [phone, regionSlug, OrderStatus.COMPLETED]) as Array<Record<string, unknown>>;
+    if (!summary) throw new NotFoundException("Пользователь в выбранном городе не найден");
+
+    const [orders, account, nfts, adjustments] = await Promise.all([
+      this.orderRepository.find({
+        where: { phone, regionSlug },
+        order: { createdAt: "DESC" },
+      }),
+      this.accountRepository.findOne({ where: { phone } }),
+      this.nftRepository.find({
+        where: { phone, regionSlug },
+        order: { createdAt: "DESC" },
+      }),
+      this.rewardAdjustmentRepository.find({
+        where: { phone, regionSlug },
+        order: { createdAt: "DESC" },
+        take: 100,
+      }),
+    ]);
+
+    const availableNftCount = nfts.filter((nft) => nft.status === "owned").length;
+    const pendingNftCount = nfts.filter((nft) => ["pending", "submitted"].includes(nft.status)).length;
+    return {
+      phone,
+      regionSlug,
+      customerName: String(summary.customerName || ""),
+      ordersCount: Number(summary.ordersCount),
+      completedOrders: Number(summary.completedOrders),
+      revenue: Number(summary.revenue),
+      lastOrderAt: summary.lastOrderAt,
+      naktaCoins: account?.naktaCoins ?? 0,
+      nftCount: nfts.length,
+      availableNftCount,
+      pendingNftCount,
+      orders: orders.map((order) => ({
+        id: order.id,
+        orderNumber: order.orderNumber,
+        total: order.total,
+        status: order.status,
+        deliveryType: order.deliveryType,
+        paymentMethod: order.paymentMethod,
+        address: order.address,
+        createdAt: order.createdAt,
+      })),
+      nfts,
+      adjustments,
+    };
+  }
+
+  async adjustCustomerRewards(phone: string, dto: AdjustCustomerRewardsDto) {
+    if (dto.delta === 0) throw new BadRequestException("Укажите количество больше или меньше нуля");
+    const region = await this.requireRegion(dto.region);
+
+    await this.orderRepository.manager.transaction(async (manager) => {
+      const orderRepository = manager.getRepository(Order);
+      const latestOrder = await orderRepository.findOne({
+        where: { phone, regionSlug: region.slug },
+        order: { createdAt: "DESC" },
+      });
+      if (!latestOrder) throw new NotFoundException("Пользователь в выбранном городе не найден");
+
+      const accountRepository = manager.getRepository(PhoneAccount);
+      let account = await accountRepository.findOne({
+        where: { phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!account) {
+        account = await accountRepository.save(accountRepository.create({
+          phone,
+          naktaCoins: 0,
+          sessionTokenHash: null,
+          sessionExpiresAt: null,
+        }));
+      }
+
+      let balanceAfter: number;
+      if (dto.asset === "coin") {
+        const nextBalance = account.naktaCoins + dto.delta;
+        if (!Number.isSafeInteger(nextBalance) || nextBalance < 0 || nextBalance > 2_147_483_647) {
+          throw new BadRequestException("Недостаточно NAKTA Coin для списания или превышен допустимый баланс");
+        }
+        account.naktaCoins = nextBalance;
+        await accountRepository.save(account);
+        balanceAfter = nextBalance;
+      } else {
+        const nftRepository = manager.getRepository(AccountNft);
+        if (dto.delta > 0) {
+          const created = Array.from({ length: dto.delta }, () => nftRepository.create({
+            phone,
+            regionSlug: region.slug,
+            rewardKey: `admin:${randomUUID()}`,
+            orderId: latestOrder.id,
+            milestoneOrderCount: 1,
+            name: region.nftRewardName || "NFT NAKTA",
+            image: region.nftRewardImage || "",
+            description: region.nftRewardDescription || "",
+            network: region.nftRewardNetwork || "polygon",
+            contractAddress: region.nftContractAddress || "",
+            metadataUri: region.nftMetadataUri || "",
+            tokenId: null,
+            status: "owned",
+            walletAddress: null,
+            txHash: null,
+            withdrawalError: null,
+            withdrawalRequestedAt: null,
+            withdrawnAt: null,
+          }));
+          await nftRepository.save(created);
+        } else {
+          const countToRemove = Math.abs(dto.delta);
+          const removable = await nftRepository.createQueryBuilder("nft")
+            .setLock("pessimistic_write")
+            .where('nft."phone" = :phone', { phone })
+            .andWhere('nft."regionSlug" = :regionSlug', { regionSlug: region.slug })
+            .andWhere('nft."status" = :status', { status: "owned" })
+            .orderBy('nft."createdAt"', "DESC")
+            .take(countToRemove)
+            .getMany();
+          if (removable.length < countToRemove) {
+            throw new BadRequestException(`Можно списать только доступные NFT: ${removable.length}`);
+          }
+          await nftRepository.remove(removable);
+        }
+        balanceAfter = await nftRepository.countBy({
+          phone,
+          regionSlug: region.slug,
+          status: "owned",
+        });
+      }
+
+      await manager.getRepository(CustomerRewardAdjustment).save({
+        phone,
+        regionSlug: region.slug,
+        asset: dto.asset,
+        delta: dto.delta,
+        balanceAfter,
+        reason: dto.reason.trim(),
+      });
+    });
+
+    return this.customer(phone, region.slug);
   }
 
   nftWithdrawals(regionSlug?: string, status?: AdminNftWithdrawalStatus) {

@@ -16,6 +16,7 @@ import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
 import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
+import { CustomerRewardAdjustment } from "../rewards/customer-reward-adjustment.entity";
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
       AccountNft,
       NaktaCoinTransaction,
       NaktaCoinWithdrawal,
+      CustomerRewardAdjustment,
     ]),
     PushNotificationsModule,
     EduPosModule,

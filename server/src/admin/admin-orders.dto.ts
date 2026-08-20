@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min, NotEquals, ValidateNested } from "class-validator";
 import { CreateOrderKitItemDto } from "../orders/create-order.dto";
 import { OrderStatus } from "../orders/order.enums";
 
@@ -40,6 +40,31 @@ export class AdminCustomersQueryDto {
   @IsInt()
   @Min(0)
   offset = 0;
+}
+
+export const CUSTOMER_REWARD_ASSETS = ["coin", "nft"] as const;
+export type CustomerRewardAssetDto = typeof CUSTOMER_REWARD_ASSETS[number];
+
+export class AdjustCustomerRewardsDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  region = "bishkek";
+
+  @IsIn(CUSTOMER_REWARD_ASSETS)
+  asset!: CustomerRewardAssetDto;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(-1_000_000)
+  @Max(1_000_000)
+  @NotEquals(0)
+  delta!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(240)
+  reason!: string;
 }
 
 export const ADMIN_NFT_WITHDRAWAL_STATUSES = [

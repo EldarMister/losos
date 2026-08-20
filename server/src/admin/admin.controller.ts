@@ -15,6 +15,7 @@ import {
   AdminAnalyticsQueryDto,
   AdminCustomersQueryDto,
   AdminNftWithdrawalsQueryDto,
+  AdjustCustomerRewardsDto,
   ListOrdersQueryDto,
   UpdateOrderKitDto,
   UpdateOrderStatusDto,
@@ -69,6 +70,22 @@ export class AdminController {
   @Get("customers")
   customers(@Query() query: AdminCustomersQueryDto) {
     return this.admin.customers(query.region, query.search, query.limit, query.offset);
+  }
+
+  @Get("customers/:phone")
+  customer(
+    @Param("phone") phone: string,
+    @Query("region") region = "bishkek",
+  ) {
+    return this.admin.customer(phone, region);
+  }
+
+  @Post("customers/:phone/rewards/adjust")
+  adjustCustomerRewards(
+    @Param("phone") phone: string,
+    @Body() dto: AdjustCustomerRewardsDto,
+  ) {
+    return this.admin.adjustCustomerRewards(phone, dto);
   }
 
   @Get("nft-withdrawals")
