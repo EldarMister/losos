@@ -221,4 +221,30 @@ export type CoinWithdrawal = {
   createdAt: string;
 };
 
+export type NftWithdrawalStatus = "owned" | "pending" | "submitted" | "withdrawn" | "failed";
+
+export type NftWithdrawal = {
+  id: string;
+  phone: string;
+  regionSlug: string;
+  rewardKey: string;
+  orderId: string;
+  milestoneOrderCount: number;
+  name: string;
+  image: string;
+  description: string;
+  network: string;
+  contractAddress: string;
+  metadataUri: string;
+  tokenId: string | null;
+  status: NftWithdrawalStatus;
+  walletAddress: string | null;
+  txHash: string | null;
+  withdrawalError: string | null;
+  withdrawalRequestedAt: string | null;
+  withdrawnAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminRequest = <T>(path: string, init?: RequestInit) => Promise<T>;

@@ -7,9 +7,9 @@ import { AdminNavigation, adminSections } from "./AdminNavigation";
 import {
   AnalyticsView,
   CategoriesView,
-  FinanceView,
   UsersView,
 } from "./AdminSections";
+import { FinanceWorkspace } from "./FinanceWorkspace";
 import { MenuWorkspace } from "./MenuWorkspace";
 import OrdersWorkspace from "./OrdersWorkspace";
 import { PromotionsWorkspace } from "./PromotionsWorkspace";
@@ -220,7 +220,7 @@ export function AdminApp() {
           {section === "menu" ? <MenuWorkspace {...viewProps} /> : null}
           {section === "categories" ? <CategoriesView {...viewProps} /> : null}
           {section === "users" ? <UsersView {...viewProps} /> : null}
-          {section === "finance" ? <FinanceView {...viewProps} /> : null}
+          {section === "finance" ? <FinanceWorkspace {...viewProps} /> : null}
           {section === "promotions" ? <PromotionsWorkspace {...viewProps} /> : null}
           {section === "settings" ? <SettingsWorkspace {...viewProps} /> : null}
         </main>
