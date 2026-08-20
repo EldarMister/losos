@@ -45,6 +45,7 @@ const coinStatuses: Array<{ value: "all" | CoinWithdrawalStatus; label: string }
   { value: "submitted", label: "Отправлены" },
   { value: "withdrawn", label: "Завершены" },
   { value: "failed", label: "Отклонены" },
+  { value: "cancelled", label: "Отменены клиентом" },
 ];
 
 const nftStatuses: Array<{ value: "all" | NftWithdrawalStatus; label: string }> = [
@@ -56,20 +57,24 @@ const nftStatuses: Array<{ value: "all" | NftWithdrawalStatus; label: string }> 
   { value: "owned", label: "У пользователей" },
 ];
 
-const statusLabels: Record<NftWithdrawalStatus, string> = {
+type WithdrawalDisplayStatus = CoinWithdrawalStatus | NftWithdrawalStatus;
+
+const statusLabels: Record<WithdrawalDisplayStatus, string> = {
   owned: "У пользователя",
   pending: "Ожидает решения",
   submitted: "Отправлено",
   withdrawn: "Выведено",
   failed: "Отклонено",
+  cancelled: "Отменено клиентом",
 };
 
-const statusStyles: Record<NftWithdrawalStatus, string> = {
+const statusStyles: Record<WithdrawalDisplayStatus, string> = {
   owned: "bg-slate-100 text-slate-700",
   pending: "bg-amber-50 text-amber-800",
   submitted: "bg-blue-50 text-blue-700",
   withdrawn: "bg-emerald-50 text-emerald-700",
   failed: "bg-red-50 text-red-700",
+  cancelled: "bg-slate-100 text-slate-700",
 };
 
 const primaryButton = "inline-flex min-h-11 items-center justify-center rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";

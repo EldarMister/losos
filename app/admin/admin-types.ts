@@ -207,7 +207,7 @@ export type Customer = {
   lastOrderAt: string;
 };
 
-export type CoinWithdrawalStatus = "pending" | "submitted" | "withdrawn" | "failed";
+export type CoinWithdrawalStatus = "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
 
 export type CoinWithdrawal = {
   id: string;

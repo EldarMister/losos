@@ -39,6 +39,7 @@ import {
 } from "../src/auth/phone-auth.service";
 import type { PhoneAuthChallenge } from "../src/auth/phone-auth.entity";
 import { PhoneAccountSession } from "../src/auth/phone-account-session.entity";
+import { PhoneAccount } from "../src/auth/phone-account.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
@@ -83,6 +84,8 @@ import { AddSharedRegionContentAndOtuzAdyr1785000000000 } from "../src/migration
 import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "../src/migrations/1785002000000-AddShortOrderNumbersAndAdminConfirmation";
 import { AddLoyaltyPrograms1785003000000 } from "../src/migrations/1785003000000-AddLoyaltyPrograms";
 import { AddOrderKitItems1785004000000 } from "../src/migrations/1785004000000-AddOrderKitItems";
+import { AddCancelledCoinWithdrawals1785007000000 } from "../src/migrations/1785007000000-AddCancelledCoinWithdrawals";
+import { NaktaCoinWithdrawal } from "../src/rewards/nakta-coin-withdrawal.entity";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -653,6 +656,44 @@ test("order status push has a deep link and removes DeviceNotRegistered tokens",
   assert.deepEqual(deleted, [["token-2"]]);
 });
 
+test("reward withdrawal push includes its final status and the administrator reason", async () => {
+  const repository = {
+    find: async () => [{ id: "token-1", expoPushToken: "ExponentPushToken[first]" }],
+    delete: async () => ({ affected: 0 }),
+  };
+  const originalFetch = globalThis.fetch;
+  let requestBody: Array<{ title: string; body: string; data: Record<string, string> }> = [];
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    requestBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ data: [{ status: "ok" }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+  try {
+    const push = new PushNotificationsService(repository as never);
+    await push.sendRewardWithdrawalStatus("+996555123456", {
+      withdrawalId: "withdrawal-42",
+      asset: "coin",
+      status: "failed",
+      amount: 8,
+      reason: "Адрес не поддерживает сеть NAKTA",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(requestBody[0]?.title, "Вывод отменён");
+  assert.match(requestBody[0]?.body || "", /Адрес не поддерживает сеть NAKTA/);
+  assert.deepEqual(requestBody[0]?.data, {
+    type: "reward-withdrawal",
+    withdrawalId: "withdrawal-42",
+    asset: "coin",
+    status: "failed",
+    url: "naktasushi://profile/balance",
+  });
+});
+
 test("pickup and push migration has reversible tables and migrates legacy pickup data", async () => {
   const migration = new AddPickupLocationsAndPushTokens1784996000000();
   const upQueries: string[] = [];
@@ -810,6 +851,8 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
   assert.deepEqual(
     Object.getOwnPropertyNames(PhoneAuthController.prototype).sort(),
     [
+      "cancelNaktaCoinWithdrawal",
+      "cancelNftWithdrawal",
       "cancelOrder",
       "checkWhatsapp",
       "constructor",
@@ -828,6 +871,67 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "withdrawNft",
     ],
   );
+});
+
+test("customers can cancel a pending coin withdrawal and receive the balance back once", async () => {
+  const phone = "+996555123456";
+  const withdrawal = {
+    id: "11111111-1111-4111-8111-111111111111",
+    phone,
+    amount: 8,
+    status: "pending",
+    error: null,
+    processedAt: null,
+  } as NaktaCoinWithdrawal;
+  const account = { phone, naktaCoins: 10 } as PhoneAccount;
+  const withdrawalRepository = {
+    findOne: async () => withdrawal,
+    save: async (value: NaktaCoinWithdrawal) => value,
+  };
+  const accountRepository = {
+    findOne: async () => account,
+    save: async (value: PhoneAccount) => value,
+  };
+  const manager = {
+    getRepository: (entity: unknown) => entity === NaktaCoinWithdrawal
+      ? withdrawalRepository
+      : accountRepository,
+  };
+  const accounts = {
+    findOneBy: async () => account,
+    manager: { transaction: async <T>(callback: (value: typeof manager) => Promise<T>) => callback(manager) },
+  };
+  const sessions = { findOne: async () => ({ phone }) };
+  const auth = new PhoneAuthService(
+    {} as never,
+    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    accounts as never,
+    sessions as never,
+    {} as never,
+    {} as never,
+  );
+
+  const cancelled = await auth.cancelNaktaCoinWithdrawal(phone, "a".repeat(64), withdrawal.id);
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.error, "Отменено пользователем");
+  assert.equal(account.naktaCoins, 18);
+
+  await auth.cancelNaktaCoinWithdrawal(phone, "a".repeat(64), withdrawal.id);
+  assert.equal(account.naktaCoins, 18);
+});
+
+test("cancelled coin withdrawal migration extends and restores the status constraint", async () => {
+  const migration = new AddCancelledCoinWithdrawals1785007000000();
+  const upQueries: string[] = [];
+  const downQueries: string[] = [];
+  await migration.up({ query: async (sql: string) => { upQueries.push(sql); return []; } } as never);
+  await migration.down({ query: async (sql: string) => { downQueries.push(sql); return []; } } as never);
+  assert.ok(upQueries.some((sql) => sql.includes("'cancelled'")));
+  assert.ok(downQueries.some((sql) => sql.includes("SET \"status\" = 'failed'")));
 });
 
 test("customers can cancel only their new orders before kitchen submission", async () => {

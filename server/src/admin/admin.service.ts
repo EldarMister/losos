@@ -486,7 +486,7 @@ export class AdminService {
   }
 
   async updateNftWithdrawal(id: string, dto: UpdateNftWithdrawalDto) {
-    return this.nftRepository.manager.transaction(async (manager) => {
+    const nft = await this.nftRepository.manager.transaction(async (manager) => {
       const repository = manager.getRepository(AccountNft);
       const nft = await repository.findOne({
         where: { id },
@@ -517,10 +517,18 @@ export class AdminService {
       nft.withdrawnAt = dto.status === "withdrawn" ? new Date() : null;
       return repository.save(nft);
     });
+    await this.pushNotifications.sendRewardWithdrawalStatus(nft.phone, {
+      withdrawalId: nft.id,
+      asset: "nft",
+      status: dto.status,
+      name: nft.name,
+      reason: nft.withdrawalError,
+    });
+    return nft;
   }
 
   coinWithdrawals(regionSlug?: string, status?: string) {
-    const supported = new Set(["pending", "submitted", "withdrawn", "failed"]);
+    const supported = new Set(["pending", "submitted", "withdrawn", "failed", "cancelled"]);
     const query = this.coinWithdrawalRepository.createQueryBuilder("withdrawal");
     if (regionSlug) {
       query.andWhere('withdrawal."regionSlug" = :regionSlug', { regionSlug });
@@ -532,7 +540,8 @@ export class AdminService {
       .orderBy(`CASE withdrawal.status
         WHEN 'pending' THEN 0
         WHEN 'failed' THEN 1
-        WHEN 'submitted' THEN 2
+        WHEN 'cancelled' THEN 2
+        WHEN 'submitted' THEN 3
         ELSE 3
       END`, "ASC")
       .addOrderBy('withdrawal."createdAt"', "DESC")
@@ -541,14 +550,14 @@ export class AdminService {
   }
 
   async updateCoinWithdrawal(id: string, dto: UpdateNaktaCoinWithdrawalDto) {
-    return this.coinWithdrawalRepository.manager.transaction(async (manager) => {
+    const withdrawal = await this.coinWithdrawalRepository.manager.transaction(async (manager) => {
       const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
       const withdrawal = await withdrawalRepository.findOne({
         where: { id },
         lock: { mode: "pessimistic_write" },
       });
       if (!withdrawal) throw new NotFoundException("Заявка на вывод не найдена");
-      if (["withdrawn", "failed"].includes(withdrawal.status)) {
+      if (["withdrawn", "failed", "cancelled"].includes(withdrawal.status)) {
         throw new ConflictException("Заявка уже завершена");
       }
       const nextTxHash = dto.txHash !== undefined
@@ -580,6 +589,14 @@ export class AdminService {
 
       return withdrawalRepository.save(withdrawal);
     });
+    await this.pushNotifications.sendRewardWithdrawalStatus(withdrawal.phone, {
+      withdrawalId: withdrawal.id,
+      asset: "coin",
+      status: dto.status,
+      amount: withdrawal.amount,
+      reason: withdrawal.error,
+    });
+    return withdrawal;
   }
 
   async createRegion(dto: CreateRegionDto) {

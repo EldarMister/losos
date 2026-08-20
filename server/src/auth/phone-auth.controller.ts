@@ -133,6 +133,28 @@ export class PhoneAuthController {
     );
   }
 
+  @Post("coins/withdrawals/:id/cancel")
+  @HttpCode(200)
+  cancelNaktaCoinWithdrawal(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.cancelNaktaCoinWithdrawal(phone || "", verificationToken, id);
+  }
+
+  @Post("nfts/:id/withdrawal/cancel")
+  @HttpCode(200)
+  cancelNftWithdrawal(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query("phone") phone: string | undefined,
+    @Headers("authorization") authorization: string | undefined,
+  ) {
+    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
+    return this.auth.cancelNftWithdrawal(phone || "", verificationToken, id);
+  }
+
   @Post("request-code")
   @HttpCode(200)
   requestCode(@Body() dto: RequestPhoneCodeDto, @Ip() remoteIp: string) {

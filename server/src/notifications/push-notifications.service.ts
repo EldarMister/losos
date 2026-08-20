@@ -9,6 +9,15 @@ type ExpoPushTicket = {
   details?: { error?: string };
 };
 
+export type RewardWithdrawalPushInput = {
+  withdrawalId: string;
+  asset: "coin" | "nft";
+  status: "submitted" | "withdrawn" | "failed";
+  amount?: number;
+  name?: string;
+  reason?: string | null;
+};
+
 const statusCopy: Record<OrderStatus, { title: string; body: string }> = {
   [OrderStatus.NEW]: {
     title: "Заказ принят",
@@ -75,15 +84,8 @@ export class PushNotificationsService {
     orderId: string,
     status: OrderStatus,
   ) {
-    const devices = await this.tokens.find({
-      where: { phone, enabled: true },
-      order: { updatedAt: "DESC" },
-    });
-    if (!devices.length) return;
-
     const copy = statusCopy[status];
-    const messages = devices.map((device) => ({
-      to: device.expoPushToken,
+    return this.send(phone, {
       sound: "default",
       title: copy.title,
       body: copy.body,
@@ -93,6 +95,56 @@ export class PushNotificationsService {
         url: `naktasushi://orders/${orderId}`,
       },
       channelId: "orders",
+    });
+  }
+
+  async sendRewardWithdrawalStatus(phone: string, input: RewardWithdrawalPushInput) {
+    const asset = input.asset === "coin"
+      ? `${input.amount ?? ""} NAKTA Coin`.trim()
+      : input.name?.trim() || "NFT";
+    const copy = input.status === "submitted"
+      ? { title: "Вывод одобрен", body: `${asset}: перевод отправлен на ваш кошелёк.` }
+      : input.status === "withdrawn"
+        ? { title: "Вывод выполнен", body: `${asset} успешно выведен на ваш кошелёк.` }
+        : {
+          title: "Вывод отменён",
+          body: `${asset} возвращён в ваш баланс.${input.reason?.trim() ? ` Причина: ${input.reason.trim()}` : ""}`,
+        };
+
+    return this.send(phone, {
+      sound: "default",
+      title: copy.title,
+      body: copy.body,
+      data: {
+        type: "reward-withdrawal",
+        withdrawalId: input.withdrawalId,
+        asset: input.asset,
+        status: input.status,
+        url: "naktasushi://profile/balance",
+      },
+      channelId: "orders",
+    });
+  }
+
+  private async send(
+    phone: string,
+    content: {
+      sound: string;
+      title: string;
+      body: string;
+      data: Record<string, string>;
+      channelId: string;
+    },
+  ) {
+    const devices = await this.tokens.find({
+      where: { phone, enabled: true },
+      order: { updatedAt: "DESC" },
+    });
+    if (!devices.length) return;
+
+    const messages = devices.map((device) => ({
+      to: device.expoPushToken,
+      ...content,
     }));
 
     try {
@@ -104,6 +156,7 @@ export class PushNotificationsService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(messages),
+        signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) {
         console.error("Expo push request failed", { status: response.status });

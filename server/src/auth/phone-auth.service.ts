@@ -362,22 +362,35 @@ export class PhoneAuthService {
       }),
     ]);
     const withdrawalHistory = naktaCoinWithdrawals.flatMap((withdrawal) => {
+      const reason = withdrawal.error?.trim() || null;
       const request = {
         id: `withdrawal-${withdrawal.id}`,
         amount: -withdrawal.amount,
         createdAt: withdrawal.createdAt,
         description: withdrawal.status === "withdrawn"
           ? "Вывод NAKTA Coin завершён"
-          : "Заявка на вывод NAKTA Coin",
+          : withdrawal.status === "cancelled"
+            ? "Заявка на вывод NAKTA Coin отменена"
+            : withdrawal.status === "failed"
+              ? "Заявка на вывод NAKTA Coin отклонена"
+              : "Заявка на вывод NAKTA Coin",
         orderId: undefined,
+        withdrawalId: withdrawal.id,
+        withdrawalStatus: withdrawal.status,
+        withdrawalReason: reason,
       };
-      return withdrawal.status === "failed"
+      return ["failed", "cancelled"].includes(withdrawal.status)
         ? [request, {
           id: `withdrawal-refund-${withdrawal.id}`,
           amount: withdrawal.amount,
           createdAt: withdrawal.processedAt ?? withdrawal.createdAt,
-          description: "Возврат NAKTA Coin после отмены вывода",
+          description: `${withdrawal.status === "cancelled"
+            ? "Возврат NAKTA Coin после отмены вывода"
+            : "Возврат NAKTA Coin после отклонения вывода"}${reason ? `. Причина: ${reason}` : ""}`,
           orderId: undefined,
+          withdrawalId: withdrawal.id,
+          withdrawalStatus: withdrawal.status,
+          withdrawalReason: reason,
         }]
         : [request];
     });
@@ -594,6 +607,69 @@ export class PhoneAuthService {
       await accountRepository.save(account);
       return withdrawal;
     });
+  }
+
+  async cancelNaktaCoinWithdrawal(
+    phone: string,
+    verificationToken: string,
+    withdrawalId: string,
+  ) {
+    await this.requireAccount(phone, verificationToken);
+    return this.accounts.manager.transaction(async (manager) => {
+      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
+      const withdrawal = await withdrawalRepository.findOne({
+        where: { id: withdrawalId, phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!withdrawal) throw new NotFoundException("Заявка на вывод не найдена");
+      if (withdrawal.status === "cancelled") return withdrawal;
+      if (withdrawal.status !== "pending") {
+        throw new ConflictException("Заявка уже обрабатывается и не может быть отменена");
+      }
+
+      const accountRepository = manager.getRepository(PhoneAccount);
+      const account = await accountRepository.findOne({
+        where: { phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!account) throw new NotFoundException("Аккаунт не найден");
+
+      withdrawal.status = "cancelled";
+      withdrawal.error = "Отменено пользователем";
+      withdrawal.processedAt = new Date();
+      account.naktaCoins += withdrawal.amount;
+      await accountRepository.save(account);
+      return withdrawalRepository.save(withdrawal);
+    });
+  }
+
+  async cancelNftWithdrawal(
+    phone: string,
+    verificationToken: string,
+    nftId: string,
+  ) {
+    await this.requireAccount(phone, verificationToken);
+    const nft = await this.nfts.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(AccountNft);
+      const current = await repository.findOne({
+        where: { id: nftId, phone },
+        lock: { mode: "pessimistic_write" },
+      });
+      if (!current) throw new NotFoundException("NFT не найден");
+      if (current.status !== "pending") {
+        throw new ConflictException("Заявка уже обрабатывается и не может быть отменена");
+      }
+
+      current.status = "owned";
+      current.walletAddress = null;
+      current.txHash = null;
+      current.tokenId = null;
+      current.withdrawalError = "Заявка на вывод отменена пользователем";
+      current.withdrawalRequestedAt = null;
+      current.withdrawnAt = null;
+      return repository.save(current);
+    });
+    return this.publicNft(nft);
   }
 
   async deleteAccount(phone: string, verificationToken: string) {

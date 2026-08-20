@@ -49,6 +49,7 @@ import { AccountNft } from "./rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
 import { NaktaCoinWithdrawal } from "./rewards/nakta-coin-withdrawal.entity";
 import { AddNaktaCoinWithdrawals1785005000000 } from "./migrations/1785005000000-AddNaktaCoinWithdrawals";
+import { AddCancelledCoinWithdrawals1785007000000 } from "./migrations/1785007000000-AddCancelledCoinWithdrawals";
 
 @Module({
   imports: [
@@ -91,6 +92,7 @@ import { AddNaktaCoinWithdrawals1785005000000 } from "./migrations/1785005000000
             AddLoyaltyPrograms1785003000000,
             AddOrderKitItems1785004000000,
             AddNaktaCoinWithdrawals1785005000000,
+            AddCancelledCoinWithdrawals1785007000000,
           ],
           migrationsRun: true,
           synchronize:

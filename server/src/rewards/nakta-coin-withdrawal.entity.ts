@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
 } from "typeorm";
 
-export type NaktaCoinWithdrawalStatus = "pending" | "submitted" | "withdrawn" | "failed";
+export type NaktaCoinWithdrawalStatus = "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
 
 @Entity("nakta_coin_withdrawals")
 export class NaktaCoinWithdrawal {
