@@ -50,6 +50,7 @@ import { NaktaCoinTransaction } from "./rewards/nakta-coin-transaction.entity";
 import { NaktaCoinWithdrawal } from "./rewards/nakta-coin-withdrawal.entity";
 import { AddNaktaCoinWithdrawals1785005000000 } from "./migrations/1785005000000-AddNaktaCoinWithdrawals";
 import { AddCancelledCoinWithdrawals1785007000000 } from "./migrations/1785007000000-AddCancelledCoinWithdrawals";
+import { AddCartConfiguration1785008000000 } from "./migrations/1785008000000-AddCartConfiguration";
 import { CustomerRewardAdjustment } from "./rewards/customer-reward-adjustment.entity";
 import { AddCustomerRewardAdjustments1785006000000 } from "./migrations/1785006000000-AddCustomerRewardAdjustments";
 
@@ -96,6 +97,7 @@ import { AddCustomerRewardAdjustments1785006000000 } from "./migrations/17850060
             AddNaktaCoinWithdrawals1785005000000,
             AddCustomerRewardAdjustments1785006000000,
             AddCancelledCoinWithdrawals1785007000000,
+            AddCartConfiguration1785008000000,
           ],
           migrationsRun: true,
           synchronize:

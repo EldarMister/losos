@@ -6,7 +6,6 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
-  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -69,7 +68,7 @@ export class CreateOrderItemDto {
 export class CreateOrderKitItemDto {
   @Transform(trim)
   @IsString()
-  @IsIn(["soy-sauce", "wasabi", "pickled-ginger"])
+  @Matches(/^[a-z0-9][a-z0-9_-]{0,99}$/i)
   id!: string;
 
   @Type(() => Number)
@@ -182,7 +181,7 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderKitItemDto)
   kitItems?: CreateOrderKitItemDto[];

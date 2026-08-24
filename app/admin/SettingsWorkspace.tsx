@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { Icon } from "@mdi/react";
 import {
@@ -18,6 +19,9 @@ import type {
   DeliveryZonePoint,
   PickupLocation,
   Region,
+  Category,
+  Dashboard,
+  FreeKitItem,
 } from "./admin-types";
 
 type SettingsWorkspaceProps = {
@@ -26,7 +30,7 @@ type SettingsWorkspaceProps = {
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
-type SettingsTab = "basic" | "delivery" | "pickup" | "rewards" | "edu-pos";
+type SettingsTab = "basic" | "delivery" | "pickup" | "kit" | "rewards" | "edu-pos";
 
 type SettingsDraft = {
   enabled: boolean;
@@ -42,6 +46,8 @@ type SettingsDraft = {
   maximumOrderAmount: string;
   estimatedDeliveryMinutes: string;
   deliveryZone: DeliveryZonePoint[];
+  freeKitItems: FreeKitItem[];
+  toppingProductIds: number[];
   nftRewardEveryOrders: string;
   nftRewardName: string;
   nftRewardImage: string;
@@ -98,9 +104,24 @@ const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "basic", label: "Основное" },
   { id: "delivery", label: "Доставка" },
   { id: "pickup", label: "Самовывоз" },
+  { id: "kit", label: "Комплектация" },
   { id: "rewards", label: "Вознаграждения" },
   { id: "edu-pos", label: "EDU POS" },
 ];
+
+const fallbackFreeKitItems: FreeKitItem[] = [
+  { id: "soy-sauce", name: "Соус соевый", image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8a6ed9632df66e2010fc4a1eccef758c_thumb_75_1152_1152.JPEG", defaultQuantity: 2, enabled: true },
+  { id: "wasabi", name: "Васаби", image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa8eef7dfdda0436a337ddb4c0970125_thumb_75_1152_1152.JPEG", defaultQuantity: 1, enabled: true },
+  { id: "pickled-ginger", name: "Имбирь", image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71852e053134d8a7863bc1ce6a13ece_thumb_75_1152_1152.JPEG", defaultQuantity: 1, enabled: true },
+];
+
+const toppingCategoryPattern = /топпинг|соус|добав|васаби|имбир/i;
+
+function legacyToppingIds(categories: Category[]) {
+  return categories
+    .filter((category) => toppingCategoryPattern.test(`${category.title} ${category.slug}`))
+    .flatMap((category) => category.products.map((product) => product.id));
+}
 
 const weekdays = [
   { value: 1, label: "Пн" }, { value: 2, label: "Вт" }, { value: 3, label: "Ср" },
@@ -108,7 +129,7 @@ const weekdays = [
   { value: 0, label: "Вс" },
 ];
 
-function draftFromRegion(item: Region): SettingsDraft {
+function draftFromRegion(item: Region, categories: Category[]): SettingsDraft {
   return {
     enabled: item.enabled,
     contactPhone: item.contactPhone || "",
@@ -123,6 +144,8 @@ function draftFromRegion(item: Region): SettingsDraft {
     maximumOrderAmount: String(item.maximumOrderAmount ?? 0),
     estimatedDeliveryMinutes: String(item.estimatedDeliveryMinutes ?? 50),
     deliveryZone: item.deliveryZone || [],
+    freeKitItems: (item.freeKitItems ?? fallbackFreeKitItems).map((kitItem) => ({ ...kitItem })),
+    toppingProductIds: [...(item.toppingProductIds ?? legacyToppingIds(categories))],
     nftRewardEveryOrders: String(item.nftRewardEveryOrders ?? 0),
     nftRewardName: item.nftRewardName || "NFT NAKTA",
     nftRewardImage: item.nftRewardImage || "",
@@ -171,6 +194,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
   const [tab, setTab] = useState<SettingsTab>("basic");
   const [item, setItem] = useState<Region | null>(null);
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [pickupEditor, setPickupEditor] = useState<PickupEditor | null>(null);
   const [eduPosStatus, setEduPosStatus] = useState<EduPosStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -182,13 +206,15 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
     setLoading(true);
     setError("");
     try {
-      const [regions, status] = await Promise.all([
+      const [regions, status, dashboard] = await Promise.all([
         request<Region[]>("/admin/settings"),
         request<EduPosStatus>("/admin/edu-pos/status").catch(() => null),
+        request<Dashboard>(`/admin/dashboard?region=${encodeURIComponent(region)}`),
       ]);
       const selected = regions.find((candidate) => candidate.slug === region) ?? regions[0] ?? null;
       setItem(selected);
-      setDraft(selected ? draftFromRegion(selected) : null);
+      setCategories(dashboard.categories);
+      setDraft(selected ? draftFromRegion(selected, dashboard.categories) : null);
       setEduPosStatus(status);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить настройки");
@@ -227,6 +253,8 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
           maximumOrderAmount: Number(draft.maximumOrderAmount),
           estimatedDeliveryMinutes: Number(draft.estimatedDeliveryMinutes),
           ...(draft.deliveryZone.length >= 3 ? { deliveryZone: draft.deliveryZone } : {}),
+          freeKitItems: draft.freeKitItems,
+          toppingProductIds: draft.toppingProductIds,
           nftRewardEveryOrders: Number(draft.nftRewardEveryOrders),
           nftRewardName: draft.nftRewardName.trim(),
           nftRewardImage: draft.nftRewardImage,
@@ -427,6 +455,84 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
           </div>
         ) : null}
 
+        {tab === "kit" ? (
+          <div className="space-y-4">
+            <section className="rounded-xl border border-slate-200 bg-white p-5">
+              <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="font-semibold text-slate-950">Бесплатная комплектация</h2>
+                  <p className="mt-1 text-sm text-slate-500">Эти позиции и указанное количество автоматически добавляются к каждому заказу.</p>
+                </div>
+                <button
+                  type="button"
+                  className={secondaryButton}
+                  onClick={() => setDraft({
+                    ...draft,
+                    freeKitItems: [...draft.freeKitItems, {
+                      id: `kit-${Date.now().toString(36)}`,
+                      name: "Новая позиция",
+                      image: "",
+                      defaultQuantity: 1,
+                      enabled: true,
+                    }],
+                  })}
+                >
+                  <Icon path={mdiPlus} size={0.72} aria-hidden="true" />Добавить позицию
+                </button>
+              </div>
+              {draft.freeKitItems.length ? (
+                <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                  {draft.freeKitItems.map((kitItem, index) => (
+                    <article key={kitItem.id} className="grid gap-4 rounded-xl border border-slate-200 p-4 sm:grid-cols-[150px_1fr]">
+                      <ImageUpload
+                        label="Изображение"
+                        value={kitItem.image}
+                        hint="Фото будет показано в корзине и карточке товара."
+                        onChange={(image) => setDraft({
+                          ...draft,
+                          freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, image } : entry),
+                        })}
+                        onError={(message) => onNotice(message, "error")}
+                      />
+                      <div className="grid content-start gap-4">
+                        <label className={labelClass}>Название<input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></label>
+                        <label className={labelClass}>Количество по умолчанию<input required min="0" max="20" type="number" className={inputClass} value={kitItem.defaultQuantity} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, defaultQuantity: Number(event.target.value) } : entry) })} /></label>
+                        <button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) })}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить из комплектации</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : <div className="mt-5 rounded-lg bg-slate-50 p-5 text-sm text-slate-500">Бесплатных позиций нет. Заказ будет оформляться без соусов и добавок по умолчанию.</div>}
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-white p-5">
+              <div className="border-b border-slate-200 pb-4">
+                <h2 className="font-semibold text-slate-950">Платные топпинги</h2>
+                <p className="mt-1 text-sm text-slate-500">Выберите товары из меню, которые сайт и приложение покажут в блоке «Дополнительно». Цена, фото и доступность редактируются в разделе «Меню».</p>
+              </div>
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                {categories.flatMap((category) => category.products.map((product) => (
+                  <label key={product.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${draft.toppingProductIds.includes(product.id) ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white"}`}>
+                    <input
+                      type="checkbox"
+                      className="size-4 shrink-0 accent-blue-600"
+                      checked={draft.toppingProductIds.includes(product.id)}
+                      onChange={(event) => setDraft({
+                        ...draft,
+                        toppingProductIds: event.target.checked
+                          ? [...draft.toppingProductIds, product.id]
+                          : draft.toppingProductIds.filter((id) => id !== product.id),
+                      })}
+                    />
+                    {product.image ? <img src={product.image} alt="" className="size-14 shrink-0 rounded-lg object-cover" /> : <span className="size-14 shrink-0 rounded-lg bg-slate-100" />}
+                    <span className="min-w-0"><strong className="block truncate text-sm text-slate-950">{product.name}</strong><small className="mt-1 block text-xs text-slate-500">{category.title} · {product.price} сом</small></span>
+                  </label>
+                )))}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
         {tab === "rewards" ? (
           <section className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="border-b border-slate-200 pb-4"><h2 className="font-semibold text-slate-950">NFT-вознаграждение</h2><p className="mt-1 text-sm text-slate-500">NAKTA Coin задаются в каждом блюде, здесь настраивается NFT за повторные заказы.</p></div>
@@ -442,7 +548,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
           </section>
         ) : null}
 
-        {(["basic", "delivery", "rewards"] as SettingsTab[]).includes(tab) ? (
+        {(["basic", "delivery", "kit", "rewards"] as SettingsTab[]).includes(tab) ? (
           <div className="flex justify-end"><button type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить настройки"}</button></div>
         ) : null}
       </form>

@@ -110,9 +110,9 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 const defaultKitItems: OrderKitItem[] = [
-  { id: "soy-sauce", name: "Соевый соус", quantity: 1 },
+  { id: "soy-sauce", name: "Соус соевый", quantity: 2 },
   { id: "wasabi", name: "Васаби", quantity: 1 },
-  { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 1 },
+  { id: "pickled-ginger", name: "Имбирь", quantity: 1 },
 ];
 
 type KitDraft = {
@@ -211,7 +211,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
     setKitDraft({
       noUtensils: order.noUtensils,
       utensilsCount: Math.max(1, order.utensilsCount || 1),
-      kitItems: (order.kitItems?.length ? order.kitItems : defaultKitItems).map((item) => ({ ...item })),
+      kitItems: (order.kitItems ?? defaultKitItems).map((item) => ({ ...item })),
     });
   };
 

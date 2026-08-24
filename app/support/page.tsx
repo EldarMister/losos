@@ -39,9 +39,9 @@ export default async function SupportPage({
     // Static fallback keeps the page usable while the API is unavailable.
   }
   const selected = contacts.find((region) => region.slug === requestedRegion) || contacts[0];
-  const phone = selected?.supportPhone?.trim() || selected?.contactPhone?.trim() || "0503 178 916";
+  const phone = "+996 503 178 916";
   const supportHref = selected?.supportUrl?.trim() || phoneHref(phone);
-  const email = selected?.contactEmail?.trim() || "musaev.janybek.kg@gmail.com";
+  const email = "naktasushi@gmail.com";
   return (
     <InfoPage title="Поддержка" action={{ label: selected?.supportUrl?.trim() ? "Написать в поддержку" : "Позвонить нам", href: supportHref }}>
       <p>Поможем с заказом, оплатой, доставкой и работой приложения Накта суши.</p>

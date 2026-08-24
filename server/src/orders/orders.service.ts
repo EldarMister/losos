@@ -15,8 +15,10 @@ import { Order } from "./order.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
 import { OrderPricingError, priceOrderLine } from "./order-pricing";
 import { normalizeOrderKitItems } from "./order-kit";
+import { freeKitItemsForRegion } from "../catalog/cart-configuration";
+import type { OrderKitItem } from "./order-kit";
 
-function fingerprintRequest(dto: CreateOrderDto) {
+function fingerprintRequest(dto: CreateOrderDto, kitItems: OrderKitItem[]) {
   const items = (dto.items ?? []).map((item) => ({
     productId: item.productId,
     quantity: item.quantity,
@@ -29,7 +31,6 @@ function fingerprintRequest(dto: CreateOrderDto) {
       .sort((left, right) =>
         `${left.groupId}:${left.itemId}`.localeCompare(`${right.groupId}:${right.itemId}`)),
   })).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
-  const kitItems = normalizeOrderKitItems(dto.kitItems);
   const canonical = {
     regionSlug: dto.regionSlug || "bishkek",
     deliveryType: dto.deliveryType || DeliveryType.DELIVERY,
@@ -71,8 +72,16 @@ export class OrdersService {
   async create(dto: CreateOrderDto) {
     if (!dto.items?.length) throw new BadRequestException("Order must contain at least one item");
     const idempotencyKey = dto.idempotencyKey || randomUUID();
-    const requestFingerprint = fingerprintRequest(dto);
-    const kitItems = normalizeOrderKitItems(dto.kitItems);
+    const regionSlug = dto.regionSlug || "bishkek";
+    const configuredRegion = await this.orders.manager.getRepository(Region).findOne({
+      where: { slug: regionSlug, enabled: true },
+    });
+    if (!configuredRegion) throw new BadRequestException(`Region ${regionSlug} is unavailable`);
+    const kitItems = normalizeOrderKitItems(
+      dto.kitItems,
+      freeKitItemsForRegion(configuredRegion.freeKitItems),
+    );
+    const requestFingerprint = fingerprintRequest(dto, kitItems);
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
@@ -104,7 +113,6 @@ export class OrdersService {
         }
         this.eduPos.assertProductsOrderable(products);
         const byId = new Map(products.map((product) => [product.id, product]));
-        const regionSlug = dto.regionSlug || "bishkek";
         const orderRegion = await regionRepository.findOne({
           where: { slug: regionSlug, enabled: true },
         });

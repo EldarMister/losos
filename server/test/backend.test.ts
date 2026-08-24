@@ -86,6 +86,7 @@ import { AddShortOrderNumbersAndAdminConfirmation1785002000000 } from "../src/mi
 import { AddLoyaltyPrograms1785003000000 } from "../src/migrations/1785003000000-AddLoyaltyPrograms";
 import { AddOrderKitItems1785004000000 } from "../src/migrations/1785004000000-AddOrderKitItems";
 import { AddCancelledCoinWithdrawals1785007000000 } from "../src/migrations/1785007000000-AddCancelledCoinWithdrawals";
+import { AddCartConfiguration1785008000000 } from "../src/migrations/1785008000000-AddCartConfiguration";
 import { NaktaCoinWithdrawal } from "../src/rewards/nakta-coin-withdrawal.entity";
 
 const baseOrder = {
@@ -1306,19 +1307,28 @@ test("order kit validates, keeps explicit quantities, and preserves mobile defau
   assert.deepEqual(validateSync(orderDto), []);
   assert.deepEqual(validateSync(adminDto), []);
   assert.deepEqual(normalizeOrderKitItems(selections), [
-    { id: "soy-sauce", name: "Соевый соус", quantity: 2 },
+    { id: "soy-sauce", name: "Соус соевый", quantity: 2 },
     { id: "wasabi", name: "Васаби", quantity: 0 },
-    { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 3 },
+    { id: "pickled-ginger", name: "Имбирь", quantity: 3 },
   ]);
   assert.deepEqual(normalizeOrderKitItems(), [
-    { id: "soy-sauce", name: "Соевый соус", quantity: 1 },
+    { id: "soy-sauce", name: "Соус соевый", quantity: 2 },
     { id: "wasabi", name: "Васаби", quantity: 1 },
-    { id: "pickled-ginger", name: "Имбирь маринованный", quantity: 1 },
+    { id: "pickled-ginger", name: "Имбирь", quantity: 1 },
   ]);
   assert.throws(() => normalizeOrderKitItems([
     { id: "soy-sauce", quantity: 1 },
     { id: "soy-sauce", quantity: 2 },
   ]), /несколько раз/);
+  assert.deepEqual(normalizeOrderKitItems(undefined, [
+    { id: "napkins", name: "Салфетки", image: "", defaultQuantity: 3, enabled: true },
+  ]), [
+    { id: "napkins", name: "Салфетки", quantity: 3 },
+  ]);
+  assert.deepEqual(normalizeOrderKitItems(undefined, []), []);
+  assert.throws(() => normalizeOrderKitItems([
+    { id: "unknown", quantity: 1 },
+  ], []), /Неизвестная комплектующая/);
 
   const invalid = plainToInstance(UpdateOrderKitDto, {
     utensilsCount: 1,
@@ -1805,6 +1815,18 @@ test("order kit migration adds reversible persisted complectation", async () => 
   assert.match(dataSource, /AddOrderKitItems1785004000000/);
   assert.match(appModule, /AddOrderKitItems1785004000000/);
   assert.match(packageJson, /typeorm -d dist\/data-source\.js migration:run && node dist\/main\.js/);
+});
+
+test("cart configuration migration adds reversible region settings", async () => {
+  const migration = new AddCartConfiguration1785008000000();
+  const upQueries: string[] = [];
+  const downQueries: string[] = [];
+  await migration.up({ query: async (statement: string) => { upQueries.push(statement); return []; } } as never);
+  await migration.down({ query: async (statement: string) => { downQueries.push(statement); return []; } } as never);
+  assert.ok(upQueries.some((statement) => statement.includes('"freeKitItems" jsonb')));
+  assert.ok(upQueries.some((statement) => statement.includes('"toppingProductIds" jsonb')));
+  assert.ok(downQueries.some((statement) => statement.includes('DROP COLUMN IF EXISTS "freeKitItems"')));
+  assert.ok(downQueries.some((statement) => statement.includes('DROP COLUMN IF EXISTS "toppingProductIds"')));
 });
 
 test("EDU POS status mapping and retry schedule follow the delivery contract", () => {

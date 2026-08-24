@@ -140,7 +140,7 @@ export class UpdateOrderKitDto {
   noUtensils!: boolean;
 
   @IsArray()
-  @ArrayMaxSize(3)
+  @ArrayMaxSize(20)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderKitItemDto)
   kitItems!: CreateOrderKitItemDto[];

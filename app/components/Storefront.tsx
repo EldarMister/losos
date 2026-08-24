@@ -107,6 +107,15 @@ type RegionOption = {
   deliveryZone?: Array<{ latitude: number; longitude: number }>;
   footerCompanyName?: string;
   footerLegalInfo?: string;
+  freeKitItems?: FreeKitItem[] | null;
+  toppingProductIds?: number[] | null;
+};
+type FreeKitItem = {
+  id: string;
+  name: string;
+  image: string;
+  defaultQuantity: number;
+  enabled?: boolean;
 };
 type Promotion = { id: number; title: string; image: string; cta?: string; ctaUrl?: string };
 type CheckoutForm = {
@@ -351,26 +360,32 @@ function addressWithSingleCity(value: string, city: string) {
 
   return addressWithoutCity ? `${city}, ${addressWithoutCity}` : city;
 }
-const cartKitItems = [
+const fallbackCartKitItems: FreeKitItem[] = [
   {
     id: "soy-sauce",
-    name: "Соевый соус",
+    name: "Соус соевый",
     image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8a6ed9632df66e2010fc4a1eccef758c_thumb_75_1152_1152.JPEG",
+    defaultQuantity: 2,
+    enabled: true,
   },
   {
     id: "wasabi",
     name: "Васаби",
     image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa8eef7dfdda0436a337ddb4c0970125_thumb_75_1152_1152.JPEG",
+    defaultQuantity: 1,
+    enabled: true,
   },
   {
     id: "pickled-ginger",
-    name: "Имбирь маринованный",
+    name: "Имбирь",
     image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71852e053134d8a7863bc1ce6a13ece_thumb_75_1152_1152.JPEG",
+    defaultQuantity: 1,
+    enabled: true,
   },
 ] as const;
-const defaultKitQuantities = () => Object.fromEntries(cartKitItems.map((item) => [item.id, 1]));
+const defaultKitQuantities = (items: FreeKitItem[] = fallbackCartKitItems) => Object.fromEntries(items.map((item) => [item.id, item.defaultQuantity]));
 const orderKitItemsForDisplay = (items?: Array<{ id: string; name: string; quantity: number }>) => (
-  items?.length ? items : cartKitItems.map((item) => ({ id: item.id, name: item.name, quantity: 1 }))
+  items?.length ? items : fallbackCartKitItems.map((item) => ({ id: item.id, name: item.name, quantity: item.defaultQuantity }))
 );
 const cartLineKey = (productId: number, modifiers: SelectedModifier[]) => {
   const signature = modifiers
@@ -566,10 +581,9 @@ const parseStoredStorefrontState = (
       : 1;
     const kitQuantities = defaultKitQuantities();
     if (isRecord(value.kitQuantities)) {
-      for (const item of cartKitItems) {
-        const quantity = value.kitQuantities[item.id];
-        if (Number.isInteger(quantity)) {
-          kitQuantities[item.id] = Math.min(20, Math.max(0, quantity as number));
+      for (const [id, quantity] of Object.entries(value.kitQuantities).slice(0, 20)) {
+        if (/^[a-z0-9][a-z0-9_-]{0,99}$/i.test(id) && Number.isInteger(quantity)) {
+          kitQuantities[id] = Math.min(20, Math.max(0, quantity as number));
         }
       }
     }
@@ -801,7 +815,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const supportPhone = selectedRegion?.supportPhone?.trim() || selectedRegion?.contactPhone?.trim();
   const supportHref = selectedRegion?.supportUrl?.trim()
     || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
-  const footerEmail = selectedRegion?.contactEmail || "musaev.janybek.kg@gmail.com";
+  const footerEmail = "naktasushi@gmail.com";
   const footerCompanyName = selectedRegion?.footerCompanyName || "Накта суши";
   const footerLegalInfo = selectedRegion?.footerLegalInfo || "Сервис доставки «Накта суши», Кыргызская Республика. Реквизиты и условия обслуживания доступны в разделе «Правовая информация».";
   const [cityOpen, setCityOpen] = useState(false);
@@ -881,6 +895,24 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [modalQuantity, setModalQuantity] = useState(1);
   const [modifierSelections, setModifierSelections] = useState<ModifierSelections>({});
   const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
+  const cartKitItems = useMemo(() => (
+    (selectedRegion?.freeKitItems ?? fallbackCartKitItems)
+      .filter((item) => item.enabled !== false)
+      .map((item) => ({ ...item, image: item.image || "" }))
+  ), [selectedRegion]);
+  const toppingProducts = useMemo(() => {
+    const allProducts = catalogCategories.flatMap((category) => category.products);
+    if (selectedRegion?.toppingProductIds != null) {
+      const byId = new Map(allProducts.map((product) => [product.id, product]));
+      return selectedRegion.toppingProductIds
+        .map((id) => byId.get(id))
+        .filter((product): product is Product => product !== undefined && product.available !== false);
+    }
+    return catalogCategories
+      .filter((category) => /топпинг|соус|добав|васаби|имбир/i.test(`${category.slug} ${category.title}`))
+      .flatMap((category) => category.products)
+      .filter((product) => product.available !== false);
+  }, [catalogCategories, selectedRegion]);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -1831,7 +1863,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           noUtensils,
           kitItems: cartKitItems.map((item) => ({
             id: item.id,
-            quantity: kitQuantities[item.id] ?? 1,
+            quantity: kitQuantities[item.id] ?? item.defaultQuantity,
           })),
           items: cart.map((line) => ({
             productId: line.product.id,
@@ -2565,9 +2597,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               ? <div className="composition-copy">{selected.composition || selected.description}</div>
               : <div className="composition-copy equipment-copy">
                   <p>К заказу добавим базовую комплектацию. Количество палочек можно изменить в корзине.</p>
-                  <div><span>Васаби</span><b>1 шт.</b></div>
-                  <div><span>Соевый соус</span><b>{selected.name === "Собери свой сет" ? "2 шт." : "1 шт."}</b></div>
-                  <div><span>Имбирь</span><b>1 шт.</b></div>
+                  {cartKitItems.map((item) => <div key={item.id}><span>{item.name}</span><b>{item.defaultQuantity} шт.</b></div>)}
                   {selected.modifierGroups?.length ? <small>Соусы и добавки, выбранные в карточке блюда, будут сохранены в заказе отдельно.</small> : null}
                 </div>}
             <button className="composition-return" onClick={() => setCompositionOpen(false)}>Назад</button>
@@ -2807,7 +2837,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <header><h2>Комплектация</h2><button type="button" onClick={() => setCartKitOpen(false)} aria-label="Закрыть">×</button></header>
             <h3>Приборы</h3>
             <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без приборов</b><small>Если не используете — это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
-            <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.id}><img src={item.image} alt="" /><span><b>{item.name}</b><span className="kit-quantity kit-extra-quantity"><button type="button" aria-label={`Уменьшить: ${item.name}`} disabled={(kitQuantities[item.id] ?? 1) === 0} onClick={() => setKitQuantities((current) => ({ ...current, [item.id]: Math.max(0, (current[item.id] ?? 1) - 1) }))}>−</button><span>{kitQuantities[item.id] ?? 1}</span><button type="button" aria-label={`Увеличить: ${item.name}`} disabled={(kitQuantities[item.id] ?? 1) >= 20} onClick={() => setKitQuantities((current) => ({ ...current, [item.id]: Math.min(20, (current[item.id] ?? 1) + 1) }))}>+</button></span></span></div>)}</div>
+            <div className="kit-extras">{cartKitItems.map((item) => <div className="kit-extra" key={item.id}>{item.image ? <img src={item.image} alt="" /> : <span className="kit-extra-placeholder" aria-hidden="true" />}<span><b>{item.name}</b><span className="kit-quantity kit-extra-quantity"><button type="button" aria-label={`Уменьшить: ${item.name}`} disabled={(kitQuantities[item.id] ?? item.defaultQuantity) === 0} onClick={() => setKitQuantities((current) => ({ ...current, [item.id]: Math.max(0, (current[item.id] ?? item.defaultQuantity) - 1) }))}>−</button><span>{kitQuantities[item.id] ?? item.defaultQuantity}</span><button type="button" aria-label={`Увеличить: ${item.name}`} disabled={(kitQuantities[item.id] ?? item.defaultQuantity) >= 20} onClick={() => setKitQuantities((current) => ({ ...current, [item.id]: Math.min(20, (current[item.id] ?? item.defaultQuantity) + 1) }))}>+</button></span></span></div>)}</div>
+            {toppingProducts.length ? <><h3 className="kit-toppings-title">Дополнительно</h3><div className="related-row kit-toppings-row">{toppingProducts.map((product) => <article key={product.id} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button type="button" aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
             <button className="cart-kit-save" type="button" onClick={() => setCartKitOpen(false)}>Готово</button>
           </aside>
         </div>

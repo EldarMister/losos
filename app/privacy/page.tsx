@@ -67,7 +67,7 @@ export default function PrivacyPage() {
       <p>Политика может обновляться при изменении функций Сервиса или требований закона. Новая редакция публикуется на этой странице с новой датой вступления в силу.</p>
 
       <h2>10. Контакты</h2>
-      <p>Вопросы о данных и запросы на удаление можно направить по адресу <a href="mailto:musaev.janybek.kg@gmail.com">musaev.janybek.kg@gmail.com</a> или через <a href="/support">службу поддержки</a>.</p>
+      <p>Вопросы о данных и запросы на удаление можно направить по адресу <a href="mailto:naktasushi@gmail.com">naktasushi@gmail.com</a> или через <a href="/support">службу поддержки</a>.</p>
     </InfoPage>
   );
 }

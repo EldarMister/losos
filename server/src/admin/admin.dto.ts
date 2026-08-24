@@ -35,6 +35,33 @@ export class DeliveryZonePointDto {
   longitude!: number;
 }
 
+export class FreeKitItemDto {
+  @IsString()
+  @Matches(/^[a-z0-9][a-z0-9_-]{0,99}$/i)
+  id!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(140)
+  name!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2_000_000)
+  image = "";
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(20)
+  defaultQuantity!: number;
+
+  @IsOptional()
+  @Transform(optionalBoolean)
+  @IsBoolean()
+  enabled = true;
+}
+
 export class CreateRegionDto {
   @IsString()
   @IsNotEmpty()
@@ -68,6 +95,8 @@ export class CreateRegionDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) minimumOrderAmount = 900;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(POSTGRES_INTEGER_MAX) maximumOrderAmount = 30000;
   @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => FreeKitItemDto) freeKitItems?: FreeKitItemDto[];
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @Type(() => Number) @IsInt({ each: true }) @Min(1, { each: true }) toppingProductIds?: number[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000) nftRewardEveryOrders = 10;
@@ -103,6 +132,8 @@ export class UpdateRegionDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) minimumOrderAmount?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(POSTGRES_INTEGER_MAX) maximumOrderAmount?: number;
   @IsOptional() @IsArray() @ArrayMinSize(3) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => DeliveryZonePointDto) deliveryZone?: DeliveryZonePointDto[];
+  @IsOptional() @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => FreeKitItemDto) freeKitItems?: FreeKitItemDto[];
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @Type(() => Number) @IsInt({ each: true }) @Min(1, { each: true }) toppingProductIds?: number[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000) nftRewardEveryOrders?: number;

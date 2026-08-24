@@ -18,6 +18,7 @@ import { OrderItem } from "../orders/order-item.entity";
 import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { normalizeOrderKitItems } from "../orders/order-kit";
+import { freeKitItemsForRegion } from "../catalog/cart-configuration";
 import { PhoneAccount } from "../auth/phone-account.entity";
 import { AccountNft } from "../rewards/account-nft.entity";
 import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
@@ -828,7 +829,12 @@ export class AdminService {
     }
     order.noUtensils = dto.noUtensils;
     order.utensilsCount = dto.noUtensils ? 0 : dto.utensilsCount;
-    order.kitItems = normalizeOrderKitItems(dto.kitItems);
+    const region = await this.regions.findOne({ where: { slug: order.regionSlug } });
+    if (!region) throw new NotFoundException("Регион заказа не найден");
+    order.kitItems = normalizeOrderKitItems(
+      dto.kitItems,
+      freeKitItemsForRegion(region.freeKitItems),
+    );
     return this.orderRepository.save(order);
   }
 

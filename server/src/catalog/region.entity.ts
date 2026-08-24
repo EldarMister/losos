@@ -2,6 +2,7 @@ import { Column, Entity, Index, OneToMany, PrimaryGeneratedColumn } from "typeor
 import { Category } from "./category.entity";
 import { PickupLocation } from "./pickup-location.entity";
 import { Promotion } from "./promotion.entity";
+import type { FreeKitItemConfig } from "./cart-configuration";
 
 @Entity("regions")
 @Index(["slug"], { unique: true })
@@ -80,6 +81,12 @@ export class Region {
 
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   deliveryZone!: Array<{ latitude: number; longitude: number }>;
+
+  @Column({ type: "jsonb", nullable: true })
+  freeKitItems!: FreeKitItemConfig[] | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  toppingProductIds!: number[] | null;
 
   @Column({ default: "" })
   footerCompanyName!: string;

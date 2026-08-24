@@ -155,6 +155,14 @@ export type DeliveryZonePoint = {
   longitude: number;
 };
 
+export type FreeKitItem = {
+  id: string;
+  name: string;
+  image: string;
+  defaultQuantity: number;
+  enabled?: boolean;
+};
+
 export type Region = {
   id: number;
   slug: string;
@@ -173,6 +181,8 @@ export type Region = {
   maximumOrderAmount: number;
   estimatedDeliveryMinutes: number;
   deliveryZone: DeliveryZonePoint[];
+  freeKitItems: FreeKitItem[] | null;
+  toppingProductIds: number[] | null;
   nftRewardEveryOrders: number;
   nftRewardName: string;
   nftRewardImage: string;
