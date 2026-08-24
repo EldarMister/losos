@@ -75,6 +75,14 @@ export type Region = {
   estimatedDeliveryMinutes?: number;
   minimumOrderAmount?: number;
   maximumOrderAmount?: number;
+  freeKitItems?: Array<{
+    id: string;
+    name: string;
+    image: string;
+    defaultQuantity: number;
+    enabled?: boolean;
+  }> | null;
+  toppingProductIds?: number[] | null;
 };
 
 export type PickupLocation = {

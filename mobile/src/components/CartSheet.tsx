@@ -21,6 +21,7 @@ import { lineTotal, useStore } from "../store";
 import { colors } from "../theme";
 import { formatMoney } from "../money";
 import type { Category, Product } from "../types";
+import { freeKitItemsForRegion, toppingProductsForRegion } from "../cartConfiguration";
 import { PrimaryButton } from "./PrimaryButton";
 import { ImmediatePressable } from "./ImmediatePressable";
 import { NumberTicker } from "./NumberTicker";
@@ -98,34 +99,29 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
       .filter((product) => /соус|напит|десерт|закуск|васаби|имбир/i.test(product.name))
       .slice(0, 8);
   }, [categories, store.cart]);
-  const extraProducts = useMemo(() => (
-    categories
-      .filter((category) => (
-        /топпинг|соус|добав|васаби|имбир/i.test(`${category.slug} ${category.title}`)
-      ))
-      .flatMap((category) => category.products)
-      .filter((product) => product.available !== false)
-  ), [categories]);
+  const extraProducts = useMemo(
+    () => toppingProductsForRegion(store.activeRegion, categories),
+    [categories, store.activeRegion],
+  );
   const freeEquipment = useMemo(() => {
     const products = categories.flatMap((category) => category.products);
-    return [
-      {
-        name: "Васаби",
-        quantity: 1,
-        product: products.find((product) => /^васаби$/i.test(product.name)),
-      },
-      {
-        name: "Соус соевый",
-        quantity: 2,
-        product: products.find((product) => /^соус соевый$/i.test(product.name)),
-      },
-      {
-        name: "Имбирь",
-        quantity: 1,
-        product: products.find((product) => /имбир/i.test(product.name)),
-      },
-    ];
-  }, [categories]);
+    return freeKitItemsForRegion(store.activeRegion).map((item) => {
+      const normalizedName = item.name.toLocaleLowerCase("ru-RU");
+      const matchingProduct = products.find((product) => (
+        product.name.toLocaleLowerCase("ru-RU") === normalizedName
+        || (normalizedName.includes("имбир") && /имбир/i.test(product.name))
+        || (normalizedName.includes("васаби") && /васаби/i.test(product.name))
+        || (normalizedName.includes("соев") && /соус.*соев|соев.*соус/i.test(product.name))
+      ));
+      return {
+        ...item,
+        quantity: item.defaultQuantity,
+        image: store.activeRegion?.freeKitItems != null
+          ? item.image || matchingProduct?.image || ""
+          : matchingProduct?.image || item.image || "",
+      };
+    });
+  }, [categories, store.activeRegion]);
 
   const clear = () => {
     Alert.alert(
@@ -359,11 +355,11 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
           <View style={styles.freeList}>
             {freeEquipment.map((item) => (
               <View key={item.name} style={styles.freeRow}>
-                {item.product ? (
+                {item.image ? (
                   <Image
                     resizeMethod="resize"
                     resizeMode="cover"
-                    source={{ uri: resolveImageUrl(item.product.image) }}
+                    source={{ uri: resolveImageUrl(item.image) }}
                     style={styles.kitIcon}
                   />
                 ) : (
@@ -433,11 +429,11 @@ export function CartSheet({ visible, onClose, onCheckout }: Props) {
           <Text style={[styles.kitSectionTitle, styles.extraTitle]}>Дополнительно</Text>
           <View style={styles.kitRow}>
             <View style={styles.kitIcon}>
-              {freeEquipment[1]?.product ? (
+              {extraProducts[0]?.image ? (
                 <Image
                   resizeMethod="resize"
                   resizeMode="cover"
-                  source={{ uri: resolveImageUrl(freeEquipment[1].product.image) }}
+                  source={{ uri: resolveImageUrl(extraProducts[0].image) }}
                   style={styles.kitIconImage}
                 />
               ) : (

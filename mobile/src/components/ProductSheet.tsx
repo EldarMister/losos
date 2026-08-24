@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { catalogApi, resolveImageUrl } from "../api";
 import { formatMoney } from "../money";
+import { freeKitItemsForRegion, toppingProductsForRegion } from "../cartConfiguration";
 import { useStore } from "../store";
 import { colors, radii } from "../theme";
 import type {
@@ -159,15 +160,7 @@ export function ProductSheet({
               && candidate.available !== false
               && items.findIndex((item) => item.id === candidate.id) === index
             ));
-          const accessoryCategories = categories.filter((category) => (
-            /соус|добав|топпинг|васаби|имбир|напит|десерт|закуск/i.test(
-              `${category.slug} ${category.title}`,
-            )
-          ));
-          const candidates = (
-            accessoryCategories.length ? accessoryCategories : categories
-          ).flatMap((category) => category.products);
-          const unique = candidates.filter((candidate, index, items) => (
+          const unique = toppingProductsForRegion(store.activeRegion, categories).filter((candidate, index, items) => (
             candidate.id !== product.id
             && candidate.available !== false
             && items.findIndex((item) => item.id === candidate.id) === index
@@ -186,7 +179,7 @@ export function ProductSheet({
       ignore = true;
       task.cancel();
     };
-  }, [product, store.regionSlug]);
+  }, [product, store.activeRegion, store.regionSlug]);
 
   const modifiers = useMemo<SelectedModifier[]>(() => {
     if (!product) return [];
@@ -257,28 +250,22 @@ export function ProductSheet({
     && !/соус|васаби|имбир|напит|кола|фанта|вода|морс|сок|чай/i.test(product.name);
   const detailTitle = detailView === "equipment" ? "Комплектация" : "Состав";
   const detailCopy = product.composition || product.description || "Состав уточняется.";
-  const normalizedEquipmentName = (value: string) => value.trim().toLocaleLowerCase("ru-RU");
-  const findEquipmentProduct = (exactName: string, fallback: RegExp) => (
-    equipmentProducts.find((item) => normalizedEquipmentName(item.name) === exactName)
-    ?? equipmentProducts.find((item) => fallback.test(normalizedEquipmentName(item.name)))
-  );
-  const equipment = [
-    {
-      name: "Васаби",
-      quantity: 1,
-      product: findEquipmentProduct("васаби", /васаби/),
-    },
-    {
-      name: "Соус соевый",
-      quantity: 2,
-      product: findEquipmentProduct("соус соевый", /соус.*соев|соев.*соус/),
-    },
-    {
-      name: "Имбирь",
-      quantity: 1,
-      product: findEquipmentProduct("имбирь", /имбир/),
-    },
-  ];
+  const equipment = freeKitItemsForRegion(store.activeRegion).map((item) => {
+    const normalizedName = item.name.trim().toLocaleLowerCase("ru-RU");
+    const matchingProduct = equipmentProducts.find((candidate) => (
+      candidate.name.trim().toLocaleLowerCase("ru-RU") === normalizedName
+      || (normalizedName.includes("имбир") && /имбир/i.test(candidate.name))
+      || (normalizedName.includes("васаби") && /васаби/i.test(candidate.name))
+      || (normalizedName.includes("соев") && /соус.*соев|соев.*соус/i.test(candidate.name))
+    ));
+    return {
+      ...item,
+      quantity: item.defaultQuantity,
+      image: store.activeRegion?.freeKitItems != null
+        ? item.image || matchingProduct?.image || ""
+        : matchingProduct?.image || item.image || "",
+    };
+  });
 
   return (
     <>
@@ -587,11 +574,11 @@ export function ProductSheet({
             <View style={styles.equipmentList}>
               {equipment.map((item) => (
                 <View key={item.name} style={styles.equipmentRow}>
-                  {item.product ? (
+                  {item.image ? (
                     <RemoteImage
                       accessibilityLabel={`Фото: ${item.name}`}
                       resizeMode="cover"
-                      source={item.product.image}
+                      source={item.image}
                       style={styles.equipmentImage}
                     />
                   ) : (
