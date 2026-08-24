@@ -14,12 +14,18 @@ export function InfoPage({
     <main className="info-page">
       <div className="info-page-shell">
         <header className="info-page-header">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="info-page-logo" src="/logo.webp" alt="Накта суши" />
-          <Link className="info-page-back" href="/">Вернуться в меню</Link>
+          <Link
+            aria-label="Вернуться в меню"
+            className="info-page-back"
+            href="/"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M19 12H5m6 6-6-6 6-6" />
+            </svg>
+          </Link>
+          <h1>{title}</h1>
         </header>
         <article className="info-page-card">
-          <h1>{title}</h1>
           {children}
           {action ? <a className="info-page-action" href={action.href}>{action.label}</a> : null}
         </article>
