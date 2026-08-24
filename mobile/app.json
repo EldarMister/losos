@@ -34,7 +34,8 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "versionCode": 7
     },
     "plugins": [
       [
@@ -53,37 +54,55 @@
               {
                 "fontFamily": "Inter_400Regular",
                 "fontDefinitions": [
-                  { "path": "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf", "weight": 400 }
+                  {
+                    "path": "./node_modules/@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf",
+                    "weight": 400
+                  }
                 ]
               },
               {
                 "fontFamily": "Inter_500Medium",
                 "fontDefinitions": [
-                  { "path": "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf", "weight": 500 }
+                  {
+                    "path": "./node_modules/@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf",
+                    "weight": 500
+                  }
                 ]
               },
               {
                 "fontFamily": "Inter_600SemiBold",
                 "fontDefinitions": [
-                  { "path": "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf", "weight": 600 }
+                  {
+                    "path": "./node_modules/@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf",
+                    "weight": 600
+                  }
                 ]
               },
               {
                 "fontFamily": "Inter_700Bold",
                 "fontDefinitions": [
-                  { "path": "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf", "weight": 700 }
+                  {
+                    "path": "./node_modules/@expo-google-fonts/inter/700Bold/Inter_700Bold.ttf",
+                    "weight": 700
+                  }
                 ]
               },
               {
                 "fontFamily": "Inter_800ExtraBold",
                 "fontDefinitions": [
-                  { "path": "./node_modules/@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf", "weight": 800 }
+                  {
+                    "path": "./node_modules/@expo-google-fonts/inter/800ExtraBold/Inter_800ExtraBold.ttf",
+                    "weight": 800
+                  }
                 ]
               },
               {
                 "fontFamily": "Inter_900Black",
                 "fontDefinitions": [
-                  { "path": "./node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf", "weight": 900 }
+                  {
+                    "path": "./node_modules/@expo-google-fonts/inter/900Black/Inter_900Black.ttf",
+                    "weight": 900
+                  }
                 ]
               }
             ]
