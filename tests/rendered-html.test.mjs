@@ -33,6 +33,7 @@ test("server-renders the storefront", async () => {
 
 test("renders the public legal documents", async () => {
   for (const [pathname, heading] of [
+    ["/legal", "Правовая информация"],
     ["/privacy", "Политика конфиденциальности"],
     ["/terms", "Условия использования и заказа"],
     ["/delete-account", "Удаление аккаунта"],
@@ -41,6 +42,13 @@ test("renders the public legal documents", async () => {
     assert.equal(response.status, 200);
     assert.match(await response.text(), new RegExp(`<h1[^>]*>${heading}</h1>`, "i"));
   }
+
+  const legalResponse = await render("/legal");
+  const legalHtml = await legalResponse.text();
+  assert.match(legalHtml, /ОсОО «Мурасбук»/);
+  assert.match(legalHtml, /03110202210413/);
+  assert.match(legalHtml, /211061-3310-ООО/);
+  assert.match(legalHtml, /Кыргызская Республика, г\. Ош, ул\. Ленина, б\/н/);
 });
 
 test("renders the mobile CAPTCHA bridge", async () => {

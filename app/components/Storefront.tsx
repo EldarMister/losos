@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@mdi/react";
+import { LegalOperatorDetails } from "./LegalOperatorDetails";
 import {
   mdiAccountOutline,
   mdiAccountCircleOutline,
@@ -2407,7 +2408,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         </a>
         <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="/privacy">Конфиденциальность</a><span>•</span><a href="/terms">Условия</a><span>•</span><a href="/delete-account">Удаление аккаунта</a><span>•</span><a href="/legal">Все документы</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
-        <p className="footer-legal">{footerLegalInfo}</p>
+        <div className="footer-legal">
+          <p>{footerLegalInfo}</p>
+          <LegalOperatorDetails />
+        </div>
       </footer>
 
       {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}><span>Далее</span><b><NumberTicker value={cartTotal} format={money} /></b></button> : null}
