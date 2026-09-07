@@ -4,11 +4,8 @@ import { Icon } from "@mdi/react";
 import { mdiClose, mdiMenu } from "@mdi/js";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AdminNavigation, adminSections } from "./AdminNavigation";
-import {
-  AnalyticsView,
-  CategoriesView,
-} from "./AdminSections";
-import { FinanceWorkspace } from "./FinanceWorkspace";
+import { AnalyticsView } from "./AnalyticsView";
+import { CategoriesView } from "./CategoriesView";
 import { MenuWorkspace } from "./MenuWorkspace";
 import OrdersWorkspace from "./OrdersWorkspace";
 import { PromotionsWorkspace } from "./PromotionsWorkspace";
@@ -220,7 +217,6 @@ export function AdminApp() {
           {section === "menu" ? <MenuWorkspace {...viewProps} /> : null}
           {section === "categories" ? <CategoriesView {...viewProps} /> : null}
           {section === "users" ? <UsersWorkspace key={region} {...viewProps} /> : null}
-          {section === "finance" ? <FinanceWorkspace {...viewProps} /> : null}
           {section === "promotions" ? <PromotionsWorkspace {...viewProps} /> : null}
           {section === "settings" ? <SettingsWorkspace {...viewProps} /> : null}
         </main>

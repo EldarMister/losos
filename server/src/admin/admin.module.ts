@@ -12,11 +12,6 @@ import { AdminTokenGuard } from "./admin-token.guard";
 import { PushNotificationsModule } from "../notifications/push-notifications.module";
 import { PickupLocation } from "../catalog/pickup-location.entity";
 import { EduPosModule } from "../edu-pos/edu-pos.module";
-import { PhoneAccount } from "../auth/phone-account.entity";
-import { AccountNft } from "../rewards/account-nft.entity";
-import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
-import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
-import { CustomerRewardAdjustment } from "../rewards/customer-reward-adjustment.entity";
 
 @Module({
   imports: [
@@ -28,11 +23,6 @@ import { CustomerRewardAdjustment } from "../rewards/customer-reward-adjustment.
       Promotion,
       Order,
       OrderItem,
-      PhoneAccount,
-      AccountNft,
-      NaktaCoinTransaction,
-      NaktaCoinWithdrawal,
-      CustomerRewardAdjustment,
     ]),
     PushNotificationsModule,
     EduPosModule,

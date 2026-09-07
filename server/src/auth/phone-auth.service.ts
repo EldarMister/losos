@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   HttpException,
   Injectable,
@@ -30,9 +29,6 @@ import { OrderStatus } from "../orders/order.enums";
 import { PhoneAuthChallenge } from "./phone-auth.entity";
 import { WhatsappCloudService } from "./whatsapp-cloud.service";
 import { CaptchaVerificationService } from "./captcha-verification.service";
-import { AccountNft } from "../rewards/account-nft.entity";
-import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
-import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
 
 const CODE_TTL_MS = 5 * 60_000;
 const WHATSAPP_CODE_TTL_MS = 10 * 60_000;
@@ -42,18 +38,6 @@ const WHATSAPP_RESEND_DELAY_MS = 20_000;
 const MAX_ATTEMPTS = 5;
 const MAX_SENDS_PER_HOUR = 5;
 const WHATSAPP_CODE_PATTERN = /NAKTA-[A-F0-9]{48}/i;
-
-export function isWalletAddressValid(network: string, address: string) {
-  if (["polygon", "ethereum", "bsc"].includes(network)) {
-    return /^0x[a-fA-F0-9]{40}$/.test(address);
-  }
-  if (network === "solana") return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address);
-  if (network === "ton") {
-    return /^(?:-1|0):[a-fA-F0-9]{64}$/.test(address)
-      || /^(?:EQ|UQ)[A-Za-z0-9_-]{46}$/.test(address);
-  }
-  return false;
-}
 
 export function smsResendDelaySeconds(sendNumber: number) {
   if (sendNumber <= 1) return 60;
@@ -97,10 +81,6 @@ export class PhoneAuthService {
     private readonly accounts: Repository<PhoneAccount>,
     @InjectRepository(PhoneAccountSession)
     private readonly sessions: Repository<PhoneAccountSession>,
-    @InjectRepository(AccountNft)
-    private readonly nfts: Repository<AccountNft>,
-    @InjectRepository(NaktaCoinTransaction)
-    private readonly coinTransactions: Repository<NaktaCoinTransaction>,
   ) {}
 
   async requestCode(phone: string, captchaToken: string, remoteIp: string) {
@@ -314,7 +294,7 @@ export class PhoneAuthService {
   }
 
   async profile(phone: string, verificationToken: string) {
-    const account = await this.requireAccount(phone, verificationToken);
+    await this.requireAccount(phone, verificationToken);
 
     const orders = await this.challenges.manager.query(`
       SELECT "id", "orderNumber", "total", "status", "deliveryType", "createdAt", "address",
@@ -344,66 +324,6 @@ export class PhoneAuthService {
       OrderStatus.READY,
       OrderStatus.DELIVERING,
     ]);
-    const [naktaCoinHistory, nfts, naktaCoinWithdrawals] = await Promise.all([
-      this.coinTransactions.find({
-        where: { phone },
-        order: { createdAt: "DESC" },
-        take: 100,
-      }),
-      this.nfts.find({
-        where: { phone },
-        order: { createdAt: "DESC" },
-        take: 200,
-      }),
-      this.accounts.manager.getRepository(NaktaCoinWithdrawal).find({
-        where: { phone },
-        order: { createdAt: "DESC" },
-        take: 20,
-      }),
-    ]);
-    const withdrawalHistory = naktaCoinWithdrawals.flatMap((withdrawal) => {
-      const reason = withdrawal.error?.trim() || null;
-      const request = {
-        id: `withdrawal-${withdrawal.id}`,
-        amount: -withdrawal.amount,
-        createdAt: withdrawal.createdAt,
-        description: withdrawal.status === "withdrawn"
-          ? "Вывод NAKTA Coin завершён"
-          : withdrawal.status === "cancelled"
-            ? "Заявка на вывод NAKTA Coin отменена"
-            : withdrawal.status === "failed"
-              ? "Заявка на вывод NAKTA Coin отклонена"
-              : "Заявка на вывод NAKTA Coin",
-        orderId: undefined,
-        withdrawalId: withdrawal.id,
-        withdrawalStatus: withdrawal.status,
-        withdrawalReason: reason,
-      };
-      return ["failed", "cancelled"].includes(withdrawal.status)
-        ? [request, {
-          id: `withdrawal-refund-${withdrawal.id}`,
-          amount: withdrawal.amount,
-          createdAt: withdrawal.processedAt ?? withdrawal.createdAt,
-          description: `${withdrawal.status === "cancelled"
-            ? "Возврат NAKTA Coin после отмены вывода"
-            : "Возврат NAKTA Coin после отклонения вывода"}${reason ? `. Причина: ${reason}` : ""}`,
-          orderId: undefined,
-          withdrawalId: withdrawal.id,
-          withdrawalStatus: withdrawal.status,
-          withdrawalReason: reason,
-        }]
-        : [request];
-    });
-    const serializedCoinHistory = [
-      ...naktaCoinHistory.map((entry) => ({
-        id: entry.id,
-        amount: entry.amount,
-        createdAt: entry.createdAt,
-        description: entry.description,
-        orderId: entry.orderId,
-      })),
-      ...withdrawalHistory,
-    ].sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
     const serialize = (order: typeof orders[number]) => ({
       id: order.id,
       orderNumber: order.orderNumber,
@@ -421,11 +341,6 @@ export class PhoneAuthService {
       },
     });
     return {
-      naktaCoins: account.naktaCoins,
-      naktaCoinHistory: serializedCoinHistory,
-      naktaCoinTransactions: serializedCoinHistory,
-      nfts: nfts.map((nft) => this.publicNft(nft)),
-      naktaCoinWithdrawals,
       currentOrders: orders.filter((order) => currentStatuses.has(order.status)).map(serialize),
       orderHistory: orders.filter((order) => !currentStatuses.has(order.status)).map(serialize),
     };
@@ -495,7 +410,14 @@ export class PhoneAuthService {
       },
       items: items.map((item) => ({
         ...item,
-        modifierSnapshots: Array.isArray(item.modifierSnapshots) ? item.modifierSnapshots : [],
+        modifierSnapshots: Array.isArray(item.modifierSnapshots)
+          ? item.modifierSnapshots.flatMap((modifier) => {
+            if (!modifier || typeof modifier !== "object") return [];
+            const value = modifier as Record<string, unknown>;
+            if (typeof value.itemName !== "string" || typeof value.quantity !== "number") return [];
+            return [{ itemName: value.itemName, quantity: value.quantity }];
+          })
+          : [],
       })),
     };
   }
@@ -532,146 +454,6 @@ export class PhoneAuthService {
     });
   }
 
-  async withdrawNft(
-    phone: string,
-    verificationToken: string,
-    nftId: string,
-    walletAddress: string,
-  ) {
-    await this.requireAccount(phone, verificationToken);
-    const nft = await this.nfts.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(AccountNft);
-      const owned = await repository.findOne({
-        where: { id: nftId, phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!owned) throw new NotFoundException("NFT не найден");
-      if (["pending", "submitted"].includes(owned.status)) {
-        throw new ConflictException("Вывод этого NFT уже обрабатывается");
-      }
-      if (owned.status === "withdrawn") {
-        throw new ConflictException("Этот NFT уже выведен");
-      }
-      if (!isWalletAddressValid(owned.network, walletAddress)) {
-        throw new BadRequestException(`Некорректный адрес кошелька для сети ${owned.network}`);
-      }
-      owned.status = "pending";
-      owned.walletAddress = walletAddress;
-      owned.withdrawalRequestedAt = new Date();
-      owned.withdrawalError = null;
-      owned.txHash = null;
-      owned.tokenId = null;
-      owned.withdrawnAt = null;
-      return repository.save(owned);
-    });
-    return this.dispatchNftWithdrawal(nft);
-  }
-
-  async withdrawNaktaCoins(
-    phone: string,
-    verificationToken: string,
-    walletAddress: string,
-    amount: number,
-  ) {
-    await this.requireAccount(phone, verificationToken);
-    return this.accounts.manager.transaction(async (manager) => {
-      const accountRepository = manager.getRepository(PhoneAccount);
-      const account = await accountRepository.findOne({
-        where: { phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!account) throw new NotFoundException("Аккаунт не найден");
-      if (amount < 1 || amount > account.naktaCoins) {
-        throw new BadRequestException("Недостаточно NAKTA Coin для вывода");
-      }
-
-      const transactionRepository = manager.getRepository(NaktaCoinTransaction);
-      const latestReward = await transactionRepository.findOne({
-        where: { phone },
-        order: { createdAt: "DESC" },
-      });
-      const regionSlug = latestReward?.regionSlug || "bishkek";
-      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
-      const withdrawal = await withdrawalRepository.save(withdrawalRepository.create({
-        phone,
-        regionSlug,
-        amount,
-        walletAddress,
-        status: "pending",
-        txHash: null,
-        error: null,
-        processedAt: null,
-      }));
-
-      account.naktaCoins -= amount;
-      await accountRepository.save(account);
-      return withdrawal;
-    });
-  }
-
-  async cancelNaktaCoinWithdrawal(
-    phone: string,
-    verificationToken: string,
-    withdrawalId: string,
-  ) {
-    await this.requireAccount(phone, verificationToken);
-    return this.accounts.manager.transaction(async (manager) => {
-      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
-      const withdrawal = await withdrawalRepository.findOne({
-        where: { id: withdrawalId, phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!withdrawal) throw new NotFoundException("Заявка на вывод не найдена");
-      if (withdrawal.status === "cancelled") return withdrawal;
-      if (withdrawal.status !== "pending") {
-        throw new ConflictException("Заявка уже обрабатывается и не может быть отменена");
-      }
-
-      const accountRepository = manager.getRepository(PhoneAccount);
-      const account = await accountRepository.findOne({
-        where: { phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!account) throw new NotFoundException("Аккаунт не найден");
-
-      withdrawal.status = "cancelled";
-      withdrawal.error = "Отменено пользователем";
-      withdrawal.processedAt = new Date();
-      account.naktaCoins += withdrawal.amount;
-      await accountRepository.save(account);
-      return withdrawalRepository.save(withdrawal);
-    });
-  }
-
-  async cancelNftWithdrawal(
-    phone: string,
-    verificationToken: string,
-    nftId: string,
-  ) {
-    await this.requireAccount(phone, verificationToken);
-    const nft = await this.nfts.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(AccountNft);
-      const current = await repository.findOne({
-        where: { id: nftId, phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!current) throw new NotFoundException("NFT не найден");
-      if (current.status !== "pending") {
-        throw new ConflictException("Заявка уже обрабатывается и не может быть отменена");
-      }
-
-      current.status = "owned";
-      current.walletAddress = null;
-      current.txHash = null;
-      current.tokenId = null;
-      current.withdrawalError = "Заявка на вывод отменена пользователем";
-      current.withdrawalRequestedAt = null;
-      current.withdrawnAt = null;
-      return repository.save(current);
-    });
-    return this.publicNft(nft);
-  }
-
   async deleteAccount(phone: string, verificationToken: string) {
     await this.requireAccount(phone, verificationToken);
     await this.accounts.manager.transaction(async (manager) => {
@@ -701,103 +483,6 @@ export class PhoneAuthService {
     const account = await this.accounts.findOneBy({ phone });
     if (!account) throw new UnauthorizedException("Войдите в профиль ещё раз");
     return account;
-  }
-
-  private publicNft(nft: AccountNft) {
-    return {
-      id: nft.id,
-      name: nft.name,
-      image: nft.image,
-      description: nft.description,
-      network: nft.network,
-      contractAddress: nft.contractAddress,
-      tokenId: nft.tokenId,
-      status: nft.status,
-      walletAddress: nft.walletAddress,
-      txHash: nft.txHash,
-      withdrawalError: nft.withdrawalError,
-      withdrawalRequestedAt: nft.withdrawalRequestedAt,
-      createdAt: nft.createdAt,
-      withdrawnAt: nft.withdrawnAt,
-      orderId: nft.orderId,
-      regionSlug: nft.regionSlug,
-      milestoneOrderCount: nft.milestoneOrderCount,
-    };
-  }
-
-  private async dispatchNftWithdrawal(nft: AccountNft) {
-    const url = this.config.get<string>("NFT_TRANSFER_WEBHOOK_URL")?.trim();
-    if (!url) return this.publicNft(nft);
-
-    try {
-      const token = this.config.get<string>("NFT_TRANSFER_WEBHOOK_TOKEN")?.trim();
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          withdrawalId: nft.id,
-          walletAddress: nft.walletAddress,
-          network: nft.network,
-          contractAddress: nft.contractAddress || undefined,
-          metadataUri: nft.metadataUri || undefined,
-          name: nft.name,
-          description: nft.description,
-          image: nft.image,
-        }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!response.ok) throw new Error(`provider returned ${response.status}`);
-      const result = await response.json() as {
-        status?: "submitted" | "withdrawn";
-        txHash?: string;
-        tokenId?: string;
-      };
-      if (!result.txHash) throw new Error("provider did not return txHash");
-      return this.settleNftWithdrawalAttempt(nft, (current) => {
-        current.status = result.status === "withdrawn" ? "withdrawn" : "submitted";
-        current.txHash = result.txHash!.slice(0, 200);
-        current.tokenId = result.tokenId?.slice(0, 160) || null;
-        current.withdrawalError = null;
-        current.withdrawnAt = current.status === "withdrawn" ? new Date() : null;
-      });
-    } catch (error) {
-      console.error("NFT withdrawal provider failed", {
-        nftId: nft.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return this.settleNftWithdrawalAttempt(nft, (current) => {
-        current.status = "failed";
-        current.withdrawalError = "Не удалось отправить NFT. Проверьте адрес и повторите попытку.";
-        current.withdrawnAt = null;
-      });
-    }
-  }
-
-  private async settleNftWithdrawalAttempt(
-    attempt: AccountNft,
-    applyResult: (current: AccountNft) => void,
-  ) {
-    const expectedRequestedAt = attempt.withdrawalRequestedAt?.getTime() ?? null;
-    const settled = await this.nfts.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(AccountNft);
-      const current = await repository.findOne({
-        where: { id: attempt.id, phone: attempt.phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!current) throw new NotFoundException("NFT не найден");
-
-      const currentRequestedAt = current.withdrawalRequestedAt?.getTime() ?? null;
-      if (current.status !== "pending" || currentRequestedAt !== expectedRequestedAt) {
-        return current;
-      }
-
-      applyResult(current);
-      return repository.save(current);
-    });
-    return this.publicNft(settled);
   }
 
   private async confirmWhatsappMessage(senderPhone: string, message: string) {

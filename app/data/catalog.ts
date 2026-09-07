@@ -7,7 +7,6 @@ export type Product = {
   category: string;
   name: string;
   price: number;
-  naktaCoins?: number;
   oldPrice?: number | null;
   image: string;
   description?: string;
@@ -666,7 +665,6 @@ export const promoCards = [
   { alt: "Telegram: промокоды и мемы", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/f28303d1312d58d8023742cc7c75a57a_resize_in_box_1104_1104.jpg" },
   { alt: "Накта суши — удовольствие есть", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/43ddb99861e8cfbedf08f2a313738c4b_resize_in_box_1104_1104.jpg" },
   { alt: "Всё вкусное — детям!", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/b8d03d4e8617466336260d917af4f21b_resize_in_box_1104_1104.jpg" },
-  { alt: "Кешбэк до 100%", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/c9d2f34588567ee37d2fa4a7c937821a_resize_in_box_1104_1104.jpg" },
   { alt: "Мноооооого палочки?", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/f449b42a119d8d82dbaf4ec023d4bd95_resize_in_box_1104_1104.png" },
   { alt: "Помогаем котикам вместе", src: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/promo/9ad2dfc2bfc46d092fcf9d868b4ae85d_resize_in_box_1104_1104.jpg" },
 ];

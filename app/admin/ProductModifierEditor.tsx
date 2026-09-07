@@ -20,7 +20,6 @@ function emptyItem(): ModifierItem {
     id: identifier("option"),
     name: "",
     price: 0,
-    naktaCoins: 0,
     image: "",
     enabled: true,
     maxQuantity: 1,
@@ -116,10 +115,6 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
                   <label className="grid gap-1.5 text-xs font-medium text-slate-600">
                     Цена, сом
                     <input type="number" min="0" className={inputClass} value={item.price} onChange={(event) => updateItem(groupIndex, itemIndex, { price: Number(event.target.value) })} />
-                  </label>
-                  <label className="grid gap-1.5 text-xs font-medium text-slate-600">
-                    NAKTA Coin
-                    <input type="number" min="0" className={inputClass} value={item.naktaCoins ?? 0} onChange={(event) => updateItem(groupIndex, itemIndex, { naktaCoins: Number(event.target.value) })} />
                   </label>
                   <label className="grid gap-1.5 text-xs font-medium text-slate-600">
                     Макс. кол-во

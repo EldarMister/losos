@@ -14,8 +14,6 @@ import {
 import {
   AdminAnalyticsQueryDto,
   AdminCustomersQueryDto,
-  AdminNftWithdrawalsQueryDto,
-  AdjustCustomerRewardsDto,
   ListOrdersQueryDto,
   UpdateOrderKitDto,
   UpdateOrderStatusDto,
@@ -32,8 +30,6 @@ import {
   CreatePickupLocationDto,
   ResolvePickupMapLinkDto,
   UpdatePickupLocationDto,
-  UpdateNftWithdrawalDto,
-  UpdateNaktaCoinWithdrawalDto,
 } from "./admin.dto";
 import { AdminService } from "./admin.service";
 import { AdminTokenGuard } from "./admin-token.guard";
@@ -62,11 +58,6 @@ export class AdminController {
     return this.admin.analytics(query.region, query.period);
   }
 
-  @Get("loyalty/overview")
-  loyaltyOverview(@Query("region") region = "bishkek") {
-    return this.admin.loyaltyOverview(region);
-  }
-
   @Get("customers")
   customers(@Query() query: AdminCustomersQueryDto) {
     return this.admin.customers(query.region, query.search, query.limit, query.offset);
@@ -78,43 +69,6 @@ export class AdminController {
     @Query("region") region = "bishkek",
   ) {
     return this.admin.customer(phone, region);
-  }
-
-  @Post("customers/:phone/rewards/adjust")
-  adjustCustomerRewards(
-    @Param("phone") phone: string,
-    @Body() dto: AdjustCustomerRewardsDto,
-  ) {
-    return this.admin.adjustCustomerRewards(phone, dto);
-  }
-
-  @Get("nft-withdrawals")
-  nftWithdrawals(@Query() query: AdminNftWithdrawalsQueryDto) {
-    return this.admin.nftWithdrawals(query.region, query.status);
-  }
-
-  @Patch("nft-withdrawals/:id")
-  updateNftWithdrawal(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: UpdateNftWithdrawalDto,
-  ) {
-    return this.admin.updateNftWithdrawal(id, dto);
-  }
-
-  @Get("coin-withdrawals")
-  coinWithdrawals(
-    @Query("region") region?: string,
-    @Query("status") status?: string,
-  ) {
-    return this.admin.coinWithdrawals(region, status);
-  }
-
-  @Patch("coin-withdrawals/:id")
-  updateCoinWithdrawal(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: UpdateNaktaCoinWithdrawalDto,
-  ) {
-    return this.admin.updateCoinWithdrawal(id, dto);
   }
 
   @Get("edu-pos/status")

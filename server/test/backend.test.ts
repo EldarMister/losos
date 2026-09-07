@@ -12,15 +12,12 @@ import {
   CreateRegionDto,
   CreateProductDto,
   CreatePromotionDto,
-  UpdateNftWithdrawalDto,
   UpdateRegionDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
 import {
   AdminAnalyticsQueryDto,
   AdminCustomersQueryDto,
-  AdminNftWithdrawalsQueryDto,
-  AdjustCustomerRewardsDto,
   UpdateOrderKitDto,
 } from "../src/admin/admin-orders.dto";
 import { dispatchOrderStatusPush } from "../src/admin/order-status-notifier";
@@ -29,12 +26,10 @@ import {
   CheckWhatsappAuthDto,
   RequestPhoneCodeDto,
   VerifyPhoneCodeDto,
-  WithdrawNaktaCoinsDto,
 } from "../src/auth/phone-auth.dto";
 import { PhoneAuthController } from "../src/auth/phone-auth.controller";
 import {
   extractWhatsappAuthCode,
-  isWalletAddressValid,
   PhoneAuthService,
   smsResendDelaySeconds,
 } from "../src/auth/phone-auth.service";
@@ -44,6 +39,7 @@ import { PhoneAccount } from "../src/auth/phone-account.entity";
 import { WhatsappCloudService } from "../src/auth/whatsapp-cloud.service";
 import { assertValidModifierGroups } from "../src/catalog/modifier-validation";
 import { isDeliveryOpenAt } from "../src/catalog/delivery-hours";
+import { isLegacyFinancialPromotion } from "../src/catalog/financial-promotion";
 import { regionContentSourceSlug } from "../src/catalog/region-content-source";
 import {
   assertYandexMapUrl,
@@ -52,7 +48,6 @@ import {
 import { seedCategories } from "../src/catalog/seed-data";
 import type { ProductModifierGroup } from "../src/catalog/product.entity";
 import { POSTGRES_INTEGER_MAX } from "../src/common/numeric-limits";
-import { calculateOrderRewards, isNftMilestone } from "../src/rewards/reward-calculation";
 import { EduPosApiError, EduPosClient } from "../src/edu-pos/edu-pos.client";
 import { createOrRecoverEduPosOrder } from "../src/edu-pos/edu-pos-order-submit";
 import {
@@ -87,7 +82,6 @@ import { AddLoyaltyPrograms1785003000000 } from "../src/migrations/1785003000000
 import { AddOrderKitItems1785004000000 } from "../src/migrations/1785004000000-AddOrderKitItems";
 import { AddCancelledCoinWithdrawals1785007000000 } from "../src/migrations/1785007000000-AddCancelledCoinWithdrawals";
 import { AddCartConfiguration1785008000000 } from "../src/migrations/1785008000000-AddCartConfiguration";
-import { NaktaCoinWithdrawal } from "../src/rewards/nakta-coin-withdrawal.entity";
 
 const baseOrder = {
   idempotencyKey: "order-test-0001",
@@ -140,7 +134,7 @@ test("admin analytics validates periods and aggregates through PostgreSQL withou
   assert.doesNotMatch(serviceSource, /LIMIT\s+2000/i);
 });
 
-test("admin customer and NFT withdrawal filters reject invalid query values", () => {
+test("admin customer filters reject invalid query values", () => {
   const customers = plainToInstance(AdminCustomersQueryDto, {
     region: "bishkek",
     search: "Асан",
@@ -158,24 +152,12 @@ test("admin customer and NFT withdrawal filters reject invalid query values", ()
   assert.ok(validateSync(invalidCustomers).some((error) => error.property === "limit"));
   assert.ok(validateSync(invalidCustomers).some((error) => error.property === "offset"));
 
-  const withdrawals = plainToInstance(AdminNftWithdrawalsQueryDto, {
-    region: "bishkek",
-    status: "pending",
-  });
-  assert.deepEqual(validateSync(withdrawals), []);
-  const invalidStatus = plainToInstance(AdminNftWithdrawalsQueryDto, {
-    status: "processing",
-  });
-  assert.ok(validateSync(invalidStatus).some((error) => error.property === "status"));
-
   const serviceSource = readFileSync(
     resolve(__dirname, "../src/admin/admin.service.ts"),
     "utf8",
   );
   assert.match(serviceSource, /WITH matched_phones AS/);
   assert.match(serviceSource, /INNER JOIN matched_phones/);
-  assert.match(serviceSource, /const nextTxHash = dto\.txHash !== undefined/);
-  assert.match(serviceSource, /dto\.status !== "failed" && !nextTxHash/);
 });
 
 test("phone auth DTO normalizes supported numbers and requires CAPTCHA for SMS", () => {
@@ -265,263 +247,16 @@ test("region settings accept independent menu and promotion sources", () => {
   assert.ok(validateSync(tooLong).some((error) => error.property === "menuSourceRegionSlug"));
 });
 
-test("region NFT program accepts editable milestones and can be disabled", () => {
-  for (const everyOrders of [0, 10, 20, 37]) {
-    const dto = plainToInstance(UpdateRegionDto, {
-      nftRewardEveryOrders: everyOrders,
-      nftRewardName: "NAKTA Founder",
-      nftRewardNetwork: "polygon",
-    });
-    assert.deepEqual(validateSync(dto), []);
-  }
-
-  const invalid = plainToInstance(UpdateRegionDto, {
-    nftRewardEveryOrders: -1,
-    nftRewardNetwork: "unknown-chain",
-  });
-  assert.ok(validateSync(invalid).some((error) => error.property === "nftRewardEveryOrders"));
-  assert.ok(validateSync(invalid).some((error) => error.property === "nftRewardNetwork"));
-
-  const submitted = plainToInstance(UpdateNftWithdrawalDto, {
-    status: "submitted",
-    txHash: "0xabc",
-  });
-  assert.deepEqual(validateSync(submitted), []);
-  const unsupportedStatus = plainToInstance(UpdateNftWithdrawalDto, { status: "pending" });
-  assert.ok(validateSync(unsupportedStatus).some((error) => error.property === "status"));
-});
-
-test("NAKTA Coin and NFT rewards are calculated independently", () => {
-  assert.deepEqual(calculateOrderRewards([
-    { naktaCoins: 4 },
-    { naktaCoins: 6 },
-    { naktaCoins: 0 },
-  ] as never), { naktaCoins: 10 });
-  assert.equal(isNftMilestone(10, 10), true);
-  assert.equal(isNftMilestone(20, 10), true);
-  assert.equal(isNftMilestone(20, 20), true);
-  assert.equal(isNftMilestone(19, 20), false);
-  assert.equal(isNftMilestone(20, 0), false);
-});
-
-test("NFT withdrawal validates wallet addresses for supported networks", () => {
-  assert.equal(isWalletAddressValid("polygon", `0x${"a".repeat(40)}`), true);
-  assert.equal(isWalletAddressValid("ethereum", "0x123"), false);
-  assert.equal(isWalletAddressValid("solana", "11111111111111111111111111111111"), true);
-  assert.equal(isWalletAddressValid("ton", `0:${"a".repeat(64)}`), true);
-  assert.equal(isWalletAddressValid("bitcoin", "bc1qunsupported"), false);
-});
-
-test("admin reward adjustments require a signed non-zero amount and an audit reason", () => {
-  const credit = plainToInstance(AdjustCustomerRewardsDto, {
-    region: "bishkek",
-    asset: "coin",
-    delta: "25",
-    reason: "Компенсация за задержку заказа",
-  });
-  assert.deepEqual(validateSync(credit), []);
-  assert.equal(credit.delta, 25);
-
-  const debit = plainToInstance(AdjustCustomerRewardsDto, {
-    region: "bishkek",
-    asset: "nft",
-    delta: -1,
-    reason: "Исправление ошибочного начисления",
-  });
-  assert.deepEqual(validateSync(debit), []);
-
-  const invalid = plainToInstance(AdjustCustomerRewardsDto, {
-    region: "bishkek",
-    asset: "money",
-    delta: 0,
-    reason: "",
-  });
-  const errors = validateSync(invalid);
-  assert.ok(errors.some((error) => error.property === "asset"));
-  assert.ok(errors.some((error) => error.property === "delta"));
-  assert.ok(errors.some((error) => error.property === "reason"));
-});
-
-test("NAKTA Coin withdrawal requires a valid amount and wallet address", () => {
-  const valid = plainToInstance(WithdrawNaktaCoinsDto, {
-    walletAddress: `0x${"a".repeat(40)}`,
-    amount: 25,
-  });
-  assert.deepEqual(validateSync(valid), []);
-
-  const invalidAmount = plainToInstance(WithdrawNaktaCoinsDto, {
-    walletAddress: `0x${"a".repeat(40)}`,
-    amount: 0,
-  });
-  assert.ok(validateSync(invalidAmount).some((error) => error.property === "amount"));
-
-  const invalidWallet = plainToInstance(WithdrawNaktaCoinsDto, {
-    walletAddress: "short",
-    amount: 25,
-  });
-  assert.ok(validateSync(invalidWallet).some((error) => error.property === "walletAddress"));
-});
-
-test("NAKTA Coin withdrawals do not masquerade as order reward transactions", () => {
+test("the public profile response does not expose the paused rewards program", () => {
   const authSource = readFileSync(
     resolve(__dirname, "../src/auth/phone-auth.service.ts"),
     "utf8",
   );
-  const adminSource = readFileSync(
-    resolve(__dirname, "../src/admin/admin.service.ts"),
-    "utf8",
+  const profileSource = authSource.slice(
+    authSource.indexOf("async profile("),
+    authSource.indexOf("async orderDetails("),
   );
-  assert.doesNotMatch(authSource, /orderId:\s*withdrawal\.id/);
-  assert.doesNotMatch(adminSource, /orderId:\s*randomUUID\(\)/);
-  assert.match(authSource, /withdrawalHistory/);
-});
-
-test("NFT withdrawal is phone-owned, locked, and becomes pending once", async () => {
-  const phone = "+996555123456";
-  const token = "a".repeat(64);
-  const walletAddress = `0x${"b".repeat(40)}`;
-  const nft = {
-    id: "11111111-1111-4111-8111-111111111111",
-    phone,
-    name: "NAKTA #10",
-    image: "",
-    description: "",
-    network: "polygon",
-    contractAddress: "",
-    metadataUri: "",
-    tokenId: "stale-token-id" as string | null,
-    status: "failed",
-    walletAddress: null,
-    txHash: "stale-failed-hash" as string | null,
-    withdrawalError: "previous attempt failed" as string | null,
-    withdrawalRequestedAt: new Date(0) as Date | null,
-    withdrawnAt: null,
-    createdAt: new Date(),
-    orderId: "22222222-2222-4222-8222-222222222222",
-    regionSlug: "bishkek",
-    milestoneOrderCount: 10,
-  };
-  let requestedLock: unknown;
-  const repository = {
-    findOne: async (options: { lock?: unknown }) => {
-      requestedLock = options.lock;
-      return nft;
-    },
-    save: async (value: typeof nft) => value,
-  };
-  const nfts = {
-    manager: {
-      transaction: async <T>(callback: (manager: { getRepository: () => typeof repository }) => Promise<T>) => callback({ getRepository: () => repository }),
-    },
-  };
-  const auth = new PhoneAuthService(
-    {} as never,
-    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { findOneBy: async () => ({ phone, naktaCoins: 0 }) } as never,
-    { findOne: async () => ({ phone, tokenHash: "stored", expiresAt: new Date(Date.now() + 60_000) }) } as never,
-    nfts as never,
-    {} as never,
-  );
-
-  const result = await auth.withdrawNft(phone, token, nft.id, walletAddress);
-  assert.deepEqual(requestedLock, { mode: "pessimistic_write" });
-  assert.equal(result.status, "pending");
-  assert.equal(result.walletAddress, walletAddress);
-  assert.equal(result.txHash, null);
-  assert.equal(result.tokenId, null);
-  assert.ok(nft.withdrawalRequestedAt instanceof Date);
-  await assert.rejects(
-    () => auth.withdrawNft(phone, token, nft.id, walletAddress),
-    /уже обрабатывается/,
-  );
-});
-
-test("a late NFT provider response cannot overwrite a newer admin resolution", async () => {
-  const phone = "+996555123456";
-  const token = "a".repeat(64);
-  const walletAddress = `0x${"c".repeat(40)}`;
-  const databaseNft = {
-    id: "33333333-3333-4333-8333-333333333333",
-    phone,
-    name: "NAKTA #20",
-    image: "",
-    description: "",
-    network: "polygon",
-    contractAddress: "",
-    metadataUri: "",
-    tokenId: null as string | null,
-    status: "owned",
-    walletAddress: null as string | null,
-    txHash: null as string | null,
-    withdrawalError: null as string | null,
-    withdrawalRequestedAt: null as Date | null,
-    withdrawnAt: null as Date | null,
-    createdAt: new Date(),
-    orderId: "44444444-4444-4444-8444-444444444444",
-    regionSlug: "bishkek",
-    milestoneOrderCount: 20,
-  };
-  let saveCalls = 0;
-  let lockCalls = 0;
-  const repository = {
-    findOne: async (options: { lock?: unknown }) => {
-      lockCalls += 1;
-      assert.deepEqual(options.lock, { mode: "pessimistic_write" });
-      return { ...databaseNft };
-    },
-    save: async (value: typeof databaseNft) => {
-      saveCalls += 1;
-      Object.assign(databaseNft, value);
-      return { ...databaseNft };
-    },
-  };
-  const nfts = {
-    manager: {
-      transaction: async <T>(callback: (manager: { getRepository: () => typeof repository }) => Promise<T>) => callback({ getRepository: () => repository }),
-    },
-  };
-  const auth = new PhoneAuthService(
-    {} as never,
-    new ConfigService({
-      OTP_HASH_SECRET: "s".repeat(64),
-      NFT_TRANSFER_WEBHOOK_URL: "https://nft-provider.invalid/transfer",
-    }),
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { findOneBy: async () => ({ phone, naktaCoins: 0 }) } as never,
-    { findOne: async () => ({ phone, tokenHash: "stored", expiresAt: new Date(Date.now() + 60_000) }) } as never,
-    nfts as never,
-    {} as never,
-  );
-
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async () => {
-    databaseNft.status = "withdrawn";
-    databaseNft.txHash = "admin-confirmed-hash";
-    databaseNft.withdrawnAt = new Date();
-    return new Response(JSON.stringify({
-      status: "submitted",
-      txHash: "late-provider-hash",
-    }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
-  }) as typeof fetch;
-  try {
-    const result = await auth.withdrawNft(phone, token, databaseNft.id, walletAddress);
-    assert.equal(result.status, "withdrawn");
-    assert.equal(result.txHash, "admin-confirmed-hash");
-    assert.equal(saveCalls, 1);
-    assert.equal(lockCalls, 2);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  assert.doesNotMatch(profileSource, /naktaCoins|naktaCoinHistory|nfts|withdrawal/i);
 });
 
 test("region content sources keep menu and promotions independent", () => {
@@ -688,44 +423,6 @@ test("order status push has a deep link and removes DeviceNotRegistered tokens",
   assert.deepEqual(deleted, [["token-2"]]);
 });
 
-test("reward withdrawal push includes its final status and the administrator reason", async () => {
-  const repository = {
-    find: async () => [{ id: "token-1", expoPushToken: "ExponentPushToken[first]" }],
-    delete: async () => ({ affected: 0 }),
-  };
-  const originalFetch = globalThis.fetch;
-  let requestBody: Array<{ title: string; body: string; data: Record<string, string> }> = [];
-  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
-    requestBody = JSON.parse(String(init?.body));
-    return new Response(JSON.stringify({ data: [{ status: "ok" }] }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  }) as typeof fetch;
-  try {
-    const push = new PushNotificationsService(repository as never);
-    await push.sendRewardWithdrawalStatus("+996555123456", {
-      withdrawalId: "withdrawal-42",
-      asset: "coin",
-      status: "failed",
-      amount: 8,
-      reason: "Адрес не поддерживает сеть NAKTA",
-    });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-
-  assert.equal(requestBody[0]?.title, "Вывод отменён");
-  assert.match(requestBody[0]?.body || "", /Адрес не поддерживает сеть NAKTA/);
-  assert.deepEqual(requestBody[0]?.data, {
-    type: "reward-withdrawal",
-    withdrawalId: "withdrawal-42",
-    asset: "coin",
-    status: "failed",
-    url: "naktasushi://profile/balance",
-  });
-});
-
 test("pickup and push migration has reversible tables and migrates legacy pickup data", async () => {
   const migration = new AddPickupLocationsAndPushTokens1784996000000();
   const upQueries: string[] = [];
@@ -883,8 +580,6 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
   assert.deepEqual(
     Object.getOwnPropertyNames(PhoneAuthController.prototype).sort(),
     [
-      "cancelNaktaCoinWithdrawal",
-      "cancelNftWithdrawal",
       "cancelOrder",
       "checkWhatsapp",
       "constructor",
@@ -899,61 +594,8 @@ test("phone auth controller exposes WhatsApp request, status and webhook handler
       "requestWhatsapp",
       "verifyCode",
       "verifyWhatsappWebhook",
-      "withdrawNaktaCoins",
-      "withdrawNft",
     ],
   );
-});
-
-test("customers can cancel a pending coin withdrawal and receive the balance back once", async () => {
-  const phone = "+996555123456";
-  const withdrawal = {
-    id: "11111111-1111-4111-8111-111111111111",
-    phone,
-    amount: 8,
-    status: "pending",
-    error: null,
-    processedAt: null,
-  } as NaktaCoinWithdrawal;
-  const account = { phone, naktaCoins: 10 } as PhoneAccount;
-  const withdrawalRepository = {
-    findOne: async () => withdrawal,
-    save: async (value: NaktaCoinWithdrawal) => value,
-  };
-  const accountRepository = {
-    findOne: async () => account,
-    save: async (value: PhoneAccount) => value,
-  };
-  const manager = {
-    getRepository: (entity: unknown) => entity === NaktaCoinWithdrawal
-      ? withdrawalRepository
-      : accountRepository,
-  };
-  const accounts = {
-    findOneBy: async () => account,
-    manager: { transaction: async <T>(callback: (value: typeof manager) => Promise<T>) => callback(manager) },
-  };
-  const sessions = { findOne: async () => ({ phone }) };
-  const auth = new PhoneAuthService(
-    {} as never,
-    new ConfigService({ OTP_HASH_SECRET: "s".repeat(64) }),
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    accounts as never,
-    sessions as never,
-    {} as never,
-    {} as never,
-  );
-
-  const cancelled = await auth.cancelNaktaCoinWithdrawal(phone, "a".repeat(64), withdrawal.id);
-  assert.equal(cancelled.status, "cancelled");
-  assert.equal(cancelled.error, "Отменено пользователем");
-  assert.equal(account.naktaCoins, 18);
-
-  await auth.cancelNaktaCoinWithdrawal(phone, "a".repeat(64), withdrawal.id);
-  assert.equal(account.naktaCoins, 18);
 });
 
 test("cancelled coin withdrawal migration extends and restores the status constraint", async () => {
@@ -1387,8 +1029,8 @@ test("legacy modifier groups default to per-product pricing and quantity 20", ()
   assert.equal(line.unitPrice, 149);
   assert.equal(line.lineTotal, 298);
   assert.equal(line.pricingVersion, "scoped-v2");
-  assert.equal(line.modifierSnapshots[0].naktaCoins, 2);
-  assert.equal(line.modifierSnapshots[0].totalNaktaCoins, 2);
+  assert.equal("naktaCoins" in line.modifierSnapshots[0], false);
+  assert.equal("totalNaktaCoins" in line.modifierSnapshots[0], false);
   assert.deepEqual(
     line.modifierSnapshots.map(
       ({ itemId, quantity, totalPrice, priceScope }) =>
@@ -1815,6 +1457,30 @@ test("order kit migration adds reversible persisted complectation", async () => 
   assert.match(dataSource, /AddOrderKitItems1785004000000/);
   assert.match(appModule, /AddOrderKitItems1785004000000/);
   assert.match(packageJson, /typeorm -d dist\/data-source\.js migration:run && node dist\/main\.js/);
+});
+
+test("public and admin catalog hide persisted legacy financial promotions", () => {
+  assert.equal(isLegacyFinancialPromotion({
+    title: "Кешбэк до 100%",
+    cta: "",
+    ctaUrl: "",
+  }), true);
+  assert.equal(isLegacyFinancialPromotion({
+    title: "Скидка студентам",
+    cta: "Подробнее",
+    ctaUrl: "/support",
+  }), false);
+
+  const catalogSource = readFileSync(
+    resolve(__dirname, "../src/catalog/catalog.service.ts"),
+    "utf8",
+  );
+  const adminSource = readFileSync(
+    resolve(__dirname, "../src/admin/admin.service.ts"),
+    "utf8",
+  );
+  assert.match(catalogSource, /promotions\.filter\(\(promotion\) => !isLegacyFinancialPromotion\(promotion\)\)/);
+  assert.match(adminSource, /promotions\s*\.filter\(\(promotion\) => !isLegacyFinancialPromotion\(promotion\)\)\s*\.map\(publicAdminPromotion\)/);
 });
 
 test("cart configuration migration adds reversible region settings", async () => {

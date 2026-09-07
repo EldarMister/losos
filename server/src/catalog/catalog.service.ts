@@ -5,6 +5,7 @@ import { Category } from "./category.entity";
 import { Product } from "./product.entity";
 import { Promotion } from "./promotion.entity";
 import { Region } from "./region.entity";
+import { isLegacyFinancialPromotion } from "./financial-promotion";
 import { regionContentSourceSlug, type RegionContentSourceField } from "./region-content-source";
 import { seedCategories } from "./seed-data";
 
@@ -63,12 +64,6 @@ const defaultPromotions = [
     ctaUrl: "",
   },
   {
-    title: "Кешбэк до 100%",
-    image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/e258569da4e992205d8f3ae006d151eb_resize_in_box_2048_2048.jpg",
-    cta: "",
-    ctaUrl: "",
-  },
-  {
     title: "Мноооооого палочки?",
     image: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/1ebd0558c6daa570f029071ce7bb1648_resize_in_box_2048_2048.jpg",
     cta: "Хорошо",
@@ -82,10 +77,41 @@ const defaultPromotions = [
   },
 ] as const;
 
-const publicProduct = (product: Product) => ({
-  ...product,
-  available: product.available && product.posAvailable,
-});
+const hiddenRegionFields = new Set([
+  "footerCompanyName",
+  "footerLegalInfo",
+  "nftRewardEveryOrders",
+  "nftRewardName",
+  "nftRewardImage",
+  "nftRewardDescription",
+  "nftRewardNetwork",
+  "nftContractAddress",
+  "nftMetadataUri",
+]);
+
+export const publicRegion = (region: Region) => Object.fromEntries(
+  Object.entries(region).filter(([key]) => !hiddenRegionFields.has(key)),
+);
+
+export const publicProduct = (product: Product) => {
+  const result: Record<string, unknown> = Object.fromEntries(
+    Object.entries(product).filter(([key]) => key !== "naktaCoins"),
+  );
+  result.available = product.available && product.posAvailable;
+  result.modifierGroups = product.modifierGroups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => Object.fromEntries(
+      Object.entries(item).filter(([key]) => key !== "naktaCoins"),
+    )),
+  }));
+  if (product.category) {
+    result.category = {
+      ...product.category,
+      ...(product.category.region ? { region: publicRegion(product.category.region) } : {}),
+    };
+  }
+  return result;
+};
 
 @Injectable()
 export class CatalogService implements OnModuleInit {
@@ -139,12 +165,13 @@ export class CatalogService implements OnModuleInit {
     });
   }
 
-  regions() {
-    return this.regionRepository.find({
+  async regions() {
+    const regions = await this.regionRepository.find({
       where: { enabled: true },
       relations: { pickupLocations: true },
       order: { sortOrder: "ASC", id: "ASC" },
     });
+    return regions.map(publicRegion);
   }
 
   async categories(regionSlug = "bishkek") {
@@ -164,10 +191,11 @@ export class CatalogService implements OnModuleInit {
   async promotions(regionSlug = "bishkek") {
     const region = await this.requireRegion(regionSlug);
     const source = await this.contentSource(region, "promotionSourceRegionSlug");
-    return this.promotionRepository.find({
+    const promotions = await this.promotionRepository.find({
       where: { region: { id: source.id }, enabled: true },
       order: { sortOrder: "ASC", id: "ASC" },
     });
+    return promotions.filter((promotion) => !isLegacyFinancialPromotion(promotion));
   }
 
   async products(filters: { search?: string; category?: string; region?: string }) {

@@ -19,7 +19,6 @@ type ProductEditor = {
   name: string;
   slug: string;
   price: string;
-  naktaCoins: string;
   oldPrice: string;
   image: string;
   description: string;
@@ -59,7 +58,6 @@ function emptyEditor(categoryId: string, sortOrder: number): ProductEditor {
     name: "",
     slug: "",
     price: "0",
-    naktaCoins: "0",
     oldPrice: "",
     image: "",
     description: "",
@@ -83,7 +81,6 @@ function editorFromProduct(product: Product, category: Category): ProductEditor 
     name: product.name,
     slug: product.slug,
     price: String(product.price),
-    naktaCoins: String(product.naktaCoins ?? 0),
     oldPrice: product.oldPrice == null ? "" : String(product.oldPrice),
     image: product.image,
     description: product.description || "",
@@ -154,7 +151,6 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
         name: editor.name.trim(),
         slug: editor.slug.trim() || slugify(editor.name),
         price: Number(editor.price),
-        naktaCoins: Number(editor.naktaCoins),
         oldPrice: editor.oldPrice === "" ? null : Number(editor.oldPrice),
         image: editor.image,
         description: editor.description.trim(),
@@ -229,9 +225,9 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
         {rows.length ? (
           <>
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[850px] text-left text-sm">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-5 py-3">Блюдо</th><th className="px-5 py-3">Категория</th><th className="px-5 py-3">Цена</th><th className="px-5 py-3">NAKTA Coin</th><th className="px-5 py-3">Доступность</th><th className="px-5 py-3 text-right">Действия</th></tr>
+                  <tr><th className="px-5 py-3">Блюдо</th><th className="px-5 py-3">Категория</th><th className="px-5 py-3">Цена</th><th className="px-5 py-3">Доступность</th><th className="px-5 py-3 text-right">Действия</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {rows.map(({ product, category }) => (
@@ -239,7 +235,6 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
                       <td className="px-5 py-4 font-medium text-slate-950">{product.name}</td>
                       <td className="px-5 py-4 text-slate-600">{category.title}</td>
                       <td className="px-5 py-4 font-semibold text-slate-900">{formatMoney(product.price)}</td>
-                      <td className="px-5 py-4 text-slate-700">{product.naktaCoins ?? 0}</td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${product.available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{product.available ? "Доступно" : "Скрыто"}</span></td>
                       <td className="px-5 py-4"><div className="flex justify-end gap-2"><button type="button" className={secondaryButton} onClick={() => void toggleProduct(product)}>{product.available ? "Скрыть" : "Показать"}</button><button type="button" className={secondaryButton} onClick={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }}>Редактировать</button></div></td>
                     </tr>
@@ -250,7 +245,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
             <div className="divide-y divide-slate-200 md:hidden">
               {rows.map(({ product, category }) => (
                 <article key={product.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{product.name}</strong><span className="mt-1 block text-sm text-slate-500">{category.title} · {product.naktaCoins ?? 0} NAKTA Coin</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(product.price)}</strong></div>
+                  <div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{product.name}</strong><span className="mt-1 block text-sm text-slate-500">{category.title}</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(product.price)}</strong></div>
                   <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" className={secondaryButton} onClick={() => void toggleProduct(product)}>{product.available ? "Скрыть блюдо" : "Показать блюдо"}</button><button type="button" className={secondaryButton} onClick={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }}>Редактировать</button></div>
                 </article>
               ))}
@@ -277,7 +272,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
                   <div className="grid content-start gap-4">
                     <label className={labelClass}>Название<input required className={inputClass} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value, slug: editor.product ? editor.slug : slugify(event.target.value) })} /></label>
                     <div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Категория<select required className={inputClass} value={editor.categoryId} onChange={(event) => setEditor({ ...editor, categoryId: event.target.value })}>{dashboard?.categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}</select></label><label className={labelClass}>Порядок<input min="0" type="number" className={inputClass} value={editor.sortOrder} onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })} /></label></div>
-                    <div className="grid gap-4 sm:grid-cols-3"><label className={labelClass}>Цена, сом<input required min="0" type="number" className={inputClass} value={editor.price} onChange={(event) => setEditor({ ...editor, price: event.target.value })} /></label><label className={labelClass}>Старая цена<input min="0" type="number" className={inputClass} value={editor.oldPrice} onChange={(event) => setEditor({ ...editor, oldPrice: event.target.value })} /></label><label className={labelClass}>NAKTA Coin<input min="0" type="number" className={inputClass} value={editor.naktaCoins} onChange={(event) => setEditor({ ...editor, naktaCoins: event.target.value })} /></label></div>
+                    <div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Цена, сом<input required min="0" type="number" className={inputClass} value={editor.price} onChange={(event) => setEditor({ ...editor, price: event.target.value })} /></label><label className={labelClass}>Старая цена<input min="0" type="number" className={inputClass} value={editor.oldPrice} onChange={(event) => setEditor({ ...editor, oldPrice: event.target.value })} /></label></div>
                     <label className={labelClass}>Описание<textarea className="min-h-24 rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={editor.description} onChange={(event) => setEditor({ ...editor, description: event.target.value })} /></label>
                     <label className={labelClass}>Состав<textarea className="min-h-24 rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={editor.composition} onChange={(event) => setEditor({ ...editor, composition: event.target.value })} /></label>
                     <label className={labelClass}>Вес, г<input min="0" step="0.01" type="number" className={inputClass} value={editor.weight} onChange={(event) => setEditor({ ...editor, weight: event.target.value })} /></label>

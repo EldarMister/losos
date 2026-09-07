@@ -10,7 +10,6 @@ import {
   mdiReceiptTextOutline,
   mdiSaleOutline,
   mdiShapeOutline,
-  mdiWalletOutline,
 } from "@mdi/js";
 import type { AdminSection } from "./admin-types";
 
@@ -25,7 +24,6 @@ export const adminSections: Array<{
   { id: "menu", label: "Меню", description: "Блюда и доступность", icon: mdiFoodOutline },
   { id: "categories", label: "Категории", description: "Категории по городам", icon: mdiShapeOutline },
   { id: "users", label: "Пользователи", description: "Клиентская база", icon: mdiAccountGroupOutline },
-  { id: "finance", label: "Финансы", description: "Вывод NAKTA Coin и NFT", icon: mdiWalletOutline },
   { id: "promotions", label: "Акции", description: "Скидки и предложения", icon: mdiSaleOutline },
   { id: "settings", label: "Настройки", description: "Основные параметры", icon: mdiCogOutline },
 ];

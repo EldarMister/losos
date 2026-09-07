@@ -99,13 +99,6 @@ export class CreateRegionDto {
   @IsOptional() @IsArray() @ArrayMaxSize(100) @Type(() => Number) @IsInt({ each: true }) @Min(1, { each: true }) toppingProductIds?: number[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName = "";
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo = "";
-  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000) nftRewardEveryOrders = 10;
-  @IsOptional() @IsString() @MaxLength(160) nftRewardName = "NFT NAKTA";
-  @IsOptional() @IsString() @MaxLength(2_000_000) nftRewardImage = "";
-  @IsOptional() @IsString() @MaxLength(2_000) nftRewardDescription = "";
-  @IsOptional() @IsIn(["polygon", "ethereum", "bsc", "solana", "ton"]) nftRewardNetwork = "polygon";
-  @IsOptional() @IsString() @MaxLength(200) nftContractAddress = "";
-  @IsOptional() @IsString() @MaxLength(2_000) nftMetadataUri = "";
 }
 
 export class UpdateRegionDto {
@@ -136,13 +129,6 @@ export class UpdateRegionDto {
   @IsOptional() @IsArray() @ArrayMaxSize(100) @Type(() => Number) @IsInt({ each: true }) @Min(1, { each: true }) toppingProductIds?: number[];
   @IsOptional() @IsString() @MaxLength(120) footerCompanyName?: string;
   @IsOptional() @IsString() @MaxLength(500) footerLegalInfo?: string;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(10_000) nftRewardEveryOrders?: number;
-  @IsOptional() @IsString() @MaxLength(160) nftRewardName?: string;
-  @IsOptional() @IsString() @MaxLength(2_000_000) nftRewardImage?: string;
-  @IsOptional() @IsString() @MaxLength(2_000) nftRewardDescription?: string;
-  @IsOptional() @IsIn(["polygon", "ethereum", "bsc", "solana", "ton"]) nftRewardNetwork?: string;
-  @IsOptional() @IsString() @MaxLength(200) nftContractAddress?: string;
-  @IsOptional() @IsString() @MaxLength(2_000) nftMetadataUri?: string;
 }
 
 export class CreatePickupLocationDto {
@@ -196,13 +182,6 @@ export class ProductModifierItemDto {
   @Min(0)
   @Max(POSTGRES_INTEGER_MAX)
   price!: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(POSTGRES_INTEGER_MAX)
-  naktaCoins = 0;
 
   @IsString()
   @MaxLength(2_000_000)
@@ -351,13 +330,6 @@ export class CreateProductDto {
   @IsInt()
   @Min(0)
   @Max(POSTGRES_INTEGER_MAX)
-  naktaCoins = 0;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(POSTGRES_INTEGER_MAX)
   oldPrice?: number | null;
 
   @IsString()
@@ -438,7 +410,6 @@ export class UpdateProductDto {
   @Min(0)
   @Max(POSTGRES_INTEGER_MAX)
   price?: number;
-  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) naktaCoins?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(POSTGRES_INTEGER_MAX) oldPrice?: number | null;
   @IsOptional() @IsString() @IsNotEmpty() image?: string;
   @IsOptional() @IsString() description?: string;
@@ -505,21 +476,4 @@ export class UpdatePromotionDto {
   ctaUrl?: string;
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() enabled?: boolean;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) sortOrder?: number;
-}
-
-export class UpdateNftWithdrawalDto {
-  @IsIn(["submitted", "withdrawn", "failed"])
-  status!: "submitted" | "withdrawn" | "failed";
-
-  @IsOptional() @IsString() @MaxLength(200) txHash?: string;
-  @IsOptional() @IsString() @MaxLength(160) tokenId?: string;
-  @IsOptional() @IsString() @MaxLength(1_000) error?: string;
-}
-
-export class UpdateNaktaCoinWithdrawalDto {
-  @IsIn(["submitted", "withdrawn", "failed"])
-  status!: "submitted" | "withdrawn" | "failed";
-
-  @IsOptional() @IsString() @MaxLength(200) txHash?: string;
-  @IsOptional() @IsString() @MaxLength(1_000) error?: string;
 }

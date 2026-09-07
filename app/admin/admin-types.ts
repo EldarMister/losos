@@ -4,7 +4,6 @@ export type AdminSection =
   | "menu"
   | "categories"
   | "users"
-  | "finance"
   | "promotions"
   | "settings";
 
@@ -81,7 +80,6 @@ export type Product = {
   name: string;
   slug: string;
   price: number;
-  naktaCoins: number;
   oldPrice: number | null;
   image: string;
   description: string;
@@ -101,7 +99,6 @@ export type ModifierItem = {
   id: string;
   name: string;
   price: number;
-  naktaCoins?: number;
   image: string;
   enabled?: boolean;
   maxQuantity?: number;
@@ -183,13 +180,6 @@ export type Region = {
   deliveryZone: DeliveryZonePoint[];
   freeKitItems: FreeKitItem[] | null;
   toppingProductIds: number[] | null;
-  nftRewardEveryOrders: number;
-  nftRewardName: string;
-  nftRewardImage: string;
-  nftRewardDescription: string;
-  nftRewardNetwork: string;
-  nftContractAddress: string;
-  nftMetadataUri: string;
   pickupLocations?: PickupLocation[];
 };
 
@@ -215,49 +205,6 @@ export type Customer = {
   completedOrders: number;
   revenue: number;
   lastOrderAt: string;
-  naktaCoins: number;
-  nftCount: number;
-  pendingNftCount: number;
-};
-
-export type CoinWithdrawalStatus = "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
-
-export type CoinWithdrawal = {
-  id: string;
-  phone: string;
-  regionSlug: string;
-  amount: number;
-  walletAddress: string;
-  status: CoinWithdrawalStatus;
-  txHash: string | null;
-  error: string | null;
-  createdAt: string;
-};
-
-export type NftWithdrawalStatus = "owned" | "pending" | "submitted" | "withdrawn" | "failed";
-
-export type NftWithdrawal = {
-  id: string;
-  phone: string;
-  regionSlug: string;
-  rewardKey: string;
-  orderId: string;
-  milestoneOrderCount: number;
-  name: string;
-  image: string;
-  description: string;
-  network: string;
-  contractAddress: string;
-  metadataUri: string;
-  tokenId: string | null;
-  status: NftWithdrawalStatus;
-  walletAddress: string | null;
-  txHash: string | null;
-  withdrawalError: string | null;
-  withdrawalRequestedAt: string | null;
-  withdrawnAt: string | null;
-  createdAt: string;
-  updatedAt: string;
 };
 
 export type CustomerOrderSummary = {
@@ -271,23 +218,9 @@ export type CustomerOrderSummary = {
   createdAt: string;
 };
 
-export type CustomerRewardAdjustment = {
-  id: string;
-  phone: string;
-  regionSlug: string;
-  asset: "coin" | "nft";
-  delta: number;
-  balanceAfter: number;
-  reason: string;
-  createdAt: string;
-};
-
 export type CustomerDetail = Customer & {
   regionSlug: string;
-  availableNftCount: number;
   orders: CustomerOrderSummary[];
-  nfts: NftWithdrawal[];
-  adjustments: CustomerRewardAdjustment[];
 };
 
 export type AdminRequest = <T>(path: string, init?: RequestInit) => Promise<T>;

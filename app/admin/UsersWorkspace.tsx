@@ -3,8 +3,6 @@
 import {
   mdiArrowLeft,
   mdiMagnify,
-  mdiMinus,
-  mdiPlus,
   mdiRefresh,
 } from "@mdi/js";
 import { Icon } from "@mdi/react";
@@ -13,8 +11,6 @@ import type {
   AdminRequest,
   Customer,
   CustomerDetail,
-  CustomerRewardAdjustment,
-  NftWithdrawalStatus,
   OrderStatus,
 } from "./admin-types";
 
@@ -22,13 +18,6 @@ type UsersWorkspaceProps = {
   region: string;
   request: AdminRequest;
   onNotice: (message: string, tone?: "success" | "error") => void;
-};
-
-type RewardAction = {
-  asset: "coin" | "nft";
-  direction: "add" | "remove";
-  amount: string;
-  reason: string;
 };
 
 const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";
@@ -43,14 +32,6 @@ const orderLabels: Record<OrderStatus, string> = {
   delivering: "В пути",
   completed: "Завершён",
   cancelled: "Отменён",
-};
-
-const nftLabels: Record<NftWithdrawalStatus, string> = {
-  owned: "Доступен",
-  pending: "Вывод запрошен",
-  submitted: "Отправлен",
-  withdrawn: "Выведен",
-  failed: "Ошибка вывода",
 };
 
 function formatMoney(value: number) {
@@ -73,21 +54,14 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-function changeLabel(item: CustomerRewardAdjustment) {
-  const asset = item.asset === "coin" ? "NAKTA Coin" : "NFT";
-  return `${item.delta > 0 ? "+" : ""}${formatNumber(item.delta)} ${asset}`;
-}
-
-export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProps) {
+export function UsersWorkspace({ region, request }: UsersWorkspaceProps) {
   const [users, setUsers] = useState<Customer[]>([]);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
-  const [action, setAction] = useState<RewardAction | null>(null);
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const loadUsers = useCallback(async () => {
@@ -136,45 +110,7 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
   const closeCustomer = () => {
     setSelectedPhone(null);
     setDetail(null);
-    setAction(null);
     setError("");
-  };
-
-  const beginAdjustment = (asset: "coin" | "nft", direction: "add" | "remove") => {
-    setAction({ asset, direction, amount: "1", reason: "" });
-  };
-
-  const submitAdjustment = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!action || !selectedPhone || saving) return;
-    const amount = Number(action.amount);
-    if (!Number.isInteger(amount) || amount < 1) return;
-    const delta = action.direction === "add" ? amount : -amount;
-    setSaving(true);
-    try {
-      const updated = await request<CustomerDetail>(`/admin/customers/${encodeURIComponent(selectedPhone)}/rewards/adjust`, {
-        method: "POST",
-        body: JSON.stringify({
-          region,
-          asset: action.asset,
-          delta,
-          reason: action.reason.trim(),
-        }),
-      });
-      setDetail(updated);
-      setUsers((current) => current.map((user) => user.phone === updated.phone ? {
-        ...user,
-        naktaCoins: updated.naktaCoins,
-        nftCount: updated.nftCount,
-        pendingNftCount: updated.pendingNftCount,
-      } : user));
-      onNotice(action.direction === "add" ? "Награда начислена пользователю" : "Награда списана у пользователя", "success");
-      setAction(null);
-    } catch (saveError) {
-      onNotice(saveError instanceof Error ? saveError.message : "Не удалось изменить баланс", "error");
-    } finally {
-      setSaving(false);
-    }
   };
 
   if (selectedPhone) {
@@ -210,37 +146,11 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
               </div>
               <p className="text-sm text-slate-500">Последний заказ: {formatDate(detail.lastOrderAt)}</p>
             </div>
-            <dl className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <dl className="mt-6 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><dt className="text-xs text-slate-500">Всего заказов</dt><dd className="mt-2 text-2xl font-semibold text-slate-950">{formatNumber(detail.ordersCount)}</dd><span className="mt-1 block text-xs text-slate-500">Завершено: {formatNumber(detail.completedOrders)}</span></div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><dt className="text-xs text-slate-500">Сумма покупок</dt><dd className="mt-2 text-2xl font-semibold text-slate-950">{formatMoney(detail.revenue)}</dd><span className="mt-1 block text-xs text-slate-500">Только завершённые заказы</span></div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><dt className="text-xs text-slate-500">Баланс NAKTA Coin</dt><dd className="mt-2 text-2xl font-semibold text-slate-950">{formatNumber(detail.naktaCoins)}</dd><span className="mt-1 block text-xs text-slate-500">Текущий доступный баланс</span></div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><dt className="text-xs text-slate-500">NFT пользователя</dt><dd className="mt-2 text-2xl font-semibold text-slate-950">{formatNumber(detail.nftCount)}</dd><span className="mt-1 block text-xs text-slate-500">Доступно: {detail.availableNftCount} · На выводе: {detail.pendingNftCount}</span></div>
             </dl>
           </section>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="border-b border-slate-200 pb-4">
-                <h3 className="font-semibold text-slate-950">Управление NAKTA Coin</h3>
-                <p className="mt-1 text-sm text-slate-500">Текущий баланс: {formatNumber(detail.naktaCoins)} Coin</p>
-              </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <button type="button" className={primaryButton} onClick={() => beginAdjustment("coin", "add")}><Icon path={mdiPlus} size={0.72} aria-hidden="true" />Начислить Coin</button>
-                <button type="button" className={secondaryButton} onClick={() => beginAdjustment("coin", "remove")} disabled={detail.naktaCoins === 0}><Icon path={mdiMinus} size={0.72} aria-hidden="true" />Списать Coin</button>
-              </div>
-            </section>
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="border-b border-slate-200 pb-4">
-                <h3 className="font-semibold text-slate-950">Управление NFT</h3>
-                <p className="mt-1 text-sm text-slate-500">Доступно для списания: {formatNumber(detail.availableNftCount)} NFT</p>
-              </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <button type="button" className={primaryButton} onClick={() => beginAdjustment("nft", "add")}><Icon path={mdiPlus} size={0.72} aria-hidden="true" />Начислить NFT</button>
-                <button type="button" className={secondaryButton} onClick={() => beginAdjustment("nft", "remove")} disabled={detail.availableNftCount === 0}><Icon path={mdiMinus} size={0.72} aria-hidden="true" />Списать NFT</button>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">NFT, которые выводятся или уже выведены, списать нельзя.</p>
-            </section>
-          </div>
 
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="border-b border-slate-200 p-5"><h3 className="font-semibold text-slate-950">Все заказы</h3><p className="mt-1 text-sm text-slate-500">История заказов пользователя в выбранном городе.</p></div>
@@ -255,37 +165,7 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
             </> : <p className="p-8 text-center text-sm text-slate-500">Заказов пока нет.</p>}
           </section>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-5"><h3 className="font-semibold text-slate-950">NFT пользователя</h3><p className="mt-1 text-sm text-slate-500">Все начисленные NFT и их текущий статус.</p></div>
-              {detail.nfts.length ? <div className="divide-y divide-slate-200">{detail.nfts.map((nft) => <article key={nft.id} className="p-4 sm:px-5"><div className="flex items-start justify-between gap-3"><div><strong className="text-slate-950">{nft.name}</strong><span className="mt-1 block text-xs text-slate-500">{nft.network} · {formatDate(nft.createdAt)}</span></div><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">{nftLabels[nft.status]}</span></div></article>)}</div> : <p className="p-8 text-center text-sm text-slate-500">NFT пока не начислялись.</p>}
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              <div className="border-b border-slate-200 p-5"><h3 className="font-semibold text-slate-950">История ручных изменений</h3><p className="mt-1 text-sm text-slate-500">Когда и почему баланс менялся через админ-панель.</p></div>
-              {detail.adjustments.length ? <div className="divide-y divide-slate-200">{detail.adjustments.map((item) => <article key={item.id} className="p-4 sm:px-5"><div className="flex items-start justify-between gap-3"><div><strong className={item.delta > 0 ? "text-emerald-700" : "text-red-700"}>{changeLabel(item)}</strong><p className="mt-1 text-sm text-slate-700">{item.reason}</p><span className="mt-1 block text-xs text-slate-500">{formatDate(item.createdAt)}</span></div><span className="shrink-0 text-xs text-slate-500">Остаток: {formatNumber(item.balanceAfter)}</span></div></article>)}</div> : <p className="p-8 text-center text-sm text-slate-500">Ручных изменений ещё не было.</p>}
-            </section>
-          </div>
         </> : null}
-
-        {action && detail ? (
-          <div className="fixed inset-0 z-[80] grid place-items-end bg-slate-950/45 sm:place-items-center sm:p-4" role="presentation" onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !saving) setAction(null);
-          }}>
-            <section className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:max-w-lg sm:rounded-2xl" role="dialog" aria-modal="true" aria-labelledby="reward-dialog-title">
-              <div className="border-b border-slate-200 p-5">
-                <h2 id="reward-dialog-title" className="text-lg font-semibold text-slate-950">{action.direction === "add" ? "Начислить" : "Списать"} {action.asset === "coin" ? "NAKTA Coin" : "NFT"}</h2>
-                <p className="mt-1 text-sm text-slate-500">Пользователь: {detail.customerName || detail.phone}</p>
-              </div>
-              <form className="grid gap-4 p-5" onSubmit={submitAdjustment}>
-                <label className="grid gap-1.5 text-sm font-medium text-slate-700">Количество<input required type="number" min="1" max={action.asset === "nft" ? Math.max(1, action.direction === "remove" ? detail.availableNftCount : 100) : 1_000_000} className={inputClass} value={action.amount} onChange={(event) => setAction({ ...action, amount: event.target.value })} /></label>
-                <label className="grid gap-1.5 text-sm font-medium text-slate-700">Причина изменения<textarea required maxLength={240} className="min-h-24 w-full resize-y rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" placeholder="Например: компенсация за отменённый заказ" value={action.reason} onChange={(event) => setAction({ ...action, reason: event.target.value })} /></label>
-                <p className="rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-600">После сохранения изменение попадёт в историю. Списать больше текущего доступного остатка нельзя.</p>
-                <div className="grid gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2"><button type="button" className={secondaryButton} onClick={() => setAction(null)} disabled={saving}>Отменить</button><button type="submit" className={action.direction === "add" ? primaryButton : "min-h-11 rounded-lg bg-red-600 px-4 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"} disabled={saving}>{saving ? "Сохраняем…" : action.direction === "add" ? "Начислить пользователю" : "Списать у пользователя"}</button></div>
-              </form>
-            </section>
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -310,12 +190,12 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
       {!error && users.length ? (
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Пользователь</th><th className="px-5 py-3">Заказы</th><th className="px-5 py-3">Сумма покупок</th><th className="px-5 py-3">NAKTA Coin</th><th className="px-5 py-3">NFT</th><th className="px-5 py-3"><span className="sr-only">Действие</span></th></tr></thead>
-              <tbody className="divide-y divide-slate-200">{users.map((user) => <tr key={user.phone}><td className="px-5 py-4"><strong className="block text-slate-950">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-xs text-slate-500">{user.phone}</span></td><td className="px-5 py-4 text-slate-700"><strong>{formatNumber(user.ordersCount)}</strong><span className="mt-1 block text-xs text-slate-500">Завершено: {formatNumber(user.completedOrders)}</span></td><td className="px-5 py-4 font-semibold text-slate-950">{formatMoney(user.revenue)}</td><td className="px-5 py-4 font-semibold text-slate-950">{formatNumber(user.naktaCoins)}</td><td className="px-5 py-4 text-slate-700"><strong>{formatNumber(user.nftCount)}</strong>{user.pendingNftCount ? <span className="mt-1 block text-xs text-amber-700">На выводе: {user.pendingNftCount}</span> : null}</td><td className="px-5 py-4 text-right"><button type="button" className={secondaryButton} onClick={() => openCustomer(user.phone)}>Открыть карточку</button></td></tr>)}</tbody>
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Пользователь</th><th className="px-5 py-3">Заказы</th><th className="px-5 py-3">Сумма покупок</th><th className="px-5 py-3"><span className="sr-only">Действие</span></th></tr></thead>
+              <tbody className="divide-y divide-slate-200">{users.map((user) => <tr key={user.phone}><td className="px-5 py-4"><strong className="block text-slate-950">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-xs text-slate-500">{user.phone}</span></td><td className="px-5 py-4 text-slate-700"><strong>{formatNumber(user.ordersCount)}</strong><span className="mt-1 block text-xs text-slate-500">Завершено: {formatNumber(user.completedOrders)}</span></td><td className="px-5 py-4 font-semibold text-slate-950">{formatMoney(user.revenue)}</td><td className="px-5 py-4 text-right"><button type="button" className={secondaryButton} onClick={() => openCustomer(user.phone)}>Открыть карточку</button></td></tr>)}</tbody>
             </table>
           </div>
-          <div className="divide-y divide-slate-200 lg:hidden">{users.map((user) => <article key={user.phone} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-sm text-slate-500">{user.phone}</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(user.revenue)}</strong></div><dl className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-100 pt-3 text-sm"><div><dt className="text-xs text-slate-500">Заказы</dt><dd className="mt-1 font-semibold text-slate-950">{formatNumber(user.ordersCount)}</dd></div><div><dt className="text-xs text-slate-500">Coin</dt><dd className="mt-1 font-semibold text-slate-950">{formatNumber(user.naktaCoins)}</dd></div><div><dt className="text-xs text-slate-500">NFT</dt><dd className="mt-1 font-semibold text-slate-950">{formatNumber(user.nftCount)}</dd></div></dl><button type="button" className={`${primaryButton} mt-4 w-full`} onClick={() => openCustomer(user.phone)}>Открыть карточку пользователя</button></article>)}</div>
+          <div className="divide-y divide-slate-200 lg:hidden">{users.map((user) => <article key={user.phone} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-sm text-slate-500">{user.phone}</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(user.revenue)}</strong></div><dl className="mt-4 border-t border-slate-100 pt-3 text-sm"><div><dt className="text-xs text-slate-500">Заказы</dt><dd className="mt-1 font-semibold text-slate-950">{formatNumber(user.ordersCount)}</dd></div></dl><button type="button" className={`${primaryButton} mt-4 w-full`} onClick={() => openCustomer(user.phone)}>Открыть карточку пользователя</button></article>)}</div>
         </section>
       ) : null}
 

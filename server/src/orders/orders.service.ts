@@ -59,6 +59,22 @@ function isUniqueViolation(error: unknown) {
   return candidate.code === "23505" || candidate.driverError?.code === "23505";
 }
 
+function publicOrder(order: Order) {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    total: order.total,
+    status: order.status,
+    posStatus: order.posStatus,
+    posSyncStatus: order.posSyncStatus,
+    posProgress: {
+      itemsTotal: order.posItemsTotal,
+      itemsReady: order.posItemsReady,
+      itemsRejected: order.posItemsRejected,
+    },
+  };
+}
+
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
@@ -85,7 +101,7 @@ export class OrdersService {
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
-      return this.ensureMatchingIdempotency(existing, requestFingerprint);
+      return publicOrder(this.ensureMatchingIdempotency(existing, requestFingerprint));
     }
 
     try {
@@ -127,19 +143,9 @@ export class OrdersService {
           }
           try {
             const priced = priceOrderLine(product, entry.quantity, entry.modifiers ?? []);
-            const modifierNaktaCoins = priced.modifierSnapshots.reduce(
-              (total, modifier) => total + modifier.totalNaktaCoins * (
-                modifier.priceScope === "per-product" ? entry.quantity : 1
-              ),
-              0,
-            );
-            const naktaCoins = product.naktaCoins * entry.quantity + modifierNaktaCoins;
-            if (!Number.isSafeInteger(naktaCoins) || naktaCoins > POSTGRES_INTEGER_MAX) {
-              throw new BadRequestException("NAKTA Coin для позиции заказа превышает допустимое значение");
-            }
             return items.create({
               ...priced,
-              naktaCoins,
+              naktaCoins: 0,
               posDishId: product.posDishId,
               posVariantId: product.posVariantId,
               posWeightGrams: product.posSoldByWeight && product.weight > 0
@@ -199,13 +205,13 @@ export class OrdersService {
         return orders.save(order);
       });
       this.logger.log(`Order ${created.id} persisted as new (idempotency ${idempotencyKey})`);
-      return created;
+      return publicOrder(created);
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
       this.logger.warn(`Recovered concurrent order ${racedOrder.id} (idempotency ${idempotencyKey})`);
-      return this.ensureMatchingIdempotency(racedOrder, requestFingerprint);
+      return publicOrder(this.ensureMatchingIdempotency(racedOrder, requestFingerprint));
     }
   }
 

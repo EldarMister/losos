@@ -30,7 +30,7 @@ type SettingsWorkspaceProps = {
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
-type SettingsTab = "basic" | "delivery" | "pickup" | "kit" | "rewards" | "edu-pos";
+type SettingsTab = "basic" | "delivery" | "pickup" | "kit" | "edu-pos";
 
 type SettingsDraft = {
   enabled: boolean;
@@ -48,13 +48,6 @@ type SettingsDraft = {
   deliveryZone: DeliveryZonePoint[];
   freeKitItems: FreeKitItem[];
   toppingProductIds: number[];
-  nftRewardEveryOrders: string;
-  nftRewardName: string;
-  nftRewardImage: string;
-  nftRewardDescription: string;
-  nftRewardNetwork: string;
-  nftContractAddress: string;
-  nftMetadataUri: string;
 };
 
 type PickupEditor = {
@@ -105,7 +98,6 @@ const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "delivery", label: "Доставка" },
   { id: "pickup", label: "Самовывоз" },
   { id: "kit", label: "Комплектация" },
-  { id: "rewards", label: "Вознаграждения" },
   { id: "edu-pos", label: "EDU POS" },
 ];
 
@@ -146,13 +138,6 @@ function draftFromRegion(item: Region, categories: Category[]): SettingsDraft {
     deliveryZone: item.deliveryZone || [],
     freeKitItems: (item.freeKitItems ?? fallbackFreeKitItems).map((kitItem) => ({ ...kitItem })),
     toppingProductIds: [...(item.toppingProductIds ?? legacyToppingIds(categories))],
-    nftRewardEveryOrders: String(item.nftRewardEveryOrders ?? 0),
-    nftRewardName: item.nftRewardName || "NFT NAKTA",
-    nftRewardImage: item.nftRewardImage || "",
-    nftRewardDescription: item.nftRewardDescription || "",
-    nftRewardNetwork: item.nftRewardNetwork || "polygon",
-    nftContractAddress: item.nftContractAddress || "",
-    nftMetadataUri: item.nftMetadataUri || "",
   };
 }
 
@@ -255,13 +240,6 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
           ...(draft.deliveryZone.length >= 3 ? { deliveryZone: draft.deliveryZone } : {}),
           freeKitItems: draft.freeKitItems,
           toppingProductIds: draft.toppingProductIds,
-          nftRewardEveryOrders: Number(draft.nftRewardEveryOrders),
-          nftRewardName: draft.nftRewardName.trim(),
-          nftRewardImage: draft.nftRewardImage,
-          nftRewardDescription: draft.nftRewardDescription.trim(),
-          nftRewardNetwork: draft.nftRewardNetwork,
-          nftContractAddress: draft.nftContractAddress.trim(),
-          nftMetadataUri: draft.nftMetadataUri.trim(),
         }),
       });
       onNotice("Настройки сохранены", "success");
@@ -533,22 +511,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
           </div>
         ) : null}
 
-        {tab === "rewards" ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <div className="border-b border-slate-200 pb-4"><h2 className="font-semibold text-slate-950">NFT-вознаграждение</h2><p className="mt-1 text-sm text-slate-500">NAKTA Coin задаются в каждом блюде, здесь настраивается NFT за повторные заказы.</p></div>
-            <div className="mt-5 grid gap-6 lg:grid-cols-[320px_1fr]">
-              <ImageUpload label="Изображение NFT" value={draft.nftRewardImage} hint="Квадратное изображение до 5 МБ." onChange={(nftRewardImage) => setDraft({ ...draft, nftRewardImage })} onError={(message) => onNotice(message, "error")} />
-              <div className="grid content-start gap-4">
-                <label className={labelClass}>Выдавать NFT за каждые N заказов<input min="0" max="10000" type="number" className={inputClass} value={draft.nftRewardEveryOrders} onChange={(event) => setDraft({ ...draft, nftRewardEveryOrders: event.target.value })} /><small className="font-normal text-slate-500">0 — отключить выдачу NFT.</small></label>
-                <label className={labelClass}>Название NFT<input className={inputClass} value={draft.nftRewardName} onChange={(event) => setDraft({ ...draft, nftRewardName: event.target.value })} /></label>
-                <label className={labelClass}>Описание<textarea className="min-h-24 rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={draft.nftRewardDescription} onChange={(event) => setDraft({ ...draft, nftRewardDescription: event.target.value })} /></label>
-                <details className="rounded-xl border border-slate-200 p-4"><summary className="cursor-pointer text-sm font-semibold text-slate-900">Технические параметры NFT</summary><div className="mt-4 grid gap-4"><label className={labelClass}>Сеть<select className={inputClass} value={draft.nftRewardNetwork} onChange={(event) => setDraft({ ...draft, nftRewardNetwork: event.target.value })}><option value="polygon">Polygon</option><option value="ethereum">Ethereum</option><option value="bsc">BSC</option><option value="solana">Solana</option><option value="ton">TON</option></select></label><label className={labelClass}>Адрес контракта<input className={inputClass} value={draft.nftContractAddress} onChange={(event) => setDraft({ ...draft, nftContractAddress: event.target.value })} /></label><label className={labelClass}>Ссылка на метаданные<input className={inputClass} value={draft.nftMetadataUri} onChange={(event) => setDraft({ ...draft, nftMetadataUri: event.target.value })} /></label></div></details>
-              </div>
-            </div>
-          </section>
-        ) : null}
-
-        {(["basic", "delivery", "kit", "rewards"] as SettingsTab[]).includes(tab) ? (
+        {(["basic", "delivery", "kit"] as SettingsTab[]).includes(tab) ? (
           <div className="flex justify-end"><button type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить настройки"}</button></div>
         ) : null}
       </form>

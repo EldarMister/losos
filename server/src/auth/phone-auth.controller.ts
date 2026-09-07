@@ -6,7 +6,6 @@ import {
   HttpCode,
   Ip,
   Param,
-  ParseUUIDPipe,
   Post,
   Query,
   RawBody,
@@ -17,8 +16,6 @@ import {
   RequestPhoneCodeDto,
   RequestWhatsappAuthDto,
   VerifyPhoneCodeDto,
-  WithdrawNaktaCoinsDto,
-  WithdrawNftDto,
 } from "./phone-auth.dto";
 import {
   PhoneAuthService,
@@ -103,56 +100,6 @@ export class PhoneAuthController {
   ) {
     const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
     return this.auth.cancelOrder(phone || "", verificationToken, id);
-  }
-
-  @Post("nfts/:id/withdraw")
-  @HttpCode(200)
-  withdrawNft(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Query("phone") phone: string | undefined,
-    @Headers("authorization") authorization: string | undefined,
-    @Body() dto: WithdrawNftDto,
-  ) {
-    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
-    return this.auth.withdrawNft(phone || "", verificationToken, id, dto.walletAddress);
-  }
-
-  @Post("coins/withdraw")
-  @HttpCode(200)
-  withdrawNaktaCoins(
-    @Query("phone") phone: string | undefined,
-    @Headers("authorization") authorization: string | undefined,
-    @Body() dto: WithdrawNaktaCoinsDto,
-  ) {
-    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
-    return this.auth.withdrawNaktaCoins(
-      phone || "",
-      verificationToken,
-      dto.walletAddress,
-      dto.amount,
-    );
-  }
-
-  @Post("coins/withdrawals/:id/cancel")
-  @HttpCode(200)
-  cancelNaktaCoinWithdrawal(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Query("phone") phone: string | undefined,
-    @Headers("authorization") authorization: string | undefined,
-  ) {
-    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
-    return this.auth.cancelNaktaCoinWithdrawal(phone || "", verificationToken, id);
-  }
-
-  @Post("nfts/:id/withdrawal/cancel")
-  @HttpCode(200)
-  cancelNftWithdrawal(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Query("phone") phone: string | undefined,
-    @Headers("authorization") authorization: string | undefined,
-  ) {
-    const verificationToken = authorization?.replace(/^Bearer\s+/i, "").trim() || "";
-    return this.auth.cancelNftWithdrawal(phone || "", verificationToken, id);
   }
 
   @Post("request-code")

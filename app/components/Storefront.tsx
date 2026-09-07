@@ -4,13 +4,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@mdi/react";
-import { LegalOperatorDetails } from "./LegalOperatorDetails";
 import {
   mdiAccountOutline,
   mdiAccountCircleOutline,
-  mdiAlertCircleOutline,
   mdiArrowLeft,
-  mdiBankTransferOut,
   mdiCashMultiple,
   mdiCheckCircle,
   mdiChevronRight,
@@ -22,7 +19,6 @@ import {
   mdiFileDocumentOutline,
   mdiFish,
   mdiFoodTakeoutBoxOutline,
-  mdiHexagonMultipleOutline,
   mdiInformationOutline,
   mdiLogout,
   mdiMapMarker,
@@ -34,17 +30,12 @@ import {
   mdiShieldAccountOutline,
   mdiShoppingOutline,
   mdiStairs,
-  mdiStarFourPointsOutline,
   mdiWalletOutline,
 } from "@mdi/js";
 import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { categories, promoCards, type Category, type Product } from "../data/catalog";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
-import {
-  RewardsWithdrawalDialog,
-  type RewardWithdrawalInput,
-} from "./RewardsWithdrawalDialog";
 import { TurnstileWidget } from "./TurnstileWidget";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
@@ -106,8 +97,6 @@ type RegionOption = {
   minimumOrderAmount?: number;
   maximumOrderAmount?: number;
   deliveryZone?: Array<{ latitude: number; longitude: number }>;
-  footerCompanyName?: string;
-  footerLegalInfo?: string;
   freeKitItems?: FreeKitItem[] | null;
   toppingProductIds?: number[] | null;
 };
@@ -152,8 +141,6 @@ type ProfileOrder = {
   deliveryType: DeliveryType;
   createdAt: string;
   address?: string;
-  earnedNaktaCoins?: number;
-  naktaCoins?: number;
   posStatus?: string | null;
   posSyncStatus?: string;
   posProgress?: PosProgress;
@@ -185,58 +172,11 @@ type ProfileOrderDetail = ProfileOrder & {
     posRejectReason?: string | null;
   }>;
 };
-type NaktaCoinTransaction = {
-  id: string;
-  amount: number;
-  createdAt?: string;
-  description: string;
-  orderId?: string;
-  withdrawalId?: string;
-  withdrawalStatus?: "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
-  withdrawalReason?: string | null;
-};
-type ProfileNftStatus = "owned" | "pending" | "submitted" | "withdrawn" | "failed";
-type ProfileNftNetwork = "polygon" | "ethereum" | "bsc" | "solana" | "ton";
-type ProfileNft = {
-  id: string;
-  name: string;
-  image: string;
-  description: string;
-  network: ProfileNftNetwork;
-  contractAddress: string;
-  tokenId: string | null;
-  status: ProfileNftStatus;
-  walletAddress: string | null;
-  txHash: string | null;
-  withdrawalError: string | null;
-  withdrawalRequestedAt?: string | null;
-  createdAt: string;
-  withdrawnAt: string | null;
-  orderId: string;
-  regionSlug: string;
-  milestoneOrderCount: number;
-};
-type NaktaCoinWithdrawal = {
-  id: string;
-  amount: number;
-  walletAddress: string;
-  status: "pending" | "submitted" | "withdrawn" | "failed" | "cancelled";
-  txHash: string | null;
-  error: string | null;
-  processedAt: string | null;
-  createdAt: string;
-};
-
 const publicOrderNumber = (order: { id: string; orderNumber?: number }) =>
   String(order.orderNumber || order.id.slice(0, 6).toUpperCase());
 type ProfileData = {
-  naktaCoins: number;
   currentOrders: ProfileOrder[];
   orderHistory: ProfileOrder[];
-  naktaCoinHistory?: NaktaCoinTransaction[];
-  naktaCoinTransactions?: NaktaCoinTransaction[];
-  nfts?: ProfileNft[];
-  naktaCoinWithdrawals?: NaktaCoinWithdrawal[];
 };
 type PersistedStorefrontState = {
   cart: CartLine[];
@@ -298,20 +238,6 @@ const profileOrderDetailStatuses: Record<ProfileOrder["status"], string> = {
   completed: "Заказ выполнен",
   cancelled: "Заказ отменён",
 };
-const profileNftStatuses: Record<ProfileNftStatus, string> = {
-  owned: "Доступен",
-  pending: "Заявка принята",
-  submitted: "Отправляется",
-  withdrawn: "На кошельке",
-  failed: "Ошибка вывода",
-};
-const profileNftNetworks: Record<ProfileNftNetwork, string> = {
-  polygon: "Polygon",
-  ethereum: "Ethereum",
-  bsc: "BNB Smart Chain",
-  solana: "Solana",
-  ton: "TON",
-};
 const posStatusLabels: Record<string, string> = {
   sent_to_kitchen: "Заказ передан на кухню",
   accepted_by_kitchen: "Кухня приняла заказ",
@@ -322,31 +248,6 @@ const posStatusLabels: Record<string, string> = {
   cancelled: "Заказ отменён",
 };
 const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
-function profileCoinHistory(profile: ProfileData | null): NaktaCoinTransaction[] {
-  if (!profile) return [];
-  const serverHistory = profile.naktaCoinHistory ?? profile.naktaCoinTransactions ?? [];
-  const normalized = serverHistory.filter((entry) => Number.isFinite(entry.amount) && entry.amount !== 0);
-  if (normalized.length) return normalized;
-
-  const orderEntries = profile.orderHistory.flatMap((order) => {
-    const amount = Math.round(Number(order.earnedNaktaCoins ?? order.naktaCoins ?? 0));
-    if (!Number.isFinite(amount) || !amount) return [];
-    return [{
-      id: `order-${order.id}`,
-      amount,
-      createdAt: order.createdAt,
-      description: `Заказ №${publicOrderNumber(order)}`,
-      orderId: order.id,
-    }];
-  });
-  if (orderEntries.length) return orderEntries;
-
-  return profile.naktaCoins > 0 ? [{
-    id: "previous-orders",
-    amount: profile.naktaCoins,
-    description: "Начислено за предыдущие заказы",
-  }] : [];
-}
 
 function addressWithSingleCity(value: string, city: string) {
   const cleaned = value
@@ -472,9 +373,6 @@ const restoreStoredProduct = (value: unknown): Product | null => {
   };
   const description = boundedString(value.description, 2_000);
   if (description) product.description = description;
-  if (Number.isInteger(value.naktaCoins) && (value.naktaCoins as number) > 0 && (value.naktaCoins as number) <= 1_000_000) {
-    product.naktaCoins = value.naktaCoins as number;
-  }
   if (value.isNew === true) product.isNew = true;
   if (["wasabi", "popcorn", "batat", "cheese-sticks", "crab-salmon"].includes(String(value.referenceCard))) {
     product.referenceCard = value.referenceCard as NonNullable<Product["referenceCard"]>;
@@ -690,7 +588,7 @@ const writeOverlayQuery = (name: "product" | "storyInspect", value: string | nul
 
 type StoryGroup = {
   title: string;
-  kind: "student" | "telegram" | "pleasure" | "kids" | "cashback" | "sticks" | "cats";
+  kind: "student" | "telegram" | "pleasure" | "kids" | "sticks" | "cats";
   pages: Array<{ src: string }>;
   cta?: string;
   ctaUrl?: string;
@@ -720,16 +618,6 @@ const defaultStoryGroups: StoryGroup[] = [
     kind: "kids",
     cta: "Кавабанга!",
     pages: [{ src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/2720f66e5f628289ea1c761222a24eb4_resize_in_box_2048_2048.jpg" }],
-  },
-  {
-    title: "Кешбэк до 100%",
-    kind: "cashback",
-    pages: [
-      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/e258569da4e992205d8f3ae006d151eb_resize_in_box_2048_2048.jpg" },
-      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/268df916388b662e094cc8fdbab4095f_resize_in_box_2048_2048.jpg" },
-      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/5f085f197e1afcf72c9ac61c8959140f_resize_in_box_2048_2048.jpg" },
-      { src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/shared/ce627f513c731ba28069085078e433dc_resize_in_box_2048_2048.jpg" },
-    ],
   },
   {
     title: "Мноооооого палочки?",
@@ -817,8 +705,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const supportHref = selectedRegion?.supportUrl?.trim()
     || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
   const footerEmail = "naktasushi@gmail.com";
-  const footerCompanyName = selectedRegion?.footerCompanyName || "Накта суши";
-  const footerLegalInfo = selectedRegion?.footerLegalInfo || "Сервис доставки «Накта суши», Кыргызская Республика. Реквизиты и условия обслуживания доступны в разделе «Правовая информация».";
+  const footerCompanyName = "Накта суши";
+  const footerLegalInfo = "Сервис доставки «Накта суши», Кыргызская Республика.";
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [addressCityOpen, setAddressCityOpen] = useState(false);
@@ -846,17 +734,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [cancelOrderOpen, setCancelOrderOpen] = useState(false);
   const [cancelOrderBusy, setCancelOrderBusy] = useState(false);
   const [cancelOrderError, setCancelOrderError] = useState("");
-  const [rewardWithdrawalOpen, setRewardWithdrawalOpen] = useState(false);
-  const [rewardCancelTarget, setRewardCancelTarget] = useState<{
-    kind: "coins" | "nft";
-    id: string;
-    label: string;
-  } | null>(null);
-  const [rewardCancelBusy, setRewardCancelBusy] = useState(false);
-  const [rewardCancelError, setRewardCancelError] = useState("");
   const [profileRefreshIndex, setProfileRefreshIndex] = useState(0);
   const selectedProfileOrderId = selectedProfileOrder?.id;
-  const [profileSection, setProfileSection] = useState<"menu" | "orders" | "balance" | "settings">("menu");
+  const [profileSection, setProfileSection] = useState<"menu" | "orders" | "settings">("menu");
   const [profileOrderTab, setProfileOrderTab] = useState<"active" | "history">("active");
   const [promoOpen, setPromoOpen] = useState(false);
   const [promoSlide, setPromoSlide] = useState(0);
@@ -935,8 +815,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const orderingClosed = !deliveryAvailability.isOpen;
   const hasProfileSession = Boolean(verifiedPhone && phoneVerificationToken);
   const profileLoading = Boolean(hasProfileSession && !profileData && !profileLoadError);
-  const coinHistory = useMemo(() => profileCoinHistory(profileData), [profileData]);
-  const profileNfts = profileData?.nfts ?? [];
   const cancellableProfileOrder = profileOrderDetail ?? selectedProfileOrder;
   const canCancelSelectedProfileOrder = cancellableProfileOrder?.status === "new"
     && !["submitting", "synced"].includes(cancellableProfileOrder.posSyncStatus || "");
@@ -951,10 +829,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCancelOrderOpen(false);
     setCancelOrderBusy(false);
     setCancelOrderError("");
-    setRewardWithdrawalOpen(false);
-    setRewardCancelTarget(null);
-    setRewardCancelBusy(false);
-    setRewardCancelError("");
     if (message) setPhoneAuthMessage(message);
     try {
       window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY);
@@ -971,10 +845,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setCancelOrderBusy,
     setCancelOrderError,
     setCancelOrderOpen,
-    setRewardCancelBusy,
-    setRewardCancelError,
-    setRewardCancelTarget,
-    setRewardWithdrawalOpen,
     setSelectedProfileOrder,
     setVerifiedPhone,
   ]);
@@ -1206,7 +1076,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               category: line.product.category,
               name: line.product.name,
               price: line.product.price,
-              naktaCoins: line.product.naktaCoins,
               image: line.product.image,
               description: line.product.description,
               isNew: line.product.isNew,
@@ -1535,109 +1404,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setProfileRefreshIndex((current) => current + 1);
     } finally {
       setCancelOrderBusy(false);
-    }
-  };
-
-  const submitRewardWithdrawal = async (input: RewardWithdrawalInput) => {
-    if (!verifiedPhone || !phoneVerificationToken) {
-      throw new Error("Сессия истекла. Войдите в профиль ещё раз.");
-    }
-    const nft = input.kind === "nft"
-      ? profileNfts.find((item) => item.id === input.nftId)
-      : null;
-    if (input.kind === "nft" && !nft) throw new Error("Выберите NFT для вывода");
-    if (input.kind === "coins" && !input.amount) throw new Error("Укажите количество NAKTA Coin");
-
-    const endpoint = input.kind === "coins"
-      ? "/auth/coins/withdraw"
-      : `/auth/nfts/${encodeURIComponent(nft!.id)}/withdraw`;
-    const response = await fetch(
-      `${STOREFRONT_API_URL}${endpoint}?phone=${encodeURIComponent(verifiedPhone)}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${phoneVerificationToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(input.kind === "coins"
-          ? { walletAddress: input.walletAddress, amount: input.amount }
-          : { walletAddress: input.walletAddress }),
-      },
-    );
-    const body = await response.json().catch(() => null) as ((ProfileNft | NaktaCoinWithdrawal) & {
-      message?: string | string[];
-    }) | null;
-    if (response.status === 401) {
-      clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
-      throw new Error("Сессия истекла. Войдите в профиль ещё раз.");
-    }
-    if (!response.ok || !body?.id) {
-      const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-      throw new Error(message || "Не удалось оставить заявку на вывод");
-    }
-
-    if (input.kind === "coins") {
-      const withdrawal = body as NaktaCoinWithdrawal;
-      setProfileData((current) => current ? {
-        ...current,
-        naktaCoins: Math.max(0, current.naktaCoins - withdrawal.amount),
-        naktaCoinWithdrawals: [
-          withdrawal,
-          ...(current.naktaCoinWithdrawals ?? []).filter((item) => item.id !== withdrawal.id),
-        ],
-        naktaCoinHistory: [{
-          id: `withdrawal-${withdrawal.id}`,
-          amount: -withdrawal.amount,
-          createdAt: withdrawal.createdAt,
-          description: "Заявка на вывод NAKTA Coin",
-          withdrawalId: withdrawal.id,
-          withdrawalStatus: withdrawal.status,
-          withdrawalReason: withdrawal.error,
-        }, ...(current.naktaCoinHistory ?? [])],
-      } : current);
-    } else {
-      const updated = body as ProfileNft;
-      setProfileData((current) => current ? {
-        ...current,
-        nfts: (current.nfts ?? []).map((item) => item.id === updated.id ? updated : item),
-      } : current);
-    }
-    setProfileRefreshIndex((current) => current + 1);
-  };
-
-  const cancelRewardWithdrawal = async () => {
-    if (!rewardCancelTarget || !verifiedPhone || !phoneVerificationToken || rewardCancelBusy) return;
-    setRewardCancelBusy(true);
-    setRewardCancelError("");
-    try {
-      const endpoint = rewardCancelTarget.kind === "coins"
-        ? `/auth/coins/withdrawals/${encodeURIComponent(rewardCancelTarget.id)}/cancel`
-        : `/auth/nfts/${encodeURIComponent(rewardCancelTarget.id)}/withdrawal/cancel`;
-      const response = await fetch(
-        `${STOREFRONT_API_URL}${endpoint}?phone=${encodeURIComponent(verifiedPhone)}`,
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${phoneVerificationToken}` },
-        },
-      );
-      const body = await response.json().catch(() => null) as {
-        id?: string;
-        message?: string | string[];
-      } | null;
-      if (response.status === 401) {
-        clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
-        return;
-      }
-      if (!response.ok || !body?.id) {
-        const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        throw new Error(message || "Не удалось отменить вывод");
-      }
-      setRewardCancelTarget(null);
-      setProfileRefreshIndex((current) => current + 1);
-    } catch (reason) {
-      setRewardCancelError(reason instanceof Error ? reason.message : "Не удалось отменить вывод");
-    } finally {
-      setRewardCancelBusy(false);
     }
   };
 
@@ -2388,7 +2154,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <div className="product-body">
                       <div className="product-name-row">
                         <div className="product-name">{product.name}</div>
-                        {product.naktaCoins && product.naktaCoins > 0 ? <span className="product-nakta-badge" aria-label={`Бонус ${product.naktaCoins} NAKTA Coin`}><img src="/nakta-coin.png" alt="" aria-hidden="true" /><span><b>+{product.naktaCoins}</b><small>NAKTA COIN</small></span></span> : null}
                       </div>
                       <div className={`product-actions${productCartLine ? " has-quantity" : ""}`}>{productCartLine ? <div className="product-quantity-controls" role="group" aria-label={`Количество ${product.name}`}><button type="button" aria-label={`Уменьшить ${product.name}`} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, -1); }}>−</button><span>{productCartQuantity}</span><button type="button" aria-label={`Увеличить ${product.name}`} disabled={productCartLine.quantity >= 20} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, 1); }}>+</button></div> : <><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</>}</div>
                     </div>
@@ -2410,7 +2175,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="footer-links"><a href="/privacy">Конфиденциальность</a><span>•</span><a href="/terms">Условия</a><span>•</span><a href="/delete-account">Удаление аккаунта</a><span>•</span><a href="/legal">Все документы</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
         <div className="footer-legal">
           <p>{footerLegalInfo}</p>
-          <LegalOperatorDetails />
         </div>
       </footer>
 
@@ -2422,7 +2186,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             {hasProfileSession ? <>
               <header className={`profile-screen-header${profileSection === "menu" ? " profile-menu-header" : ""}${profileSection === "orders" ? " profile-orders-header" : ""}`}>
                 <button type="button" onClick={() => profileSection === "menu" ? setMenuOpen(false) : setProfileSection("menu")} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
-                <h2>{profileSection === "balance" ? "Баланс" : profileSection === "settings" ? "Настройки" : ""}</h2>
+                <h2>{profileSection === "settings" ? "Настройки" : ""}</h2>
                 <span />
               </header>
               <div className={`profile-account profile-section-${profileSection}`}>
@@ -2433,7 +2197,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   </div>
                   <nav className="profile-account-menu" aria-label="Разделы профиля">
                     <button type="button" onClick={() => { setProfileOrderTab("active"); setProfileSection("orders"); }}><Icon path={mdiShoppingOutline} size={1} aria-hidden="true" /><b>Мои заказы</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
-                    <button type="button" onClick={() => setProfileSection("balance")}><Icon path={mdiStarFourPointsOutline} size={1} aria-hidden="true" /><b>NAKTA Coin и NFT</b><em className="profile-rewards-count"><span>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</span><small>{profileNfts.length} NFT</small></em><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
                     <button type="button" onClick={() => setProfileSection("settings")}><Icon path={mdiCogOutline} size={1} aria-hidden="true" /><b>Настройки</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
                     <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>Поддержка</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
                     <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>О нас</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
@@ -2456,30 +2219,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   </div>
                 </> : null}
 
-                {profileSection === "balance" ? <>
-                  <section className="profile-balance-card"><div><span>Ваш баланс</span><strong>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</strong></div><img src="/nakta-coin.png" alt="NAKTA Coin" /></section>
-                  <section className="profile-nft-balance-card"><div><span>Ваши NFT</span><strong>{new Intl.NumberFormat("ru-RU").format(profileNfts.length)}</strong><small>цифровых наград</small></div><i aria-hidden="true"><Icon path={mdiHexagonMultipleOutline} size={1.5} /></i></section>
-                  <button type="button" className="profile-reward-withdraw-button" disabled={(profileData?.naktaCoins ?? 0) <= 0 && !profileNfts.some((nft) => nft.status === "owned" || nft.status === "failed")} onClick={() => setRewardWithdrawalOpen(true)}><Icon path={mdiBankTransferOut} size={1} aria-hidden="true" />Вывести</button>
-                  <section className="profile-info-card profile-reward-explainer"><h3>Как работают NAKTA Coin и NFT</h3><p>Награды не тратятся внутри сайта. Накопленные коины и NFT можно вывести на свой криптокошелёк.</p></section>
-                  <section className="profile-info-card profile-reward-history"><h3>История операций</h3>{coinHistory.length || profileNfts.some((nft) => nft.status !== "owned" || nft.withdrawalError) ? <div className="profile-coin-history">
-                    {coinHistory.map((entry) => <article className="profile-history-row" key={entry.id}>
-                      <button type="button" className="profile-history-main" disabled={!entry.orderId} onClick={() => { const order = [...(profileData?.currentOrders ?? []), ...(profileData?.orderHistory ?? [])].find((item) => item.id === entry.orderId); if (order) openProfileOrder(order); }}><span><b>{entry.description}</b>{entry.createdAt ? <small>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(entry.createdAt))}</small> : null}</span><strong className={entry.amount < 0 ? "negative" : ""}>{entry.amount > 0 ? "+" : ""}{new Intl.NumberFormat("ru-RU").format(entry.amount)}</strong></button>
-                      {entry.withdrawalReason ? <p className="profile-withdrawal-reason">Причина: {entry.withdrawalReason}</p> : null}
-                      {entry.withdrawalStatus === "pending" && entry.withdrawalId ? <button type="button" className="profile-cancel-withdrawal" onClick={() => { setRewardCancelError(""); setRewardCancelTarget({ kind: "coins", id: entry.withdrawalId!, label: `${Math.abs(entry.amount)} NAKTA Coin` }); }}>Отменить вывод</button> : null}
-                    </article>)}
-                    {profileNfts.filter((nft) => nft.status !== "owned" || nft.withdrawalError).map((nft) => <article className="profile-history-row profile-nft-operation" key={`nft-operation-${nft.id}`}>
-                      <div className="profile-history-main"><span><b>Вывод NFT «{nft.name}»</b><small>{profileNftNetworks[nft.network]} · {profileNftStatuses[nft.status]}</small></span><strong className={`nft-status status-${nft.status}`}>NFT</strong></div>
-                      {nft.walletAddress ? <p className="profile-withdrawal-address" title={nft.walletAddress}>Кошелёк: {nft.walletAddress}</p> : null}
-                      {nft.withdrawalError ? <p className="profile-withdrawal-reason">Причина: {nft.withdrawalError}</p> : null}
-                      {nft.status === "pending" ? <button type="button" className="profile-cancel-withdrawal" onClick={() => { setRewardCancelError(""); setRewardCancelTarget({ kind: "nft", id: nft.id, label: `NFT «${nft.name}»` }); }}>Отменить вывод</button> : null}
-                    </article>)}
-                  </div> : <p>Операций пока нет.</p>}</section>
-                </> : null}
-
                 {profileSection === "settings" ? <>
                   <section className="profile-settings-field"><span>Телефон аккаунта</span><strong>{verifiedPhone}</strong></section>
-                  <section className="profile-settings-field"><span>Баланс NAKTA Coin</span><strong>{new Intl.NumberFormat("ru-RU").format(profileData?.naktaCoins ?? 0)}</strong></section>
-                  <section className="profile-settings-field"><span>Получено NFT</span><strong>{new Intl.NumberFormat("ru-RU").format(profileNfts.length)}</strong></section>
                   <a className="profile-settings-link" href="/legal">Правовая информация <span>›</span></a>
                   <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля <span><Icon path={mdiLogout} size={0.9} aria-hidden="true" /></span></button>
                 </> : null}
@@ -2498,23 +2239,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           </section>
         </div>
       ) : null}
-
-      {menuOpen && profileSection === "balance" && rewardWithdrawalOpen ? <RewardsWithdrawalDialog
-        coins={profileData?.naktaCoins ?? 0}
-        nfts={profileNfts}
-        onClose={() => setRewardWithdrawalOpen(false)}
-        onSubmit={submitRewardWithdrawal}
-      /> : null}
-
-      {rewardCancelTarget ? <div className="overlay reward-cancel-overlay" role="dialog" aria-modal="true" aria-labelledby="reward-cancel-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !rewardCancelBusy) setRewardCancelTarget(null); }}>
-        <section className="reward-cancel-dialog">
-          <span className="reward-cancel-icon"><Icon path={mdiAlertCircleOutline} size={1.1} /></span>
-          <h2 id="reward-cancel-title">Отменить вывод?</h2>
-          <p>{rewardCancelTarget.kind === "coins" ? `${rewardCancelTarget.label} сразу вернутся на ваш баланс.` : `${rewardCancelTarget.label} снова станет доступен для вывода.`} Отменить заявку можно только до начала обработки.</p>
-          {rewardCancelError ? <p className="reward-withdrawal-error" role="alert">{rewardCancelError}</p> : null}
-          <div><button type="button" disabled={rewardCancelBusy} onClick={() => setRewardCancelTarget(null)}>Не отменять</button><button type="button" disabled={rewardCancelBusy} onClick={() => void cancelRewardWithdrawal()}>{rewardCancelBusy ? "Отменяем…" : "Отменить вывод"}</button></div>
-        </section>
-      </div> : null}
 
       {promoOpen ? (
         <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={currentStory.title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
@@ -2542,7 +2266,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <div className="modal-art"><ProductArt product={selected} mode="detail" /></div>
             <div className="modal-info">
               <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
-              <div className="modal-description"><div className="modal-description-header"><h2>{selected.name}</h2>{selected.naktaCoins && selected.naktaCoins > 0 ? <span className="product-nakta-badge modal-nakta-badge" aria-label={`Бонус ${selected.naktaCoins} NAKTA Coin`}><img src="/nakta-coin.png" alt="" aria-hidden="true" /><span><b>+{selected.naktaCoins}</b><small>NAKTA COIN</small></span></span> : null}</div>{selected.description ? <p>{selected.description}</p> : null}</div>
+              <div className="modal-description"><div className="modal-description-header"><h2>{selected.name}</h2></div>{selected.description ? <p>{selected.description}</p> : null}</div>
               <div className="nutrition">
                 <div><b>{selected.weight}</b><small>граммы</small></div><div><b>{selected.calories}</b><small>ккал</small></div><div><b>{selected.protein}</b><small>белок</small></div><div><b>{selected.fat}</b><small>жиры</small></div><div><b>{selected.carbs}</b><small>углеводы</small></div>
                 <div className={`nutrition-actions${selected.name === "Собери свой сет" ? " has-equipment" : ""}`}><button onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>Состав</button>{selected.name === "Собери свой сет" ? <button onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>Комплектация</button> : null}</div>

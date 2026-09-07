@@ -45,10 +45,12 @@ test("renders the public legal documents", async () => {
 
   const legalResponse = await render("/legal");
   const legalHtml = await legalResponse.text();
-  assert.match(legalHtml, /ИП Мусаев Жаныбек Кочкорбаевич/);
-  assert.match(legalHtml, /22309199201100/);
-  assert.match(legalHtml, /032-2026-169-3446/);
-  assert.match(legalHtml, /Ошская область, Кара-Суйский район, с\. Отуз-Адыр, ул\. Токтогула, дом 4/);
+  assert.match(legalHtml, /ФЛЮРА МАДАМИНЖАНОВНА БАТЫРОВА/);
+  assert.match(legalHtml, /naktasushi@gmail\.com/);
+  assert.doesNotMatch(
+    legalHtml,
+    /ИП Мусаев Жаныбек Кочкорбаевич|22309199201100|032-2026-169-3446|Ошская область, Кара-Суйский район, с\. Отуз-Адыр, ул\. Токтогула, дом 4/,
+  );
 });
 
 test("renders the mobile CAPTCHA bridge", async () => {
@@ -127,8 +129,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(envExample, /SITE_URL=https:\/\/naktasushi\.com/);
   assert.match(storefront, /composition-modal/);
   assert.match(storefront, /related-actions/);
-  assert.match(storefront, /className="product-name-row"[\s\S]*?className="product-nakta-badge"/);
-  assert.match(storefront, /className="modal-description-header"[\s\S]*?className="product-nakta-badge modal-nakta-badge"/);
+  assert.match(storefront, /className="product-name-row"/);
+  assert.match(storefront, /className="modal-description-header"/);
   assert.match(globals, /\.product-name-row\s*\{[^}]*display:\s*flex/);
   assert.match(globals, /\.modal-description-header\s*\{[^}]*display:\s*flex/);
   assert.match(storefront, /modifier-groups/);
@@ -146,8 +148,6 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /searchOpen/);
   assert.match(storefront, /Что ищем\?/);
   assert.match(storefront, /b92972a55683d636714fea75d11469ce/);
-  assert.match(storefront, /e258569da4e992205d8f3ae006d151eb/);
-  assert.match(storefront, /ce627f513c731ba28069085078e433dc/);
   assert.match(storefront, /2720f66e5f628289ea1c761222a24eb4/);
   assert.match(storefront, /1ebd0558c6daa570f029071ce7bb1648/);
   assert.match(storefront, /30_000/);
@@ -251,10 +251,11 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /disabled=\{selected\.available === false \|\| !modifiersComplete\}/);
   assert.match(storefront, /className="footer-app-link footer-app-nakta"/);
   assert.match(storefront, /0503 178 916/);
-  assert.match(storefront, /musaev\.janybek\.kg@gmail\.com/);
+  assert.match(storefront, /naktasushi@gmail\.com/);
+  assert.doesNotMatch(storefront, /musaev\.janybek\.kg@gmail\.com/);
   assert.match(storefront, /format\(value\) \+ " сом"/);
   assert.match(storefront, /const cartLocation = address\.trim\(\)/);
-  assert.match(storefront, /const cartKitItems = \[/);
+  assert.match(storefront, /const cartKitItems = useMemo\(\(\) => \(/);
   assert.match(storefront, /if \(mode === "cart"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(catalog, /hity-prodaz-2/);
   assert.match(catalog, /Соус сладкий васаби/);
@@ -316,101 +317,128 @@ test("includes the product, cart and address flows", async () => {
   await assert.rejects(access(new URL("../app/_sites-preview", import.meta.url)));
 });
 
-test("admin exposes a dense CRM workspace, server search, loyalty, and integrations", async () => {
-  const [admin, adminCss, navigation, ordersWorkspace, loyalty, customers, integrations] = await Promise.all([
+test("admin exposes the current operations workspace", async () => {
+  const [admin, adminCss, navigation, ordersWorkspace, settings] = await Promise.all([
     readFile(new URL("../app/admin/AdminApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/admin.css", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/AdminNavigation.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/OrdersWorkspace.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/admin/LoyaltyCenter.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/admin/CustomersView.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/admin/IntegrationsView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/admin/SettingsWorkspace.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Каталог"[\s\S]*?label: "Клиенты"[\s\S]*?label: "Лояльность"[\s\S]*?label: "Аналитика"[\s\S]*?label: "Акции"[\s\S]*?label: "Филиалы"[\s\S]*?label: "Интеграции"/);
-  assert.match(navigation, /NAKTA[\s\S]*?KITCHEN/);
-  assert.doesNotMatch(navigation, /admin-sidebar-branch|Администратор|admin-admin-avatar/);
-  assert.match(navigation, /admin-rail-logout[\s\S]*?>Выйти</);
-  assert.match(navigation, /admin-sidebar-rail[\s\S]*?data-tooltip/);
-  assert.match(admin, /useState<Tab>\("orders"\)/);
-  assert.match(admin, /tab === "orders" \? <OrdersWorkspace/);
-  assert.match(ordersWorkspace, /admin-orders-commandbar[\s\S]*?admin-orders-kanban[\s\S]*?admin-orders-table/);
-  assert.match(ordersWorkspace, /aria-label="Тип заказа"/);
-  assert.match(ordersWorkspace, /admin-orders-card-delivery[\s\S]*?admin-orders-card-foot/);
-  assert.doesNotMatch(ordersWorkspace, /admin-orders-filter-button|Новый заказ/);
+  assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Аналитика"[\s\S]*?label: "Меню"[\s\S]*?label: "Категории"[\s\S]*?label: "Пользователи"[\s\S]*?label: "Акции"[\s\S]*?label: "Настройки"/);
+  assert.match(navigation, /NAKTA[\s\S]*?Панель управления/);
+  assert.match(navigation, /onClick=\{onLogout\}[\s\S]*?Выйти из системы/);
+  assert.doesNotMatch(navigation, /LoyaltyCenter|Лояльность|FinanceWorkspace|Финансы/);
+  assert.match(admin, /useState<AdminSection>\("orders"\)/);
+  assert.match(admin, /section === "orders" \? <OrdersWorkspace/);
+  assert.match(admin, /section === "users" \? <UsersWorkspace/);
+  assert.match(admin, /section === "settings" \? <SettingsWorkspace/);
+  assert.match(admin, /request<Region\[]>\("\/admin\/settings"\)/);
   assert.doesNotMatch(admin, /admin-notification-button|mdiBellOutline/);
-  assert.doesNotMatch(admin, /admin-settings-city"><i/);
-  assert.match(admin, /baseQuery\.set\("search", deferredSearch\.trim\(\)\)/);
-  assert.match(admin, /\/admin\/analytics\?\$\{query\}/);
-  assert.match(admin, /tab === "categories"[\s\S]*?Добавить категорию/);
-  assert.match(admin, /openCategory\(category\)/);
-  assert.match(admin, /tab === "customers"[\s\S]*?<CustomersView/);
-  assert.match(admin, /tab === "loyalty"[\s\S]*?<LoyaltyCenter/);
-  assert.match(admin, /tab === "integrations"[\s\S]*?<IntegrationsView/);
-  assert.match(loyalty, /Выдавать каждые N заказов/);
-  assert.match(loyalty, /NFT и выводы/);
-  assert.match(loyalty, /Заявки на вывод NAKTA Coin/);
-  assert.match(loyalty, /Одобрить — отправлено в блокчейн/);
-  assert.match(loyalty, /Отклонить и вернуть коины/);
-  assert.match(admin, /\/admin\/coin-withdrawals\?region=/);
-  assert.match(admin, /\/admin\/coin-withdrawals\/\$\{id\}/);
-  assert.match(loyalty, /Настроить награды в каталоге/);
-  assert.doesNotMatch(loyalty, /admin-kpi-grid/);
-  assert.match(customers, /NAKTA Coin[\s\S]*?<th>NFT<\/th>/);
-  assert.doesNotMatch(customers, /admin-kpi-grid/);
-  assert.match(integrations, /Получить меню/);
-  assert.match(integrations, /NFT Transfer/);
-  assert.doesNotMatch(integrations, /admin-integration-hero/);
-  const eduPosImportHandler = admin.slice(
-    admin.indexOf("const importEduPosMenu"),
-    admin.indexOf("const exportEduPosMenu"),
-  );
-  assert.ok(
-    eduPosImportHandler.indexOf("await loadDashboard()") < eduPosImportHandler.indexOf("EDU POS: сопоставлено"),
-    "EDU POS import result must be shown after refreshing the dashboard",
-  );
-  assert.match(admin, /Начало рабочего дня/);
-  assert.match(admin, /Бесплатная доставка от, сом/);
-  assert.match(admin, /className="admin-order-detail-body"/);
-  assert.match(admin, /admin-catalog-kpis/);
-  assert.match(admin, /className="admin-order-info-pane"/);
-  assert.match(admin, /className="admin-order-items-pane"[\s\S]*?Состав заказа/);
-  assert.match(admin, /\/admin\/orders\/\$\{selectedOrder\.id\}\/kit/);
-  assert.match(admin, /className="admin-order-kit-editor"/);
-  assert.match(admin, /formatPosOrderNumber\(selectedOrder\.posOrderNumber\)/);
-  assert.match(admin, /modifier\.groupTitle[\s\S]*?modifier\.itemName/);
-  assert.match(admin, /Итого \/ К оплате/);
-  assert.match(adminCss, /\.admin-crm-sidebar/);
-  assert.match(adminCss, /\.admin-data-table/);
-  assert.match(adminCss, /\.admin-orders-kanban/);
-  assert.match(adminCss, /--admin-sidebar-width:\s*64px/);
-  assert.match(adminCss, /--admin-sidebar-width:\s*clamp\(156px, 11vw, 180px\)/);
-  assert.match(adminCss, /@media\s*\(max-width:\s*980px\)/);
-  assert.match(adminCss, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.admin-order-detail/);
+  assert.match(ordersWorkspace, /request<OrdersResponse>\(`\/admin\/orders\?\$\{query\}`\)/);
+  assert.match(ordersWorkspace, /`\/admin\/orders\/\$\{order\.id\}\/status`/);
+  assert.match(ordersWorkspace, /`\/admin\/orders\/\$\{selectedOrder\.id\}\/kit`/);
+  assert.match(ordersWorkspace, /Состав заказа/);
+  assert.match(ordersWorkspace, /Сохранить комплектацию/);
+  assert.doesNotMatch(ordersWorkspace, /Новый заказ/);
+  assert.match(settings, /Бесплатная доставка от/);
+  assert.match(settings, /\/admin\/edu-pos\/sync-menu/);
+  assert.match(settings, /\/admin\/pickup-locations\/resolve-map-link/);
+  assert.match(adminCss, /body:has\(\.admin-root\)/);
+  assert.match(adminCss, /@media \(prefers-reduced-motion: reduce\)/);
+  await assert.rejects(access(new URL("../app/admin/LoyaltyCenter.tsx", import.meta.url)));
 });
 
-test("website profile supports confirmed reward withdrawals, QR input, and cancellation without a duplicate NFT block", async () => {
-  const [storefront, withdrawalDialog, globals] = await Promise.all([
+test("public storefront and API omit legacy financial rewards", async () => {
+  const [
+    storefront,
+    globals,
+    catalog,
+    catalogApi,
+    phoneAuthController,
+    phoneAuthDto,
+    phoneAuthService,
+    ordersService,
+    orderPricing,
+    orderItem,
+    adminController,
+  ] = await Promise.all([
     readFile(new URL("../app/components/Storefront.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/components/RewardsWithdrawalDialog.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/data/catalog.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/catalog/catalog.service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/auth/phone-auth.controller.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/auth/phone-auth.dto.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/auth/phone-auth.service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/orders/orders.service.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/orders/order-pricing.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/orders/order-item.entity.ts", import.meta.url), "utf8"),
+    readFile(new URL("../server/src/admin/admin.controller.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(storefront, /type ProfileNftStatus = "owned" \| "pending" \| "submitted" \| "withdrawn" \| "failed"/);
-  assert.match(storefront, /Ваш баланс[\s\S]*?Ваши NFT/);
-  assert.match(storefront, /\/auth\/coins\/withdraw/);
-  assert.match(storefront, /\/auth\/nfts\/\$\{encodeURIComponent\(nft!\.id\)\}\/withdraw/);
-  assert.match(storefront, /\/auth\/coins\/withdrawals\/\$\{encodeURIComponent\(rewardCancelTarget\.id\)\}\/cancel/);
-  assert.match(storefront, /\/auth\/nfts\/\$\{encodeURIComponent\(rewardCancelTarget\.id\)\}\/withdrawal\/cancel/);
-  assert.match(storefront, /Authorization: `Bearer \$\{phoneVerificationToken\}`/);
-  assert.match(storefront, /История операций/);
-  assert.match(storefront, /withdrawalReason/);
-  assert.doesNotMatch(storefront, /<h3>Мои NFT<\/h3>/);
-  assert.match(withdrawalDialog, /Подтверждение вывода/);
-  assert.match(withdrawalDialog, /BarcodeDetector/);
-  assert.match(withdrawalDialog, /walletAddressFromQr/);
-  assert.doesNotMatch(storefront, /но хранятся отдельно/i);
-  assert.match(globals, /\.profile-nft-balance-card/);
-  assert.match(globals, /\.reward-withdrawal-dialog/);
-  assert.match(globals, /\.profile-cancel-withdrawal/);
+
+  assert.doesNotMatch(
+    storefront,
+    /RewardsWithdrawalDialog|rewardWithdrawal|rewardCancelTarget|ProfileNft|\bnaktaCoins\b|NAKTA Coin|product-nakta-badge|\/auth\/(?:coins|nfts)\//i,
+  );
+  assert.doesNotMatch(
+    storefront,
+    /Кешбэк до 100%|e258569da4e992205d8f3ae006d151eb|ce627f513c731ba28069085078e433dc/i,
+  );
+  assert.doesNotMatch(
+    globals,
+    /\.(?:product-nakta|modal-nakta|profile-nft|reward-withdrawal|profile-cancel-withdrawal)/i,
+  );
+  assert.doesNotMatch(catalog, /\bnaktaCoins\b|Кешбэк до 100%|c9d2f34588567ee37d2fa4a7c937821a/i);
+
+  const hiddenRegionFields = catalogApi.slice(
+    catalogApi.indexOf("const hiddenRegionFields"),
+    catalogApi.indexOf("const publicRegion"),
+  );
+  assert.ok(hiddenRegionFields.length > 0);
+  for (const field of ["footerCompanyName", "footerLegalInfo", "nftRewardEveryOrders", "nftMetadataUri"]) {
+    assert.match(hiddenRegionFields, new RegExp(`"${field}"`));
+  }
+  assert.equal((catalogApi.match(/\(\[key\]\) => key !== "naktaCoins"/g) ?? []).length, 2);
+  assert.match(catalogApi, /return regions\.map\(publicRegion\)/);
+  assert.match(catalogApi, /return promotions\.filter\(\(promotion\) => !isLegacyFinancialPromotion\(promotion\)\)/);
+
+  assert.doesNotMatch(
+    phoneAuthController,
+    /@Post\("(?:coins\/withdraw|coins\/withdrawals\/:id\/cancel|nfts\/:id\/withdraw|nfts\/:id\/withdrawal\/cancel)"\)/,
+  );
+  assert.doesNotMatch(phoneAuthDto, /WithdrawNftDto|WithdrawNaktaCoinsDto|walletAddress/);
+  const profileStart = phoneAuthService.indexOf("  async profile(");
+  const profileEnd = phoneAuthService.indexOf("  async orderDetails(", profileStart);
+  assert.ok(profileStart >= 0 && profileEnd > profileStart);
+  const profileApi = phoneAuthService.slice(profileStart, profileEnd);
+  assert.match(profileApi, /currentOrders[\s\S]*orderHistory/);
+  assert.doesNotMatch(
+    profileApi,
+    /\bnaktaCoins\b|naktaCoinHistory|naktaCoinTransactions|naktaCoinWithdrawals|\bnfts\b/,
+  );
+
+  const publicOrderStart = ordersService.indexOf("function publicOrder(");
+  const publicOrderEnd = ordersService.indexOf("@Injectable()", publicOrderStart);
+  assert.ok(publicOrderStart >= 0 && publicOrderEnd > publicOrderStart);
+  const publicOrderApi = ordersService.slice(publicOrderStart, publicOrderEnd);
+  assert.match(publicOrderApi, /id: order\.id[\s\S]*orderNumber: order\.orderNumber[\s\S]*posProgress/);
+  assert.doesNotMatch(publicOrderApi, /\bphone\b|customerName|address|\bitems\b|naktaCoins|idempotencyKey/);
+  assert.equal((ordersService.match(/return publicOrder\(/g) ?? []).length, 3);
+  assert.doesNotMatch(orderPricing, /\bnaktaCoins\b|totalNaktaCoins|NAKTA Coin/);
+  const snapshotStart = orderItem.indexOf("export type OrderModifierSnapshot");
+  const snapshotEnd = orderItem.indexOf('@Entity("order_items")', snapshotStart);
+  assert.ok(snapshotStart >= 0 && snapshotEnd > snapshotStart);
+  assert.doesNotMatch(orderItem.slice(snapshotStart, snapshotEnd), /\bnaktaCoins\b|totalNaktaCoins/);
+  assert.doesNotMatch(
+    adminController,
+    /loyalty\/overview|customers\/:phone\/rewards\/adjust|nft-withdrawals|coin-withdrawals/,
+  );
+
+  await Promise.all([
+    assert.rejects(access(new URL("../app/components/RewardsWithdrawalDialog.tsx", import.meta.url))),
+    assert.rejects(access(new URL("../app/components/LegalOperatorDetails.tsx", import.meta.url))),
+    assert.rejects(access(new URL("../public/nakta-coin.png", import.meta.url))),
+  ]);
 });
 
 test("NestJS and PostgreSQL project files are present", async () => {

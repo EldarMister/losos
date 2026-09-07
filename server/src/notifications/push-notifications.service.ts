@@ -9,15 +9,6 @@ type ExpoPushTicket = {
   details?: { error?: string };
 };
 
-export type RewardWithdrawalPushInput = {
-  withdrawalId: string;
-  asset: "coin" | "nft";
-  status: "submitted" | "withdrawn" | "failed";
-  amount?: number;
-  name?: string;
-  reason?: string | null;
-};
-
 const statusCopy: Record<OrderStatus, { title: string; body: string }> = {
   [OrderStatus.NEW]: {
     title: "Заказ принят",
@@ -93,34 +84,6 @@ export class PushNotificationsService {
         orderId,
         status,
         url: `naktasushi://orders/${orderId}`,
-      },
-      channelId: "orders",
-    });
-  }
-
-  async sendRewardWithdrawalStatus(phone: string, input: RewardWithdrawalPushInput) {
-    const asset = input.asset === "coin"
-      ? `${input.amount ?? ""} NAKTA Coin`.trim()
-      : input.name?.trim() || "NFT";
-    const copy = input.status === "submitted"
-      ? { title: "Вывод одобрен", body: `${asset}: перевод отправлен на ваш кошелёк.` }
-      : input.status === "withdrawn"
-        ? { title: "Вывод выполнен", body: `${asset} успешно выведен на ваш кошелёк.` }
-        : {
-          title: "Вывод отменён",
-          body: `${asset} возвращён в ваш баланс.${input.reason?.trim() ? ` Причина: ${input.reason.trim()}` : ""}`,
-        };
-
-    return this.send(phone, {
-      sound: "default",
-      title: copy.title,
-      body: copy.body,
-      data: {
-        type: "reward-withdrawal",
-        withdrawalId: input.withdrawalId,
-        asset: input.asset,
-        status: input.status,
-        url: "naktasushi://profile/balance",
       },
       channelId: "orders",
     });

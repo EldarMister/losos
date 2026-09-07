@@ -1,7 +1,5 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { randomUUID } from "node:crypto";
 import { Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
 import {
@@ -11,6 +9,8 @@ import {
 import { Product } from "../catalog/product.entity";
 import { Promotion } from "../catalog/promotion.entity";
 import { Region } from "../catalog/region.entity";
+import { publicProduct, publicRegion } from "../catalog/catalog.service";
+import { isLegacyFinancialPromotion } from "../catalog/financial-promotion";
 import { regionContentSourceSlug, type RegionContentSourceField } from "../catalog/region-content-source";
 import { PickupLocation } from "../catalog/pickup-location.entity";
 import { resolvePickupMapLink } from "../catalog/pickup-map-link";
@@ -19,16 +19,8 @@ import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { normalizeOrderKitItems } from "../orders/order-kit";
 import { freeKitItemsForRegion } from "../catalog/cart-configuration";
-import { PhoneAccount } from "../auth/phone-account.entity";
-import { AccountNft } from "../rewards/account-nft.entity";
-import { NaktaCoinTransaction } from "../rewards/nakta-coin-transaction.entity";
-import { NaktaCoinWithdrawal } from "../rewards/nakta-coin-withdrawal.entity";
-import { CustomerRewardAdjustment } from "../rewards/customer-reward-adjustment.entity";
-import { calculateOrderRewards, isNftMilestone } from "../rewards/reward-calculation";
 import {
   type AdminAnalyticsPeriod,
-  type AdminNftWithdrawalStatus,
-  AdjustCustomerRewardsDto,
   ListOrdersQueryDto,
   UpdateOrderKitDto,
 } from "./admin-orders.dto";
@@ -47,8 +39,6 @@ import {
   UpdateRegionDto,
   CreatePickupLocationDto,
   UpdatePickupLocationDto,
-  UpdateNftWithdrawalDto,
-  UpdateNaktaCoinWithdrawalDto,
 } from "./admin.dto";
 
 export type AdminStatisticsData = {
@@ -62,6 +52,73 @@ export type AdminStatisticsData = {
   chart: Array<{ label: string; amount: number }>;
 };
 
+const publicAdminCategory = (category: Category) => ({
+  id: category.id,
+  slug: category.slug,
+  title: category.title,
+  image: category.image,
+  sortOrder: category.sortOrder,
+  products: category.products?.map(publicProduct) ?? [],
+});
+
+const publicAdminPromotion = (promotion: Promotion) => ({
+  id: promotion.id,
+  title: promotion.title,
+  image: promotion.image,
+  cta: promotion.cta,
+  ctaUrl: promotion.ctaUrl,
+  enabled: promotion.enabled,
+  sortOrder: promotion.sortOrder,
+});
+
+const publicAdminPickupLocation = (location: PickupLocation) => ({
+  id: location.id,
+  title: location.title,
+  address: location.address,
+  workingHours: location.workingHours,
+  latitude: location.latitude,
+  longitude: location.longitude,
+  yandexUrl: location.yandexUrl,
+  enabled: location.enabled,
+  sortOrder: location.sortOrder,
+});
+
+const publicAdminOrderItem = (item: OrderItem) => ({
+  id: item.id,
+  productId: item.productId,
+  productName: item.productName,
+  basePrice: item.basePrice,
+  baseTotal: item.baseTotal,
+  modifiersPrice: item.modifiersPrice,
+  modifiersTotal: item.modifiersTotal,
+  unitPrice: item.unitPrice,
+  quantity: item.quantity,
+  lineTotal: item.lineTotal,
+  pricingVersion: item.pricingVersion,
+  configurationKey: item.configurationKey,
+  modifierSnapshots: item.modifierSnapshots.map((snapshot) => ({
+    groupId: snapshot.groupId,
+    groupTitle: snapshot.groupTitle,
+    itemId: snapshot.itemId,
+    itemName: snapshot.itemName,
+    price: snapshot.price,
+    quantity: snapshot.quantity,
+    totalPrice: snapshot.totalPrice,
+    priceScope: snapshot.priceScope,
+  })),
+  posDishId: item.posDishId,
+  posVariantId: item.posVariantId,
+  posWeightGrams: item.posWeightGrams,
+  posStatus: item.posStatus,
+  posReadyQuantity: item.posReadyQuantity,
+  posRejectReason: item.posRejectReason,
+});
+
+const publicAdminOrder = (order: Order) => ({
+  ...order,
+  items: order.items?.map(publicAdminOrderItem) ?? [],
+});
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -72,18 +129,8 @@ export class AdminService {
     @InjectRepository(Product) private readonly products: Repository<Product>,
     @InjectRepository(Promotion) private readonly promotions: Repository<Promotion>,
     @InjectRepository(Order) private readonly orderRepository: Repository<Order>,
-    @InjectRepository(AccountNft) private readonly nftRepository: Repository<AccountNft>,
-    @InjectRepository(NaktaCoinTransaction)
-    private readonly coinTransactionRepository: Repository<NaktaCoinTransaction>,
-    @InjectRepository(NaktaCoinWithdrawal)
-    private readonly coinWithdrawalRepository: Repository<NaktaCoinWithdrawal>,
-    @InjectRepository(PhoneAccount)
-    private readonly accountRepository: Repository<PhoneAccount>,
-    @InjectRepository(CustomerRewardAdjustment)
-    private readonly rewardAdjustmentRepository: Repository<CustomerRewardAdjustment>,
     private readonly pushNotifications: PushNotificationsService,
     private readonly eduPos: EduPosService,
-    private readonly config: ConfigService,
   ) {}
 
   async dashboard(regionSlug: string) {
@@ -106,19 +153,28 @@ export class AdminService {
       order: { sortOrder: "ASC", id: "ASC" },
     });
     return {
-      region: { ...region, pickupLocations },
+      region: {
+        ...publicRegion(region),
+        pickupLocations: pickupLocations.map(publicAdminPickupLocation),
+      },
       menuRegionSlug: menuRegion.slug,
       promotionRegionSlug: promotionRegion.slug,
-      categories,
-      promotions,
+      categories: categories.map(publicAdminCategory),
+      promotions: promotions
+        .filter((promotion) => !isLegacyFinancialPromotion(promotion))
+        .map(publicAdminPromotion),
     };
   }
 
-  settings() {
-    return this.regions.find({
+  async settings() {
+    const regions = await this.regions.find({
       relations: { pickupLocations: true },
       order: { sortOrder: "ASC", id: "ASC" },
     });
+    return regions.map((region) => ({
+      ...publicRegion(region),
+      pickupLocations: region.pickupLocations.map(publicAdminPickupLocation),
+    }));
   }
 
   async analytics(
@@ -370,56 +426,6 @@ export class AdminService {
     };
   }
 
-  async loyaltyOverview(regionSlug: string) {
-    const region = await this.requireRegion(regionSlug);
-    const menuRegion = await this.contentSource(region, "menuSourceRegionSlug");
-    const [productMetrics, coinMetrics, nftCounts] = await Promise.all([
-      this.products.createQueryBuilder("product")
-        .innerJoin("product.category", "category")
-        .select("COUNT(*) FILTER (WHERE product.\"naktaCoins\" > 0)", "rewardedProducts")
-        .addSelect("COALESCE(SUM(product.\"naktaCoins\"), 0)", "coinsPerFullMenu")
-        .where("category.\"regionId\" = :regionId", { regionId: menuRegion.id })
-        .getRawOne<{ rewardedProducts: string; coinsPerFullMenu: string }>(),
-      this.coinTransactionRepository.createQueryBuilder("coin_transaction")
-        .select("COALESCE(SUM(coin_transaction.amount), 0)", "issuedCoins")
-        .addSelect("COUNT(*)", "transactions")
-        .where('coin_transaction."regionSlug" = :regionSlug', { regionSlug })
-        .getRawOne<{ issuedCoins: string; transactions: string }>(),
-      this.nftRepository.createQueryBuilder("nft")
-        .select("nft.status", "status")
-        .addSelect("COUNT(*)", "count")
-        .where("nft.\"regionSlug\" = :regionSlug", { regionSlug })
-        .groupBy("nft.status")
-        .getRawMany<{ status: AdminNftWithdrawalStatus; count: string }>(),
-    ]);
-    const statuses = Object.fromEntries(
-      nftCounts.map((entry) => [entry.status, Number(entry.count)]),
-    ) as Partial<Record<AdminNftWithdrawalStatus, number>>;
-    return {
-      program: {
-        enabled: region.nftRewardEveryOrders > 0,
-        everyOrders: region.nftRewardEveryOrders,
-        name: region.nftRewardName,
-        image: region.nftRewardImage,
-        description: region.nftRewardDescription,
-        network: region.nftRewardNetwork,
-        contractAddress: region.nftContractAddress,
-        metadataUri: region.nftMetadataUri,
-      },
-      metrics: {
-        rewardedProducts: Number(productMetrics?.rewardedProducts || 0),
-        coinsPerFullMenu: Number(productMetrics?.coinsPerFullMenu || 0),
-        issuedCoins: Number(coinMetrics?.issuedCoins || 0),
-        coinTransactions: Number(coinMetrics?.transactions || 0),
-        nftsTotal: Object.values(statuses).reduce((sum, count) => sum + (count ?? 0), 0),
-        nftStatuses: statuses,
-      },
-      transferProviderConfigured: Boolean(
-        this.config.get<string>("NFT_TRANSFER_WEBHOOK_URL")?.trim(),
-      ),
-    };
-  }
-
   async customers(regionSlug: string, search: string, requestedLimit: number, requestedOffset: number) {
     await this.requireRegion(regionSlug);
     const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
@@ -438,22 +444,11 @@ export class AdminService {
         COUNT(*)::bigint AS "ordersCount",
         COUNT(*) FILTER (WHERE orders."status" = $5)::bigint AS "completedOrders",
         COALESCE(SUM(orders."total") FILTER (WHERE orders."status" = $5), 0)::bigint AS "revenue",
-        MAX(orders."createdAt") AS "lastOrderAt",
-        COALESCE(account."naktaCoins", 0)::int AS "naktaCoins",
-        COALESCE(nfts."nftCount", 0)::bigint AS "nftCount",
-        COALESCE(nfts."pendingCount", 0)::bigint AS "pendingNftCount"
+        MAX(orders."createdAt") AS "lastOrderAt"
       FROM "orders" orders
       INNER JOIN matched_phones ON matched_phones."phone" = orders."phone"
-      LEFT JOIN "phone_accounts" account ON account."phone" = orders."phone"
-      LEFT JOIN (
-        SELECT "phone", COUNT(*)::bigint AS "nftCount",
-          COUNT(*) FILTER (WHERE "status" IN ('pending', 'submitted'))::bigint AS "pendingCount"
-        FROM "account_nfts"
-        WHERE "regionSlug" = $1
-        GROUP BY "phone"
-      ) nfts ON nfts."phone" = orders."phone"
       WHERE orders."regionSlug" = $1
-      GROUP BY orders."phone", account."naktaCoins", nfts."nftCount", nfts."pendingCount"
+      GROUP BY orders."phone"
       ORDER BY MAX(orders."createdAt") DESC
       LIMIT $3 OFFSET $4
     `, [regionSlug, pattern, limit, offset, OrderStatus.COMPLETED]) as Array<Record<string, unknown>>;
@@ -468,9 +463,6 @@ export class AdminService {
       ordersCount: Number(row.ordersCount),
       completedOrders: Number(row.completedOrders),
       revenue: Number(row.revenue),
-      naktaCoins: Number(row.naktaCoins),
-      nftCount: Number(row.nftCount),
-      pendingNftCount: Number(row.pendingNftCount),
     }));
     return { items, total: Number(total), limit, offset };
   }
@@ -491,25 +483,10 @@ export class AdminService {
     `, [phone, regionSlug, OrderStatus.COMPLETED]) as Array<Record<string, unknown>>;
     if (!summary) throw new NotFoundException("Пользователь в выбранном городе не найден");
 
-    const [orders, account, nfts, adjustments] = await Promise.all([
-      this.orderRepository.find({
-        where: { phone, regionSlug },
-        order: { createdAt: "DESC" },
-      }),
-      this.accountRepository.findOne({ where: { phone } }),
-      this.nftRepository.find({
-        where: { phone, regionSlug },
-        order: { createdAt: "DESC" },
-      }),
-      this.rewardAdjustmentRepository.find({
-        where: { phone, regionSlug },
-        order: { createdAt: "DESC" },
-        take: 100,
-      }),
-    ]);
-
-    const availableNftCount = nfts.filter((nft) => nft.status === "owned").length;
-    const pendingNftCount = nfts.filter((nft) => ["pending", "submitted"].includes(nft.status)).length;
+    const orders = await this.orderRepository.find({
+      where: { phone, regionSlug },
+      order: { createdAt: "DESC" },
+    });
     return {
       phone,
       regionSlug,
@@ -518,10 +495,6 @@ export class AdminService {
       completedOrders: Number(summary.completedOrders),
       revenue: Number(summary.revenue),
       lastOrderAt: summary.lastOrderAt,
-      naktaCoins: account?.naktaCoins ?? 0,
-      nftCount: nfts.length,
-      availableNftCount,
-      pendingNftCount,
       orders: orders.map((order) => ({
         id: order.id,
         orderNumber: order.orderNumber,
@@ -532,235 +505,7 @@ export class AdminService {
         address: order.address,
         createdAt: order.createdAt,
       })),
-      nfts,
-      adjustments,
     };
-  }
-
-  async adjustCustomerRewards(phone: string, dto: AdjustCustomerRewardsDto) {
-    if (dto.delta === 0) throw new BadRequestException("Укажите количество больше или меньше нуля");
-    const region = await this.requireRegion(dto.region);
-
-    await this.orderRepository.manager.transaction(async (manager) => {
-      const orderRepository = manager.getRepository(Order);
-      const latestOrder = await orderRepository.findOne({
-        where: { phone, regionSlug: region.slug },
-        order: { createdAt: "DESC" },
-      });
-      if (!latestOrder) throw new NotFoundException("Пользователь в выбранном городе не найден");
-
-      const accountRepository = manager.getRepository(PhoneAccount);
-      let account = await accountRepository.findOne({
-        where: { phone },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!account) {
-        account = await accountRepository.save(accountRepository.create({
-          phone,
-          naktaCoins: 0,
-          sessionTokenHash: null,
-          sessionExpiresAt: null,
-        }));
-      }
-
-      let balanceAfter: number;
-      if (dto.asset === "coin") {
-        const nextBalance = account.naktaCoins + dto.delta;
-        if (!Number.isSafeInteger(nextBalance) || nextBalance < 0 || nextBalance > 2_147_483_647) {
-          throw new BadRequestException("Недостаточно NAKTA Coin для списания или превышен допустимый баланс");
-        }
-        account.naktaCoins = nextBalance;
-        await accountRepository.save(account);
-        balanceAfter = nextBalance;
-      } else {
-        const nftRepository = manager.getRepository(AccountNft);
-        if (dto.delta > 0) {
-          const created = Array.from({ length: dto.delta }, () => nftRepository.create({
-            phone,
-            regionSlug: region.slug,
-            rewardKey: `admin:${randomUUID()}`,
-            orderId: latestOrder.id,
-            milestoneOrderCount: 1,
-            name: region.nftRewardName || "NFT NAKTA",
-            image: region.nftRewardImage || "",
-            description: region.nftRewardDescription || "",
-            network: region.nftRewardNetwork || "polygon",
-            contractAddress: region.nftContractAddress || "",
-            metadataUri: region.nftMetadataUri || "",
-            tokenId: null,
-            status: "owned",
-            walletAddress: null,
-            txHash: null,
-            withdrawalError: null,
-            withdrawalRequestedAt: null,
-            withdrawnAt: null,
-          }));
-          await nftRepository.save(created);
-        } else {
-          const countToRemove = Math.abs(dto.delta);
-          const removable = await nftRepository.createQueryBuilder("nft")
-            .setLock("pessimistic_write")
-            .where('nft."phone" = :phone', { phone })
-            .andWhere('nft."regionSlug" = :regionSlug', { regionSlug: region.slug })
-            .andWhere('nft."status" = :status', { status: "owned" })
-            .orderBy('nft."createdAt"', "DESC")
-            .take(countToRemove)
-            .getMany();
-          if (removable.length < countToRemove) {
-            throw new BadRequestException(`Можно списать только доступные NFT: ${removable.length}`);
-          }
-          await nftRepository.remove(removable);
-        }
-        balanceAfter = await nftRepository.countBy({
-          phone,
-          regionSlug: region.slug,
-          status: "owned",
-        });
-      }
-
-      await manager.getRepository(CustomerRewardAdjustment).save({
-        phone,
-        regionSlug: region.slug,
-        asset: dto.asset,
-        delta: dto.delta,
-        balanceAfter,
-        reason: dto.reason.trim(),
-      });
-    });
-
-    return this.customer(phone, region.slug);
-  }
-
-  nftWithdrawals(regionSlug?: string, status?: AdminNftWithdrawalStatus) {
-    const query = this.nftRepository.createQueryBuilder("nft");
-    if (regionSlug) query.andWhere('nft."regionSlug" = :regionSlug', { regionSlug });
-    if (status) query.andWhere("nft.status = :status", { status });
-    return query
-      .orderBy(`CASE nft.status
-        WHEN 'pending' THEN 0
-        WHEN 'failed' THEN 1
-        WHEN 'submitted' THEN 2
-        WHEN 'owned' THEN 3
-        ELSE 4
-      END`, "ASC")
-      .addOrderBy('nft."withdrawalRequestedAt"', "DESC", "NULLS LAST")
-      .addOrderBy('nft."createdAt"', "DESC")
-      .take(200)
-      .getMany();
-  }
-
-  async updateNftWithdrawal(id: string, dto: UpdateNftWithdrawalDto) {
-    const nft = await this.nftRepository.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(AccountNft);
-      const nft = await repository.findOne({
-        where: { id },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!nft) throw new NotFoundException("NFT не найден");
-      if (nft.status === "owned") {
-        throw new ConflictException("Клиент ещё не запрашивал вывод этого NFT");
-      }
-      if (nft.status === "withdrawn") {
-        throw new ConflictException("Вывод уже завершён");
-      }
-      if (dto.status !== "failed" && !nft.walletAddress) {
-        throw new BadRequestException("У заявки не указан кошелёк клиента");
-      }
-      const nextTxHash = dto.txHash !== undefined
-        ? dto.txHash.trim() || null
-        : nft.txHash;
-      if (dto.status !== "failed" && !nextTxHash) {
-        throw new BadRequestException("Для отправленного NFT нужен хеш транзакции");
-      }
-      nft.status = dto.status;
-      nft.txHash = nextTxHash;
-      if (dto.tokenId !== undefined) nft.tokenId = dto.tokenId.trim() || null;
-      nft.withdrawalError = dto.status === "failed"
-        ? dto.error?.trim() || "Транзакция отклонена обработчиком"
-        : null;
-      nft.withdrawnAt = dto.status === "withdrawn" ? new Date() : null;
-      return repository.save(nft);
-    });
-    await this.pushNotifications.sendRewardWithdrawalStatus(nft.phone, {
-      withdrawalId: nft.id,
-      asset: "nft",
-      status: dto.status,
-      name: nft.name,
-      reason: nft.withdrawalError,
-    });
-    return nft;
-  }
-
-  coinWithdrawals(regionSlug?: string, status?: string) {
-    const supported = new Set(["pending", "submitted", "withdrawn", "failed", "cancelled"]);
-    const query = this.coinWithdrawalRepository.createQueryBuilder("withdrawal");
-    if (regionSlug) {
-      query.andWhere('withdrawal."regionSlug" = :regionSlug', { regionSlug });
-    }
-    if (status && supported.has(status)) {
-      query.andWhere("withdrawal.status = :status", { status });
-    }
-    return query
-      .orderBy(`CASE withdrawal.status
-        WHEN 'pending' THEN 0
-        WHEN 'failed' THEN 1
-        WHEN 'cancelled' THEN 2
-        WHEN 'submitted' THEN 3
-        ELSE 3
-      END`, "ASC")
-      .addOrderBy('withdrawal."createdAt"', "DESC")
-      .take(200)
-      .getMany();
-  }
-
-  async updateCoinWithdrawal(id: string, dto: UpdateNaktaCoinWithdrawalDto) {
-    const withdrawal = await this.coinWithdrawalRepository.manager.transaction(async (manager) => {
-      const withdrawalRepository = manager.getRepository(NaktaCoinWithdrawal);
-      const withdrawal = await withdrawalRepository.findOne({
-        where: { id },
-        lock: { mode: "pessimistic_write" },
-      });
-      if (!withdrawal) throw new NotFoundException("Заявка на вывод не найдена");
-      if (["withdrawn", "failed", "cancelled"].includes(withdrawal.status)) {
-        throw new ConflictException("Заявка уже завершена");
-      }
-      const nextTxHash = dto.txHash !== undefined
-        ? dto.txHash.trim() || null
-        : withdrawal.txHash;
-      if (dto.status !== "failed" && !nextTxHash) {
-        throw new BadRequestException("Для отправки NAKTA Coin нужен хеш транзакции");
-      }
-
-      withdrawal.status = dto.status;
-      withdrawal.txHash = nextTxHash;
-      withdrawal.error = dto.status === "failed"
-        ? dto.error?.trim() || "Заявка на вывод отклонена"
-        : null;
-      withdrawal.processedAt = ["withdrawn", "failed"].includes(dto.status)
-        ? new Date()
-        : null;
-
-      if (dto.status === "failed") {
-        const accountRepository = manager.getRepository(PhoneAccount);
-        const account = await accountRepository.findOne({
-          where: { phone: withdrawal.phone },
-          lock: { mode: "pessimistic_write" },
-        });
-        if (!account) throw new NotFoundException("Аккаунт не найден");
-        account.naktaCoins += withdrawal.amount;
-        await accountRepository.save(account);
-      }
-
-      return withdrawalRepository.save(withdrawal);
-    });
-    await this.pushNotifications.sendRewardWithdrawalStatus(withdrawal.phone, {
-      withdrawalId: withdrawal.id,
-      asset: "coin",
-      status: dto.status,
-      amount: withdrawal.amount,
-      reason: withdrawal.error,
-    });
-    return withdrawal;
   }
 
   async createRegion(dto: CreateRegionDto) {
@@ -768,7 +513,8 @@ export class AdminService {
     const exists = await this.regions.findOne({ where: { slug } });
     if (exists) throw new BadRequestException("Город с таким адресом уже существует");
     const sources = await this.validateContentSources(slug, dto);
-    return this.regions.save(this.regions.create({ ...dto, ...sources, slug }));
+    const saved = await this.regions.save(this.regions.create({ ...dto, ...sources, slug }));
+    return publicRegion(saved);
   }
 
   async updateRegion(id: number, dto: UpdateRegionDto) {
@@ -776,7 +522,8 @@ export class AdminService {
     if (!region) throw new NotFoundException("Город не найден");
     const sources = await this.validateContentSources(region.slug, dto);
     Object.assign(region, dto, sources);
-    return this.regions.save(region);
+    const saved = await this.regions.save(region);
+    return publicRegion(saved);
   }
 
   async orders(query: ListOrdersQueryDto) {
@@ -810,10 +557,14 @@ export class AdminService {
       counts.getRawMany<{ status: OrderStatus; count: string }>(),
     ]);
     const statusCounts = Object.fromEntries(rawStatusCounts.map((item) => [item.status, Number(item.count)])) as Partial<Record<OrderStatus, number>>;
-    return { items, total, limit, offset, statusCounts };
+    return { items: items.map(publicAdminOrder), total, limit, offset, statusCounts };
   }
 
   async order(id: string) {
+    return publicAdminOrder(await this.requireOrder(id));
+  }
+
+  private async requireOrder(id: string) {
     const order = await this.orderRepository.findOne({
       where: { id },
       relations: { items: true },
@@ -823,7 +574,7 @@ export class AdminService {
   }
 
   async updateOrderKit(id: string, dto: UpdateOrderKitDto) {
-    const order = await this.order(id);
+    const order = await this.requireOrder(id);
     if ([OrderStatus.COMPLETED, OrderStatus.CANCELLED].includes(order.status)) {
       throw new BadRequestException("Комплектацию завершённого или отменённого заказа изменить нельзя");
     }
@@ -835,15 +586,16 @@ export class AdminService {
       dto.kitItems,
       freeKitItemsForRegion(region.freeKitItems),
     );
-    return this.orderRepository.save(order);
+    const saved = await this.orderRepository.save(order);
+    return publicAdminOrder(saved);
   }
 
   async updateOrderStatus(id: string, nextStatus: OrderStatus) {
-    const current = await this.order(id);
+    const current = await this.requireOrder(id);
     if (shouldSubmitOrderToEduPosAfterAdminTransition(current.status, nextStatus)) {
       const confirmed = await this.eduPos.confirmOrder(current);
       dispatchOrderStatusPush(this.pushNotifications, confirmed);
-      return confirmed;
+      return publicAdminOrder(confirmed);
     }
 
     const saved = await this.orderRepository.manager.transaction(async (manager) => {
@@ -860,90 +612,14 @@ export class AdminService {
         throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
       }
       if (order.status === nextStatus) return order;
-      if (nextStatus === OrderStatus.COMPLETED) {
-        await manager.query(
-          "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
-          [`order-rewards:${order.phone}:${order.regionSlug}`],
-        );
-      }
       order.status = nextStatus;
       if (nextStatus === OrderStatus.COMPLETED) order.completedAt = new Date();
       const saved = await orders.save(order);
-      if (nextStatus === OrderStatus.COMPLETED) {
-        await manager.createQueryBuilder()
-          .insert()
-          .into(PhoneAccount)
-          .values({ phone: order.phone, naktaCoins: 0 })
-          .orIgnore()
-          .execute();
-
-        const rewards = calculateOrderRewards(items);
-        if (rewards.naktaCoins > 0) {
-          const inserted = await manager.createQueryBuilder()
-            .insert()
-            .into(NaktaCoinTransaction)
-            .values({
-              phone: order.phone,
-              regionSlug: order.regionSlug,
-              orderId: order.id,
-              amount: rewards.naktaCoins,
-              description: `Заказ №${order.orderNumber || order.id.slice(0, 8).toUpperCase()}`,
-            })
-            .orIgnore()
-            .returning(["id"])
-            .execute();
-          if (inserted.identifiers.length > 0) {
-            await manager.increment(PhoneAccount, { phone: order.phone }, "naktaCoins", rewards.naktaCoins);
-          }
-        }
-
-        const program = await manager.getRepository(Region).findOne({
-          where: { slug: order.regionSlug },
-        });
-        const completedOrders = await orders.count({
-          where: {
-            phone: order.phone,
-            regionSlug: order.regionSlug,
-            status: OrderStatus.COMPLETED,
-          },
-        });
-        if (
-          program
-          && program.nftRewardName.trim()
-          && isNftMilestone(completedOrders, program.nftRewardEveryOrders)
-        ) {
-          await manager.createQueryBuilder()
-            .insert()
-            .into(AccountNft)
-            .values({
-              phone: order.phone,
-              regionSlug: order.regionSlug,
-              rewardKey: `milestone:${order.id}`,
-              orderId: order.id,
-              milestoneOrderCount: completedOrders,
-              name: program.nftRewardName,
-              image: program.nftRewardImage,
-              description: program.nftRewardDescription,
-              network: program.nftRewardNetwork,
-              contractAddress: program.nftContractAddress,
-              metadataUri: program.nftMetadataUri,
-              tokenId: null,
-              status: "owned",
-              walletAddress: null,
-              txHash: null,
-              withdrawalError: null,
-              withdrawalRequestedAt: null,
-              withdrawnAt: null,
-            })
-            .orIgnore()
-            .execute();
-        }
-      }
       saved.items = items;
       return saved;
     });
     dispatchOrderStatusPush(this.pushNotifications, saved);
-    return saved;
+    return publicAdminOrder(saved);
   }
 
   async createPickupLocation(dto: CreatePickupLocationDto) {
@@ -955,7 +631,8 @@ export class AdminService {
       longitude: dto.longitude ?? null,
       region,
     });
-    return this.pickupLocations.save(location);
+    const saved = await this.pickupLocations.save(location);
+    return publicAdminPickupLocation(saved);
   }
 
   async resolvePickupMapLink(yandexUrl: string) {
@@ -972,7 +649,8 @@ export class AdminService {
     const location = await this.pickupLocations.findOneBy({ id });
     if (!location) throw new NotFoundException("Кухня самовывоза не найдена");
     Object.assign(location, dto);
-    return this.pickupLocations.save(location);
+    const saved = await this.pickupLocations.save(location);
+    return publicAdminPickupLocation(saved);
   }
 
   async deletePickupLocation(id: number) {
@@ -987,13 +665,15 @@ export class AdminService {
     const region = await this.contentSource(requestedRegion, "menuSourceRegionSlug");
     const exists = await this.categories.findOne({ where: { region: { id: region.id }, slug: dto.slug } });
     if (exists) throw new BadRequestException("Category slug already exists in this region");
-    return this.categories.save(this.categories.create({ ...dto, region }));
+    const saved = await this.categories.save(this.categories.create({ ...dto, region }));
+    return publicAdminCategory(saved);
   }
 
   async updateCategory(id: number, dto: UpdateCategoryDto) {
     const category = await this.requireCategory(id);
     Object.assign(category, dto);
-    return this.categories.save(category);
+    const saved = await this.categories.save(category);
+    return publicAdminCategory(saved);
   }
 
   async deleteCategory(id: number) {
@@ -1010,11 +690,12 @@ export class AdminService {
     const category = await this.requireCategory(dto.categoryId);
     if (category.region.id !== region.id) throw new BadRequestException("Category belongs to another region");
     const { regionSlug: _regionSlug, categoryId: _categoryId, ...data } = dto;
-    return this.products.save(this.products.create({
+    const saved = await this.products.save(this.products.create({
       ...data,
       sourceId: null,
       category,
     }));
+    return publicProduct(saved);
   }
 
   async updateProduct(id: number, dto: UpdateProductDto) {
@@ -1033,7 +714,8 @@ export class AdminService {
       product.category = category;
     }
     Object.assign(product, data);
-    return this.products.save(product);
+    const saved = await this.products.save(product);
+    return publicProduct(saved);
   }
 
   async deleteProduct(id: number) {
@@ -1046,13 +728,15 @@ export class AdminService {
     const requestedRegion = await this.requireRegion(dto.regionSlug);
     const region = await this.contentSource(requestedRegion, "promotionSourceRegionSlug");
     const { regionSlug: _regionSlug, ...data } = dto;
-    return this.promotions.save(this.promotions.create({ ...data, region }));
+    const saved = await this.promotions.save(this.promotions.create({ ...data, region }));
+    return publicAdminPromotion(saved);
   }
 
   async updatePromotion(id: number, dto: UpdatePromotionDto) {
     const promotion = await this.requirePromotion(id);
     Object.assign(promotion, dto);
-    return this.promotions.save(promotion);
+    const saved = await this.promotions.save(promotion);
+    return publicAdminPromotion(saved);
   }
 
   async deletePromotion(id: number) {
