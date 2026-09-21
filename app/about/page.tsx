@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { InfoPage } from "../components/InfoPage";
 
-export const metadata: Metadata = { title: "О нас" };
+export const metadata: Metadata = {
+  title: "О нас",
+  description: "О Накта суши: доставка суши, роллов, сетов и горячих блюд в Бишкеке и Оше.",
+  alternates: { canonical: "/about" },
+};
 
 export default function AboutPage() {
   return (

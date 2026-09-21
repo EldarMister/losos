@@ -25,6 +25,9 @@ test("server-renders the storefront", async () => {
   );
   assert.match(html, /<link rel="canonical" href="https:\/\/naktasushi\.com\/"/i);
   assert.match(html, /application\/ld\+json/i);
+  assert.match(html, /"alternateName":\["Nakta Sushi","NAKTA SUSHI","НАКТА СУШИ"\]/);
+  assert.match(html, /Накта суши — доставка суши и роллов в Бишкеке и Оше/);
+  assert.match(html, /href="\/category\/rolly-2"/);
   assert.match(html, /Salmon Lovers Club/);
   assert.match(html, /Соус сладкий васаби/);
   assert.match(html, /Корзина/);
@@ -40,7 +43,9 @@ test("renders the public legal documents", async () => {
   ]) {
     const response = await render(pathname);
     assert.equal(response.status, 200);
-    assert.match(await response.text(), new RegExp(`<h1[^>]*>${heading}</h1>`, "i"));
+    const html = await response.text();
+    assert.match(html, new RegExp(`<h1[^>]*>${heading}</h1>`, "i"));
+    assert.match(html, new RegExp(`<link rel="canonical" href="https://naktasushi\\.com${pathname}"`, "i"));
   }
 
   const legalResponse = await render("/legal");

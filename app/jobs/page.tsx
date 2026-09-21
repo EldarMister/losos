@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { InfoPage } from "../components/InfoPage";
 
-export const metadata: Metadata = { title: "Работа" };
+export const metadata: Metadata = {
+  title: "Работа",
+  description: "Вакансии Накта суши в Бишкеке и Оше.",
+  alternates: { canonical: "/jobs" },
+};
 
 export default function JobsPage() {
   return (

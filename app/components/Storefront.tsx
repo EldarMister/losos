@@ -2165,6 +2165,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         </main>
       </div>
 
+      {!categorySlug ? (
+        <section className="seo-intro" aria-labelledby="seo-intro-title">
+          <h2 id="seo-intro-title">Накта суши — доставка суши и роллов в Бишкеке и Оше</h2>
+          <p>Заказывайте роллы, суши, сеты, поке и горячие блюда онлайн. Выберите город, укажите адрес доставки или удобную точку самовывоза — актуальное меню и цены всегда доступны на сайте Nakta Sushi.</p>
+          <nav aria-label="Популярные разделы меню">
+            <Link href="/category/rolly-2">Роллы</Link>
+            <Link href="/category/sety-2">Сеты</Link>
+            <Link href="/category/susi-i-sasimi-2">Суши и сашими</Link>
+            <Link href="/category/goracie-bluda">Горячие блюда</Link>
+          </nav>
+        </section>
+      ) : null}
+
       <footer className="footer" id="contacts">
         <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
         <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">

@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { InfoPage } from "../components/InfoPage";
 
-export const metadata: Metadata = { title: "Поддержка" };
+export const metadata: Metadata = {
+  title: "Поддержка",
+  description: "Контакты поддержки Накта суши по заказам, оплате и доставке.",
+  alternates: { canonical: "/support" },
+};
 export const dynamic = "force-dynamic";
 
 type RegionContact = {

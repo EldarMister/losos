@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
+  const organizationId = `${absoluteUrl("/")}#organization`;
   const websiteId = `${absoluteUrl("/")}#website`;
 
   return (
@@ -23,16 +24,30 @@ export default function Home() {
           "@context": "https://schema.org",
           "@graph": [
             {
+              "@type": "Organization",
+              "@id": organizationId,
+              name: "Накта суши",
+              alternateName: ["Nakta Sushi", "NAKTA SUSHI", "НАКТА СУШИ"],
+              legalName: "ФЛЮРА МАДАМИНЖАНОВНА БАТЫРОВА",
+              url: absoluteUrl("/"),
+              logo: absoluteUrl("/logo.webp"),
+              image: absoluteUrl("/og-social-v2.png"),
+              email: "naktasushi@gmail.com",
+              telephone: "+996503178916",
+              areaServed: [
+                { "@type": "City", name: "Бишкек" },
+                { "@type": "City", name: "Ош" },
+              ],
+            },
+            {
               "@type": "WebSite",
               "@id": websiteId,
               url: absoluteUrl("/"),
               name: "Накта суши",
+              alternateName: ["Nakta Sushi", "NAKTA SUSHI", "НАКТА СУШИ"],
               description: metadata.description,
               inLanguage: "ru-KG",
-              publisher: {
-                "@type": "Person",
-                name: "ФЛЮРА МАДАМИНЖАНОВНА БАТЫРОВА",
-              },
+              publisher: { "@id": organizationId },
             },
             {
               "@type": "WebPage",
@@ -42,6 +57,7 @@ export default function Home() {
               description: metadata.description,
               inLanguage: "ru-KG",
               isPartOf: { "@id": websiteId },
+              about: { "@id": organizationId },
             },
           ],
         }}

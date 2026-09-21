@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { InfoPage } from "../components/InfoPage";
 
-export const metadata: Metadata = { title: "Правовая информация" };
+export const metadata: Metadata = {
+  title: "Правовая информация",
+  description: "Правовая информация и документы сервиса Накта суши.",
+  alternates: { canonical: "/legal" },
+};
 
 export default function LegalPage() {
   return (

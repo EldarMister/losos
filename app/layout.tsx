@@ -21,7 +21,12 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     applicationName: siteName,
     keywords: [
+      "Накта суши",
+      "Nakta Sushi",
+      "NAKTA SUSHI",
       "доставка суши",
+      "доставка суши Бишкек",
+      "доставка суши Ош",
       "суши Бишкек",
       "суши Ош",
       "роллы Бишкек",
@@ -34,10 +39,6 @@ export async function generateMetadata(): Promise<Metadata> {
     authors: [{ name: siteName }],
     creator: siteName,
     publisher: siteName,
-    alternates: {
-      canonical: "/",
-      languages: { "ru-KG": "/" },
-    },
     icons: {
       icon: [{ url: "/favicon.jpeg", type: "image/jpeg" }],
       shortcut: "/favicon.jpeg",
