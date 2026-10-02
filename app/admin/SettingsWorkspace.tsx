@@ -14,6 +14,7 @@ import {
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { DeliveryZoneEditor } from "./DeliveryZoneEditor";
 import { ImageUpload } from "./ImageUpload";
+import { CitiesWorkspace } from "./CitiesWorkspace";
 import type {
   AdminRequest,
   DeliveryZonePoint,
@@ -26,11 +27,13 @@ import type {
 
 type SettingsWorkspaceProps = {
   region: string;
+  regions: Region[];
   request: AdminRequest;
+  onRegionUpdated: (region: Region) => void;
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
-type SettingsTab = "basic" | "delivery" | "pickup" | "kit" | "edu-pos";
+type SettingsTab = "basic" | "cities" | "delivery" | "pickup" | "kit" | "edu-pos";
 
 type SettingsDraft = {
   enabled: boolean;
@@ -95,6 +98,7 @@ const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 
 
 const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "basic", label: "Основное" },
+  { id: "cities", label: "Города" },
   { id: "delivery", label: "Доставка" },
   { id: "pickup", label: "Самовывоз" },
   { id: "kit", label: "Комплектация" },
@@ -175,7 +179,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspaceProps) {
+export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onNotice }: SettingsWorkspaceProps) {
   const [tab, setTab] = useState<SettingsTab>("basic");
   const [item, setItem] = useState<Region | null>(null);
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
@@ -213,6 +217,14 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
     return () => window.clearTimeout(timer);
   }, [load]);
 
+  const handleRegionUpdated = (updated: Region) => {
+    onRegionUpdated(updated);
+    if (item?.id === updated.id) {
+      setItem((current) => current ? { ...current, enabled: updated.enabled } : current);
+      setDraft((current) => current ? { ...current, enabled: updated.enabled } : current);
+    }
+  };
+
   const saveRegion = async (event: FormEvent) => {
     event.preventDefault();
     if (!item || !draft || saving) return;
@@ -222,7 +234,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
     }
     setSaving(true);
     try {
-      await request(`/admin/regions/${item.id}`, {
+      const updated = await request<Region>(`/admin/regions/${item.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           enabled: draft.enabled,
@@ -242,6 +254,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
           toppingProductIds: draft.toppingProductIds,
         }),
       });
+      handleRegionUpdated(updated);
       onNotice("Настройки сохранены", "success");
       await load();
     } catch (saveError) {
@@ -395,7 +408,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
         </nav>
       </div>
 
-      <form className="space-y-4" onSubmit={saveRegion}>
+      {tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onNotice={onNotice} /> : <form className="space-y-4" onSubmit={saveRegion}>
         {tab === "basic" ? (
           <section className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="border-b border-slate-200 pb-4">
@@ -405,7 +418,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className={labelClass}>Телефон кухни<input className={inputClass} value={draft.contactPhone} onChange={(event) => setDraft({ ...draft, contactPhone: event.target.value })} /></label>
               <label className={labelClass}>Телефон поддержки<input className={inputClass} value={draft.supportPhone} onChange={(event) => setDraft({ ...draft, supportPhone: event.target.value })} /></label>
-              <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700 sm:col-span-2"><input type="checkbox" className="size-4 accent-blue-600" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} />Принимать заказы в этом городе</label>
+              <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700 sm:col-span-2"><input type="checkbox" className="size-4 accent-blue-600" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><span>Показывать город на сайте и в приложении<small className="mt-1 block text-xs text-slate-500">Скрытый город недоступен для новых заказов.</small></span></label>
             </div>
           </section>
         ) : null}
@@ -514,7 +527,7 @@ export function SettingsWorkspace({ region, request, onNotice }: SettingsWorkspa
         {(["basic", "delivery", "kit"] as SettingsTab[]).includes(tab) ? (
           <div className="flex justify-end"><button type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить настройки"}</button></div>
         ) : null}
-      </form>
+      </form>}
 
       {tab === "pickup" ? (
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">

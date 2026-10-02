@@ -132,6 +132,9 @@ export function AdminApp() {
 
   const activeSection = useMemo(() => adminSections.find((item) => item.id === section) ?? adminSections[0], [section]);
   const onNotice = useCallback((message: string, tone: "success" | "error" = "success") => setNotice({ message, tone }), []);
+  const onRegionUpdated = useCallback((updated: Region) => {
+    setRegions((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
+  }, []);
   const selectSection = (nextSection: AdminSection) => {
     setSection(nextSection);
     setMobileMenuOpen(false);
@@ -218,7 +221,7 @@ export function AdminApp() {
           {section === "categories" ? <CategoriesView {...viewProps} /> : null}
           {section === "users" ? <UsersWorkspace key={region} {...viewProps} /> : null}
           {section === "promotions" ? <PromotionsWorkspace {...viewProps} /> : null}
-          {section === "settings" ? <SettingsWorkspace {...viewProps} /> : null}
+          {section === "settings" ? <SettingsWorkspace {...viewProps} regions={regions} onRegionUpdated={onRegionUpdated} /> : null}
         </main>
       </div>
 

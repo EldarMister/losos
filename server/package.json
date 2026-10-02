@@ -14,6 +14,7 @@
     "migration:run": "npm run build && typeorm -d dist/data-source.js migration:run",
     "migration:revert": "npm run build && typeorm -d dist/data-source.js migration:revert",
     "test": "tsx --test test/backend.test.ts",
+    "test:cities": "npm run build && node --test test/city-visibility.integration.cjs",
     "test:integration": "npm run build && node test/postgres.integration.cjs"
   },
   "dependencies": {
