@@ -11,6 +11,7 @@ type ImageUploadProps = {
   hint: string;
   onChange: (value: string) => void;
   onError: (message: string) => void;
+  compact?: boolean;
 };
 
 function optimizeImage(file: File) {
@@ -43,7 +44,7 @@ function optimizeImage(file: File) {
   });
 }
 
-export function ImageUpload({ label, value, hint, onChange, onError }: ImageUploadProps) {
+export function ImageUpload({ label, value, hint, onChange, onError, compact = false }: ImageUploadProps) {
   const inputId = useId();
   const [processing, setProcessing] = useState(false);
 
@@ -62,24 +63,24 @@ export function ImageUpload({ label, value, hint, onChange, onError }: ImageUplo
   };
 
   return (
-    <fieldset className="grid gap-3">
+    <fieldset className="grid min-w-0 w-full content-start gap-3">
       <legend className="text-sm font-medium text-slate-700">{label}</legend>
       {value ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-          <img src={value} alt="Предпросмотр загруженного изображения" className="h-52 w-full object-contain" />
-          <div className="grid grid-cols-2 gap-2 border-t border-slate-200 bg-white p-3">
-            <label htmlFor={inputId} className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
-              <Icon path={mdiImagePlusOutline} size={0.72} aria-hidden="true" />
+        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+          <img src={value} alt="Предпросмотр загруженного изображения" className={`${compact ? "h-32" : "h-52"} w-full object-contain`} />
+          <div className={`grid gap-2 border-t border-slate-200 bg-white ${compact ? "p-2" : "grid-cols-2 p-3"}`}>
+            <label htmlFor={inputId} className="inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <Icon path={mdiImagePlusOutline} size={0.72} aria-hidden="true" className="shrink-0" />
               Заменить фото
             </label>
-            <button type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-red-200 px-3 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => onChange("")}>
-              <Icon path={mdiDeleteOutline} size={0.72} aria-hidden="true" />
+            <button type="button" className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-red-200 px-2 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => onChange("")}>
+              <Icon path={mdiDeleteOutline} size={0.72} aria-hidden="true" className="shrink-0" />
               Удалить фото
             </button>
           </div>
         </div>
       ) : (
-        <label htmlFor={inputId} className="grid min-h-44 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center hover:border-blue-400 hover:bg-blue-50/40">
+        <label htmlFor={inputId} className={`grid min-w-0 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center hover:border-blue-400 hover:bg-blue-50/40 ${compact ? "min-h-32 p-3" : "min-h-44 p-6"}`}>
           <span>
             <Icon path={mdiImagePlusOutline} size={1.35} aria-hidden="true" className="mx-auto text-slate-400" />
             <strong className="mt-3 block text-sm font-semibold text-slate-900">{processing ? "Обрабатываем изображение…" : "Загрузить фотографию"}</strong>
@@ -89,9 +90,9 @@ export function ImageUpload({ label, value, hint, onChange, onError }: ImageUplo
       )}
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={processing} onChange={(event) => void selectFile(event)} />
       <p className="text-xs text-slate-500">{hint}</p>
-      <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+      <label className="grid min-w-0 gap-1.5 text-sm font-medium text-slate-700">
         Или вставьте ссылку
-        <input type="url" className="h-11 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={value.startsWith("data:") ? "" : value} placeholder="https://…" onChange={(event) => onChange(event.target.value)} />
+        <input type="url" className="h-11 min-w-0 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={value.startsWith("data:") ? "" : value} placeholder="https://…" onChange={(event) => onChange(event.target.value)} />
       </label>
     </fieldset>
   );

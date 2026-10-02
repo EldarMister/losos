@@ -472,20 +472,21 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                 </button>
               </div>
               {draft.freeKitItems.length ? (
-                <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                <div className="mt-5 grid items-start gap-4 xl:grid-cols-2">
                   {draft.freeKitItems.map((kitItem, index) => (
-                    <article key={kitItem.id} className="grid gap-4 rounded-xl border border-slate-200 p-4 sm:grid-cols-[150px_1fr]">
+                    <article key={kitItem.id} aria-label={`Комплектация: ${kitItem.name}`} className="grid min-w-0 gap-5 rounded-xl border border-slate-200 p-4 sm:grid-cols-[160px_minmax(0,1fr)]">
                       <ImageUpload
+                        compact
                         label="Изображение"
                         value={kitItem.image}
-                        hint="Фото будет показано в корзине и карточке товара."
+                        hint="Фото для корзины и карточки товара."
                         onChange={(image) => setDraft({
                           ...draft,
                           freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, image } : entry),
                         })}
                         onError={(message) => onNotice(message, "error")}
                       />
-                      <div className="grid content-start gap-4">
+                      <div className="grid min-w-0 content-start gap-4">
                         <label className={labelClass}>Название<input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></label>
                         <label className={labelClass}>Количество по умолчанию<input required min="0" max="20" type="number" className={inputClass} value={kitItem.defaultQuantity} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, defaultQuantity: Number(event.target.value) } : entry) })} /></label>
                         <button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) })}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить из комплектации</button>
