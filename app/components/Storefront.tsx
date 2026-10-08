@@ -705,7 +705,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const supportHref = selectedRegion?.supportUrl?.trim()
     || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
   const footerEmail = "naktasushi@gmail.com";
-  const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Жаныбек Кочкорбаевич";
+  const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Жаныбек Кочкорбаевич · ИНН 22309199201100 · Рег. № 032-2026-169-3446 · Ошская область, Кара-Суйский район, с. Отуз-Адыр, ул. Токтогула, дом 4";
   const footerLegalInfo = "Сервис доставки «Накта суши», Кыргызская Республика.";
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
