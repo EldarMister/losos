@@ -50,12 +50,11 @@ test("renders the public legal documents", async () => {
 
   const legalResponse = await render("/legal");
   const legalHtml = await legalResponse.text();
-  assert.match(legalHtml, /ФЛЮРА МАДАМИНЖАНОВНА БАТЫРОВА/);
+  assert.match(legalHtml, /ИП Мусаев Жаныбек Кочкорбаевич/);
   assert.match(legalHtml, /naktasushi@gmail\.com/);
-  assert.doesNotMatch(
-    legalHtml,
-    /ИП Мусаев Жаныбек Кочкорбаевич|22309199201100|032-2026-169-3446|Ошская область, Кара-Суйский район, с\. Отуз-Адыр, ул\. Токтогула, дом 4/,
-  );
+  assert.match(legalHtml, /22309199201100/);
+  assert.match(legalHtml, /032-2026-169-3446/);
+  assert.match(legalHtml, /Ошская область, Кара-Суйский район, с\. Отуз-Адыр, ул\. Токтогула, дом 4/);
 });
 
 test("renders the mobile CAPTCHA bridge", async () => {

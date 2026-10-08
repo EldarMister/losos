@@ -28,7 +28,7 @@ export default function Home() {
               "@id": organizationId,
               name: "Накта суши",
               alternateName: ["Nakta Sushi", "NAKTA SUSHI", "НАКТА СУШИ"],
-              legalName: "ФЛЮРА МАДАМИНЖАНОВНА БАТЫРОВА",
+              legalName: "ИП Мусаев Жаныбек Кочкорбаевич",
               url: absoluteUrl("/"),
               logo: absoluteUrl("/logo.webp"),
               image: absoluteUrl("/og-social-v2.png"),

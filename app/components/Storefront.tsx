@@ -705,7 +705,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const supportHref = selectedRegion?.supportUrl?.trim()
     || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
   const footerEmail = "naktasushi@gmail.com";
-  const footerCompanyName = "Накта суши";
+  const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Жаныбек Кочкорбаевич · ИНН 22309199201100 · Рег. № 032-2026-169-3446 · Ошская область, Кара-Суйский район, с. Отуз-Адыр, ул. Токтогула, дом 4";
   const footerLegalInfo = "Сервис доставки «Накта суши», Кыргызская Республика.";
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
@@ -2179,7 +2179,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       <footer className="footer" id="contacts">
-        <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>© 2026 {footerCompanyName}</span></div>
+        <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>{footerCompanyName}</span></div>
         <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
           <strong>Скачайте<br />приложение</strong>
