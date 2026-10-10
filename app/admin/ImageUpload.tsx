@@ -8,6 +8,7 @@ import { ChangeEvent, useId, useState } from "react";
 type ImageUploadProps = {
   label: string;
   value: string;
+  fallbackValue?: string;
   hint: string;
   onChange: (value: string) => void;
   onError: (message: string) => void;
@@ -44,9 +45,10 @@ function optimizeImage(file: File) {
   });
 }
 
-export function ImageUpload({ label, value, hint, onChange, onError, compact = false }: ImageUploadProps) {
+export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, onError, compact = false }: ImageUploadProps) {
   const inputId = useId();
   const [processing, setProcessing] = useState(false);
+  const previewValue = value || fallbackValue;
 
   const selectFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -65,18 +67,18 @@ export function ImageUpload({ label, value, hint, onChange, onError, compact = f
   return (
     <fieldset className="grid min-w-0 w-full content-start gap-3">
       <legend className="text-sm font-medium text-slate-700">{label}</legend>
-      {value ? (
+      {previewValue ? (
         <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-          <img src={value} alt="Предпросмотр загруженного изображения" className={`${compact ? "h-32" : "h-52"} w-full object-contain`} />
-          <div className={`grid gap-2 border-t border-slate-200 bg-white ${compact ? "p-2" : "grid-cols-2 p-3"}`}>
+          <img src={previewValue} alt={`Предпросмотр: ${label}`} className={`${compact ? "h-32" : "h-52"} w-full object-contain`} />
+          <div className={`grid gap-2 border-t border-slate-200 bg-white ${compact ? "p-2" : `${value ? "grid-cols-2 " : ""}p-3`}`}>
             <label htmlFor={inputId} className="inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
               <Icon path={mdiImagePlusOutline} size={0.72} aria-hidden="true" className="shrink-0" />
               Заменить фото
             </label>
-            <button type="button" className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-red-200 px-2 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => onChange("")}>
+            {value ? <button type="button" className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-red-200 px-2 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => onChange("")}>
               <Icon path={mdiDeleteOutline} size={0.72} aria-hidden="true" className="shrink-0" />
               Удалить фото
-            </button>
+            </button> : null}
           </div>
         </div>
       ) : (

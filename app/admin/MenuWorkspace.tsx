@@ -37,6 +37,7 @@ type ProductEditor = {
 const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100";
 const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
 const secondaryButton = "inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50";
+const deleteButton = "inline-flex min-h-10 items-center justify-center rounded-lg border border-red-200 bg-white px-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-60";
 
 function formatMoney(value: number) {
   return `${Math.round(value).toLocaleString("ru-RU")} сом`;
@@ -104,6 +105,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
   const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition">("main");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -183,16 +185,26 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
     }
   };
 
-  const toggleProduct = async (product: Product) => {
+  const deleteProduct = async (product: Product) => {
+    if (deletingProductId !== null) return;
+    if (!window.confirm(`Удалить блюдо «${product.name}» полностью? Блюдо исчезнет из меню всех городов, использующих этот каталог. История заказов сохранится. Отменить удаление нельзя.`)) return;
+    setDeletingProductId(product.id);
     try {
-      await request(`/admin/products/${product.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ available: !product.available }),
-      });
-      onNotice(product.available ? "Блюдо скрыто из меню" : "Блюдо доступно для заказа", "success");
+      await request(`/admin/products/${product.id}`, { method: "DELETE" });
+      setDashboard((current) => current ? {
+        ...current,
+        categories: current.categories.map((category) => ({
+          ...category,
+          products: category.products.filter((item) => item.id !== product.id),
+        })),
+      } : current);
+      if (editor?.product?.id === product.id) closeEditor();
+      onNotice("Блюдо полностью удалено из меню", "success");
       await load();
-    } catch (toggleError) {
-      onNotice(toggleError instanceof Error ? toggleError.message : "Не удалось изменить доступность", "error");
+    } catch (deleteError) {
+      onNotice(deleteError instanceof Error ? deleteError.message : "Не удалось удалить блюдо", "error");
+    } finally {
+      setDeletingProductId(null);
     }
   };
 
@@ -236,7 +248,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
                       <td className="px-5 py-4 text-slate-600">{category.title}</td>
                       <td className="px-5 py-4 font-semibold text-slate-900">{formatMoney(product.price)}</td>
                       <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${product.available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{product.available ? "Доступно" : "Скрыто"}</span></td>
-                      <td className="px-5 py-4"><div className="flex justify-end gap-2"><button type="button" className={secondaryButton} onClick={() => void toggleProduct(product)}>{product.available ? "Скрыть" : "Показать"}</button><button type="button" className={secondaryButton} onClick={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }}>Редактировать</button></div></td>
+                      <td className="px-5 py-4"><div className="flex flex-wrap justify-end gap-2"><button type="button" className={deleteButton} disabled={deletingProductId !== null} onClick={() => void deleteProduct(product)}>{deletingProductId === product.id ? "Удаляем…" : "Удалить"}</button><button type="button" className={secondaryButton} disabled={deletingProductId === product.id} onClick={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }}>Редактировать</button></div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -246,7 +258,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
               {rows.map(({ product, category }) => (
                 <article key={product.id} className="p-4">
                   <div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{product.name}</strong><span className="mt-1 block text-sm text-slate-500">{category.title}</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(product.price)}</strong></div>
-                  <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" className={secondaryButton} onClick={() => void toggleProduct(product)}>{product.available ? "Скрыть блюдо" : "Показать блюдо"}</button><button type="button" className={secondaryButton} onClick={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }}>Редактировать</button></div>
+                  <div className="mt-4 grid grid-cols-2 gap-2"><button type="button" className={deleteButton} disabled={deletingProductId !== null} onClick={() => void deleteProduct(product)}>{deletingProductId === product.id ? "Удаляем…" : "Удалить блюдо"}</button><button type="button" className={secondaryButton} disabled={deletingProductId === product.id} onClick={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }}>Редактировать</button></div>
                 </article>
               ))}
             </div>

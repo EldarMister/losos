@@ -289,7 +289,6 @@ export class UpdateCategoryDto {
 
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(2_000_000)
   image?: string;
 

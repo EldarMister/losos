@@ -8,11 +8,13 @@ import { ConfigService } from "@nestjs/config";
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import {
+  CreateCategoryDto,
   CreatePickupLocationDto,
   CreateRegionDto,
   CreateProductDto,
   CreatePromotionDto,
   UpdateRegionDto,
+  UpdateCategoryDto,
   UpdateProductDto,
 } from "../src/admin/admin.dto";
 import {
@@ -96,6 +98,20 @@ const baseOrder = {
   paymentMethod: "cash",
   items: [{ productId: 1, quantity: 1, modifiers: [] }],
 };
+
+test("category updates can use a product preview without requiring a category image", () => {
+  const update = plainToInstance(UpdateCategoryDto, { title: "Роллы", image: "" });
+  assert.deepEqual(validateSync(update), []);
+  assert.equal(update.image, "");
+
+  const invalidUpdate = plainToInstance(UpdateCategoryDto, { image: 42 });
+  assert.ok(validateSync(invalidUpdate).some((error) => error.property === "image"));
+
+  const newCategory = plainToInstance(CreateCategoryDto, {
+    regionSlug: "osh", title: "Роллы", slug: "rolly", image: "", sortOrder: 0,
+  });
+  assert.ok(validateSync(newCategory).some((error) => error.property === "image"));
+});
 
 test("admin analytics validates periods and aggregates through PostgreSQL without row limits", () => {
   const valid = plainToInstance(AdminAnalyticsQueryDto, {

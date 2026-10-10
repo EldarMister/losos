@@ -15,7 +15,6 @@ type CategoriesViewProps = {
 type CategoryEditor = {
   category?: Category;
   title: string;
-  slug: string;
   image: string;
   sortOrder: string;
 };
@@ -30,9 +29,24 @@ function slugify(value: string) {
     а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y",
     к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f",
     х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+    ң: "ng", ө: "o", ү: "u",
   };
   return value.toLowerCase().split("").map((letter) => letters[letter] ?? letter).join("")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function categorySlug(title: string, categories: Category[]) {
+  const base = (slugify(title) || "category").slice(0, 90).replace(/-+$/, "");
+  const usedSlugs = new Set(categories.map((category) => category.slug));
+  let slug = base;
+  let suffix = 2;
+  while (usedSlugs.has(slug)) slug = `${base}-${suffix++}`;
+  return slug;
+}
+
+function categoryProductImage(category?: Category) {
+  const product = category?.products.find((item) => item.available !== false) || category?.products[0];
+  return product?.image || "";
 }
 
 export function CategoriesView({ region, request, onNotice }: CategoriesViewProps) {
@@ -61,8 +75,8 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!editor) return;
-    if (!editor.image) {
+    if (!editor || saving) return;
+    if (!editor.category && !editor.image.trim()) {
       onNotice("Загрузите изображение категории", "error");
       return;
     }
@@ -70,7 +84,7 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
     try {
       const common = {
         title: editor.title.trim(),
-        slug: editor.slug.trim() || slugify(editor.title),
+        slug: editor.category?.slug || categorySlug(editor.title, dashboard?.categories ?? []),
         image: editor.image.trim(),
         sortOrder: Number(editor.sortOrder),
       };
@@ -113,7 +127,7 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
         <button
           type="button"
           className={primaryButton}
-          onClick={() => setEditor({ title: "", slug: "", image: "", sortOrder: String(dashboard?.categories.length ?? 0) })}
+          onClick={() => setEditor({ title: "", image: "", sortOrder: String(dashboard?.categories.length ?? 0) })}
         >
           <Icon path={mdiPlus} size={0.75} aria-hidden="true" />
           Добавить категорию
@@ -135,7 +149,6 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
                   onClick={() => setEditor({
                     category,
                     title: category.title,
-                    slug: category.slug,
                     image: category.image,
                     sortOrder: String(category.sortOrder),
                   })}
@@ -152,22 +165,18 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-0 sm:p-5" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setEditor(null);
         }}>
-          <section className="flex min-h-dvh w-full flex-col bg-white shadow-2xl sm:min-h-0 sm:max-w-xl sm:rounded-xl" role="dialog" aria-modal="true" aria-labelledby="category-modal-title">
-            <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+          <section className="flex h-dvh w-full flex-col bg-white shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-40px)] sm:max-w-xl sm:rounded-xl" role="dialog" aria-modal="true" aria-labelledby="category-modal-title">
+            <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
               <h2 id="category-modal-title" className="text-lg font-semibold text-slate-950">{editor.category ? "Редактировать категорию" : "Добавить категорию"}</h2>
               <button type="button" aria-label="Закрыть окно" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => setEditor(null)}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button>
             </header>
-            <form className="grid gap-5 overflow-y-auto p-5" onSubmit={save}>
+            <form className="grid min-h-0 gap-5 overflow-y-auto p-5" onSubmit={save}>
               <label className={labelClass}>
                 Название
-                <input required className={inputClass} value={editor.title} onChange={(event) => setEditor({ ...editor, title: event.target.value, slug: editor.category ? editor.slug : slugify(event.target.value) })} />
+                <input required className={inputClass} value={editor.title} onChange={(event) => setEditor({ ...editor, title: event.target.value })} />
               </label>
-              <ImageUpload label="Изображение категории" value={editor.image} hint="Рекомендуемый размер — 1200×600 px." onChange={(image) => setEditor({ ...editor, image })} onError={(message) => onNotice(message, "error")} />
+              <ImageUpload label="Изображение категории" value={editor.image} fallbackValue={categoryProductImage(editor.category)} hint={!editor.image && categoryProductImage(editor.category) ? "На витрине используется фотография блюда из этой категории. Можно заменить её собственной фотографией." : "Рекомендуемый размер — 1200×600 px."} onChange={(image) => setEditor({ ...editor, image })} onError={(message) => onNotice(message, "error")} />
               <label className={labelClass}>Порядок<input required min="0" type="number" className={inputClass} value={editor.sortOrder} onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })} /></label>
-              <details className="rounded-xl border border-slate-200 p-4">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-900">Дополнительные настройки</summary>
-                <label className={`${labelClass} mt-4`}>Системное имя для ссылки<input required className={inputClass} value={editor.slug} onChange={(event) => setEditor({ ...editor, slug: slugify(event.target.value) })} /></label>
-              </details>
               <div className="grid gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2">
                 <button type="button" className={secondaryButton} onClick={() => setEditor(null)}>Отменить</button>
                 <button type="submit" className={primaryButton} disabled={saving}>{saving ? "Сохраняем…" : editor.category ? "Сохранить изменения" : "Добавить категорию"}</button>
