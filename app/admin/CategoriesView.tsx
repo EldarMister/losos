@@ -1,6 +1,6 @@
 "use client";
 
-import { mdiClose, mdiPlus } from "@mdi/js";
+import { mdiClose, mdiDeleteOutline, mdiLoading, mdiPencilOutline, mdiPlus } from "@mdi/js";
 import { Icon } from "@mdi/react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ImageUpload } from "./ImageUpload";
@@ -23,7 +23,7 @@ const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3
 const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
 const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";
 const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60";
-const deleteButton = "inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-60";
+const iconButton = "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60";
 
 function slugify(value: string) {
   const letters: Record<string, string> = {
@@ -163,15 +163,17 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
         {dashboard?.categories.length ? (
           <div className="divide-y divide-slate-200">
             {dashboard.categories.map((category) => (
-              <article key={category.id} className="grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:px-5">
-                <div>
+              <article key={category.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4 sm:px-5">
+                <div className="min-w-0">
                   <strong className="block text-slate-950">{category.title}</strong>
                   <span className="mt-1 block text-sm text-slate-500">{category.products.length} блюд · порядок {category.sortOrder + 1}</span>
                 </div>
-                <div className="grid gap-2 sm:flex sm:flex-wrap">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    className={secondaryButton}
+                    className={`${iconButton} hover:bg-slate-50 hover:text-blue-600`}
+                    aria-label={`Редактировать категорию «${category.title}»`}
+                    title="Редактировать категорию"
                     disabled={deletingCategoryId === category.id}
                     onClick={() => setEditor({
                       category,
@@ -180,15 +182,18 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
                       sortOrder: String(category.sortOrder),
                     })}
                   >
-                    Редактировать категорию
+                    <Icon path={mdiPencilOutline} size={0.83} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
-                    className={deleteButton}
+                    className={`${iconButton} hover:bg-red-50 hover:text-red-600`}
+                    aria-label={deletingCategoryId === category.id ? `Удаляем категорию «${category.title}»` : `Удалить категорию «${category.title}»`}
+                    title={deletingCategoryId === category.id ? "Удаляем…" : "Удалить категорию"}
+                    aria-busy={deletingCategoryId === category.id}
                     disabled={deletingCategoryId !== null}
                     onClick={() => void deleteCategory(category)}
                   >
-                    {deletingCategoryId === category.id ? "Удаляем…" : "Удалить категорию"}
+                    <Icon path={deletingCategoryId === category.id ? mdiLoading : mdiDeleteOutline} size={0.83} className={deletingCategoryId === category.id ? "animate-spin" : undefined} aria-hidden="true" />
                   </button>
                 </div>
               </article>
