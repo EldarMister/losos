@@ -196,7 +196,7 @@ export function AdminApp() {
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="flex min-h-18 items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <div className="flex min-h-18 flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
             <button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 lg:hidden" onClick={() => setMobileMenuOpen(true)}>
               <Icon path={mdiMenu} size={0.8} aria-hidden="true" />
               Меню
@@ -205,12 +205,24 @@ export function AdminApp() {
               <h1 className="truncate text-lg font-semibold text-slate-950 sm:text-xl">{activeSection.label}</h1>
               <p className="hidden truncate text-xs text-slate-500 sm:block">{activeSection.description}</p>
             </div>
-            <label className="grid gap-1 text-xs font-medium text-slate-500">
-              <span className="hidden sm:block">Город</span>
-              <select className="h-10 max-w-36 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100 sm:max-w-48" value={region} onChange={(event) => setRegion(event.target.value)}>
-                {regions.map((item) => <option key={item.id} value={item.slug}>{item.name}</option>)}
-              </select>
-            </label>
+            {regions.length ? (
+              <div className="grid w-full shrink-0 gap-1 sm:w-auto">
+                <span className="text-xs font-medium text-slate-500">Город</span>
+                <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Выбор города">
+                  {regions.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      aria-pressed={region === item.slug}
+                      onClick={() => setRegion(item.slug)}
+                      className={`inline-flex min-h-10 flex-1 items-center justify-center whitespace-nowrap rounded-lg px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:flex-none ${region === item.slug ? "bg-blue-600 text-white shadow-sm" : "text-slate-600 hover:bg-white hover:text-slate-950"}`}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </header>
 
