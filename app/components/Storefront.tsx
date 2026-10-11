@@ -2068,7 +2068,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <div className="store-shell">
         <header className="delivery-header">
-          <button type="button" className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}><span className="cat-reference" aria-hidden="true" /><span>{hasProfileSession ? "Профиль" : "Войти"}</span></button>
+          <button type="button" className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}>{hasProfileSession ? "Профиль" : "Войти"}</button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
             <button type="button" className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>Доставка</span></button>
             <button type="button" className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>Самовывоз</span></button>

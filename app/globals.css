@@ -43,8 +43,7 @@ a { color: inherit; text-decoration: none; }
 .download-app-nakta strong, .footer-app-nakta strong { font-size: 14px; line-height: 18px; font-weight: 700; letter-spacing: 0; }
 .store-shell { width: min(1280px, 100%); max-width: none; min-height: 900px; background: white; border-radius: 60px; padding-top: 27px; margin: -29px auto 0; position: relative; z-index: 3; }
 .delivery-header { width: calc(100% - 54px); height: 60px; margin: 0 27px; border-radius: 32px; background: #fff; display: flex; align-items: center; gap: 16px; padding: 0; position: sticky; top: 12px; z-index: 25; }
-.cat-avatar { height: 60px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px 0 8px; border-radius: 32px; background: #efeff1; color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; }
-.cat-reference { display: block; width: 40px; height: 40px; flex: 0 0 40px; background: url("/reference-main.webp") -102px -216.667px / 1024px 516px no-repeat; }
+.cat-avatar { height: 60px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; padding: 0 20px; border-radius: 32px; background: #efeff1; color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; }
 .cat-avatar:hover { background: #e6e6e9; }
 .cat-avatar:focus-visible, .desktop-mode-icons button:focus-visible, .brand-shortcut:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .brand-shortcuts { display: none; }
@@ -804,8 +803,7 @@ a { color: inherit; text-decoration: none; }
   .delivery-header { position: sticky; isolation: isolate; top: 20px; width: calc(100% - 16px); height: 118px; margin: 0 8px; border-radius: 30px; display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(80px, .65fr); grid-template-rows: 60px 42px; column-gap: 4px; row-gap: 8px; padding: 0; background: white; box-shadow: 0 8px 0 #fff; }
   .delivery-header::before { content: ""; position: absolute; z-index: -2; left: -8px; right: -8px; top: -20px; height: 64px; background: var(--orange); }
   .delivery-header::after { content: ""; position: absolute; z-index: -1; left: -8px; right: -8px; top: -8px; bottom: -8px; border-radius: 36px 36px 0 0; background: #fff; }
-  .cat-avatar { grid-column: 1; grid-row: 1; width: 64px; flex-direction: column; gap: 0; padding: 4px; background: #f1f1f3; font-size: 11px; line-height: 14px; }
-  .cat-reference { width: 32px; height: 32px; flex-basis: 32px; background-position: -81.6px -173.333px; background-size: 819.2px 412.8px; }
+  .cat-avatar { grid-column: 1; grid-row: 1; width: 64px; padding: 4px; background: #f1f1f3; font-size: 13px; line-height: 18px; }
   .order-location-bar { display: contents; }
   .brand-shortcuts { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 2px; height: 60px; border-radius: 30px; background: #f4f4f6; padding: 4px; }
   .brand-shortcut { min-width: 0; flex: 1; height: 52px; padding: 2px 3px; border-radius: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #57575f; font-size: 11px; line-height: 14px; font-weight: 600; white-space: nowrap; }
