@@ -33,7 +33,9 @@ import {
   mdiWalletOutline,
 } from "@mdi/js";
 import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { categories, promoCards, type Category, type Product } from "../data/catalog";
+import { promoCards, type Category, type Product } from "../data/catalog";
+import { categoryImage } from "../lib/category-image";
+import { CATALOG_UPDATED_EVENT, CATALOG_UPDATE_STORAGE_KEY } from "../lib/catalog-sync";
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
 import { TurnstileWidget } from "./TurnstileWidget";
@@ -775,7 +777,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalQuantity, setModalQuantity] = useState(1);
   const [modifierSelections, setModifierSelections] = useState<ModifierSelections>({});
-  const [catalogCategories, setCatalogCategories] = useState<Category[]>(categories);
+  const [catalogSnapshot, setCatalogSnapshot] = useState<{ region: string; categories: Category[]; error: string } | null>(null);
+  const catalogCategories = useMemo(() => catalogSnapshot?.region === regionSlug ? catalogSnapshot.categories : [], [catalogSnapshot, regionSlug]);
+  const catalogLoading = catalogSnapshot?.region !== regionSlug;
+  const catalogError = catalogSnapshot?.region === regionSlug ? catalogSnapshot.error : "";
   const cartKitItems = useMemo(() => (
     (selectedRegion?.freeKitItems ?? fallbackCartKitItems)
       .filter((item) => item.enabled !== false)
@@ -796,7 +801,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [catalogCategories, selectedRegion]);
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
-  const [catalogLoading, setCatalogLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "");
   const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
@@ -858,7 +862,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     const controller = new AbortController();
     const baseUrl = STOREFRONT_API_URL;
 
-    fetch(`${baseUrl}/regions`, { signal: controller.signal })
+    fetch(`${baseUrl}/regions`, { signal: controller.signal, cache: "no-store" })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Regions request failed")))
       .then((data: RegionOption[]) => {
         if (!Array.isArray(data) || data.length === 0) return;
@@ -869,9 +873,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       })
       .catch(() => undefined);
 
-    const loadCategories = () => fetch(`${baseUrl}/categories?region=${regionSlug}`, { signal: controller.signal })
+    let catalogRequestPending = false;
+    let catalogRefreshQueued = false;
+    const loadCategories = () => {
+      if (controller.signal.aborted) return Promise.resolve();
+      if (catalogRequestPending) {
+        catalogRefreshQueued = true;
+        return Promise.resolve();
+      }
+      catalogRequestPending = true;
+      return fetch(`${baseUrl}/categories?region=${encodeURIComponent(regionSlug)}`, { signal: controller.signal, cache: "no-store" })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Catalog request failed")))
       .then((data: Array<Category & { products: Product[] }>) => {
+        if (controller.signal.aborted) return;
         if (!Array.isArray(data)) throw new Error("Catalog response is invalid");
         const nextCategories = data.map((category) => ({
           slug: category.slug,
@@ -879,21 +893,41 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           image: typeof category.image === "string" ? category.image : "",
           products: category.products.map((product) => ({ ...product, category: category.slug })),
         }));
-        setCatalogCategories(nextCategories);
+        setCatalogSnapshot({ region: regionSlug, categories: nextCategories, error: "" });
         const productsById = new Map(nextCategories.flatMap((category) => category.products).map((product) => [product.id, product]));
         setCart((current) => current.flatMap((line) => {
           const product = productsById.get(line.product.id);
           return product?.available === false || !product ? [] : [{ ...line, product }];
         }));
-        setCatalogLoading(false);
       })
       .catch(() => {
         if (controller.signal.aborted) return;
-        setCatalogCategories(categories);
-        setCatalogLoading(false);
+        setCatalogSnapshot((current) => ({
+          region: regionSlug,
+          categories: current?.region === regionSlug ? current.categories : [],
+          error: "Не удалось обновить меню. Проверьте подключение и попробуйте ещё раз.",
+        }));
+      })
+      .finally(() => {
+        catalogRequestPending = false;
+        if (catalogRefreshQueued && !controller.signal.aborted) {
+          catalogRefreshQueued = false;
+          void loadCategories();
+        }
       });
+    };
     void loadCategories();
-    const catalogTimer = window.setInterval(() => void loadCategories(), 45_000);
+    const refreshCatalog = () => {
+      if (document.visibilityState === "visible") void loadCategories();
+    };
+    const onCatalogStorage = (event: StorageEvent) => {
+      if (event.key === CATALOG_UPDATE_STORAGE_KEY) refreshCatalog();
+    };
+    const catalogTimer = window.setInterval(refreshCatalog, 45_000);
+    window.addEventListener("focus", refreshCatalog);
+    window.addEventListener(CATALOG_UPDATED_EVENT, refreshCatalog);
+    window.addEventListener("storage", onCatalogStorage);
+    document.addEventListener("visibilitychange", refreshCatalog);
 
     fetch(`${baseUrl}/promotions?region=${regionSlug}`, { signal: controller.signal })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Promotions request failed")))
@@ -910,6 +944,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
     return () => {
       window.clearInterval(catalogTimer);
+      window.removeEventListener("focus", refreshCatalog);
+      window.removeEventListener(CATALOG_UPDATED_EVENT, refreshCatalog);
+      window.removeEventListener("storage", onCatalogStorage);
+      document.removeEventListener("visibilitychange", refreshCatalog);
       controller.abort();
     };
   }, [regionSlug]);
@@ -1172,10 +1210,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }
     setCity(option.name);
     if (regionChanged) {
-      setCatalogCategories([]);
+      setCatalogSnapshot(null);
       setStoryGroups([]);
       setRegionalPromotions([]);
-      setCatalogLoading(true);
       setAddress("");
       setDeliveryLocation(null);
       setCart([]);
@@ -2103,9 +2140,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </div>
               <div className="category-showcase-grid">
                 {catalogCategories.map((category, index) => {
-                  const previewProduct = category.products.find((product) => product.available !== false)
-                    || category.products[0];
-                  const categoryImage = category.image?.trim();
+                  const previewImage = categoryImage(category);
                   const activeCategoryCard = activeCategory === category.slug;
                   return (
                     <button
@@ -2115,14 +2150,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                       onClick={() => scrollToCatalogCategory(category.slug)}
                     >
                       <span className="category-showcase-art">
-                        {categoryImage ? <img src={categoryImage} alt="" loading={index < 6 ? "eager" : "lazy"} fetchPriority={index < 3 ? "high" : undefined} /> : previewProduct ? (
-                          <ProductArt
-                            product={previewProduct}
-                            mode="card"
-                            loading={index < 6 ? "eager" : "lazy"}
-                            fetchPriority={index < 3 ? "high" : undefined}
-                          />
-                        ) : <span className="category-showcase-placeholder" aria-hidden="true">🍣</span>}
+                        {previewImage ? <img src={previewImage} alt="" loading={index < 6 ? "eager" : "lazy"} fetchPriority={index < 3 ? "high" : undefined} /> : <span className="category-showcase-placeholder" aria-hidden="true">🍣</span>}
                       </span>
                       <span className="category-showcase-name">{category.title}</span>
                     </button>
@@ -2133,7 +2161,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           ) : null}
           {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в {city}</h1> : null}
           {catalogLoading ? <div className="empty-search">Загружаем меню…</div> : null}
-          {!catalogLoading && visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
+          {catalogError ? <div className="empty-search" role="alert">{catalogError} <button type="button" className="underline" onClick={() => window.dispatchEvent(new Event(CATALOG_UPDATED_EVENT))}>Повторить</button></div> : null}
+          {!catalogLoading && !catalogError && visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
           {visibleCategories.map((category, categoryIndex) => (
             <section className="category-section" id={category.slug} key={category.slug}>
               {!categorySlug ? search.trim()

@@ -24,7 +24,7 @@ type Notice = { message: string; tone: "success" | "error" };
 
 async function fetchAdminApi(path: string, init?: RequestInit) {
   try {
-    return await fetch(`${apiUrl}${path}`, init);
+    return await fetch(`${apiUrl}${path}`, { cache: "no-store", ...init });
   } catch {
     throw new Error("Сервер временно недоступен. Попробуйте войти через минуту.");
   }
@@ -88,7 +88,8 @@ export function AdminApp() {
         .then((items) => {
           if (!active) return;
           setRegions(items);
-          setRegion((current) => items.some((item) => item.slug === current) ? current : items[0]?.slug || current);
+          setRegion((current) => items.some((item) => item.slug === current && item.enabled)
+            ? current : items.find((item) => item.enabled)?.slug || items[0]?.slug || current);
         })
         .catch((error) => {
           if (active && error instanceof Error && !error.message.includes("Сессия завершена")) {
@@ -120,7 +121,8 @@ export function AdminApp() {
       const items = await response.json() as Region[];
       sessionStorage.setItem("losos-admin-token", nextToken);
       setRegions(items);
-      setRegion(items.find((item) => item.slug === "bishkek")?.slug || items[0]?.slug || "bishkek");
+      setRegion(items.find((item) => item.slug === "bishkek" && item.enabled)?.slug
+        || items.find((item) => item.enabled)?.slug || items[0]?.slug || "bishkek");
       setToken(nextToken);
       setTokenDraft("");
     } catch (error) {

@@ -1,9 +1,13 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
-import { mdiClose, mdiDeleteOutline, mdiLoading, mdiPencilOutline, mdiPlus } from "@mdi/js";
+import { mdiClose, mdiPlus } from "@mdi/js";
 import { Icon } from "@mdi/react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ImageUpload } from "./ImageUpload";
+import { RowActions } from "./RowActions";
+import { categoryImage, categoryProductImage } from "../lib/category-image";
+import { notifyCatalogUpdated } from "../lib/catalog-sync";
 import type { AdminRequest, Category, Dashboard } from "./admin-types";
 
 type CategoriesViewProps = {
@@ -23,7 +27,6 @@ const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3
 const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
 const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";
 const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60";
-const iconButton = "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60";
 
 function slugify(value: string) {
   const letters: Record<string, string> = {
@@ -43,11 +46,6 @@ function categorySlug(title: string, categories: Category[]) {
   let suffix = 2;
   while (usedSlugs.has(slug)) slug = `${base}-${suffix++}`;
   return slug;
-}
-
-function categoryProductImage(category?: Category) {
-  const product = category?.products.find((item) => item.available !== false) || category?.products[0];
-  return product?.image || "";
 }
 
 export function CategoriesView({ region, request, onNotice }: CategoriesViewProps) {
@@ -98,6 +96,7 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
           body: JSON.stringify({ ...common, regionSlug: dashboard?.menuRegionSlug || region }),
         });
       }
+      notifyCatalogUpdated();
       onNotice(editor.category ? "Категория обновлена" : "Категория добавлена", "success");
       setEditor(null);
       await load();
@@ -117,6 +116,7 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
     setDeletingCategoryId(category.id);
     try {
       await request(`/admin/categories/${category.id}`, { method: "DELETE" });
+      notifyCatalogUpdated();
       setDashboard((current) => current ? {
         ...current,
         categories: current.categories.filter((item) => item.id !== category.id),
@@ -164,38 +164,28 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
           <div className="divide-y divide-slate-200">
             {dashboard.categories.map((category) => (
               <article key={category.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4 sm:px-5">
-                <div className="min-w-0">
-                  <strong className="block text-slate-950">{category.title}</strong>
-                  <span className="mt-1 block text-sm text-slate-500">{category.products.length} блюд · порядок {category.sortOrder + 1}</span>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-50 sm:size-14">
+                    {categoryImage(category) ? <img src={categoryImage(category)} alt="" loading="lazy" className="size-full object-contain" /> : <span aria-hidden="true">🍣</span>}
+                  </div>
+                  <div className="min-w-0">
+                    <strong className="block text-slate-950">{category.title}</strong>
+                    <span className="mt-1 block text-sm text-slate-500">{category.products.length} блюд · порядок {category.sortOrder + 1}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className={`${iconButton} hover:bg-slate-50 hover:text-blue-600`}
-                    aria-label={`Редактировать категорию «${category.title}»`}
-                    title="Редактировать категорию"
-                    disabled={deletingCategoryId === category.id}
-                    onClick={() => setEditor({
+                <RowActions
+                    label="категорию"
+                    name={category.title}
+                    deleting={deletingCategoryId === category.id}
+                    deletionDisabled={deletingCategoryId !== null}
+                    onEdit={() => setEditor({
                       category,
                       title: category.title,
                       image: category.image,
                       sortOrder: String(category.sortOrder),
                     })}
-                  >
-                    <Icon path={mdiPencilOutline} size={0.83} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`${iconButton} hover:bg-red-50 hover:text-red-600`}
-                    aria-label={deletingCategoryId === category.id ? `Удаляем категорию «${category.title}»` : `Удалить категорию «${category.title}»`}
-                    title={deletingCategoryId === category.id ? "Удаляем…" : "Удалить категорию"}
-                    aria-busy={deletingCategoryId === category.id}
-                    disabled={deletingCategoryId !== null}
-                    onClick={() => void deleteCategory(category)}
-                  >
-                    <Icon path={deletingCategoryId === category.id ? mdiLoading : mdiDeleteOutline} size={0.83} className={deletingCategoryId === category.id ? "animate-spin" : undefined} aria-hidden="true" />
-                  </button>
-                </div>
+                    onDelete={() => void deleteCategory(category)}
+                />
               </article>
             ))}
           </div>
