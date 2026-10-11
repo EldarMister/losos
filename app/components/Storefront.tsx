@@ -802,7 +802,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const [storyGroups, setStoryGroups] = useState<StoryGroup[]>(defaultStoryGroups);
   const [regionalPromotions, setRegionalPromotions] = useState<Promotion[] | null>(null);
   const [activeCategory, setActiveCategory] = useState(categorySlug || "");
-  const [headerPinned, setHeaderPinned] = useState(false);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [scheduleTimestamp, setScheduleTimestamp] = useState(0);
   const categoryNavRef = useRef<HTMLElement>(null);
@@ -1977,7 +1976,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         const isDesktop = window.innerWidth > 720;
-        setHeaderPinned(isDesktop && window.scrollY >= 315);
         const anchor = isDesktop ? 190 : 208;
         let nextCategory = "";
 
@@ -2004,18 +2002,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, [categorySlug, visibleCategories]);
-
-  useEffect(() => {
-    if (!categorySlug) return;
-    const updatePinnedHeader = () => setHeaderPinned(window.innerWidth > 720 && window.scrollY >= 315);
-    updatePinnedHeader();
-    window.addEventListener("scroll", updatePinnedHeader, { passive: true });
-    window.addEventListener("resize", updatePinnedHeader);
-    return () => {
-      window.removeEventListener("scroll", updatePinnedHeader);
-      window.removeEventListener("resize", updatePinnedHeader);
-    };
-  }, [categorySlug]);
 
   useEffect(() => {
     if (searchOpen) return;
@@ -2080,7 +2066,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         </a>
       </section>
 
-      <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
+      <div className="store-shell">
         <header className="delivery-header">
           <button type="button" className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}><span className="cat-reference" aria-hidden="true" /><span>{hasProfileSession ? "Профиль" : "Войти"}</span></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
