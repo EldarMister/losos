@@ -700,13 +700,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const minimumOrderAmount = Math.max(0, selectedRegion?.minimumOrderAmount ?? 900);
   const maximumOrderAmount = Math.max(minimumOrderAmount, selectedRegion?.maximumOrderAmount ?? 30000);
   const pickupYandexUrl = selectedPickupLocation?.yandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
-  const footerPhone = selectedRegion?.contactPhone || "0503 178 916";
+  const footerPhone = "0550766656";
   const supportPhone = selectedRegion?.supportPhone?.trim() || selectedRegion?.contactPhone?.trim();
   const supportHref = selectedRegion?.supportUrl?.trim()
     || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
   const footerEmail = "naktasushi@gmail.com";
-  const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Жаныбек Кочкорбаевич · ИНН 22309199201100 · Рег. № 032-2026-169-3446 · Ошская область, Кара-Суйский район, с. Отуз-Адыр, ул. Токтогула, дом 4";
-  const footerLegalInfo = "Сервис доставки «Накта суши», Кыргызская Республика.";
+  const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Ж";
+  const footerLegalInfo = "Оператор сервиса: ИП Мусаев Ж. Регистрационный номер: 032-2026-169-3446. Адрес: мкр Анар 15а.";
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [addressCityOpen, setAddressCityOpen] = useState(false);

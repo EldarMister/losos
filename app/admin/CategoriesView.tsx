@@ -23,6 +23,7 @@ const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3
 const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
 const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";
 const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60";
+const deleteButton = "inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-60";
 
 function slugify(value: string) {
   const letters: Record<string, string> = {
@@ -54,6 +55,7 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
   const [editor, setEditor] = useState<CategoryEditor | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -106,6 +108,29 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
     }
   };
 
+  const deleteCategory = async (category: Category) => {
+    if (deletingCategoryId !== null) return;
+    const contents = category.products.length
+      ? `Категория и все блюда в ней (${category.products.length}) будут удалены из меню всех городов, использующих этот каталог.`
+      : "Категория будет удалена из меню всех городов, использующих этот каталог.";
+    if (!window.confirm(`Удалить категорию «${category.title}» полностью? ${contents} История заказов сохранится. Отменить удаление нельзя.`)) return;
+    setDeletingCategoryId(category.id);
+    try {
+      await request(`/admin/categories/${category.id}`, { method: "DELETE" });
+      setDashboard((current) => current ? {
+        ...current,
+        categories: current.categories.filter((item) => item.id !== category.id),
+      } : current);
+      if (editor?.category?.id === category.id) setEditor(null);
+      onNotice("Категория удалена", "success");
+      await load();
+    } catch (deleteError) {
+      onNotice(deleteError instanceof Error ? deleteError.message : "Не удалось удалить категорию", "error");
+    } finally {
+      setDeletingCategoryId(null);
+    }
+  };
+
   if (loading && !dashboard) {
     return <div className="grid min-h-56 place-items-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500" role="status">Загружаем данные…</div>;
   }
@@ -143,18 +168,29 @@ export function CategoriesView({ region, request, onNotice }: CategoriesViewProp
                   <strong className="block text-slate-950">{category.title}</strong>
                   <span className="mt-1 block text-sm text-slate-500">{category.products.length} блюд · порядок {category.sortOrder + 1}</span>
                 </div>
-                <button
-                  type="button"
-                  className={secondaryButton}
-                  onClick={() => setEditor({
-                    category,
-                    title: category.title,
-                    image: category.image,
-                    sortOrder: String(category.sortOrder),
-                  })}
-                >
-                  Редактировать категорию
-                </button>
+                <div className="grid gap-2 sm:flex sm:flex-wrap">
+                  <button
+                    type="button"
+                    className={secondaryButton}
+                    disabled={deletingCategoryId === category.id}
+                    onClick={() => setEditor({
+                      category,
+                      title: category.title,
+                      image: category.image,
+                      sortOrder: String(category.sortOrder),
+                    })}
+                  >
+                    Редактировать категорию
+                  </button>
+                  <button
+                    type="button"
+                    className={deleteButton}
+                    disabled={deletingCategoryId !== null}
+                    onClick={() => void deleteCategory(category)}
+                  >
+                    {deletingCategoryId === category.id ? "Удаляем…" : "Удалить категорию"}
+                  </button>
+                </div>
               </article>
             ))}
           </div>
