@@ -2045,10 +2045,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <div className={`store-shell ${headerPinned ? "header-pinned" : ""}`}>
         <header className="delivery-header">
-          <button className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}><span className="cat-reference" aria-hidden="true" /></button>
+          <button type="button" className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}><span className="cat-reference" aria-hidden="true" /><span>{hasProfileSession ? "Профиль" : "Войти"}</span></button>
           <div className="brand-shortcuts" aria-label="Способ получения заказа">
-            <button className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-label="Доставка" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
-            <button className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-label="Самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
+            <button type="button" className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>Доставка</span></button>
+            <button type="button" className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>Самовывоз</span></button>
           </div>
           <div className="order-location-bar">
             <div className="city-select" ref={citySelectRef}>
@@ -2059,7 +2059,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             </div>
             <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
             <div className="delivery-mode" aria-label={orderingClosed ? `Кухня закрыта. ${deliveryAvailability.opensLabel}` : deliveryType === "pickup" ? "Самовывоз примерно 40 минут" : "Доставка примерно 45 минут"}>
-              <div className="desktop-mode-icons"><button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button><button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button></div>
+              <div className="desktop-mode-icons"><button type="button" className={deliveryType === "delivery" ? "active" : "muted"} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>Доставка</span></button><button type="button" className={deliveryType === "pickup" ? "active" : "muted"} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>Самовывоз</span></button></div>
               <span className="delivery-connector" aria-hidden="true" />
               <div className={`delivery-status${orderingClosed ? " closed" : ""}`}><strong>{orderingClosed ? "Закрыто" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "~40 минут" : "от ~45 минут"}</small></div>
             </div>

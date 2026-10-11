@@ -43,12 +43,14 @@ a { color: inherit; text-decoration: none; }
 .download-app-nakta strong, .footer-app-nakta strong { font-size: 14px; line-height: 18px; font-weight: 700; letter-spacing: 0; }
 .store-shell { width: min(1280px, 100%); max-width: none; min-height: 900px; background: white; border-radius: 60px; padding-top: 27px; margin: -29px auto 0; position: relative; z-index: 3; }
 .delivery-header { width: calc(100% - 54px); height: 60px; margin: 0 27px; border-radius: 32px; background: #fff; display: flex; align-items: center; gap: 16px; padding: 0; position: sticky; top: 12px; z-index: 25; }
-.cat-avatar { width: 60px; height: 60px; flex: 0 0 60px; border-radius: 50%; background: #efeff1; overflow: hidden; }
-.cat-reference { display: block; width: 60px; height: 60px; background: url("/reference-main.webp") -153px -325px / 1536px 774px no-repeat; }
+.cat-avatar { height: 60px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 14px 0 8px; border-radius: 32px; background: #efeff1; color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.cat-reference { display: block; width: 40px; height: 40px; flex: 0 0 40px; background: url("/reference-main.webp") -102px -216.667px / 1024px 516px no-repeat; }
+.cat-avatar:hover { background: #e6e6e9; }
+.cat-avatar:focus-visible, .desktop-mode-icons button:focus-visible, .brand-shortcut:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 .brand-shortcuts { display: none; }
 .order-location-bar { height: 100%; min-width: 0; flex: 1 1 auto; border-radius: 32px; background: var(--soft); display: flex; align-items: center; overflow: hidden; }
 .city-select { position: relative; z-index: 32; height: 52px; flex: 0 0 auto; }
-.city-button { height: 52px; background: transparent; min-width: 194px; text-align: left; padding: 0 18px; font-weight: 600; font-size: 18px; }
+.city-button { height: 52px; background: transparent; min-width: 130px; text-align: left; padding: 0 18px; font-weight: 600; font-size: 18px; }
 .city-button:focus { outline: 0; }
 .city-chevron { display: inline-block; width: 8px; height: 8px; margin: 0 0 4px 10px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
 .city-chevron.open { margin-bottom: -1px; transform: rotate(225deg); }
@@ -57,12 +59,13 @@ a { color: inherit; text-decoration: none; }
 .city-dropdown button + button { border-top: 1px solid #ececef; }
 .city-dropdown button:hover { background: #f4f4f6; }
 .address-button { flex: 1; height: 52px; background: transparent; color: var(--muted); text-align: left; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.delivery-mode { height: 52px; min-width: 250px; display: flex; align-items: center; justify-content: flex-end; gap: 0; }
-.desktop-mode-icons { width: 100px; height: 52px; display: flex; align-items: center; gap: 0; padding: 4px; border-radius: 27px; background: #fff; }
-.desktop-mode-icons button { width: 46px; height: 44px; padding: 7px; border-radius: 50%; background: transparent; transition: opacity .2s, filter .2s, background .2s; }
-.desktop-mode-icons button img { width: 100%; height: 100%; object-fit: contain; }
-.desktop-mode-icons button.active { background: var(--soft); opacity: 1; filter: none; }
-.desktop-mode-icons button.muted { opacity: .12; filter: grayscale(1); }
+.delivery-mode { height: 52px; flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 0; }
+.desktop-mode-icons { height: 52px; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 27px; background: #fff; }
+.desktop-mode-icons button { min-width: 80px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 2px 10px; border-radius: 23px; background: transparent; color: #57575f; font-size: 12px; line-height: 14px; font-weight: 600; white-space: nowrap; transition: color .2s, background .2s; }
+.desktop-mode-icons button img { width: 24px; height: 24px; object-fit: contain; }
+.desktop-mode-icons button.active { background: #fff0e8; color: #b73700; }
+.desktop-mode-icons button.muted img { opacity: .65; filter: grayscale(1); }
+.desktop-mode-icons button.muted:hover { background: var(--soft); color: var(--ink); }
 .delivery-connector { position: relative; width: 10px; height: 10px; flex: 0 0 10px; background: #fff; }
 .delivery-connector::before, .delivery-connector::after { content: ""; position: absolute; left: 1px; width: 8px; height: 5px; background: var(--soft); border-radius: 50% / 100%; }
 .delivery-connector::before { top: -1px; }
@@ -269,6 +272,17 @@ a { color: inherit; text-decoration: none; }
 .modal-buy .buy-button:disabled { background: #ffa479; cursor: default; }
 @media (min-width: 721px) and (max-width: 1279px) {
   .product-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+@media (min-width: 721px) and (max-width: 1000px) {
+  .delivery-header { gap: 8px; }
+  .city-button { min-width: 100px; padding: 0 12px; font-size: 16px; }
+  .address-button { padding: 0 8px; font-size: 14px; }
+  .desktop-mode-icons button { min-width: 72px; padding: 2px 6px; font-size: 11px; }
+  .delivery-connector { display: none; }
+  .delivery-status { min-width: 90px; max-width: 100px; padding: 8px; }
+  .delivery-status strong { font-size: 12px; }
+  .delivery-status small { font-size: 10px; }
+  .cart-button { min-width: 100px; padding: 0 16px; font-size: 16px; }
 }
 @media (min-width: 721px) {
   .store-shell.header-pinned::before { content: ""; position: fixed; z-index: 25; top: 12px; left: 50%; width: min(1280px, 100%); height: 169.2px; transform: translateX(-50%); border-radius: 60px 60px 0 0; background: #fff; animation: desktop-sticky-panel .22s ease-out both; }
@@ -796,18 +810,19 @@ a { color: inherit; text-decoration: none; }
   .brand-smile { width: 78px; height: auto; left: calc(50% - 125px); top: 106px; z-index: 10; }
   .download-app { display: none; }
   .store-shell { border-radius: 36px 36px 0 0; padding-top: 8px; margin-top: -29px; }
-  .delivery-header { position: sticky; isolation: isolate; top: 20px; width: calc(100% - 16px); height: 118px; margin: 0 8px; border-radius: 30px; display: grid; grid-template-columns: 60px 108px minmax(0, 1fr); grid-template-rows: 60px 42px; column-gap: 4px; row-gap: 8px; padding: 0; background: white; box-shadow: 0 8px 0 #fff; }
+  .delivery-header { position: sticky; isolation: isolate; top: 20px; width: calc(100% - 16px); height: 118px; margin: 0 8px; border-radius: 30px; display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(80px, .65fr); grid-template-rows: 60px 42px; column-gap: 4px; row-gap: 8px; padding: 0; background: white; box-shadow: 0 8px 0 #fff; }
   .delivery-header::before { content: ""; position: absolute; z-index: -2; left: -8px; right: -8px; top: -20px; height: 64px; background: var(--orange); }
   .delivery-header::after { content: ""; position: absolute; z-index: -1; left: -8px; right: -8px; top: -8px; bottom: -8px; border-radius: 36px 36px 0 0; background: #fff; }
-  .cat-avatar { grid-column: 1; grid-row: 1; background: #f1f1f3; }
+  .cat-avatar { grid-column: 1; grid-row: 1; width: 64px; flex-direction: column; gap: 0; padding: 4px; background: #f1f1f3; font-size: 11px; line-height: 14px; }
+  .cat-reference { width: 32px; height: 32px; flex-basis: 32px; background-position: -81.6px -173.333px; background-size: 819.2px 412.8px; }
   .order-location-bar { display: contents; }
   .brand-shortcuts { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: 2px; height: 60px; border-radius: 30px; background: #f4f4f6; padding: 4px; }
-  .brand-shortcut { width: 48px; height: 52px; border-radius: 26px; display: grid; place-items: center; color: #d7d7da; font-size: 18px; }
-  .brand-shortcut.active { background: #fff; }
-  .brand-shortcut img { width: 35px; height: 40px; object-fit: contain; }
-  .brand-shortcut.muted img { filter: grayscale(1); opacity: .14; }
+  .brand-shortcut { min-width: 0; flex: 1; height: 52px; padding: 2px 3px; border-radius: 26px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #57575f; font-size: 11px; line-height: 14px; font-weight: 600; white-space: nowrap; }
+  .brand-shortcut.active { background: #fff; color: #b73700; }
+  .brand-shortcut img { width: 26px; height: 28px; object-fit: contain; }
+  .brand-shortcut.muted img { filter: grayscale(1); opacity: .65; }
   .pickup-shortcut { padding: 0; }
-  .pickup-shortcut img { width: 34px; height: 38px; }
+  .pickup-shortcut img { width: 26px; height: 28px; }
   .pickup-shortcut.active img { filter: none; opacity: 1; }
   .city-button, .cart-button { display: none; }
   .mobile-cart-button { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: 1fr auto; align-items: end; width: 100%; height: 116px; padding: 0 34px 26px; border-radius: 28px 28px 0 0; background: #fff; color: #fff; font-weight: 600; box-shadow: 0 -10px 28px rgba(0,0,0,.08); }
@@ -819,7 +834,9 @@ a { color: inherit; text-decoration: none; }
   .delivery-mode { grid-column: 3; grid-row: 1; height: 60px; min-width: 0; justify-content: center; overflow: hidden; border-radius: 30px; background: white; box-shadow: 0 0 0 3px #f1f1f3; }
   .desktop-mode-icons { display: none; }
   .delivery-connector { display: none; }
-  .delivery-status { width: 100%; min-width: 0; height: 60px; padding: 8px 12px; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .delivery-status { width: 100%; min-width: 0; height: 60px; padding: 8px; border-radius: 30px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .delivery-status strong { font-size: 12px; }
+  .delivery-status small { font-size: 10px; }
   .address-button { grid-column: 1 / -1; grid-row: 2; width: 100%; height: 42px; border-radius: 20px; background: var(--soft); text-align: center; }
   .closed-kitchen-card { margin: 14px 14px 10px; padding: 22px; border-radius: 20px; }
   .closed-kitchen-card h2 { font-size: 30px; line-height: 35px; }
