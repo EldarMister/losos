@@ -1,21 +1,14 @@
 "use client";
 
+import { ChevronRight, MapPin, Phone, RefreshCw, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 
-import { Icon } from "@mdi/react";
-import {
-  mdiChevronRight,
-  mdiMagnify,
-  mdiMapMarkerOutline,
-  mdiPhoneOutline,
-  mdiRefresh,
-} from "@mdi/js";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { EditorDialog, ListPagination, WorkspaceHeading, WorkspaceStats } from "./workspace-kit";
+import { EditorDialog, ListPagination, WorkspaceHeading } from "./workspace-kit";
 import { useDraftEditor } from "./use-unsaved-changes";
 import { useAdminAccess } from "./admin-access";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
@@ -227,6 +220,12 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
     setSearch(searchDraft.trim());
   };
 
+  useEffect(() => {
+    if (searchDraft.trim() === search) return;
+    const timer = window.setTimeout(() => { setPage(0); setSearch(searchDraft.trim()); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft, search]);
+
   const updateStatus = async (order: AdminOrder, status: OrderStatus) => {
     if (actionOrderId || !can("orders.status")) return;
     if (status === "cancelled" && !window.confirm(`Отменить заказ ${orderNumber(order)}? Вернуть его в работу будет нельзя.`)) return;
@@ -311,14 +310,13 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
 
   return (
     <div className="space-y-6">
-      <WorkspaceHeading title="Заказы" description="Принимайте заказы, следите за приготовлением и выдачей." />
-      <WorkspaceStats items={[{label:"Новые",value:counts.new ?? 0},{label:"На кухне",value:(counts.confirmed ?? 0)+(counts.preparing ?? 0)},{label:"Готовы к выдаче",value:counts.ready ?? 0},{label:"В пути",value:counts.delivering ?? 0}]} />
-      <Card className="rounded-xl border border-border bg-card" aria-label="Фильтры заказов">
-        <div className="grid gap-3 border-b border-border p-4 md:grid-cols-[minmax(260px,1fr)_auto] md:items-center">
+      <WorkspaceHeading title="Заказы" />
+      <Card className="gap-0 overflow-hidden rounded-xl border border-border bg-card py-0" aria-label="Фильтры заказов">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border p-4">
           <form className="flex min-w-0 gap-2" onSubmit={submitSearch}>
             <Label className="relative min-w-0 flex-1">
               <span className="sr-only">Найти заказ</span>
-              <Icon path={mdiMagnify} size={0.78} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-muted-foreground" />
+              <Search className="size-4 shrink-0 pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input
                 type="search"
                 value={searchDraft}
@@ -327,21 +325,21 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                 placeholder="Номер, имя или телефон"
               />
             </Label>
-            <Button variant="ghost" type="submit" className="h-11 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-              Найти
-            </Button>
           </form>
           <Button variant="ghost"
             type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 text-sm font-medium text-foreground hover:bg-muted/50"
+            size="icon"
+            className="size-11"
+            aria-label="Обновить заказы"
+            title="Обновить заказы"
+            disabled={loading}
             onClick={() => void loadOrders()}
           >
-            <Icon path={mdiRefresh} size={0.78} aria-hidden="true" />
-            Обновить список
+            <RefreshCw className="size-4 shrink-0" aria-hidden="true" />
           </Button>
         </div>
 
-        <div className="grid gap-3 border-b border-border p-4 sm:grid-cols-2 lg:grid-cols-[220px_220px_1fr]"><Label className="grid gap-1.5 text-xs text-muted-foreground">С даты<Input type="date" value={from} max={to || undefined} onChange={(event) => {setFrom(event.target.value);setPage(0);}} /></Label><Label className="grid gap-1.5 text-xs text-muted-foreground">По дату<Input type="date" value={to} min={from || undefined} onChange={(event) => {setTo(event.target.value);setPage(0);}} /></Label>{from || to || search ? <Button variant="ghost" className="self-end justify-self-start" onClick={() => {setFrom("");setTo("");setSearch("");setSearchDraft("");setPage(0);}}>Сбросить фильтры</Button> : null}</div>
+        <div className="grid grid-cols-2 gap-3 border-b border-border p-4 lg:grid-cols-[220px_220px_1fr]"><Label className="grid gap-1.5 text-xs text-muted-foreground">С даты<Input type="date" value={from} max={to || undefined} onChange={(event) => {setFrom(event.target.value);setPage(0);}} /></Label><Label className="grid gap-1.5 text-xs text-muted-foreground">По дату<Input type="date" value={to} min={from || undefined} onChange={(event) => {setTo(event.target.value);setPage(0);}} /></Label>{from || to || search ? <Button variant="ghost" className="self-end justify-self-start" onClick={() => {setFrom("");setTo("");setSearch("");setSearchDraft("");setPage(0);}}>Сбросить фильтры</Button> : null}</div>
         <div className="overflow-x-auto px-4 py-3">
           <div className="flex min-w-max gap-2" role="list" aria-label="Фильтр по статусу">
             {filterOptions.map((option) => {
@@ -369,10 +367,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
         </div>
       </Card>
 
-      <div className="flex items-center justify-between gap-4 px-1">
-        <p className="text-sm text-muted-foreground">Показано: <strong className="font-semibold text-foreground">{orders.length}</strong> из {total}</p>
-        {loading ? <span className="text-sm text-muted-foreground" role="status">Обновляем…</span> : null}
-      </div>
+      {loading ? <span className="sr-only" role="status">Обновляем заказы…</span> : null}
 
       {error ? (
         <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
@@ -383,7 +378,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
       ) : null}
 
       {!error ? (
-        <Card className="overflow-hidden rounded-xl border border-border bg-card" aria-label="Список заказов">
+        <Card className="gap-0 overflow-hidden rounded-xl border border-border bg-card py-0" aria-label="Список заказов">
           {orders.length === 0 && !loading ? <EmptyOrders filtered={Boolean(search) || filter !== "new"} /> : null}
 
           {orders.length > 0 ? (
@@ -405,7 +400,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                     return (
                       <TableRow key={order.id} className="group hover:bg-muted/80">
                         <TableCell className="px-5 py-4 align-top">
-                          <Button variant="ghost" type="button" className="admin-order-link text-left" onClick={() => void openOrder(order)}>
+                          <Button variant="ghost" type="button" className="admin-order-link text-left hover:underline" onClick={() => void openOrder(order)}>
                             <strong className="block text-sm font-semibold text-foreground">{orderNumber(order)}</strong>
                             <span className="mt-1 block text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
                           </Button>
@@ -432,13 +427,6 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                                 {actionOrderId === order.id ? "Сохраняем…" : transition.label}
                               </Button>
                             ) : null}
-                            <Button variant="ghost"
-                              type="button"
-                              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-input px-3 text-sm font-medium text-foreground hover:bg-muted/50"
-                              onClick={() => void openOrder(order)}
-                            >
-                              Подробнее <Icon path={mdiChevronRight} size={0.65} aria-hidden="true" />
-                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -461,7 +449,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                           <strong className="block text-base font-semibold text-foreground">{orderNumber(order)}</strong>
                           <small className="mt-1 block text-xs text-muted-foreground">{formatDate(order.createdAt)}</small>
                         </span>
-                        <StatusBadge status={order.status} />
+                        <span className="flex shrink-0 items-center gap-2"><StatusBadge status={order.status} /><ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" /></span>
                       </span>
                       <span className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm">
                         <span className="min-w-0">
@@ -488,9 +476,6 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                           {actionOrderId === order.id ? "Сохраняем…" : transition.label}
                         </Button>
                       ) : null}
-                      <Button variant="ghost" type="button" className="min-h-11 rounded-lg border border-input text-sm font-medium text-foreground" onClick={() => void openOrder(order)}>
-                        Открыть заказ
-                      </Button>
                     </div>
                   </article>
                 );
@@ -512,11 +497,11 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                   <div className="mt-3 rounded-xl border border-border p-4 text-sm">
                     <strong className="block text-base text-foreground">{selectedOrder.customerName || "Без имени"}</strong>
                     <a className="mt-3 flex items-center gap-2 text-primary" href={`tel:${selectedOrder.phone}`}>
-                      <Icon path={mdiPhoneOutline} size={0.72} aria-hidden="true" />
+                      <Phone className="size-4 shrink-0" aria-hidden="true" />
                       <span>Позвонить: {selectedOrder.phone}</span>
                     </a>
                     <div className="mt-3 flex items-start gap-2 text-foreground">
-                      <Icon path={mdiMapMarkerOutline} size={0.72} aria-hidden="true" className="mt-0.5 shrink-0" />
+                      <MapPin className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
                       <span>
                         <strong className="block font-medium">{deliveryLabel(selectedOrder)}</strong>
                         <span className="mt-1 block text-muted-foreground">{selectedOrder.address || "Адрес не указан"}</span>
@@ -625,7 +610,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
         </div> : null}
       </EditorDialog>
 
-      <EditorDialog open={Boolean(selectedOrder && kitDraft)} onClose={() => { if (!kitSaving) closeKitEditor(); }} title={selectedOrder ? `Комплектация ${orderNumber(selectedOrder)}` : "Комплектация"} description="Укажите количество для кухни.">
+      <EditorDialog open={Boolean(selectedOrder && kitDraft)} onClose={() => { if (!kitSaving) closeKitEditor(); }} title={selectedOrder ? `Комплектация ${orderNumber(selectedOrder)}` : "Комплектация"}>
         {selectedOrder && kitDraft ? <fieldset disabled={kitSaving || !can("orders.edit")} className="flex min-h-0 flex-col">
             <div className="grid gap-4 overflow-y-auto p-5">
               <Label className="flex items-center justify-between gap-4 rounded-xl border border-border p-4 text-sm font-medium text-foreground"><span>Без приборов</span><input type="checkbox" className="size-5 accent-primary" checked={kitDraft.noUtensils} onChange={(event) => setKitDraft({ ...kitDraft, noUtensils: event.target.checked })} /></Label>

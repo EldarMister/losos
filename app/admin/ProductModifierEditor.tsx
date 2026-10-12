@@ -1,12 +1,11 @@
 "use client";
 
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 
-import { Icon } from "@mdi/react";
-import { mdiDeleteOutline, mdiPlus } from "@mdi/js";
 import { ImageUpload } from "./ImageUpload";
 import { useState } from "react";
 import type { ModifierGroup, ModifierItem } from "./admin-types";
@@ -65,11 +64,10 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
       {imageError ? <p role="alert" className="text-sm text-destructive">{imageError}</p> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="font-semibold text-foreground">Модификации блюда</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Добавки, размеры и другие варианты выбора клиента.</p>
+          <h3 className="font-semibold text-foreground">Группы выбора</h3>
         </div>
         <Button variant="ghost" type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-input px-3 text-sm font-medium text-foreground hover:bg-muted/50" onClick={() => onChange([...groups, emptyGroup()])}>
-          <Icon path={mdiPlus} size={0.72} aria-hidden="true" />
+          <Plus className="size-4 shrink-0" aria-hidden="true" />
           Добавить группу
         </Button>
       </div>
@@ -86,7 +84,7 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
               <Input required className={inputClass} value={group.title} onChange={(event) => updateGroup(groupIndex, { title: event.target.value })} />
             </Label>
             <Button variant="ghost" type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-3 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить группу «${group.title}» и все её варианты? Изменение применится после сохранения блюда.`)) onChange(groups.filter((_, index) => index !== groupIndex)); }}>
-              <Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />
+              <Trash2 className="size-4 shrink-0" aria-hidden="true" />
               Удалить группу
             </Button>
           </header>
@@ -131,7 +129,7 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
                     <Input type="number" min="1" max="99" className={inputClass} value={item.maxQuantity ?? 1} onChange={(event) => updateItem(groupIndex, itemIndex, { maxQuantity: Number(event.target.value) })} />
                   </Label>
                   <Button variant="ghost" type="button" aria-label={`Удалить вариант ${item.name || itemIndex + 1}`} className="grid size-10 place-items-center rounded-lg border border-destructive/20 text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить вариант «${item.name}»?`)) updateGroup(groupIndex, { items: group.items.filter((_, index) => index !== itemIndex) }); }}>
-                    <Icon path={mdiDeleteOutline} size={0.72} aria-hidden="true" />
+                    <Trash2 className="size-4 shrink-0" aria-hidden="true" />
                   </Button>
                 </div>
                 {group.presentation === "cards" ? <details className="mt-3 rounded-lg bg-muted/40 p-3"><summary className="cursor-pointer text-xs font-medium">Фотография варианта</summary><div className="mt-3"><ImageUpload compact label="Фото варианта" value={item.image} hint="Изображение для выбора в карточке блюда." onChange={(image) => updateItem(groupIndex,itemIndex,{image})} onError={setImageError} /></div></details> : null}
@@ -142,7 +140,7 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
               </article>
             ))}
             <Button variant="ghost" type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-input bg-card px-3 text-sm font-medium text-foreground hover:border-primary hover:text-primary" onClick={() => updateGroup(groupIndex, { items: [...group.items, emptyItem()] })}>
-              <Icon path={mdiPlus} size={0.72} aria-hidden="true" />
+              <Plus className="size-4 shrink-0" aria-hidden="true" />
               Добавить вариант
             </Button>
           </div>

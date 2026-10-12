@@ -1,14 +1,50 @@
 "use client";
-import { useEffect,useState } from "react";
-import { ArrowUpRight,ShoppingBag,Clock3,Wallet,ArrowRight } from "lucide-react";
-import { Card,CardContent,CardHeader,CardTitle,CardDescription } from "./ui/card";import { Button } from "./ui/button";
-import type { AdminRequest,AdminSection } from "./admin-types";import { useAdminAccess } from "./admin-access";
-type Overview={orders:{newOrders:number;activeOrders:number}|null;analytics:{revenue:number;completed:number;average:number}|null};
-export function OverviewView({request,region,refresh,onSelect}:{request:AdminRequest;region:string;refresh:number;onSelect:(section:AdminSection)=>void}){
- const {staff,can}=useAdminAccess();const [data,setData]=useState<Overview|null>(null);const [error,setError]=useState("");
- useEffect(()=>{let active=true;void request<Overview>(`/admin/overview?region=${encodeURIComponent(region)}`).then(value=>{if(active){setData(value);setError("")}}).catch(e=>{if(active){setError(e instanceof Error?e.message:"Не удалось загрузить обзор");setData(null)}});return()=>{active=false}},[request,region,refresh]);
- return <div className="space-y-6"><Card className="bg-muted/40"><CardContent className="flex flex-wrap items-center justify-between gap-6 py-2"><div><h2 className="text-xl font-semibold">Хорошей смены, {staff?.name}!</h2><p className="mt-2 max-w-lg text-sm text-muted-foreground">Всё важное для работы сегодня. Новые заказы поступают автоматически.</p></div>{can("orders.view")&&<Button onClick={()=>onSelect("orders")}>Перейти к заказам<ArrowRight/></Button>}</CardContent></Card>{error&&<p role="alert" className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
- {data?.orders&&[{label:"Новые заказы",value:data.orders.newOrders,icon:ShoppingBag,hint:"Ожидают подтверждения"},{label:"В работе",value:data.orders.activeOrders,icon:Clock3,hint:"Новые и активные заказы"}].map(item=><Card key={item.label}><CardHeader className="flex-row items-center justify-between"><CardDescription>{item.label}</CardDescription><item.icon className="size-4 text-muted-foreground"/></CardHeader><CardContent><div className="text-3xl font-semibold tracking-tight">{item.value}</div><p className="mt-2 text-xs text-muted-foreground">{item.hint}</p></CardContent></Card>)}
- {data?.analytics&&[{label:"Выручка сегодня",value:`${data.analytics.revenue.toLocaleString("ru-RU")} сом`,icon:Wallet,hint:"По завершённым заказам"},{label:"Завершено сегодня",value:data.analytics.completed,icon:ArrowUpRight,hint:"По времени завершения, Бишкек"}].map(item=><Card key={item.label}><CardHeader className="flex-row items-center justify-between"><CardDescription>{item.label}</CardDescription><item.icon className="size-4 text-muted-foreground"/></CardHeader><CardContent><div className="text-3xl font-semibold tracking-tight">{item.value}</div><p className="mt-2 text-xs text-muted-foreground">{item.hint}</p></CardContent></Card>)}
- {!data&&!error&&<Card className="sm:col-span-2 xl:col-span-4"><CardContent role="status">Загружаем показатели…</CardContent></Card>}</div><div className="grid gap-4 md:grid-cols-2">{can("products.view")&&<Card><CardHeader><CardTitle>Меню под контролем</CardTitle><CardDescription>Проверьте доступность блюд и актуальность цен перед сменой.</CardDescription></CardHeader><CardContent><Button variant="outline" onClick={()=>onSelect("menu")}>Открыть каталог<ArrowRight/></Button></CardContent></Card>}{can("analytics.view")&&<Card><CardHeader><CardTitle>Как идут продажи</CardTitle><CardDescription>Динамика по дням, популярные блюда и сравнение периодов.</CardDescription></CardHeader><CardContent><Button variant="outline" onClick={()=>onSelect("analytics")}>Подробная аналитика<ArrowRight/></Button></CardContent></Card>}</div></div>
+
+import { useEffect, useState } from "react";
+import { ShoppingBag, Clock3, Wallet, CircleCheck } from "lucide-react";
+import { Card, CardContent, CardHeader, CardDescription } from "./ui/card";
+import type { AdminRequest, AdminSection } from "./admin-types";
+
+type Overview = {
+  orders: { newOrders: number; activeOrders: number } | null;
+  analytics: { revenue: number; completed: number; average: number } | null;
+};
+
+export function OverviewView({ request, region, refresh }: {
+  request: AdminRequest; region: string; refresh: number; onSelect: (section: AdminSection) => void;
+}) {
+  const [data, setData] = useState<Overview | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    void request<Overview>(`/admin/overview?region=${encodeURIComponent(region)}`)
+      .then(value => { if (active) { setData(value); setError(""); } })
+      .catch(error => { if (active) { setError(error instanceof Error ? error.message : "Не удалось загрузить обзор"); setData(null); } });
+    return () => { active = false; };
+  }, [request, region, refresh]);
+
+  const metrics = [
+    ...(data?.orders ? [
+      { label: "Новые заказы", value: data.orders.newOrders, icon: ShoppingBag },
+      { label: "В работе", value: data.orders.activeOrders, icon: Clock3 },
+    ] : []),
+    ...(data?.analytics ? [
+      { label: "Выручка сегодня", value: `${data.analytics.revenue.toLocaleString("ru-RU")} сом`, icon: Wallet },
+      { label: "Завершено сегодня", value: data.analytics.completed, icon: CircleCheck },
+    ] : []),
+  ];
+
+  return <div className="space-y-4">
+    {error && <p role="alert" className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}</p>}
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {metrics.map(metric => <Card key={metric.label}>
+        <CardHeader className="flex items-center justify-between">
+          <CardDescription>{metric.label}</CardDescription>
+          <metric.icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </CardHeader>
+        <CardContent><div className="text-3xl font-semibold tracking-tight tabular-nums">{metric.value}</div></CardContent>
+      </Card>)}
+      {!data && !error && <Card className="sm:col-span-2 xl:col-span-4"><CardContent role="status">Загружаем показатели…</CardContent></Card>}
+    </div>
+  </div>;
 }

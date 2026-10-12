@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Bell, BellRing, Check, Download, Play, RefreshCw, Volume2, WifiOff, X } from "lucide-react";
+import { Button } from "../ui/button";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
+import { Switch } from "../ui/switch";
 import { claimOrderSound, orderEventCursor, parseSseFrame, type OrderNotice } from "../notifications/event-dedup";
 import { confirmAdminNavigation } from "../use-unsaved-changes";
 import "../notifications/notifications.css";
@@ -347,24 +352,32 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
     waiting.postMessage({ type: "ACTIVATE_UPDATE" });
   };
 
+  const connectionLabel = !online ? "Нет соединения" : connection === "online" ? "Заказы обновляются" : connection === "connecting" ? "Подключаем обновления" : "Обновления приостановлены";
+
   return <div className="admin-notifications">
-    {!online && <div className="admin-connection-warning" role="alert">Нет соединения. Данные могут быть неактуальны. Изменения не отправляются в очередь.</div>}
-    {online && canViewOrders && connection === "offline" && <div className="admin-connection-warning" role="status">Связь с сервером потеряна. Восстанавливаем обновления заказов…</div>}
-    {waiting && <div className="admin-update-notice" role="status">Доступна новая версия <button type="button" onClick={applyUpdate}>Обновить после сохранения</button></div>}
+    {(!online || canViewOrders && connection === "offline") && typeof document !== "undefined" && createPortal(<span className="admin-connection-warning" role="alert" title="Данные могут быть неактуальны. Восстанавливаем соединение."><WifiOff className="admin-notification-icon" aria-hidden="true"/>Нет связи</span>, document.body)}
     <div className="admin-notifications-toolbar">
-      {canViewOrders && <span className="admin-live-state"><i data-connected={connection === "online"} />{connection === "online" ? "Заказы обновляются" : connection === "connecting" ? "Подключаем обновления…" : "Обновления приостановлены"}</span>}
-      <button className="admin-notification-trigger" type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(value => !value)}>Уведомления и приложение</button>
+      {waiting && <Button type="button" variant="ghost" size="icon" className="admin-update-trigger" onClick={applyUpdate} aria-label="Обновить приложение после сохранения" title="Доступна новая версия"><RefreshCw className="admin-notification-icon" aria-hidden="true"/></Button>}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <span className="admin-notification-trigger-wrap">
+          <DialogTrigger render={<Button type="button" variant="ghost" size="icon" className="admin-notification-trigger" aria-label="Уведомления и приложение" title="Уведомления и приложение"/>}><Bell className="admin-notification-icon" aria-hidden="true"/></DialogTrigger>
+          {canViewOrders && <span className="admin-live-state" data-connected={online && connection === "online"} role="img" aria-label={connectionLabel} title={connectionLabel}/>}
+        </span>
+        <DialogContent className="admin-notification-settings" showCloseButton={false}>
+          <DialogHeader><DialogTitle>Уведомления</DialogTitle><DialogDescription className="sr-only">Звук, системные уведомления и установка приложения</DialogDescription></DialogHeader>
+          <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" className="admin-notification-close" aria-label="Закрыть настройки уведомлений"/>}><X className="admin-notification-icon" aria-hidden="true"/></DialogClose>
+          {canViewOrders && <>
+            <div className="admin-notification-group">
+              <div className="admin-notification-row"><span className="admin-notification-label"><Volume2 className="admin-notification-icon" aria-hidden="true"/>Звук заказов</span><div className="admin-notification-controls"><Button type="button" variant="ghost" size="icon-sm" aria-label="Проверить звук" title="Проверить звук" onClick={() => void enableSound(true)}><Play className="admin-notification-icon" aria-hidden="true"/></Button><Switch checked={soundEnabled} onCheckedChange={checked => checked ? void enableSound() : saveSound(false)} aria-label={soundEnabled ? "Выключить звук" : "Включить звук"}/></div></div>
+              <label className="admin-volume"><span>Громкость</span><input aria-label="Громкость уведомлений" type="range" min="0" max="1" step="0.05" value={volume} onChange={event => saveSound(soundEnabled, Number(event.target.value))}/><span className="admin-volume-value">{Math.round(volume * 100)}%</span></label>
+            </div>
+            <div className="admin-notification-group"><div className="admin-notification-row"><span className="admin-notification-label"><BellRing className="admin-notification-icon" aria-hidden="true"/>Системные уведомления</span><Switch checked={pushState === "on"} onCheckedChange={() => void togglePush()} disabled={!registration || pushState === "busy" || pushState === "unsupported"} aria-busy={pushState === "busy"} aria-label={pushState === "on" ? "Отключить системные уведомления" : "Включить системные уведомления"}/></div>{pushState === "unsupported" && <p className="admin-notification-hint">Недоступны в этом браузере</p>}</div>
+          </>}
+          {installed ? <p className="admin-notification-installed"><Check className="admin-notification-icon" aria-hidden="true"/>Приложение установлено</p> : <Button type="button" variant="outline" onClick={() => void install()}><Download className="admin-notification-icon" aria-hidden="true"/>{installEvent ? "Установить приложение" : "Как установить приложение"}</Button>}
+          {message && <p className="admin-notification-message" role="status">{message}</p>}
+        </DialogContent>
+      </Dialog>
     </div>
-    {settingsOpen && <section className="admin-notification-settings" aria-label="Уведомления и приложение">
-      {canViewOrders && <div><h3>Звук нового заказа</h3><p>Включается вашим нажатием. Один заказ звучит только в одной вкладке. Настройки относятся к вашему профилю на этом устройстве.</p>
-        <div className="admin-notification-actions"><button type="button" onClick={() => soundEnabled ? saveSound(false) : void enableSound()}>{soundEnabled ? "Выключить звук" : "Включить звук"}</button><button type="button" onClick={() => void enableSound(true)}>Проверить звук</button></div>
-        <label className="admin-volume">Громкость <input aria-label="Громкость уведомлений" type="range" min="0" max="1" step="0.05" value={volume} onChange={event => saveSound(soundEnabled, Number(event.target.value))} /><span>{Math.round(volume * 100)}%</span></label>
-        <h3>Системные уведомления</h3><p>Для фоновой работы. Доставка зависит от разрешений браузера и системы.</p>
-        {pushState === "unsupported" ? <p>Этот браузер не поддерживает Web Push. На iPhone установите приложение через Safari и откройте его с экрана Домой.</p> : <button type="button" onClick={() => void togglePush()} disabled={!registration || pushState === "busy"}>{pushState === "busy" ? "Настраиваем…" : pushState === "on" ? "Отключить системные уведомления" : "Включить системные уведомления"}</button>}
-      </div>}
-      <div><h3>Приложение NAKTA</h3><p>Открывайте панель с рабочего стола или главного экрана.</p>{installed ? <p>Приложение установлено</p> : <button type="button" onClick={() => void install()}>{installEvent ? "Установить приложение" : "Как установить приложение"}</button>}</div>
-      {message && <p className="admin-notification-message" role="status">{message}</p>}
-    </section>}
-    {notice && canViewOrders && <aside className="admin-new-order" role="status" aria-live="polite"><div><strong>Новый заказ №{notice.orderNumber}</strong><p>Ожидает обработки</p></div><button type="button" onClick={() => { if (!confirmAdminNavigation()) return; if (callbacks.current.onOpenOrder) callbacks.current.onOpenOrder(notice.orderId); else window.location.assign(`/admin?section=orders&order=${encodeURIComponent(notice.orderId)}`); setNotice(null); }}>Открыть заказ</button><button type="button" aria-label="Закрыть уведомление" onClick={() => setNotice(null)}>×</button></aside>}
+    {notice && canViewOrders && typeof document !== "undefined" && createPortal(<aside className="admin-new-order" role="status" aria-live="polite"><strong>Новый заказ №{notice.orderNumber}</strong><Button type="button" size="sm" onClick={() => { if (!confirmAdminNavigation()) return; if (callbacks.current.onOpenOrder) callbacks.current.onOpenOrder(notice.orderId); else window.location.assign(`/admin?section=orders&order=${encodeURIComponent(notice.orderId)}`); setNotice(null); }}>Открыть заказ</Button><Button type="button" variant="ghost" size="icon-sm" aria-label="Закрыть уведомление" onClick={() => setNotice(null)}><X className="admin-notification-icon" aria-hidden="true"/></Button></aside>, document.body)}
   </div>;
 }

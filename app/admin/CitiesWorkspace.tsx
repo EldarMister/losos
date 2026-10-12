@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "./ui/button";
+import { Pencil, Plus } from "lucide-react";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -103,21 +104,16 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
   };
 
   return (
-    <div className="space-y-6"><WorkspaceHeading title="Города" description="Управляйте доступностью ресторанов для клиентов." action={can("cities.create") ? <Button onClick={() => openEditor()}>Добавить город</Button> : undefined} /><Card className="rounded-xl border border-border bg-card p-5" aria-labelledby="cities-title">
-      <div className="border-b border-border pb-4">
-        <h2 id="cities-title" className="font-semibold text-foreground">Города на сайте и в приложении</h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">Нажмите «Скрыть», чтобы убрать лишний город из выбора клиентов. Заказы, меню и настройки сохранятся. Вернуть город можно кнопкой «Показать».</p>
-      </div>
+    <div className="space-y-6"><WorkspaceHeading title="Города" action={can("cities.create") ? <Button onClick={() => openEditor()}><Plus className="size-4" />Добавить город</Button> : undefined} /><Card className="gap-0 rounded-xl border border-border bg-card px-5 py-0" aria-label="Города">
       {regions.length ? (
         <ul className="divide-y divide-border">
           {regions.map((region) => (
             <li key={region.id} className="flex flex-wrap items-center gap-3 py-4">
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-foreground">{region.name}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{region.enabled ? "Виден на сайте и в приложении" : "Скрыт на сайте и в приложении"}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${region.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{region.enabled ? "Виден" : "Скрыт"}</span>
-              {can("cities.edit") || can("settings.edit") ? <Button variant="outline" disabled={saving || savingId !== null} onClick={() => openEditor(region)}>Редактировать</Button> : null}
+              {can("cities.edit") || can("settings.edit") ? <Button variant="ghost" size="icon" aria-label={`Редактировать город ${region.name}`} title="Редактировать" disabled={saving || savingId !== null} onClick={() => openEditor(region)}><Pencil className="size-4" /></Button> : null}
               <Button variant="ghost"
                 type="button"
                 aria-label={`${region.enabled ? "Скрыть" : "Показать"} город ${region.name}`}

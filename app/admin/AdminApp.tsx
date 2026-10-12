@@ -1,13 +1,12 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Moon, Sun, MapPin, ChevronRight, RefreshCw, ShieldAlert } from "lucide-react";
+import { Moon, Sun, MapPin, ShieldAlert } from "lucide-react";
 import { AdminNavigation,adminSections } from "./AdminNavigation";
 import { AdminLogin } from "./AdminLogin";
 import { AdminAccessContext, type Staff } from "./admin-access";
 import { adminFetch,adminApiUrl } from "./admin-api";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "./ui/sidebar";
 import { Button } from "./ui/button";
-import { Separator } from "./ui/separator";
 import { Card,CardContent } from "./ui/card";
 import { AnalyticsView } from "./AnalyticsView";
 import { CategoriesView } from "./CategoriesView";
@@ -69,10 +68,9 @@ export function AdminApp(){
  const viewProps={region,request:request as AdminRequest,onNotice};
  return <AdminAccessContext.Provider value={access}><div className={`admin-root ${dark?"dark":""}`}><SidebarProvider className="min-h-dvh" style={{"--sidebar-width":"16rem","--header-height":"4rem"} as React.CSSProperties}>
  <AdminNavigation active={section} onSelect={selectSection} onLogout={()=>void logout()}/><SidebarInset>
- <header className="sticky top-0 z-30 flex min-h-16 flex-wrap items-center gap-3 border-b bg-background/95 px-4 backdrop-blur lg:px-6"><SidebarTrigger aria-label="Переключить меню"/><Separator orientation="vertical" className="h-4"/><div className="flex min-w-0 flex-1 items-center gap-2 text-sm"><span className="hidden text-muted-foreground sm:inline">Панель управления</span><ChevronRight className="hidden size-3 text-muted-foreground sm:block"/><span className="truncate font-medium">{allowed?.label}</span></div><Button variant="ghost" size="icon" aria-label={dark?"Светлая тема":"Тёмная тема"} onClick={()=>{setDark(!dark);localStorage.setItem("nakta-admin-theme",!dark?"dark":"light")}}>{dark?<Sun/>:<Moon/>}</Button>{regions.length>0&&<label className="flex max-w-[180px] items-center gap-2 rounded-lg border px-2 py-1.5 text-sm"><MapPin className="size-4 shrink-0 text-muted-foreground"/><span className="sr-only">Город</span><select aria-label="Город" className="min-w-0 bg-transparent outline-none" value={region} onChange={e=>{if(confirmAdminNavigation())setRegion(e.target.value)}}>{regions.map(item=><option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>}</header>
- <div className="border-b px-4 py-2 lg:px-6"><AdminNotifications staffId={staff.id} token={token} apiUrl={adminApiUrl} canViewOrders={can("orders.view")} onOrdersChanged={()=>setRefresh(v=>v+1)} onAccessRevoked={()=>void refreshAuth()} onOpenOrder={id=>{setSection("orders");const url=new URL(window.location.href);url.searchParams.set("section","orders");url.searchParams.set("order",id);window.history.pushState({},"",url);window.dispatchEvent(new CustomEvent("admin:open-order",{detail:{id}}))}}/></div>
+ <header className="admin-header sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur lg:px-6"><SidebarTrigger aria-label="Переключить меню"/><span className="min-w-0 flex-1" aria-hidden="true"/>{regions.length>0&&<label className="admin-city-selector flex min-w-0 max-w-[160px] items-center gap-2 rounded-lg border px-2 text-sm"><MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden="true"/><span className="sr-only">Город</span><select aria-label="Город" className="min-w-0 w-full bg-transparent outline-none" value={region} onChange={e=>{if(confirmAdminNavigation())setRegion(e.target.value)}}>{regions.map(item=><option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>}<Button variant="ghost" size="icon" aria-label={dark?"Светлая тема":"Тёмная тема"} title={dark?"Светлая тема":"Тёмная тема"} onClick={()=>{setDark(!dark);localStorage.setItem("nakta-admin-theme",!dark?"dark":"light")}}>{dark?<Sun className="size-4" aria-hidden="true"/>:<Moon className="size-4" aria-hidden="true"/>}</Button><AdminNotifications staffId={staff.id} token={token} apiUrl={adminApiUrl} canViewOrders={can("orders.view")} onOrdersChanged={()=>setRefresh(v=>v+1)} onAccessRevoked={()=>void refreshAuth()} onOpenOrder={id=>{setSection("orders");const url=new URL(window.location.href);url.searchParams.set("section","orders");url.searchParams.set("order",id);window.history.pushState({},"",url);window.dispatchEvent(new CustomEvent("admin:open-order",{detail:{id}}))}}/></header>
  {authError&&<div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{authError}</div>}
- <section aria-label="Рабочая область" className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 p-4 md:p-6 lg:p-8">{["dashboard","analytics","staff","profile"].includes(section)&&<div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{allowed?.label}</h1><p className="mt-1 text-sm text-muted-foreground">{allowed?.description}</p></div><span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">{new Intl.DateTimeFormat("ru-RU",{day:"numeric",month:"long",timeZone:"Asia/Bishkek"}).format(new Date())}</span></div>}
+ <section aria-label="Рабочая область" className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 p-4 md:p-6 lg:p-8">{["dashboard","analytics","staff","profile"].includes(section)&&<h1 className="mb-6 text-2xl font-semibold tracking-tight">{allowed?.label}</h1>}
  <div className="admin-page-enter" key={`${section}:${region}:${staff.effectivePermissions.join(",")}`}>
  {!hasAccess?<Card><CardContent className="grid justify-items-start gap-4 p-8"><ShieldAlert className="size-8 text-muted-foreground"/><h2 className="text-lg font-semibold">Нет доступа к разделу</h2><p className="text-sm text-muted-foreground">Обратитесь к владельцу, если этот раздел нужен для работы.</p><Button onClick={()=>selectSection(adminSections.find(s=>can(s.permission))?.id||"profile")}>Открыть доступный раздел</Button></CardContent></Card>:<>
  {section==="dashboard"&&<OverviewView {...viewProps} refresh={refresh} onSelect={selectSection}/>}
@@ -86,6 +84,6 @@ export function AdminApp(){
  {section==="staff"&&<StaffWorkspace request={request} onNotice={onNotice} onAccessChanged={()=>void refreshAuth()}/>}
  {section==="profile"&&<ProfileView request={request} onNotice={onNotice}/>}
  </>}
- </div></section><footer className="flex items-center justify-between gap-3 border-t px-6 py-4 text-xs text-muted-foreground"><span>NAKTA · Панель управления</span><Button variant="ghost" size="xs" onClick={()=>{if(confirmAdminNavigation())window.location.reload()}}><RefreshCw className="size-3"/>Обновить</Button></footer>
+ </div></section>
  </SidebarInset></SidebarProvider>{notice&&<div className={`fixed right-4 bottom-4 left-4 z-[100] rounded-xl border bg-popover p-4 text-sm shadow-lg sm:left-auto sm:max-w-md ${notice.tone==="error"?"text-destructive":"text-foreground"}`} role={notice.tone==="error"?"alert":"status"}>{notice.message}</div>}</div></AdminAccessContext.Provider>
 }

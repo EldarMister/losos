@@ -56,6 +56,24 @@ test('security HTTP + PostgreSQL transactions (isolated test schema)', { skip: !
       const text = await response.text();
       return { status: response.status, headers: response.headers, body: text ? JSON.parse(text) : null };
     };
+    await t.test('public bootstrap availability is uncached and requires enabled setup, a strong key and no staff', async () => {
+      const check = async available => {
+        const result = await request('/auth/bootstrap-status');
+        assert.equal(result.status, 200);
+        assert.equal(result.headers.get('cache-control'), 'no-store');
+        assert.deepEqual(result.body, { available }, 'status exposes only availability');
+      };
+      await check(true);
+      process.env.ADMIN_BOOTSTRAP_ENABLED = 'false';
+      await check(false);
+      process.env.ADMIN_BOOTSTRAP_ENABLED = 'true';
+      process.env.ADMIN_TOKEN = 'x'.repeat(31);
+      await check(false);
+      delete process.env.ADMIN_TOKEN;
+      await check(false);
+      process.env.ADMIN_TOKEN = bootstrapToken;
+      await check(true);
+    });
     const created = await request('/auth/bootstrap', null, { bootstrapToken, login: 'owner', name: 'Владелец', password });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     const owner = created.body;
@@ -70,6 +88,10 @@ test('security HTTP + PostgreSQL transactions (isolated test schema)', { skip: !
     const admin = await createStaff('admin', 'ADMIN');
 
     await t.test('bootstrap one-shot; session secrets hashed; legacy admin header rejected', async () => {
+      const status = await request('/auth/bootstrap-status');
+      assert.equal(status.status, 200);
+      assert.equal(status.headers.get('cache-control'), 'no-store');
+      assert.deepEqual(status.body, { available: false });
       assert.equal((await request('/auth/bootstrap', null, { bootstrapToken, login: 'owner2', name: 'Other', password })).status, 409);
       assert.equal((await request('/orders', null, undefined, 'GET', { 'x-admin-token': bootstrapToken })).status, 401);
       assert.equal((await request('/orders', bootstrapToken)).status, 401);

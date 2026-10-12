@@ -11,6 +11,8 @@ export class AdminAuthController {
   login(@Body() dto: StaffLoginDto, @Ip() ip: string) { return this.security.login(dto, ip); }
   @Post("bootstrap") @Header("Cache-Control", "no-store")
   bootstrap(@Body() dto: StaffBootstrapDto, @Ip() ip: string) { return this.security.bootstrap(dto, ip); }
+  @Get("bootstrap-status") @Header("Cache-Control", "no-store")
+  bootstrapStatus() { return this.security.bootstrapStatus(); }
   @Get("me") @UseGuards(AdminTokenGuard) @AllowStaff()
   me(@Req() request: AdminRequest) { return request.staff; }
   @Post("logout") @HttpCode(200) @UseGuards(AdminTokenGuard) @AllowStaff()

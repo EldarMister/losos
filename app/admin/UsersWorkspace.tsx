@@ -1,17 +1,12 @@
 "use client";
 
+import { ArrowLeft, RefreshCw, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 
-import {
-  mdiArrowLeft,
-  mdiMagnify,
-  mdiRefresh,
-} from "@mdi/js";
-import { Icon } from "@mdi/react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { useDraftEditor } from "./use-unsaved-changes";
@@ -128,6 +123,12 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
     setSearch(searchDraft.trim());
   };
 
+  useEffect(() => {
+    if (searchDraft.trim() === search) return;
+    const timer = window.setTimeout(() => { setPage(0); setSearch(searchDraft.trim()); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft, search]);
+
   const openCustomer = (phone: string) => {
     setSelectedPhone(phone);
     setDetail(null);
@@ -168,12 +169,12 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Button variant="ghost" type="button" className={`${secondaryButton} self-start`} onClick={closeCustomer}>
-            <Icon path={mdiArrowLeft} size={0.72} aria-hidden="true" />
-            К списку клиентов
+            <ArrowLeft className="size-4 shrink-0" aria-hidden="true" />
+            Клиенты
           </Button>
           <Button variant="ghost" type="button" className={secondaryButton} onClick={() => void loadDetail(selectedPhone)} disabled={detailLoading}>
-            <Icon path={mdiRefresh} size={0.72} aria-hidden="true" />
-            {detailLoading ? "Обновляем…" : "Обновить данные"}
+            <RefreshCw className="size-4 shrink-0" aria-hidden="true" />
+            {detailLoading ? "Обновляем…" : "Обновить"}
           </Button>
         </div>
 
@@ -194,7 +195,7 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
                 <h2 className="mt-1 text-xl font-semibold text-foreground">{detail.profile?.name || detail.customerName || "Без имени"}</h2>
                 <a href={`tel:${detail.phone}`} className="mt-2 inline-block text-sm font-medium text-primary">Позвонить: {detail.phone}</a>
               </div>
-              <div className="grid gap-3"><p className="text-sm text-muted-foreground">Последний заказ: {formatDate(detail.lastOrderAt)}</p>{can("customers.edit") ? <Button variant="outline" onClick={() => setProfileEditor({name:detail.profile?.name || detail.customerName || "",notes:detail.profile?.notes || ""})}>Редактировать карточку</Button> : null}</div>
+              <div className="grid gap-3"><p className="text-sm text-muted-foreground">Последний заказ: {formatDate(detail.lastOrderAt)}</p>{can("customers.edit") ? <Button variant="outline" onClick={() => setProfileEditor({name:detail.profile?.name || detail.customerName || "",notes:detail.profile?.notes || ""})}>Редактировать</Button> : null}</div>
             </div>
             {detail.profile?.notes ? <div className="mt-5 rounded-lg bg-muted/50 p-4"><h3 className="text-xs font-semibold text-muted-foreground">Заметка сотрудников</h3><p className="mt-2 whitespace-pre-wrap text-sm">{detail.profile.notes}</p></div> : null}
             <dl className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -204,7 +205,7 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
           </Card>
 
           <Card className="overflow-hidden rounded-xl border border-border bg-card">
-            <div className="border-b border-border p-5"><h3 className="font-semibold text-foreground">Все заказы</h3><p className="mt-1 text-sm text-muted-foreground">История заказов пользователя в выбранном городе.</p></div>
+            <div className="border-b border-border p-5"><h3 className="font-semibold text-foreground">Все заказы</h3></div>
             {detail.orders.length ? <>
               <div className="hidden overflow-x-auto md:block">
                 <Table className="w-full min-w-[760px] text-left text-sm">
@@ -218,24 +219,23 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
           </Card>
 
         </> : null}
-        <EditorDialog open={Boolean(profileEditor)} onClose={() => {if (!profileSaving) closeProfileEditor();}} title="Карточка клиента" description="Имя и внутренняя заметка для сотрудников.">{profileEditor ? <form className="grid gap-5 p-5" onSubmit={saveProfile}><fieldset disabled={profileSaving || !can("customers.edit")} className="contents"><Label className="grid gap-2">Имя<Input required maxLength={140} value={profileEditor.name} onChange={(event) => setProfileEditor({...profileEditor,name:event.target.value})} /></Label><Label className="grid gap-2">Заметка<Textarea maxLength={2000} rows={5} value={profileEditor.notes} onChange={(event) => setProfileEditor({...profileEditor,notes:event.target.value})} /></Label><div className="flex justify-between gap-3 border-t border-border pt-4"><Button type="button" variant="outline" disabled={profileSaving} onClick={closeProfileEditor}>Отменить</Button><Button type="submit" disabled={profileSaving}>{profileSaving ? "Сохраняем…" : "Сохранить карточку"}</Button></div></fieldset></form> : null}</EditorDialog>
+        <EditorDialog open={Boolean(profileEditor)} onClose={() => {if (!profileSaving) closeProfileEditor();}} title="Карточка клиента">{profileEditor ? <form className="grid gap-5 p-5" onSubmit={saveProfile}><fieldset disabled={profileSaving || !can("customers.edit")} className="contents"><Label className="grid gap-2">Имя<Input required maxLength={140} value={profileEditor.name} onChange={(event) => setProfileEditor({...profileEditor,name:event.target.value})} /></Label><Label className="grid gap-2">Заметка<Textarea maxLength={2000} rows={5} value={profileEditor.notes} onChange={(event) => setProfileEditor({...profileEditor,notes:event.target.value})} /></Label><div className="flex justify-between gap-3 border-t border-border pt-4"><Button type="button" variant="outline" disabled={profileSaving} onClick={closeProfileEditor}>Отменить</Button><Button type="submit" disabled={profileSaving}>{profileSaving ? "Сохраняем…" : "Сохранить карточку"}</Button></div></fieldset></form> : null}</EditorDialog>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <WorkspaceHeading title="Клиенты" description="История покупок, контакты и суммы завершённых заказов в выбранном городе." />
-      <Card className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+      <WorkspaceHeading title="Клиенты" />
+      <Card className="flex flex-row items-center gap-2 rounded-xl border border-border bg-card p-4">
         <form className="flex min-w-0 flex-1 gap-2 sm:max-w-xl" onSubmit={submitSearch}>
           <Label className="relative min-w-0 flex-1">
             <span className="sr-only">Найти клиента</span>
-            <Icon path={mdiMagnify} size={0.75} aria-hidden="true" className="absolute left-3 top-3.5 text-muted-foreground" />
+            <Search className="size-4 shrink-0 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input type="search" className={`${inputClass} pl-10`} placeholder="Имя или телефон" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
           </Label>
-          <Button variant="ghost" type="submit" className={primaryButton}>Найти</Button>
         </form>
-        <Button variant="ghost" type="button" className={secondaryButton} onClick={() => void loadUsers()} disabled={listLoading}><Icon path={mdiRefresh} size={0.72} aria-hidden="true" />{listLoading ? "Обновляем…" : "Обновить"}</Button>
+        <Button variant="ghost" type="button" size="icon" className="size-11" aria-label="Обновить клиентов" title="Обновить клиентов" onClick={() => void loadUsers()} disabled={listLoading}><RefreshCw className="size-4 shrink-0" aria-hidden="true" /></Button>
       </Card>
 
       {error ? <Card className="rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive" role="alert">{error}</Card> : null}
@@ -246,10 +246,10 @@ export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProp
           <div className="hidden overflow-x-auto lg:block">
             <Table className="w-full min-w-[760px] text-left text-sm">
               <TableHeader className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground"><TableRow><TableHead className="px-5 py-3">Пользователь</TableHead><TableHead className="px-5 py-3">Заказы</TableHead><TableHead className="px-5 py-3">Сумма покупок</TableHead><TableHead className="px-5 py-3"><span className="sr-only">Действие</span></TableHead></TableRow></TableHeader>
-              <TableBody className="divide-y divide-border">{users.map((user) => <TableRow key={user.phone}><TableCell className="px-5 py-4"><strong className="block text-foreground">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-xs text-muted-foreground">{user.phone}</span></TableCell><TableCell className="px-5 py-4 text-foreground"><strong>{formatNumber(user.ordersCount)}</strong><span className="mt-1 block text-xs text-muted-foreground">Завершено: {formatNumber(user.completedOrders)}</span></TableCell><TableCell className="px-5 py-4 font-semibold text-foreground">{formatMoney(user.revenue)}</TableCell><TableCell className="px-5 py-4 text-right"><Button variant="ghost" type="button" className={secondaryButton} onClick={() => openCustomer(user.phone)}>Открыть карточку</Button></TableCell></TableRow>)}</TableBody>
+              <TableBody className="divide-y divide-border">{users.map((user) => <TableRow key={user.phone}><TableCell className="px-5 py-4"><strong className="block text-foreground">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-xs text-muted-foreground">{user.phone}</span></TableCell><TableCell className="px-5 py-4 text-foreground"><strong>{formatNumber(user.ordersCount)}</strong><span className="mt-1 block text-xs text-muted-foreground">Завершено: {formatNumber(user.completedOrders)}</span></TableCell><TableCell className="px-5 py-4 font-semibold text-foreground">{formatMoney(user.revenue)}</TableCell><TableCell className="px-5 py-4 text-right"><Button variant="ghost" type="button" className={secondaryButton} onClick={() => openCustomer(user.phone)}>Открыть</Button></TableCell></TableRow>)}</TableBody>
             </Table>
           </div>
-          <div className="divide-y divide-border lg:hidden">{users.map((user) => <article key={user.phone} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-foreground">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-sm text-muted-foreground">{user.phone}</span></div><strong className="shrink-0 text-sm text-foreground">{formatMoney(user.revenue)}</strong></div><dl className="mt-4 border-t border-border pt-3 text-sm"><div><dt className="text-xs text-muted-foreground">Заказы</dt><dd className="mt-1 font-semibold text-foreground">{formatNumber(user.ordersCount)}</dd></div></dl><Button variant="ghost" type="button" className={`${primaryButton} mt-4 w-full`} onClick={() => openCustomer(user.phone)}>Открыть карточку клиента</Button></article>)}</div>
+          <div className="divide-y divide-border lg:hidden">{users.map((user) => <article key={user.phone} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-foreground">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-sm text-muted-foreground">{user.phone}</span></div><strong className="shrink-0 text-sm text-foreground">{formatMoney(user.revenue)}</strong></div><dl className="mt-4 border-t border-border pt-3 text-sm"><div><dt className="text-xs text-muted-foreground">Заказы</dt><dd className="mt-1 font-semibold text-foreground">{formatNumber(user.ordersCount)}</dd></div></dl><Button variant="ghost" type="button" className={`${primaryButton} mt-4 w-full`} onClick={() => openCustomer(user.phone)}>Открыть</Button></article>)}</div>
         </Card>
       ) : null}
 

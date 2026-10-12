@@ -336,7 +336,8 @@ test("admin exposes the current operations workspace", async () => {
     readFile(new URL("../app/admin/SettingsWorkspace.tsx", import.meta.url), "utf8"),
   ]);
   for (const label of ["Заказы", "Аналитика", "Товары", "Категории", "Пользователи", "Акции", "Настройки", "Персонал"]) assert.ok(navigation.includes(label));
-  assert.match(navigation, /NAKTA[\s\S]*?Управление рестораном/);
+  assert.match(navigation, /NAKTA/);
+  assert.match(navigation, /src="\/logo\.webp"/);
   assert.match(navigation, /onClick=\{onLogout\}[\s\S]*?Выйти/);
   assert.doesNotMatch(navigation, /LoyaltyCenter|Лояльность|FinanceWorkspace|Финансы/);
   assert.match(admin, /useState<AdminSection>\("orders"\)/);

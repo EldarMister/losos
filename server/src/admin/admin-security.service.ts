@@ -88,6 +88,14 @@ export class AdminSecurityService {
     });
   }
 
+  async bootstrapStatus(): Promise<{ available: boolean }> {
+    if (process.env.ADMIN_BOOTSTRAP_ENABLED !== "true" || (process.env.ADMIN_TOKEN || "").length < 32) {
+      return { available: false };
+    }
+    const [row] = await this.db.query(`SELECT EXISTS (SELECT 1 FROM "admin_staff") AS "hasStaff"`) as Array<{ hasStaff: boolean }>;
+    return { available: row?.hasStaff === false };
+  }
+
   async logout(token: string) {
     await this.db.query(`DELETE FROM "admin_sessions" WHERE "tokenHash"=$1`, [hashSessionToken(token)]);
     return { loggedOut: true };

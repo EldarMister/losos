@@ -1,20 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import { PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 
-import { Icon } from "@mdi/react";
-import {
-  mdiCheckNetworkOutline,
-  mdiDeleteOutline,
-  mdiDownloadOutline,
-  mdiPlus,
-  mdiRefresh,
-  mdiSwapHorizontal,
-} from "@mdi/js";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { EditorDialog, ListPagination, WorkspaceHeading } from "./workspace-kit";
 import { useDraftEditor, useUnsavedChanges, confirmAdminNavigation } from "./use-unsaved-changes";
@@ -442,7 +434,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
 
   return (
     <div className="space-y-6">
-      <WorkspaceHeading title={initialTab === "hours" ? "Часы работы" : "Настройки"} description={initialTab === "hours" ? `Дни и время приёма заказов · ${item.name}` : `Работа ресторана, доставка и интеграции · ${item.name}`} />
+      <WorkspaceHeading title={initialTab === "hours" ? "Часы работы" : "Настройки"} />
       <div className={`grid items-start gap-5 ${initialTab === "hours" ? "" : "lg:grid-cols-[190px_minmax(0,1fr)]"}`}>
       {initialTab !== "hours" ? <Card className="gap-1 p-2 lg:sticky lg:top-20"><nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label="Разделы настроек">{tabs.filter((entry) => can(`${tabPermissions[entry.id]}.view`)).map((entry) => <Button key={entry.id} type="button" variant={tab === entry.id ? "secondary" : "ghost"} className="min-h-10 justify-start" aria-current={tab === entry.id ? "page" : undefined} onClick={() => changeTab(entry.id)}>{entry.label}</Button>)}</nav></Card> : null}
       <div className="min-w-0 space-y-4">
@@ -452,17 +444,17 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
           <Card className="rounded-xl border border-border bg-card p-5">
             <div className="border-b border-border pb-4">
               <h2 className="font-semibold text-foreground">Основные настройки</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Город: {item.name}</p>
+
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Label className={labelClass}>Телефон кухни<Input className={inputClass} value={draft.contactPhone} onChange={(event) => setDraft({ ...draft, contactPhone: event.target.value })} /></Label>
               <Label className={labelClass}>Телефон поддержки<Input className={inputClass} value={draft.supportPhone} onChange={(event) => setDraft({ ...draft, supportPhone: event.target.value })} /></Label>
-              <Label className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm font-medium text-foreground sm:col-span-2"><input type="checkbox" className="size-4 accent-primary" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><span>Показывать город на сайте и в приложении<small className="mt-1 block text-xs text-muted-foreground">Скрытый город недоступен для новых заказов.</small></span></Label>
+              <Label className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm font-medium text-foreground sm:col-span-2"><input type="checkbox" className="size-4 accent-primary" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><span>Показывать город клиентам<small className="mt-1 block text-xs text-muted-foreground">Скрытый город недоступен для новых заказов.</small></span></Label>
             </div>
           </Card>
         ) : null}
 
-        {tab === "hours" ? <Card className="p-5"><div><h2 className="font-semibold">Расписание приёма заказов</h2><p className="mt-1 text-sm text-muted-foreground">Укажите рабочие дни и время по часовому поясу города.</p></div><div className="grid gap-4 sm:grid-cols-2">                <Label className={labelClass}>Начало работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryOpenTime} onChange={(event) => setDraft({ ...draft, deliveryOpenTime: event.target.value })} /></Label>
+        {tab === "hours" ? <Card className="p-5"><div><h2 className="font-semibold">Расписание приёма заказов</h2><p className="mt-1 text-xs text-muted-foreground">Время Бишкека · UTC+6</p></div><div className="grid gap-4 sm:grid-cols-2">                <Label className={labelClass}>Начало работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryOpenTime} onChange={(event) => setDraft({ ...draft, deliveryOpenTime: event.target.value })} /></Label>
                 <Label className={labelClass}>Окончание работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryCloseTime} onChange={(event) => setDraft({ ...draft, deliveryCloseTime: event.target.value })} /></Label>
                 <Label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 accent-primary" checked={draft.deliveryIs24Hours} onChange={(event) => setDraft({ ...draft, deliveryIs24Hours: event.target.checked })} />Круглосуточно</Label>
 </div>              <fieldset className="mt-5"><legend className="text-sm font-medium text-foreground">Рабочие дни</legend><div className="mt-2 flex flex-wrap gap-2">{weekdays.map((day) => <Label key={day.value} className={`grid size-11 cursor-pointer place-items-center rounded-lg border text-sm font-medium ${draft.deliveryWorkingDays.includes(day.value) ? "border-primary bg-primary/5 text-primary" : "border-input text-muted-foreground"}`}><input type="checkbox" className="sr-only" checked={draft.deliveryWorkingDays.includes(day.value)} onChange={(event) => setDraft({ ...draft, deliveryWorkingDays: event.target.checked ? [...draft.deliveryWorkingDays, day.value] : draft.deliveryWorkingDays.filter((value) => value !== day.value) })} />{day.label}</Label>)}</div></fieldset></Card> : null}
@@ -470,7 +462,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
         {tab === "delivery" ? (
           <div className="space-y-4">
             <Card className="rounded-xl border border-border bg-card p-5">
-              <div className="border-b border-border pb-4"><h2 className="font-semibold text-foreground">Условия доставки</h2><p className="mt-1 text-sm text-muted-foreground">Стоимость, ограничения суммы заказа и зона обслуживания.</p></div>
+              <div className="border-b border-border pb-4"><h2 className="font-semibold text-foreground">Условия доставки</h2></div>
               <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Label className={labelClass}>Минимальный заказ<Input required min="0" type="number" className={inputClass} value={draft.minimumOrderAmount} onChange={(event) => setDraft({ ...draft, minimumOrderAmount: event.target.value })} /></Label>
                 <Label className={labelClass}>Максимальный заказ<Input required min="1" type="number" className={inputClass} value={draft.maximumOrderAmount} onChange={(event) => setDraft({ ...draft, maximumOrderAmount: event.target.value })} /></Label>
@@ -481,7 +473,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
 
             </Card>
             <Card className="rounded-xl border border-border bg-card p-5">
-              <div className="mb-4"><h2 className="font-semibold text-foreground">Зона доставки</h2><p className="mt-1 text-sm text-muted-foreground">Нарисуйте или скорректируйте границу на карте.</p></div>
+              <div className="mb-4"><h2 className="font-semibold text-foreground">Зона доставки</h2></div>
               <DeliveryZoneEditor cityName={item.name} regionSlug={item.slug} points={draft.deliveryZone} readOnly={!canEditTab} onChange={(deliveryZone) => setDraft({ ...draft, deliveryZone })} />
             </Card>
           </div>
@@ -501,7 +493,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
               <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="font-semibold text-foreground">Справочник бесплатной комплектации</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Добавьте соусы и другие бесплатные позиции. Их количество на одну порцию указывается отдельно в разделе «Меню» → «Комплектация» каждого блюда.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Бесплатные позиции для комплектации блюд.</p>
                 </div>
                 <Button variant="ghost"
                   type="button"
@@ -517,7 +509,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                     }],
                   })}
                 >
-                  <Icon path={mdiPlus} size={0.72} aria-hidden="true" />Добавить позицию
+                  <Plus className="size-4 shrink-0" aria-hidden="true" />Добавить позицию
                 </Button>
               </div>
               {draft.freeKitItems.length ? (
@@ -539,7 +531,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                         <Label className={labelClass}>Название<Input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></Label>
                         <p className="text-xs text-muted-foreground">Количество задаётся в комплектации каждого блюда.</p>
                         <Label className="flex items-center gap-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 shrink-0 accent-primary" checked={kitItem.enabled !== false} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, enabled: event.target.checked } : entry) })} />Доступно для выбора в блюдах</Label>
-                        <Button variant="ghost" type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить «${kitItem.name}» из справочника? Проверьте комплектацию блюд после сохранения.`)) setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) }); }}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить из комплектации</Button>
+                        <Button variant="ghost" type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить «${kitItem.name}» из справочника? Проверьте комплектацию блюд после сохранения.`)) setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) }); }}><Trash2 className="size-4 shrink-0" aria-hidden="true" />Удалить</Button>
                       </div>
                     </article>
                   ))}
@@ -551,7 +543,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
             <Card className="rounded-xl border border-border bg-card p-5">
               <div className="border-b border-border pb-4">
                 <h2 className="font-semibold text-foreground">Платные топпинги</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Выберите товары из меню, которые сайт и приложение покажут в блоке «Дополнительно». Цена, фото и доступность редактируются в разделе «Меню».</p>
+                <p className="mt-1 text-sm text-muted-foreground">Товары из меню, доступные как добавки.</p>
               </div>
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
                 {categories.flatMap((category) => category.products.map((product) => (
@@ -584,31 +576,31 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
 
       {tab === "pickup" ? (
         <Card className="overflow-hidden rounded-xl border border-border bg-card">
-          <header className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-foreground">Точки самовывоза</h2><p className="mt-1 text-sm text-muted-foreground">Адреса, которые клиент может выбрать при оформлении.</p></div><Button variant="ghost" type="button" className={primaryButton} disabled={!can("cities.create")} onClick={() => setPickupEditor(emptyPickup(item.pickupLocations?.length ?? 0))}><Icon path={mdiPlus} size={0.72} aria-hidden="true" />Добавить точку самовывоза</Button></header>
-          {item.pickupLocations?.length ? <div className="divide-y divide-border">{item.pickupLocations.map((location) => <article key={location.id} className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center lg:px-5"><div><div className="flex flex-wrap items-center gap-2"><strong className="text-foreground">{location.title || "Точка самовывоза"}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${location.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{location.enabled ? "Активна" : "Выключена"}</span></div><p className="mt-2 text-sm text-foreground">{location.address}</p><p className="mt-1 text-xs text-muted-foreground">{location.workingHours || "Время работы не указано"}</p></div><div className="grid grid-cols-2 gap-2"><Button variant="ghost" type="button" className={secondaryButton} disabled={!can("cities.edit")} onClick={() => setPickupEditor(pickupDraft(location))}>Редактировать</Button><Button variant="ghost" type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 text-sm font-medium text-destructive hover:bg-destructive/10" disabled={!can("cities.delete")} onClick={() => void deletePickup(location)}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить</Button></div></article>)}</div> : <div className="grid min-h-52 place-items-center p-8 text-center text-sm text-muted-foreground">Точек самовывоза пока нет.</div>}
+          <header className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-foreground">Точки самовывоза</h2></div><Button variant="ghost" type="button" className={primaryButton} disabled={!can("cities.create")} onClick={() => setPickupEditor(emptyPickup(item.pickupLocations?.length ?? 0))}><Plus className="size-4 shrink-0" aria-hidden="true" />Добавить точку</Button></header>
+          {item.pickupLocations?.length ? <div className="divide-y divide-border">{item.pickupLocations.map((location) => <article key={location.id} className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center lg:px-5"><div><div className="flex flex-wrap items-center gap-2"><strong className="text-foreground">{location.title || "Точка самовывоза"}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${location.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{location.enabled ? "Активна" : "Выключена"}</span></div><p className="mt-2 text-sm text-foreground">{location.address}</p><p className="mt-1 text-xs text-muted-foreground">{location.workingHours || "Время работы не указано"}</p></div><div className="grid grid-cols-2 gap-2"><Button variant="ghost" type="button" className={secondaryButton} disabled={!can("cities.edit")} onClick={() => setPickupEditor(pickupDraft(location))}>Редактировать</Button><Button variant="ghost" type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 text-sm font-medium text-destructive hover:bg-destructive/10" disabled={!can("cities.delete")} onClick={() => void deletePickup(location)}><Trash2 className="size-4 shrink-0" aria-hidden="true" />Удалить</Button></div></article>)}</div> : <div className="grid min-h-52 place-items-center p-8 text-center text-sm text-muted-foreground">Точек самовывоза пока нет.</div>}
         </Card>
       ) : null}
 
       {tab === "edu-pos" ? (
         <div className="space-y-4">
           <Card className="rounded-xl border border-border bg-card p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-foreground">Подключение EDU POS</h2><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${eduPosStatus?.configured ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-destructive/10 text-destructive"}`}>{eduPosStatus?.configured ? "Настроено" : "Не настроено"}</span></div><p className="mt-2 text-sm text-muted-foreground">Заказы синхронизируются каждые {eduPosStatus?.intervals.ordersSeconds ?? 7.5} сек.</p></div><Button variant="ghost" type="button" className={secondaryButton} disabled={Boolean(posAction) || !can("integrations.edit")} onClick={() => void checkEduPos()}><Icon path={mdiCheckNetworkOutline} size={0.75} aria-hidden="true" />{posAction === "check" ? "Проверяем…" : "Проверить подключение"}</Button></div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-foreground">Подключение EDU POS</h2><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${eduPosStatus?.configured ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-destructive/10 text-destructive"}`}>{eduPosStatus?.configured ? "Настроено" : "Не настроено"}</span></div><p className="mt-2 text-sm text-muted-foreground">Заказы синхронизируются каждые {eduPosStatus?.intervals.ordersSeconds ?? 7.5} сек.</p></div><Button variant="ghost" type="button" className={secondaryButton} disabled={Boolean(posAction) || !can("integrations.edit")} onClick={() => void checkEduPos()}><PlugZap className="size-4 shrink-0" aria-hidden="true" />{posAction === "check" ? "Проверяем…" : "Проверить подключение"}</Button></div>
             <dl className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-lg bg-muted/50 p-4"><dt className="text-xs text-muted-foreground">Последняя сверка меню</dt><dd className="mt-1 text-sm font-medium text-foreground">{formatDate(eduPosStatus?.lastMenuSyncAt ?? null)}</dd></div><div className="rounded-lg bg-muted/50 p-4"><dt className="text-xs text-muted-foreground">Последняя сверка стоп-листа</dt><dd className="mt-1 text-sm font-medium text-foreground">{formatDate(eduPosStatus?.lastStopListSyncAt ?? null)}</dd></div></dl>
             {eduPosStatus?.lastError ? <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><strong className="block">Последняя ошибка</strong><span className="mt-1 block break-words">Проверьте подключение к EDU POS. Подробности доступны в журнале сервера.</span></div> : null}
           </Card>
           <Card className="grid gap-4 md:grid-cols-2">
-            <article className="rounded-xl border border-border bg-card p-5"><Icon path={mdiSwapHorizontal} size={1} aria-hidden="true" className="text-primary" /><h3 className="mt-4 font-semibold text-foreground">Сверить меню из EDU POS</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Обновит цены, сопоставления блюд и стоп-лист на сайте.</p><Button variant="ghost" type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured || !canSyncMenu} onClick={() => void syncEduPosMenu()}>{posAction === "sync" ? "Сверяем…" : "Сверить меню"}</Button></article>
-            <article className="rounded-xl border border-border bg-card p-5"><Icon path={mdiDownloadOutline} size={1} aria-hidden="true" className="text-primary" /><h3 className="mt-4 font-semibold text-foreground">Экспортировать меню в EDU POS</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Отправит категории, блюда, цены, доступность и модификации выбранного города.</p><Button variant="ghost" type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured || !canExportMenu} onClick={() => void exportEduPosMenu()}>{posAction === "export" ? "Экспортируем…" : "Экспортировать меню"}</Button></article>
+            <article className="rounded-xl border border-border bg-card p-5"><RefreshCw className="size-4 shrink-0 text-primary" aria-hidden="true" /><h3 className="mt-4 font-semibold text-foreground">Сверить меню из EDU POS</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Обновит цены, сопоставления блюд и стоп-лист на сайте.</p><Button variant="ghost" type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured || !canSyncMenu} onClick={() => void syncEduPosMenu()}>{posAction === "sync" ? "Сверяем…" : "Сверить меню"}</Button></article>
+            <article className="rounded-xl border border-border bg-card p-5"><Upload className="size-4 shrink-0 text-primary" aria-hidden="true" /><h3 className="mt-4 font-semibold text-foreground">Экспортировать меню в EDU POS</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Отправит категории, блюда, цены, доступность и модификации выбранного города.</p><Button variant="ghost" type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured || !canExportMenu} onClick={() => void exportEduPosMenu()}>{posAction === "export" ? "Экспортируем…" : "Экспортировать меню"}</Button></article>
           </Card>
-          <Card className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary"><strong className="block">Как синхронизируются заказы</strong><p className="mt-1 leading-6">После «Принять заказ» он отправляется в EDU POS. Статусы кухни автоматически переводят заказ в «Готовится» и «Готов». Более ранний ответ POS не может откатить уже продвинутый заказ назад.</p></Card>
+          <details className="rounded-xl border border-border p-4 text-sm"><summary className="cursor-pointer font-medium">Как работает синхронизация</summary><p className="mt-3 text-muted-foreground">Принятый заказ передаётся в EDU POS. Статусы кухни обновляются автоматически; устаревший ответ не возвращает заказ на предыдущий этап.</p></details>
         </div>
       ) : null}
 
       </div></div>
 
-      <EditorDialog open={Boolean(pickupEditor)} onClose={() => { if (!saving) closePickupEditor(); }} title={pickupEditor?.item ? "Редактировать точку самовывоза" : "Новая точка самовывоза"} description="Адрес и время работы видны клиентам при оформлении заказа.">
+      <EditorDialog open={Boolean(pickupEditor)} onClose={() => { if (!saving) closePickupEditor(); }} title={pickupEditor?.item ? "Редактировать точку самовывоза" : "Новая точка самовывоза"}>
       {pickupEditor ? <form className="flex min-h-0 flex-col" onSubmit={savePickup}><fieldset disabled={saving || !can(pickupEditor.item ? "cities.edit" : "cities.create")} className="contents">
-            <div className="grid gap-4 overflow-y-auto p-5"><Label className={labelClass}>Название точки<Input className={inputClass} placeholder="Например, Манаса" value={pickupEditor.title} onChange={(event) => setPickupEditor({ ...pickupEditor, title: event.target.value })} /></Label><Label className={labelClass}>Адрес<Input required className={inputClass} value={pickupEditor.address} onChange={(event) => setPickupEditor({ ...pickupEditor, address: event.target.value })} /></Label><Label className={labelClass}>Время работы<Input className={inputClass} placeholder="Ежедневно, 11:00–23:00" value={pickupEditor.workingHours} onChange={(event) => setPickupEditor({ ...pickupEditor, workingHours: event.target.value })} /></Label><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><Label className={labelClass}>Ссылка на Яндекс Карты<Input type="url" className={inputClass} placeholder="https://yandex.ru/maps/…" value={pickupEditor.yandexUrl} onChange={(event) => setPickupEditor({ ...pickupEditor, yandexUrl: event.target.value })} /></Label><Button variant="ghost" type="button" className={`${secondaryButton} self-end`} onClick={() => void resolvePickupCoordinates()}><Icon path={mdiRefresh} size={0.7} aria-hidden="true" />Определить координаты</Button></div><div className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Широта<Input type="number" step="any" className={inputClass} value={pickupEditor.latitude} onChange={(event) => setPickupEditor({ ...pickupEditor, latitude: event.target.value })} /></Label><Label className={labelClass}>Долгота<Input type="number" step="any" className={inputClass} value={pickupEditor.longitude} onChange={(event) => setPickupEditor({ ...pickupEditor, longitude: event.target.value })} /></Label></div><div className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Порядок<Input min="0" type="number" className={inputClass} value={pickupEditor.sortOrder} onChange={(event) => setPickupEditor({ ...pickupEditor, sortOrder: event.target.value })} /></Label><Label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 accent-primary" checked={pickupEditor.enabled} onChange={(event) => setPickupEditor({ ...pickupEditor, enabled: event.target.checked })} />Точка активна</Label></div></div>
+            <div className="grid gap-4 overflow-y-auto p-5"><Label className={labelClass}>Название точки<Input className={inputClass} placeholder="Например, Манаса" value={pickupEditor.title} onChange={(event) => setPickupEditor({ ...pickupEditor, title: event.target.value })} /></Label><Label className={labelClass}>Адрес<Input required className={inputClass} value={pickupEditor.address} onChange={(event) => setPickupEditor({ ...pickupEditor, address: event.target.value })} /></Label><Label className={labelClass}>Время работы<Input className={inputClass} placeholder="Ежедневно, 11:00–23:00" value={pickupEditor.workingHours} onChange={(event) => setPickupEditor({ ...pickupEditor, workingHours: event.target.value })} /></Label><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><Label className={labelClass}>Ссылка на Яндекс Карты<Input type="url" className={inputClass} placeholder="https://yandex.ru/maps/…" value={pickupEditor.yandexUrl} onChange={(event) => setPickupEditor({ ...pickupEditor, yandexUrl: event.target.value })} /></Label><Button variant="ghost" type="button" className={`${secondaryButton} self-end`} onClick={() => void resolvePickupCoordinates()}><RefreshCw className="size-4 shrink-0" aria-hidden="true" />Определить координаты</Button></div><div className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Широта<Input type="number" step="any" className={inputClass} value={pickupEditor.latitude} onChange={(event) => setPickupEditor({ ...pickupEditor, latitude: event.target.value })} /></Label><Label className={labelClass}>Долгота<Input type="number" step="any" className={inputClass} value={pickupEditor.longitude} onChange={(event) => setPickupEditor({ ...pickupEditor, longitude: event.target.value })} /></Label></div><div className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Порядок<Input min="0" type="number" className={inputClass} value={pickupEditor.sortOrder} onChange={(event) => setPickupEditor({ ...pickupEditor, sortOrder: event.target.value })} /></Label><Label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 accent-primary" checked={pickupEditor.enabled} onChange={(event) => setPickupEditor({ ...pickupEditor, enabled: event.target.checked })} />Точка активна</Label></div></div>
             <footer className="grid gap-2 border-t border-border p-4 sm:grid-cols-2"><Button variant="ghost" type="button" className={secondaryButton} onClick={closePickupEditor}>Отменить</Button><Button variant="ghost" type="submit" className={primaryButton} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить точку"}</Button></footer>
           </fieldset></form> : null}
       </EditorDialog>
