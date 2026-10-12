@@ -4,6 +4,8 @@ import { confirmAdminAction } from "./AdminConfirmationDialog";
 import { ChevronRight, MapPin, Phone, RefreshCw, Search } from "lucide-react";
 import { Button } from "./ui/button";
 import { AdminSelect } from "./AdminSelect";
+import { AdminPeriodControl } from "./AdminPeriodControl";
+import { presetPeriod } from "./admin-period";
 import { DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
@@ -148,8 +150,8 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
   const [kitDraft, setKitDraft, closeKitEditor] = useDraftEditor<KitDraft>();
   const { can } = useAdminAccess();
   const [page, setPage] = useState(0);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [period, setPeriod] = useState(() => presetPeriod("all"));
+  const { from, to } = period;
   const [detailTab, setDetailTab] = useState("summary");
   const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -319,11 +321,10 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
           <form className="min-w-0 flex-1 lg:max-w-sm" onSubmit={submitSearch}>
             <Label className="relative block"><span className="sr-only">Найти заказ</span><Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input type="search" className="pl-9" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Номер, имя или телефон" /></Label>
           </form>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <Label className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-2 text-muted-foreground sm:flex">С<Input type="date" className="w-full sm:w-40 lg:w-36" value={from} max={to || undefined} onChange={(event) => {setFrom(event.target.value);setPage(0);}} /></Label>
-            <Label className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-2 text-muted-foreground sm:flex">По<Input type="date" className="w-full sm:w-40 lg:w-36" value={to} min={from || undefined} onChange={(event) => {setTo(event.target.value);setPage(0);}} /></Label>
-            {from || to || search ? <Button variant="ghost" onClick={() => {setFrom("");setTo("");setSearch("");setSearchDraft("");setPage(0);}}>Сбросить</Button> : null}
+          <div className="min-w-0 lg:max-w-xl">
+            <AdminPeriodControl value={period} onChange={next => { setPeriod(next); setPage(0); }} />
           </div>
+          {from || to || search ? <Button variant="ghost" className="self-start lg:self-end" onClick={() => {setPeriod(presetPeriod("all"));setSearch("");setSearchDraft("");setPage(0);}}>Сбросить</Button> : null}
         </div>
         <div className="xl:hidden"><AdminSelect aria-label="Статус заказа" value={filter} options={filterOptions.map((option) => ({ value: option.value, label: `${option.label} · ${option.value === "all" ? Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0) : counts[option.value] ?? 0}` }))} onValueChange={(value) => {setFilter(value as typeof filter);setPage(0);}} /></div>
         <Tabs value={filter} onValueChange={(value) => {setFilter(value as typeof filter);setPage(0);}} className="hidden xl:flex">

@@ -2,33 +2,29 @@
 import { useEffect,useState } from "react";
 import { Download,TrendingUp,TrendingDown,LoaderCircle } from "lucide-react";
 import { Area,AreaChart,Bar,BarChart,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis } from "recharts";
-import { Button } from "./ui/button";import { Input } from "./ui/input";import { Label } from "./ui/label";
+import { Button } from "./ui/button";
+import { AdminPeriodControl } from "./AdminPeriodControl";
+import { presetPeriod } from "./admin-period";
 import { Card,CardHeader,CardTitle,CardDescription,CardContent,CardAction,CardFooter } from "./ui/card";
 import { Table,TableHeader,TableHead,TableRow,TableBody,TableCell } from "./ui/table";
 import { Tabs,TabsList,TabsTrigger,TabsContent } from "./ui/tabs";
-import { AdminSelect } from "./AdminSelect"; import { Badge } from "./ui/badge"; import { Skeleton } from "./ui/skeleton";
+import { Badge } from "./ui/badge"; import { Skeleton } from "./ui/skeleton";
 import { useAdminAccess } from "./admin-access";import type { AdminRequest } from "./admin-types";
 type Metric={orders:number;completed:number;revenue:number;average:number;cancelled:number;newCustomers:number;repeatCustomers:number};type Ranking={name:string;count:number;revenue?:number};
 type Report={employees?:{recordedSince:string|null;items:{name:string;statusChanges:number;completions:number}[]}|null;current:Metric;previous:Metric;period:{from:string;to:string;previousFrom:string;previousTo:string};days:{label:string;revenue:number;count:number}[];hours:{hour:number;count:number;revenue:number}[];statuses:{status:string;count:number}[];products:Ranking[];categories:Ranking[];modifiers:Ranking[];kits:Ranking[]};
 const money=(value:number)=>`${Math.round(value).toLocaleString("ru-RU")} сом`;
-const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bishkek"}).format(new Date());
-const dayBefore=(days:number)=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bishkek"}).format(new Date(Date.now()-days*86400000));
 const statusNames:Record<string,string>={new:"Новые",confirmed:"Подтверждены",preparing:"Готовятся",ready:"Готовы",delivering:"В пути",completed:"Завершены",cancelled:"Отменены"};
 export function AnalyticsView({region,request}:{region:string;request:AdminRequest}){
- const {can}=useAdminAccess();const [from,setFrom]=useState(()=>dayBefore(6));const [to,setTo]=useState(today);const [draftFrom,setDraftFrom]=useState(()=>dayBefore(6));const [draftTo,setDraftTo]=useState(today);const [manualRange,setManualRange]=useState(false);const [data,setData]=useState<Report|null>(null);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [retry,setRetry]=useState(0);const [exporting,setExporting]=useState(false);
+ const {can}=useAdminAccess();const [period,setPeriod]=useState(()=>presetPeriod("week"));const {from,to}=period;const [loadedQuery,setLoadedQuery]=useState("");const [data,setData]=useState<Report|null>(null);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [retry,setRetry]=useState(0);const [exporting,setExporting]=useState(false);
  const query=`region=${encodeURIComponent(region)}&from=${from}&to=${to}`;
- useEffect(()=>{let active=true;const timer=setTimeout(()=>{setLoading(true);setError("");void request<Report>(`/admin/reports?${query}`).then(result=>{if(active)setData(result)}).catch(e=>{if(active){setError(e instanceof Error?e.message:"Не удалось загрузить отчёт");setData(null)}}).finally(()=>{if(active)setLoading(false)})},150);return()=>{active=false;clearTimeout(timer)}},[query,request,retry]);
+ useEffect(()=>{let active=true;const timer=setTimeout(()=>{setLoading(true);setError("");void request<Report>(`/admin/reports?${query}`).then(result=>{if(active){setData(result);setLoadedQuery(query)}}).catch(e=>{if(active){setError(e instanceof Error?e.message:"Не удалось загрузить отчёт");setData(null)}}).finally(()=>{if(active)setLoading(false)})},150);return()=>{active=false;clearTimeout(timer)}},[query,request,retry]);
  async function exportReport(){setExporting(true);try{const value=await request<{filename:string;csv:string}>(`/admin/reports/export?${query}`);const url=URL.createObjectURL(new Blob([value.csv],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download=value.filename;link.click();URL.revokeObjectURL(url)}catch(e){setError(e instanceof Error?e.message:"Не удалось экспортировать отчёт")}finally{setExporting(false)}}
- const preset=manualRange?"custom":draftTo===today()&&draftFrom===today()?"today":draftTo===today()&&draftFrom===dayBefore(6)?"7d":draftTo===today()&&draftFrom===dayBefore(29)?"30d":"custom";
- const pending=draftFrom!==from||draftTo!==to;
- return <div className="flex flex-col gap-4 md:gap-6" aria-busy={loading}>
+ const updating=loading||(!error&&loadedQuery!==query);
+ return <div className="flex flex-col gap-4 md:gap-6" aria-busy={updating}>
  <div className="flex flex-wrap items-end gap-3">
-   <div className="grid gap-2"><Label htmlFor="report-range">Период</Label><AdminSelect id="report-range" value={preset} className="w-40" options={[{value:"today",label:"Сегодня"},{value:"7d",label:"7 дней"},{value:"30d",label:"30 дней"},{value:"custom",label:"Другой период"}]} onValueChange={value=>{if(value==="custom"){setManualRange(true);document.getElementById("report-from")?.focus();return;}setManualRange(false);const start=dayBefore(value==="today"?0:value==="7d"?6:29),end=today();setDraftFrom(start);setDraftTo(end);setFrom(start);setTo(end)}}/></div>
-   <div className="grid gap-2"><Label htmlFor="report-from">С даты</Label><Input id="report-from" type="date" value={draftFrom} max={draftTo} onChange={event=>{setDraftFrom(event.target.value);setManualRange(true)}}/></div>
-   <div className="grid gap-2"><Label htmlFor="report-to">По дату</Label><Input id="report-to" type="date" value={draftTo} min={draftFrom} onChange={event=>{setDraftTo(event.target.value);setManualRange(true)}}/></div>
-   {pending&&<Button disabled={!draftFrom||!draftTo||draftFrom>draftTo} onClick={()=>{setFrom(draftFrom);setTo(draftTo)}}>Применить</Button>}
-   {loading&&data&&<span className="inline-flex items-center gap-2 self-center text-xs text-muted-foreground" role="status"><LoaderCircle className="size-3 animate-spin"/>Обновляем…</span>}
-   {can("analytics.export")&&<Button className="sm:ml-auto" variant="outline" disabled={exporting||loading||!data||pending} onClick={()=>void exportReport()}>{exporting?<LoaderCircle className="size-4 animate-spin"/>:<Download data-icon="inline-start"/>}{exporting?"Подготовка…":"Экспорт CSV"}</Button>}
+   <div className="w-full sm:w-auto"><AdminPeriodControl value={period} onChange={setPeriod} allowAll={false} maxDays={366}/></div>
+   {updating&&data&&<span className="inline-flex items-center gap-2 self-center text-xs text-muted-foreground" role="status"><LoaderCircle className="size-3 animate-spin"/>Обновляем…</span>}
+   {can("analytics.export")&&<Button className="sm:ml-auto" variant="outline" disabled={exporting||updating||!data} onClick={()=>void exportReport()}>{exporting?<LoaderCircle className="size-4 animate-spin"/>:<Download data-icon="inline-start"/>}{exporting?"Подготовка…":"Экспорт CSV"}</Button>}
  </div>
  {error&&<div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}<Button variant="outline" size="sm" onClick={()=>setRetry(previous=>previous+1)}>Повторить</Button></div>}
  {loading&&!data&&<><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{Array.from({length:4},(_,index)=><Card key={index}><CardHeader><Skeleton className="h-4 w-24"/><Skeleton className="mt-3 h-8 w-32"/></CardHeader><CardContent><Skeleton className="h-4 w-40"/></CardContent></Card>)}</div><Skeleton className="h-80 w-full rounded-xl"/></>}

@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { claimOrderSound, orderEventCursor, parseSseFrame } from "../../app/admin/notifications/event-dedup";
-import { DEFAULT_ORDER_SOUND_VOLUME, orderSoundVolume, playOrderSound } from "../../app/admin/notifications/order-sound";
+import { DEFAULT_ORDER_SOUND_VOLUME, loadOrderSound, ORDER_SOUND_URL, orderSoundVolume, playOrderSound, playRecordedOrderSound } from "../../app/admin/notifications/order-sound";
 import { isAllowedPushEndpoint, validEventCursor } from "../src/admin/notifications/admin-notification-policy";
 
 const now = 1_800_000_000_000;
@@ -106,6 +106,56 @@ test("one stable event is audible once across concurrent tabs and reconnect", as
   assert.equal(result.filter(Boolean).length, 1);
   assert.equal(await claimOrderSound("employee-1", event, storage, locks, now + 1000), false);
   assert.equal(await claimOrderSound("employee-1", { ...event, id: "second-order" }, storage, locks, now + 1000), true);
+});
+
+test("custom alert repeats the full clip six times without overlapping, and mute cancels pending repeats", () => {
+  const { context, gains, advance } = audioPorts();
+  const sources: { buffer: AudioBuffer | null; startAt: number; stopAt: number | null; disconnected: number; onended: (() => void) | null; connect(target: unknown): void; disconnect(): void; start(at: number): void; stop(at: number): void }[] = [];
+  const recordedContext = {
+    get currentTime() { return context.currentTime; }, destination: context.destination, createGain: context.createGain,
+    createBufferSource() {
+      const source: typeof sources[number] = { buffer: null, startAt: 0, stopAt: null, disconnected: 0, onended: null, connect(_target) {}, disconnect() { this.disconnected++; }, start(at) { this.startAt = at; }, stop(at) { this.stopAt = at; } };
+      sources.push(source);
+      return source;
+    },
+  } as unknown as AudioContext;
+  const buffer = { duration: 2.75 } as AudioBuffer;
+  const playback = playRecordedOrderSound(recordedContext, buffer, 0.8);
+  assert.equal(sources.length, 6);
+  assert.ok(sources.every(source => source.buffer === buffer));
+  sources.forEach((source, index) => assert.equal(source.startAt, 10 + index * 2.95));
+  assert.equal(gains[0].gain.points[0].value, 0.8, "original recording is not attenuated by the synthesized note envelope");
+  assert.equal(sources.at(-1)!.startAt + buffer.duration - 10, 17.5, "all six complete clips plus five gaps");
+  advance(10.4);
+  playback.setVolume(0.3);
+  assert.equal(gains[0].gain.points.at(-1)!.value, 0.3);
+  playback.stop();
+  assert.ok(sources.every(source => source.stopAt === 10.425));
+  playback.stop();
+  playback.setVolume(1);
+  assert.equal(gains[0].gain.points.at(-1)!.value, 0);
+  sources.forEach(source => { source.onended?.(); source.onended?.(); });
+  assert.ok(sources.every(source => source.disconnected === 1));
+  assert.equal(gains[0].disconnected, 1);
+});
+
+test("custom recording loads and decodes once, and missing or invalid files allow fallback", async t => {
+  let fetches = 0;
+  t.mock.method(globalThis, "fetch", async (url: string) => {
+    assert.equal(url, ORDER_SOUND_URL);
+    fetches++;
+    return new Response(new Uint8Array([1, 2, 3]));
+  });
+  const buffer = { duration: 2.75 } as AudioBuffer;
+  let decodes = 0;
+  const context = { decodeAudioData: async () => { decodes++; return buffer; } } as unknown as AudioContext;
+  assert.deepEqual(await Promise.all([loadOrderSound(context), loadOrderSound(context)]), [buffer, buffer]);
+  assert.equal(fetches, 1);
+  assert.equal(decodes, 1);
+  t.mock.method(globalThis, "fetch", async () => new Response(null, { status: 404 }));
+  assert.equal(await loadOrderSound({} as AudioContext), null);
+  t.mock.method(globalThis, "fetch", async () => new Response(new Uint8Array([0])));
+  assert.equal(await loadOrderSound({ decodeAudioData: async () => { throw new Error("invalid audio"); } } as unknown as AudioContext), null);
 });
 test("initial synchronization, old backlog, invalid dates and unsupported locking stay silent", async () => {
   const { storage, locks } = browserPorts();

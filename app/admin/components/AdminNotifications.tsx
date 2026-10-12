@@ -7,7 +7,7 @@ import { Button } from "../ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { claimOrderSound, orderEventCursor, parseSseFrame, type OrderNotice } from "../notifications/event-dedup";
-import { DEFAULT_ORDER_SOUND_VOLUME, orderSoundVolume, playOrderSound, type OrderSoundPlayback } from "../notifications/order-sound";
+import { DEFAULT_ORDER_SOUND_VOLUME, loadOrderSound, orderSoundVolume, playOrderSound, playRecordedOrderSound, type OrderSoundPlayback } from "../notifications/order-sound";
 import { confirmAdminAction } from "../AdminConfirmationDialog";
 import { confirmAdminNavigation } from "../use-unsaved-changes";
 import "../notifications/notifications.css";
@@ -72,6 +72,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   const [settingsOpen, setSettingsOpen] = useState(false);
   const audio = useRef<AudioContext | null>(null);
   const soundPlayback = useRef<OrderSoundPlayback | null>(null);
+  const soundSequence = useRef(0);
   const soundRef = useRef({ enabled: false, volume: DEFAULT_ORDER_SOUND_VOLUME });
   const callbacks = useRef({ onOrdersChanged, onAccessRevoked, onOpenOrder });
   const stopRef = useRef<(() => void) | null>(null);
@@ -96,7 +97,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
     return () => navigator.serviceWorker.removeEventListener("message", openOrder);
   }, [canViewOrders, token]);
 
-  const playTone = useCallback(() => {
+  const playTone = useCallback(async (testOnly = false) => {
     const context = audio.current;
     if (!context || context.state !== "running") {
       soundRef.current.enabled = false;
@@ -104,8 +105,14 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       setMessage("Браузер приостановил звук. Нажмите «Включить звук».");
       return;
     }
+    const sequence = ++soundSequence.current;
     soundPlayback.current?.stop();
-    soundPlayback.current = playOrderSound(context, soundRef.current.volume);
+    const recording = await loadOrderSound(context);
+    // Muting, logout, permission changes or a newer event cancel a pending load.
+    if (sequence !== soundSequence.current || context !== audio.current || context.state !== "running" || (!testOnly && !soundRef.current.enabled)) return;
+    soundPlayback.current = recording
+      ? playRecordedOrderSound(context, recording, soundRef.current.volume)
+      : playOrderSound(context, soundRef.current.volume);
   }, []);
 
   useEffect(() => {
@@ -117,12 +124,13 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
         soundRef.current.volume = nextVolume;
         soundPlayback.current?.setVolume(nextVolume);
         setVolume(nextVolume);
-        if (settings.enabled === false) { soundRef.current.enabled = false; soundPlayback.current?.stop(); setSoundEnabled(false); }
+        if (settings.enabled === false) { soundSequence.current++; soundRef.current.enabled = false; soundPlayback.current?.stop(); setSoundEnabled(false); }
       } catch { /* Browsers with blocked storage still show visual notices. */ }
     };
     readSettings();
     const change = (event: StorageEvent) => { if (event.key === key) readSettings(); };
     const logout = () => {
+      soundSequence.current++;
       stopRef.current?.();
       soundRef.current.enabled = false;
       setSoundEnabled(false);
@@ -143,7 +151,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
     window.addEventListener("storage", change);
     window.addEventListener("admin:logout", logout);
     return () => { window.removeEventListener("storage", change); window.removeEventListener("admin:logout", logout); logout(); };
-  }, [staffId, token]);
+  }, [canViewOrders, staffId, token]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -239,7 +247,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       if (Date.now() - Date.parse(order.createdAt) < 120_000) setNotice(order);
       if (soundRef.current.enabled && audio.current?.state === "running") {
         try {
-          if (await claimOrderSound(staffId, order, localStorage, navigator.locks)) playTone();
+          if (await claimOrderSound(staffId, order, localStorage, navigator.locks)) void playTone();
         } catch { setMessage("Браузер ограничил память уведомлений. Визуальные уведомления продолжают работать."); }
       }
     };
@@ -293,20 +301,21 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
 
   const saveSound = (enabled: boolean, nextVolume = volume) => {
     soundRef.current = { enabled, volume: nextVolume };
-    if (!enabled) soundPlayback.current?.stop();
+    if (!enabled) { soundSequence.current++; soundPlayback.current?.stop(); }
     else soundPlayback.current?.setVolume(nextVolume);
     setSoundEnabled(enabled); setVolume(nextVolume);
     try { localStorage.setItem(`nakta-admin-sound:${staffId}`, JSON.stringify({ enabled, volume: nextVolume })); } catch { /* optional preference storage */ }
   };
   const enableSound = async (testOnly = false) => {
+    if (!canViewOrders) return;
     if (!navigator.locks) { setMessage("Браузер не поддерживает безопасный звук в нескольких вкладках. Используйте актуальный Chrome, Safari или Firefox."); return; }
     try {
       audio.current ??= new AudioContext();
       await audio.current.resume();
       if (audio.current.state !== "running") throw new Error("blocked");
       if (!testOnly) saveSound(true);
-      setMessage(testOnly ? "Проверочный сигнал воспроизведён" : "Звук включён для этой вкладки и устройства");
-      playTone();
+      await playTone(testOnly);
+      if (audio.current?.state === "running") setMessage(testOnly ? "Проверочный сигнал воспроизведён" : "Звук включён для этой вкладки и устройства");
     } catch { saveSound(false); setMessage("Браузер заблокировал звук. Разрешите воспроизведение и нажмите «Включить звук» ещё раз."); }
   };
 
