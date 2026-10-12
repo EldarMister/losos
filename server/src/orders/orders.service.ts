@@ -140,6 +140,7 @@ export class OrdersService {
             const priced = priceOrderLine(product, entry.quantity, entry.modifiers ?? []);
             return items.create({
               ...priced,
+              categoryName: product.category.title,
               naktaCoins: 0,
               posDishId: product.posDishId,
               posVariantId: product.posVariantId,
@@ -210,7 +211,16 @@ export class OrdersService {
           adminConfirmedAt: null,
           items: lines,
         });
-        return orders.save(order);
+        const saved = await orders.save(order);
+        // Transactional outbox: consumers cannot see this stable event until
+        // the order transaction commits. Retried checkout emits no second event.
+        // BIGSERIAL alone does not follow commit order. Serialize this short
+        // final step until commit so an SSE cursor never skips a slower order.
+        await manager.query("SELECT pg_advisory_xact_lock(1785011, 0)");
+        await manager.query(`INSERT INTO admin_order_events (id, "orderId", "orderNumber", "regionSlug")
+          VALUES ($1, $2, $3, $4) ON CONFLICT ("orderId") DO NOTHING`,
+        [randomUUID(), saved.id, saved.orderNumber, saved.regionSlug]);
+        return saved;
       });
       this.logger.log(`Order ${created.id} persisted as new (idempotency ${idempotencyKey})`);
       return publicOrder(created);

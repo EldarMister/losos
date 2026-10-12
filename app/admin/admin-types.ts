@@ -1,4 +1,11 @@
 export type AdminSection =
+  | "dashboard"
+  | "staff"
+  | "profile"
+  | "cities"
+  | "hours"
+  | "modifiers"
+  | "kits"
   | "orders"
   | "analytics"
   | "menu"
@@ -63,6 +70,7 @@ export type AdminOrder = {
   total: number;
   status: OrderStatus;
   createdAt: string;
+  updatedAt: string;
   posStatus?: string | null;
   posLastError?: string;
   items: OrderItem[];

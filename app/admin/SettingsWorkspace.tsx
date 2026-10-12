@@ -1,10 +1,14 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import { Button } from "./ui/button";
+import { Label } from "./ui/label";
+import { Card } from "./ui/card";
+import { Input } from "./ui/input";
+
 import { Icon } from "@mdi/react";
 import {
   mdiCheckNetworkOutline,
-  mdiClose,
   mdiDeleteOutline,
   mdiDownloadOutline,
   mdiPlus,
@@ -12,6 +16,9 @@ import {
   mdiSwapHorizontal,
 } from "@mdi/js";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { EditorDialog, ListPagination, WorkspaceHeading } from "./workspace-kit";
+import { useDraftEditor, useUnsavedChanges, confirmAdminNavigation } from "./use-unsaved-changes";
+import { useAdminAccess } from "./admin-access";
 import { DeliveryZoneEditor } from "./DeliveryZoneEditor";
 import { ImageUpload } from "./ImageUpload";
 import { CitiesWorkspace } from "./CitiesWorkspace";
@@ -28,6 +35,7 @@ import type {
 
 type SettingsWorkspaceProps = {
   region: string;
+  initialTab?: SettingsTab;
   regions: Region[];
   request: AdminRequest;
   onRegionUpdated: (region: Region) => void;
@@ -35,7 +43,7 @@ type SettingsWorkspaceProps = {
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
-type SettingsTab = "basic" | "cities" | "delivery" | "pickup" | "kit" | "edu-pos";
+export type SettingsTab = "basic" | "cities" | "delivery" | "hours" | "pickup" | "kit" | "edu-pos";
 
 type SettingsDraft = {
   enabled: boolean;
@@ -93,15 +101,16 @@ type EduPosExport = {
   products: number;
 };
 
-const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100";
-const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
-const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";
-const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60";
+const inputClass = "h-11 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-3 focus:ring-ring/20";
+const labelClass = "grid gap-1.5 text-sm font-medium text-foreground";
+const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60";
+const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-wait disabled:opacity-60";
 
 const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "basic", label: "Основное" },
   { id: "cities", label: "Города" },
   { id: "delivery", label: "Доставка" },
+  { id: "hours", label: "Часы работы" },
   { id: "pickup", label: "Самовывоз" },
   { id: "kit", label: "Комплектация" },
   { id: "edu-pos", label: "EDU POS" },
@@ -175,14 +184,26 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onSelectRegion, onNotice }: SettingsWorkspaceProps) {
-  const [tab, setTab] = useState<SettingsTab>("basic");
+export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onSelectRegion, onNotice, initialTab = "basic" }: SettingsWorkspaceProps) {
+  const { can } = useAdminAccess();
+  const tabPermissions: Record<SettingsTab, string> = { basic:"cities",cities:"cities",delivery:"settings",hours:"hours",pickup:"cities",kit:"kits","edu-pos":"integrations" };
+  const [requestedTab, setTab] = useState<SettingsTab>(initialTab);
+  const tab = can(`${tabPermissions[requestedTab]}.view`) ? requestedTab : tabs.find((entry) => can(`${tabPermissions[entry.id]}.view`))?.id ?? initialTab;
+  const canEditTab = can(`${tabPermissions[tab]}.edit`);
+  const [savedDraft, setSavedDraft] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [productPage, setProductPage] = useState(0);
+  const [productTotal, setProductTotal] = useState(0);
+  const canViewKits = can("kits.view");
+  const canViewIntegrations = can("integrations.view");
+  const canSyncMenu = ["integrations.edit", "products.edit", "categories.edit", "modifiers.edit"].every(can);
+  const canExportMenu = ["integrations.export", "products.view", "categories.view", "modifiers.view"].every(can);
   const [item, setItem] = useState<Region | null>(null);
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [menuRegionSlug, setMenuRegionSlug] = useState(region);
   const [kitCatalog, setKitCatalog] = useState<FreeKitItem[]>([]);
-  const [pickupEditor, setPickupEditor] = useState<PickupEditor | null>(null);
+  const [pickupEditor, setPickupEditor, closePickupEditor] = useDraftEditor<PickupEditor>();
   const [eduPosStatus, setEduPosStatus] = useState<EduPosStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -193,44 +214,73 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
     setLoading(true);
     setError("");
     try {
-      const [regions, status, dashboard] = await Promise.all([
+      const [regionItems, status, catalog] = await Promise.all([
         request<Region[]>("/admin/settings"),
-        request<EduPosStatus>("/admin/edu-pos/status").catch(() => null),
-        request<Dashboard>(`/admin/dashboard?region=${encodeURIComponent(region)}`),
+        canViewIntegrations ? request<EduPosStatus>("/admin/edu-pos/status").catch(() => null) : Promise.resolve(null),
+        canViewKits ? request<{items:(Dashboard["categories"][number]["products"][number] & {categoryId:number})[];categories:Category[];total:number;menuRegionSlug:string;kitCatalog:FreeKitItem[];effectiveToppingProductIds:number[]}>(`/admin/catalog-page?${new URLSearchParams({region,limit:"25",offset:"0"})}`) : Promise.resolve(null),
       ]);
-      const selected = regions.find((candidate) => candidate.slug === region) ?? regions[0] ?? null;
+      const selected = regionItems.find((candidate) => candidate.slug === region) ?? regionItems[0] ?? null;
+      const nextCategories = catalog?.categories.map((category) => ({...category,products:catalog.items.filter((product) => product.categoryId === category.id)})) ?? [];
       setItem(selected);
-      setCategories(dashboard.categories);
-      setMenuRegionSlug(dashboard.menuRegionSlug);
-      setKitCatalog(dashboard.kitCatalog ?? dashboard.region.freeKitItems ?? fallbackFreeKitItems);
-      setDraft(selected ? draftFromRegion(selected, dashboard.categories) : null);
+      setCategories(nextCategories);
+      setMenuRegionSlug(catalog?.menuRegionSlug ?? region);
+      setKitCatalog(catalog?.kitCatalog ?? []);
+      setProductTotal(catalog?.total ?? 0);
+      const nextDraft = selected ? draftFromRegion(selected, nextCategories) : null;
+      if (nextDraft && catalog?.effectiveToppingProductIds && selected?.toppingProductIds == null) nextDraft.toppingProductIds = catalog.effectiveToppingProductIds;
+      setDraft(nextDraft);
+      setSavedDraft(JSON.stringify(nextDraft));
       setEduPosStatus(status);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить настройки");
     } finally {
       setLoading(false);
     }
-  }, [region, request]);
+  }, [region, request, canViewKits, canViewIntegrations]);
+
+  const settingsDirty = draft !== null && savedDraft !== JSON.stringify(draft);
+  useUnsavedChanges(settingsDirty);
+  const changeTab = (next: SettingsTab) => {
+    if (next === tab || saving || posAction) return;
+    if (!confirmAdminNavigation()) return;
+    if (settingsDirty && savedDraft) setDraft(JSON.parse(savedDraft) as SettingsDraft);
+    setTab(next);
+  };
+  useEffect(() => {
+    if (!canViewKits || tab !== "kit") return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void request<{items:(Dashboard["categories"][number]["products"][number] & {categoryId:number})[];categories:Category[];total:number}>(`/admin/catalog-page?${new URLSearchParams({region,search:productSearch,limit:"25",offset:String(productPage * 25)})}`).then((catalog) => {
+        if (!active) return;
+        setCategories(catalog.categories.map((category) => ({...category,products:catalog.items.filter((product) => product.categoryId === category.id)})));
+        setProductTotal(catalog.total);
+      }).catch((error: unknown) => { if (active) onNotice(error instanceof Error ? error.message : "Не удалось загрузить товары", "error"); });
+    }, 200);
+    return () => {active = false;window.clearTimeout(timer);};
+  }, [canViewKits, tab, region, productSearch, productPage, request, onNotice]);
 
   const usesSharedKitCatalog = menuRegionSlug !== region;
-  const menuRegionName = regions.find((candidate) => candidate.slug === menuRegionSlug)?.name ?? menuRegionSlug;
+  const menuRegionName = regions.find((candidate) => candidate.slug === menuRegionSlug)?.name ?? "общего каталога";
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    const refresh = () => void load();
+    window.addEventListener("admin:regions-changed", refresh);
+    return () => { window.clearTimeout(timer); window.removeEventListener("admin:regions-changed", refresh); };
   }, [load]);
 
   const handleRegionUpdated = (updated: Region) => {
     onRegionUpdated(updated);
     if (item?.id === updated.id) {
-      setItem((current) => current ? { ...current, enabled: updated.enabled } : current);
+      setItem((current) => current ? { ...current, ...updated } : current);
       setDraft((current) => current ? { ...current, enabled: updated.enabled } : current);
+      setSavedDraft((current) => current ? JSON.stringify({ ...JSON.parse(current), enabled: updated.enabled }) : current);
     }
   };
 
   const saveRegion = async (event: FormEvent) => {
     event.preventDefault();
-    if (!item || !draft || saving) return;
+    if (!item || !draft || saving || !canEditTab) return;
     if (tab === "delivery" && draft.deliveryZone.length > 0 && draft.deliveryZone.length < 3) {
       onNotice("Для зоны доставки нужно минимум три точки", "error");
       return;
@@ -239,22 +289,14 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
     try {
       const updated = await request<Region>(`/admin/regions/${item.id}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          enabled: draft.enabled,
-          contactPhone: draft.contactPhone.trim(),
-          supportPhone: draft.supportPhone.trim(),
-          deliveryOpenTime: draft.deliveryOpenTime,
-          deliveryCloseTime: draft.deliveryCloseTime,
-          deliveryIs24Hours: draft.deliveryIs24Hours,
-          deliveryWorkingDays: draft.deliveryWorkingDays,
-          freeDeliveryThreshold: Number(draft.freeDeliveryThreshold),
-          deliveryFee: Number(draft.deliveryFee),
-          minimumOrderAmount: Number(draft.minimumOrderAmount),
-          maximumOrderAmount: Number(draft.maximumOrderAmount),
-          estimatedDeliveryMinutes: Number(draft.estimatedDeliveryMinutes),
-          ...(draft.deliveryZone.length >= 3 ? { deliveryZone: draft.deliveryZone } : {}),
-          ...(usesSharedKitCatalog ? {} : { freeKitItems: draft.freeKitItems }),
-          toppingProductIds: draft.toppingProductIds,
+        body: JSON.stringify(tab === "basic" ? {
+          enabled:draft.enabled,contactPhone:draft.contactPhone.trim(),supportPhone:draft.supportPhone.trim(),
+        } : tab === "hours" ? {
+          deliveryOpenTime:draft.deliveryOpenTime,deliveryCloseTime:draft.deliveryCloseTime,deliveryIs24Hours:draft.deliveryIs24Hours,deliveryWorkingDays:draft.deliveryWorkingDays,
+        } : tab === "kit" ? {
+          ...(usesSharedKitCatalog ? {} : {freeKitItems:draft.freeKitItems}),toppingProductIds:draft.toppingProductIds,
+        } : {
+          freeDeliveryThreshold:Number(draft.freeDeliveryThreshold),deliveryFee:Number(draft.deliveryFee),minimumOrderAmount:Number(draft.minimumOrderAmount),maximumOrderAmount:Number(draft.maximumOrderAmount),estimatedDeliveryMinutes:Number(draft.estimatedDeliveryMinutes),...(draft.deliveryZone.length >= 3 ? {deliveryZone:draft.deliveryZone} : {}),
         }),
       });
       handleRegionUpdated(updated);
@@ -269,7 +311,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
 
   const savePickup = async (event: FormEvent) => {
     event.preventDefault();
-    if (!item || !pickupEditor || saving) return;
+    if (!item || !pickupEditor || saving || !can(pickupEditor.item ? "cities.edit" : "cities.create")) return;
     setSaving(true);
     try {
       const coordinates = pickupEditor.latitude === "" || pickupEditor.longitude === ""
@@ -309,6 +351,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   };
 
   const resolvePickupCoordinates = async () => {
+    if (!pickupEditor || !can(pickupEditor.item ? "cities.edit" : "cities.create")) return;
     if (!pickupEditor?.yandexUrl) {
       onNotice("Сначала вставьте ссылку на Яндекс Карты", "error");
       return;
@@ -318,12 +361,12 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
         "/admin/pickup-locations/resolve-map-link",
         { method: "POST", body: JSON.stringify({ yandexUrl: pickupEditor.yandexUrl }) },
       );
-      setPickupEditor({
-        ...pickupEditor,
+      setPickupEditor((current) => current && current.item?.id === pickupEditor.item?.id && current.yandexUrl === pickupEditor.yandexUrl ? {
+        ...current,
         latitude: String(result.latitude),
         longitude: String(result.longitude),
         yandexUrl: result.resolvedUrl,
-      });
+      } : current);
       onNotice("Координаты определены", "success");
     } catch (resolveError) {
       onNotice(resolveError instanceof Error ? resolveError.message : "Не удалось определить координаты", "error");
@@ -331,6 +374,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   };
 
   const deletePickup = async (location: PickupLocation) => {
+    if (!can("cities.delete")) return;
     if (!window.confirm(`Удалить точку «${location.title || location.address}»?`)) return;
     try {
       await request(`/admin/pickup-locations/${location.id}`, { method: "DELETE" });
@@ -342,6 +386,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   };
 
   const checkEduPos = async () => {
+    if (posAction || !can("integrations.edit")) return;
     setPosAction("check");
     try {
       const result = await request<EduPosCheck>("/admin/edu-pos/check", { method: "POST" });
@@ -355,6 +400,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   };
 
   const syncEduPosMenu = async () => {
+    if (posAction || !canSyncMenu) return;
     setPosAction("sync");
     try {
       const [menu, stopList] = await Promise.all([
@@ -371,6 +417,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   };
 
   const exportEduPosMenu = async () => {
+    if (posAction || !canExportMenu) return;
     setPosAction("export");
     try {
       const result = await request<EduPosExport>(`/admin/edu-pos/export-menu?region=${encodeURIComponent(region)}`, { method: "POST" });
@@ -384,88 +431,79 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   };
 
   if (loading && !draft) {
-    return <div className="grid min-h-56 place-items-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">Загружаем настройки…</div>;
+    return <div className="grid min-h-56 place-items-center rounded-xl border border-border bg-card text-sm text-muted-foreground">Загружаем настройки…</div>;
   }
   if (error && !draft) {
-    return <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700" role="alert">{error}</div>;
+    return <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive" role="alert">{error}</div>;
   }
   if (!item || !draft) {
-    return <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Город не найден.</div>;
+    return <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">Город не найден.</div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white px-3">
-        <nav className="flex min-w-max gap-1" aria-label="Разделы настроек">
-          {tabs.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              aria-current={tab === entry.id ? "page" : undefined}
-              className={`min-h-12 border-b-2 px-3 text-sm font-medium ${tab === entry.id ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500 hover:text-slate-900"}`}
-              onClick={() => setTab(entry.id)}
-            >
-              {entry.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onNotice={onNotice} /> : <form className="space-y-4" onSubmit={saveRegion}>
+    <div className="space-y-6">
+      <WorkspaceHeading title={initialTab === "hours" ? "Часы работы" : "Настройки"} description={initialTab === "hours" ? `Дни и время приёма заказов · ${item.name}` : `Работа ресторана, доставка и интеграции · ${item.name}`} />
+      <div className={`grid items-start gap-5 ${initialTab === "hours" ? "" : "lg:grid-cols-[190px_minmax(0,1fr)]"}`}>
+      {initialTab !== "hours" ? <Card className="gap-1 p-2 lg:sticky lg:top-20"><nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label="Разделы настроек">{tabs.filter((entry) => can(`${tabPermissions[entry.id]}.view`)).map((entry) => <Button key={entry.id} type="button" variant={tab === entry.id ? "secondary" : "ghost"} className="min-h-10 justify-start" aria-current={tab === entry.id ? "page" : undefined} onClick={() => changeTab(entry.id)}>{entry.label}</Button>)}</nav></Card> : null}
+      <div className="min-w-0 space-y-4">
+      {tab === "kit" ? <Card className="p-4"><Label className="grid gap-2 text-sm font-medium">Поиск платных топпингов<Input type="search" placeholder="Найти товар для топпинга" value={productSearch} onChange={(event) => {setProductSearch(event.target.value);setProductPage(0);}} /></Label></Card> : null}
+      {tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onNotice={onNotice} /> : <form className="space-y-4" onSubmit={saveRegion}><fieldset disabled={!canEditTab || saving} className="space-y-4">
         {tab === "basic" ? (
-          <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <div className="border-b border-slate-200 pb-4">
-              <h2 className="font-semibold text-slate-950">Основные настройки</h2>
-              <p className="mt-1 text-sm text-slate-500">Город: {item.name}</p>
+          <Card className="rounded-xl border border-border bg-card p-5">
+            <div className="border-b border-border pb-4">
+              <h2 className="font-semibold text-foreground">Основные настройки</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Город: {item.name}</p>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <label className={labelClass}>Телефон кухни<input className={inputClass} value={draft.contactPhone} onChange={(event) => setDraft({ ...draft, contactPhone: event.target.value })} /></label>
-              <label className={labelClass}>Телефон поддержки<input className={inputClass} value={draft.supportPhone} onChange={(event) => setDraft({ ...draft, supportPhone: event.target.value })} /></label>
-              <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700 sm:col-span-2"><input type="checkbox" className="size-4 accent-blue-600" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><span>Показывать город на сайте и в приложении<small className="mt-1 block text-xs text-slate-500">Скрытый город недоступен для новых заказов.</small></span></label>
+              <Label className={labelClass}>Телефон кухни<Input className={inputClass} value={draft.contactPhone} onChange={(event) => setDraft({ ...draft, contactPhone: event.target.value })} /></Label>
+              <Label className={labelClass}>Телефон поддержки<Input className={inputClass} value={draft.supportPhone} onChange={(event) => setDraft({ ...draft, supportPhone: event.target.value })} /></Label>
+              <Label className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm font-medium text-foreground sm:col-span-2"><input type="checkbox" className="size-4 accent-primary" checked={draft.enabled} onChange={(event) => setDraft({ ...draft, enabled: event.target.checked })} /><span>Показывать город на сайте и в приложении<small className="mt-1 block text-xs text-muted-foreground">Скрытый город недоступен для новых заказов.</small></span></Label>
             </div>
-          </section>
+          </Card>
         ) : null}
+
+        {tab === "hours" ? <Card className="p-5"><div><h2 className="font-semibold">Расписание приёма заказов</h2><p className="mt-1 text-sm text-muted-foreground">Укажите рабочие дни и время по часовому поясу города.</p></div><div className="grid gap-4 sm:grid-cols-2">                <Label className={labelClass}>Начало работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryOpenTime} onChange={(event) => setDraft({ ...draft, deliveryOpenTime: event.target.value })} /></Label>
+                <Label className={labelClass}>Окончание работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryCloseTime} onChange={(event) => setDraft({ ...draft, deliveryCloseTime: event.target.value })} /></Label>
+                <Label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 accent-primary" checked={draft.deliveryIs24Hours} onChange={(event) => setDraft({ ...draft, deliveryIs24Hours: event.target.checked })} />Круглосуточно</Label>
+</div>              <fieldset className="mt-5"><legend className="text-sm font-medium text-foreground">Рабочие дни</legend><div className="mt-2 flex flex-wrap gap-2">{weekdays.map((day) => <Label key={day.value} className={`grid size-11 cursor-pointer place-items-center rounded-lg border text-sm font-medium ${draft.deliveryWorkingDays.includes(day.value) ? "border-primary bg-primary/5 text-primary" : "border-input text-muted-foreground"}`}><input type="checkbox" className="sr-only" checked={draft.deliveryWorkingDays.includes(day.value)} onChange={(event) => setDraft({ ...draft, deliveryWorkingDays: event.target.checked ? [...draft.deliveryWorkingDays, day.value] : draft.deliveryWorkingDays.filter((value) => value !== day.value) })} />{day.label}</Label>)}</div></fieldset></Card> : null}
 
         {tab === "delivery" ? (
           <div className="space-y-4">
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="border-b border-slate-200 pb-4"><h2 className="font-semibold text-slate-950">Условия доставки</h2><p className="mt-1 text-sm text-slate-500">Расписание, стоимость и ограничения заказа.</p></div>
+            <Card className="rounded-xl border border-border bg-card p-5">
+              <div className="border-b border-border pb-4"><h2 className="font-semibold text-foreground">Условия доставки</h2><p className="mt-1 text-sm text-muted-foreground">Стоимость, ограничения суммы заказа и зона обслуживания.</p></div>
               <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <label className={labelClass}>Начало работы<input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryOpenTime} onChange={(event) => setDraft({ ...draft, deliveryOpenTime: event.target.value })} /></label>
-                <label className={labelClass}>Окончание работы<input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryCloseTime} onChange={(event) => setDraft({ ...draft, deliveryCloseTime: event.target.value })} /></label>
-                <label className="flex items-center gap-3 self-end rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 accent-blue-600" checked={draft.deliveryIs24Hours} onChange={(event) => setDraft({ ...draft, deliveryIs24Hours: event.target.checked })} />Круглосуточно</label>
-                <label className={labelClass}>Минимальный заказ<input required min="0" type="number" className={inputClass} value={draft.minimumOrderAmount} onChange={(event) => setDraft({ ...draft, minimumOrderAmount: event.target.value })} /></label>
-                <label className={labelClass}>Максимальный заказ<input required min="1" type="number" className={inputClass} value={draft.maximumOrderAmount} onChange={(event) => setDraft({ ...draft, maximumOrderAmount: event.target.value })} /></label>
-                <label className={labelClass}>Стоимость доставки<input required min="0" type="number" className={inputClass} value={draft.deliveryFee} onChange={(event) => setDraft({ ...draft, deliveryFee: event.target.value })} /></label>
-                <label className={labelClass}>Бесплатная доставка от<input required min="0" type="number" className={inputClass} value={draft.freeDeliveryThreshold} onChange={(event) => setDraft({ ...draft, freeDeliveryThreshold: event.target.value })} /></label>
-                <label className={labelClass}>Ожидаемое время, минут<input required min="1" type="number" className={inputClass} value={draft.estimatedDeliveryMinutes} onChange={(event) => setDraft({ ...draft, estimatedDeliveryMinutes: event.target.value })} /></label>
+                <Label className={labelClass}>Минимальный заказ<Input required min="0" type="number" className={inputClass} value={draft.minimumOrderAmount} onChange={(event) => setDraft({ ...draft, minimumOrderAmount: event.target.value })} /></Label>
+                <Label className={labelClass}>Максимальный заказ<Input required min="1" type="number" className={inputClass} value={draft.maximumOrderAmount} onChange={(event) => setDraft({ ...draft, maximumOrderAmount: event.target.value })} /></Label>
+                <Label className={labelClass}>Стоимость доставки<Input required min="0" type="number" className={inputClass} value={draft.deliveryFee} onChange={(event) => setDraft({ ...draft, deliveryFee: event.target.value })} /></Label>
+                <Label className={labelClass}>Бесплатная доставка от<Input required min="0" type="number" className={inputClass} value={draft.freeDeliveryThreshold} onChange={(event) => setDraft({ ...draft, freeDeliveryThreshold: event.target.value })} /></Label>
+                <Label className={labelClass}>Ожидаемое время, минут<Input required min="1" type="number" className={inputClass} value={draft.estimatedDeliveryMinutes} onChange={(event) => setDraft({ ...draft, estimatedDeliveryMinutes: event.target.value })} /></Label>
               </div>
-              <fieldset className="mt-5"><legend className="text-sm font-medium text-slate-700">Рабочие дни</legend><div className="mt-2 flex flex-wrap gap-2">{weekdays.map((day) => <label key={day.value} className={`grid size-11 cursor-pointer place-items-center rounded-lg border text-sm font-medium ${draft.deliveryWorkingDays.includes(day.value) ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-300 text-slate-600"}`}><input type="checkbox" className="sr-only" checked={draft.deliveryWorkingDays.includes(day.value)} onChange={(event) => setDraft({ ...draft, deliveryWorkingDays: event.target.checked ? [...draft.deliveryWorkingDays, day.value] : draft.deliveryWorkingDays.filter((value) => value !== day.value) })} />{day.label}</label>)}</div></fieldset>
-            </section>
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="mb-4"><h2 className="font-semibold text-slate-950">Зона доставки</h2><p className="mt-1 text-sm text-slate-500">Нарисуйте или скорректируйте границу на карте.</p></div>
-              <DeliveryZoneEditor cityName={item.name} regionSlug={item.slug} points={draft.deliveryZone} onChange={(deliveryZone) => setDraft({ ...draft, deliveryZone })} />
-            </section>
+
+            </Card>
+            <Card className="rounded-xl border border-border bg-card p-5">
+              <div className="mb-4"><h2 className="font-semibold text-foreground">Зона доставки</h2><p className="mt-1 text-sm text-muted-foreground">Нарисуйте или скорректируйте границу на карте.</p></div>
+              <DeliveryZoneEditor cityName={item.name} regionSlug={item.slug} points={draft.deliveryZone} readOnly={!canEditTab} onChange={(deliveryZone) => setDraft({ ...draft, deliveryZone })} />
+            </Card>
           </div>
         ) : null}
 
         {tab === "kit" ? (
           <div className="space-y-4">
             {usesSharedKitCatalog ? (
-              <section className="rounded-xl border border-slate-200 bg-white p-5">
-                <h2 className="font-semibold text-slate-950">Справочник бесплатной комплектации</h2>
-                <p className="mt-1 text-sm text-slate-500">Меню этого города использует каталог города «{menuRegionName}». Комплектация блюд настраивается в меню, а бесплатные позиции справочника — в настройках города «{menuRegionName}».</p>
-                <button type="button" className={`${secondaryButton} mt-4`} onClick={() => onSelectRegion(menuRegionSlug)}>Открыть настройки: {menuRegionName}</button>
-                {kitCatalog.length ? <ul className="mt-4 grid gap-2 sm:grid-cols-2">{kitCatalog.map((kitItem) => <li key={kitItem.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 p-3">{kitItem.image ? <img src={kitItem.image} alt="" className="size-12 shrink-0 rounded-lg object-contain" /> : null}<span className="min-w-0 break-words text-sm text-slate-900">{kitItem.name}</span></li>)}</ul> : <p className="mt-4 text-sm text-slate-500">В справочнике пока нет бесплатных позиций.</p>}
-              </section>
+              <Card className="rounded-xl border border-border bg-card p-5">
+                <h2 className="font-semibold text-foreground">Справочник бесплатной комплектации</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Меню этого города использует каталог города «{menuRegionName}». Комплектация блюд настраивается в меню, а бесплатные позиции справочника — в настройках города «{menuRegionName}».</p>
+                <Button variant="ghost" type="button" className={`${secondaryButton} mt-4`} onClick={() => onSelectRegion(menuRegionSlug)}>Открыть настройки: {menuRegionName}</Button>
+                {kitCatalog.length ? <ul className="mt-4 grid gap-2 sm:grid-cols-2">{kitCatalog.map((kitItem) => <li key={kitItem.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-border p-3">{kitItem.image ? <img src={kitItem.image} alt="" className="size-12 shrink-0 rounded-lg object-contain" /> : null}<span className="min-w-0 break-words text-sm text-foreground">{kitItem.name}</span></li>)}</ul> : <p className="mt-4 text-sm text-muted-foreground">В справочнике пока нет бесплатных позиций.</p>}
+              </Card>
             ) : (
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <Card className="rounded-xl border border-border bg-card p-5">
+              <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="font-semibold text-slate-950">Справочник бесплатной комплектации</h2>
-                  <p className="mt-1 text-sm text-slate-500">Добавьте соусы и другие бесплатные позиции. Их количество на одну порцию указывается отдельно в разделе «Меню» → «Комплектация» каждого блюда.</p>
+                  <h2 className="font-semibold text-foreground">Справочник бесплатной комплектации</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Добавьте соусы и другие бесплатные позиции. Их количество на одну порцию указывается отдельно в разделе «Меню» → «Комплектация» каждого блюда.</p>
                 </div>
-                <button
+                <Button variant="ghost"
                   type="button"
                   className={secondaryButton}
                   onClick={() => setDraft({
@@ -480,12 +518,12 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                   })}
                 >
                   <Icon path={mdiPlus} size={0.72} aria-hidden="true" />Добавить позицию
-                </button>
+                </Button>
               </div>
               {draft.freeKitItems.length ? (
                 <div className="mt-5 grid items-start gap-4 xl:grid-cols-2">
                   {draft.freeKitItems.map((kitItem, index) => (
-                    <article key={kitItem.id} aria-label={`Комплектация: ${kitItem.name}`} className="grid min-w-0 gap-5 rounded-xl border border-slate-200 p-4 sm:grid-cols-[160px_minmax(0,1fr)]">
+                    <article key={kitItem.id} aria-label={`Комплектация: ${kitItem.name}`} className="grid min-w-0 gap-5 rounded-xl border border-border p-4 sm:grid-cols-[160px_minmax(0,1fr)]">
                       <ImageUpload
                         compact
                         label="Изображение"
@@ -498,29 +536,29 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                         onError={(message) => onNotice(message, "error")}
                       />
                       <div className="grid min-w-0 content-start gap-4">
-                        <label className={labelClass}>Название<input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></label>
-                        <p className="text-xs text-slate-500">Количество задаётся в комплектации каждого блюда.</p>
-                        <label className="flex items-center gap-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 shrink-0 accent-blue-600" checked={kitItem.enabled !== false} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, enabled: event.target.checked } : entry) })} />Доступно для выбора в блюдах</label>
-                        <button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) })}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить из комплектации</button>
+                        <Label className={labelClass}>Название<Input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></Label>
+                        <p className="text-xs text-muted-foreground">Количество задаётся в комплектации каждого блюда.</p>
+                        <Label className="flex items-center gap-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 shrink-0 accent-primary" checked={kitItem.enabled !== false} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, enabled: event.target.checked } : entry) })} />Доступно для выбора в блюдах</Label>
+                        <Button variant="ghost" type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить «${kitItem.name}» из справочника? Проверьте комплектацию блюд после сохранения.`)) setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) }); }}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить из комплектации</Button>
                       </div>
                     </article>
                   ))}
                 </div>
-              ) : <div className="mt-5 rounded-lg bg-slate-50 p-5 text-sm text-slate-500">В справочнике пока нет бесплатных позиций. Добавьте их, чтобы настроить комплектацию блюд.</div>}
-            </section>
+              ) : <div className="mt-5 rounded-lg bg-muted/50 p-5 text-sm text-muted-foreground">В справочнике пока нет бесплатных позиций. Добавьте их, чтобы настроить комплектацию блюд.</div>}
+            </Card>
             )}
 
-            <section className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="border-b border-slate-200 pb-4">
-                <h2 className="font-semibold text-slate-950">Платные топпинги</h2>
-                <p className="mt-1 text-sm text-slate-500">Выберите товары из меню, которые сайт и приложение покажут в блоке «Дополнительно». Цена, фото и доступность редактируются в разделе «Меню».</p>
+            <Card className="rounded-xl border border-border bg-card p-5">
+              <div className="border-b border-border pb-4">
+                <h2 className="font-semibold text-foreground">Платные топпинги</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Выберите товары из меню, которые сайт и приложение покажут в блоке «Дополнительно». Цена, фото и доступность редактируются в разделе «Меню».</p>
               </div>
               <div className="mt-5 grid gap-4 lg:grid-cols-2">
                 {categories.flatMap((category) => category.products.map((product) => (
-                  <label key={product.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${draft.toppingProductIds.includes(product.id) ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white"}`}>
+                  <Label key={product.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${draft.toppingProductIds.includes(product.id) ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
                     <input
                       type="checkbox"
-                      className="size-4 shrink-0 accent-blue-600"
+                      className="size-4 shrink-0 accent-primary"
                       checked={draft.toppingProductIds.includes(product.id)}
                       onChange={(event) => setDraft({
                         ...draft,
@@ -529,51 +567,51 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                           : draft.toppingProductIds.filter((id) => id !== product.id),
                       })}
                     />
-                    {product.image ? <img src={product.image} alt="" className="size-14 shrink-0 rounded-lg object-cover" /> : <span className="size-14 shrink-0 rounded-lg bg-slate-100" />}
-                    <span className="min-w-0"><strong className="block truncate text-sm text-slate-950">{product.name}</strong><small className="mt-1 block text-xs text-slate-500">{category.title} · {product.price} сом</small></span>
-                  </label>
+                    {product.image ? <img src={product.image} alt="" className="size-14 shrink-0 rounded-lg object-cover" /> : <span className="size-14 shrink-0 rounded-lg bg-muted" />}
+                    <span className="min-w-0"><strong className="block truncate text-sm text-foreground">{product.name}</strong><small className="mt-1 block text-xs text-muted-foreground">{category.title} · {product.price} сом</small></span>
+                  </Label>
                 )))}
               </div>
-            </section>
+            </Card>
           </div>
         ) : null}
 
-        {(["basic", "delivery", "kit"] as SettingsTab[]).includes(tab) ? (
-          <div className="flex justify-end"><button type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить настройки"}</button></div>
+        {canEditTab && (["basic", "delivery", "hours", "kit"] as SettingsTab[]).includes(tab) ? (
+          <div className="sticky bottom-3 flex justify-end rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur"><Button variant="ghost" type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить настройки"}</Button></div>
         ) : null}
-      </form>}
+      </fieldset></form>}
+      {tab === "kit" ? <ListPagination total={productTotal} page={productPage} onPageChange={setProductPage} /> : null}
 
       {tab === "pickup" ? (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-          <header className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-slate-950">Точки самовывоза</h2><p className="mt-1 text-sm text-slate-500">Адреса, которые клиент может выбрать при оформлении.</p></div><button type="button" className={primaryButton} onClick={() => setPickupEditor(emptyPickup(item.pickupLocations?.length ?? 0))}><Icon path={mdiPlus} size={0.72} aria-hidden="true" />Добавить точку самовывоза</button></header>
-          {item.pickupLocations?.length ? <div className="divide-y divide-slate-200">{item.pickupLocations.map((location) => <article key={location.id} className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center lg:px-5"><div><div className="flex flex-wrap items-center gap-2"><strong className="text-slate-950">{location.title || "Точка самовывоза"}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${location.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{location.enabled ? "Активна" : "Выключена"}</span></div><p className="mt-2 text-sm text-slate-700">{location.address}</p><p className="mt-1 text-xs text-slate-500">{location.workingHours || "Время работы не указано"}</p></div><div className="grid grid-cols-2 gap-2"><button type="button" className={secondaryButton} onClick={() => setPickupEditor(pickupDraft(location))}>Редактировать</button><button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => void deletePickup(location)}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить</button></div></article>)}</div> : <div className="grid min-h-52 place-items-center p-8 text-center text-sm text-slate-500">Точек самовывоза пока нет.</div>}
-        </section>
+        <Card className="overflow-hidden rounded-xl border border-border bg-card">
+          <header className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold text-foreground">Точки самовывоза</h2><p className="mt-1 text-sm text-muted-foreground">Адреса, которые клиент может выбрать при оформлении.</p></div><Button variant="ghost" type="button" className={primaryButton} disabled={!can("cities.create")} onClick={() => setPickupEditor(emptyPickup(item.pickupLocations?.length ?? 0))}><Icon path={mdiPlus} size={0.72} aria-hidden="true" />Добавить точку самовывоза</Button></header>
+          {item.pickupLocations?.length ? <div className="divide-y divide-border">{item.pickupLocations.map((location) => <article key={location.id} className="grid gap-4 p-4 lg:grid-cols-[1fr_auto] lg:items-center lg:px-5"><div><div className="flex flex-wrap items-center gap-2"><strong className="text-foreground">{location.title || "Точка самовывоза"}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${location.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{location.enabled ? "Активна" : "Выключена"}</span></div><p className="mt-2 text-sm text-foreground">{location.address}</p><p className="mt-1 text-xs text-muted-foreground">{location.workingHours || "Время работы не указано"}</p></div><div className="grid grid-cols-2 gap-2"><Button variant="ghost" type="button" className={secondaryButton} disabled={!can("cities.edit")} onClick={() => setPickupEditor(pickupDraft(location))}>Редактировать</Button><Button variant="ghost" type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-4 text-sm font-medium text-destructive hover:bg-destructive/10" disabled={!can("cities.delete")} onClick={() => void deletePickup(location)}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить</Button></div></article>)}</div> : <div className="grid min-h-52 place-items-center p-8 text-center text-sm text-muted-foreground">Точек самовывоза пока нет.</div>}
+        </Card>
       ) : null}
 
       {tab === "edu-pos" ? (
         <div className="space-y-4">
-          <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-slate-950">Подключение EDU POS</h2><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${eduPosStatus?.configured ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{eduPosStatus?.configured ? "Настроено" : "Не настроено"}</span></div><p className="mt-2 text-sm text-slate-500">Заказы синхронизируются каждые {eduPosStatus?.intervals.ordersSeconds ?? 7.5} сек.</p></div><button type="button" className={secondaryButton} disabled={Boolean(posAction)} onClick={() => void checkEduPos()}><Icon path={mdiCheckNetworkOutline} size={0.75} aria-hidden="true" />{posAction === "check" ? "Проверяем…" : "Проверить подключение"}</button></div>
-            <dl className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-lg bg-slate-50 p-4"><dt className="text-xs text-slate-500">Последняя сверка меню</dt><dd className="mt-1 text-sm font-medium text-slate-900">{formatDate(eduPosStatus?.lastMenuSyncAt ?? null)}</dd></div><div className="rounded-lg bg-slate-50 p-4"><dt className="text-xs text-slate-500">Последняя сверка стоп-листа</dt><dd className="mt-1 text-sm font-medium text-slate-900">{formatDate(eduPosStatus?.lastStopListSyncAt ?? null)}</dd></div></dl>
-            {eduPosStatus?.lastError ? <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"><strong className="block">Последняя ошибка</strong><span className="mt-1 block break-words">{eduPosStatus.lastError}</span></div> : null}
-          </section>
-          <section className="grid gap-4 md:grid-cols-2">
-            <article className="rounded-xl border border-slate-200 bg-white p-5"><Icon path={mdiSwapHorizontal} size={1} aria-hidden="true" className="text-blue-600" /><h3 className="mt-4 font-semibold text-slate-950">Сверить меню из EDU POS</h3><p className="mt-2 text-sm leading-6 text-slate-500">Обновит цены, сопоставления блюд и стоп-лист на сайте.</p><button type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured} onClick={() => void syncEduPosMenu()}>{posAction === "sync" ? "Сверяем…" : "Сверить меню"}</button></article>
-            <article className="rounded-xl border border-slate-200 bg-white p-5"><Icon path={mdiDownloadOutline} size={1} aria-hidden="true" className="text-blue-600" /><h3 className="mt-4 font-semibold text-slate-950">Экспортировать меню в EDU POS</h3><p className="mt-2 text-sm leading-6 text-slate-500">Отправит категории, блюда, цены, доступность и модификации выбранного города.</p><button type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured} onClick={() => void exportEduPosMenu()}>{posAction === "export" ? "Экспортируем…" : "Экспортировать меню"}</button></article>
-          </section>
-          <section className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><strong className="block">Как синхронизируются заказы</strong><p className="mt-1 leading-6">После «Принять заказ» он отправляется в EDU POS. Статусы кухни автоматически переводят заказ в «Готовится» и «Готов». Более ранний ответ POS не может откатить уже продвинутый заказ назад.</p></section>
+          <Card className="rounded-xl border border-border bg-card p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h2 className="font-semibold text-foreground">Подключение EDU POS</h2><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${eduPosStatus?.configured ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-destructive/10 text-destructive"}`}>{eduPosStatus?.configured ? "Настроено" : "Не настроено"}</span></div><p className="mt-2 text-sm text-muted-foreground">Заказы синхронизируются каждые {eduPosStatus?.intervals.ordersSeconds ?? 7.5} сек.</p></div><Button variant="ghost" type="button" className={secondaryButton} disabled={Boolean(posAction) || !can("integrations.edit")} onClick={() => void checkEduPos()}><Icon path={mdiCheckNetworkOutline} size={0.75} aria-hidden="true" />{posAction === "check" ? "Проверяем…" : "Проверить подключение"}</Button></div>
+            <dl className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-lg bg-muted/50 p-4"><dt className="text-xs text-muted-foreground">Последняя сверка меню</dt><dd className="mt-1 text-sm font-medium text-foreground">{formatDate(eduPosStatus?.lastMenuSyncAt ?? null)}</dd></div><div className="rounded-lg bg-muted/50 p-4"><dt className="text-xs text-muted-foreground">Последняя сверка стоп-листа</dt><dd className="mt-1 text-sm font-medium text-foreground">{formatDate(eduPosStatus?.lastStopListSyncAt ?? null)}</dd></div></dl>
+            {eduPosStatus?.lastError ? <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"><strong className="block">Последняя ошибка</strong><span className="mt-1 block break-words">Проверьте подключение к EDU POS. Подробности доступны в журнале сервера.</span></div> : null}
+          </Card>
+          <Card className="grid gap-4 md:grid-cols-2">
+            <article className="rounded-xl border border-border bg-card p-5"><Icon path={mdiSwapHorizontal} size={1} aria-hidden="true" className="text-primary" /><h3 className="mt-4 font-semibold text-foreground">Сверить меню из EDU POS</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Обновит цены, сопоставления блюд и стоп-лист на сайте.</p><Button variant="ghost" type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured || !canSyncMenu} onClick={() => void syncEduPosMenu()}>{posAction === "sync" ? "Сверяем…" : "Сверить меню"}</Button></article>
+            <article className="rounded-xl border border-border bg-card p-5"><Icon path={mdiDownloadOutline} size={1} aria-hidden="true" className="text-primary" /><h3 className="mt-4 font-semibold text-foreground">Экспортировать меню в EDU POS</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Отправит категории, блюда, цены, доступность и модификации выбранного города.</p><Button variant="ghost" type="button" className={`${primaryButton} mt-5 w-full`} disabled={Boolean(posAction) || !eduPosStatus?.configured || !canExportMenu} onClick={() => void exportEduPosMenu()}>{posAction === "export" ? "Экспортируем…" : "Экспортировать меню"}</Button></article>
+          </Card>
+          <Card className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-primary"><strong className="block">Как синхронизируются заказы</strong><p className="mt-1 leading-6">После «Принять заказ» он отправляется в EDU POS. Статусы кухни автоматически переводят заказ в «Готовится» и «Готов». Более ранний ответ POS не может откатить уже продвинутый заказ назад.</p></Card>
         </div>
       ) : null}
 
-      {pickupEditor ? (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-0 sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPickupEditor(null); }}>
-          <form className="flex min-h-dvh w-full max-w-2xl flex-col bg-white shadow-2xl sm:min-h-0 sm:rounded-xl" onSubmit={savePickup}>
-            <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4"><h2 className="text-lg font-semibold text-slate-950">{pickupEditor.item ? "Редактировать самовывоз" : "Добавить самовывоз"}</h2><button type="button" aria-label="Закрыть редактор самовывоза" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600" onClick={() => setPickupEditor(null)}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button></header>
-            <div className="grid gap-4 overflow-y-auto p-5"><label className={labelClass}>Название точки<input className={inputClass} placeholder="Например, Манаса" value={pickupEditor.title} onChange={(event) => setPickupEditor({ ...pickupEditor, title: event.target.value })} /></label><label className={labelClass}>Адрес<input required className={inputClass} value={pickupEditor.address} onChange={(event) => setPickupEditor({ ...pickupEditor, address: event.target.value })} /></label><label className={labelClass}>Время работы<input className={inputClass} placeholder="Ежедневно, 11:00–23:00" value={pickupEditor.workingHours} onChange={(event) => setPickupEditor({ ...pickupEditor, workingHours: event.target.value })} /></label><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><label className={labelClass}>Ссылка на Яндекс Карты<input type="url" className={inputClass} placeholder="https://yandex.ru/maps/…" value={pickupEditor.yandexUrl} onChange={(event) => setPickupEditor({ ...pickupEditor, yandexUrl: event.target.value })} /></label><button type="button" className={`${secondaryButton} self-end`} onClick={() => void resolvePickupCoordinates()}><Icon path={mdiRefresh} size={0.7} aria-hidden="true" />Определить координаты</button></div><div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Широта<input type="number" step="any" className={inputClass} value={pickupEditor.latitude} onChange={(event) => setPickupEditor({ ...pickupEditor, latitude: event.target.value })} /></label><label className={labelClass}>Долгота<input type="number" step="any" className={inputClass} value={pickupEditor.longitude} onChange={(event) => setPickupEditor({ ...pickupEditor, longitude: event.target.value })} /></label></div><div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Порядок<input min="0" type="number" className={inputClass} value={pickupEditor.sortOrder} onChange={(event) => setPickupEditor({ ...pickupEditor, sortOrder: event.target.value })} /></label><label className="flex items-center gap-3 self-end rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 accent-blue-600" checked={pickupEditor.enabled} onChange={(event) => setPickupEditor({ ...pickupEditor, enabled: event.target.checked })} />Точка активна</label></div></div>
-            <footer className="grid gap-2 border-t border-slate-200 p-4 sm:grid-cols-2"><button type="button" className={secondaryButton} onClick={() => setPickupEditor(null)}>Отменить</button><button type="submit" className={primaryButton} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить точку"}</button></footer>
-          </form>
-        </div>
-      ) : null}
+      </div></div>
+
+      <EditorDialog open={Boolean(pickupEditor)} onClose={() => { if (!saving) closePickupEditor(); }} title={pickupEditor?.item ? "Редактировать точку самовывоза" : "Новая точка самовывоза"} description="Адрес и время работы видны клиентам при оформлении заказа.">
+      {pickupEditor ? <form className="flex min-h-0 flex-col" onSubmit={savePickup}><fieldset disabled={saving || !can(pickupEditor.item ? "cities.edit" : "cities.create")} className="contents">
+            <div className="grid gap-4 overflow-y-auto p-5"><Label className={labelClass}>Название точки<Input className={inputClass} placeholder="Например, Манаса" value={pickupEditor.title} onChange={(event) => setPickupEditor({ ...pickupEditor, title: event.target.value })} /></Label><Label className={labelClass}>Адрес<Input required className={inputClass} value={pickupEditor.address} onChange={(event) => setPickupEditor({ ...pickupEditor, address: event.target.value })} /></Label><Label className={labelClass}>Время работы<Input className={inputClass} placeholder="Ежедневно, 11:00–23:00" value={pickupEditor.workingHours} onChange={(event) => setPickupEditor({ ...pickupEditor, workingHours: event.target.value })} /></Label><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><Label className={labelClass}>Ссылка на Яндекс Карты<Input type="url" className={inputClass} placeholder="https://yandex.ru/maps/…" value={pickupEditor.yandexUrl} onChange={(event) => setPickupEditor({ ...pickupEditor, yandexUrl: event.target.value })} /></Label><Button variant="ghost" type="button" className={`${secondaryButton} self-end`} onClick={() => void resolvePickupCoordinates()}><Icon path={mdiRefresh} size={0.7} aria-hidden="true" />Определить координаты</Button></div><div className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Широта<Input type="number" step="any" className={inputClass} value={pickupEditor.latitude} onChange={(event) => setPickupEditor({ ...pickupEditor, latitude: event.target.value })} /></Label><Label className={labelClass}>Долгота<Input type="number" step="any" className={inputClass} value={pickupEditor.longitude} onChange={(event) => setPickupEditor({ ...pickupEditor, longitude: event.target.value })} /></Label></div><div className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Порядок<Input min="0" type="number" className={inputClass} value={pickupEditor.sortOrder} onChange={(event) => setPickupEditor({ ...pickupEditor, sortOrder: event.target.value })} /></Label><Label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 accent-primary" checked={pickupEditor.enabled} onChange={(event) => setPickupEditor({ ...pickupEditor, enabled: event.target.checked })} />Точка активна</Label></div></div>
+            <footer className="grid gap-2 border-t border-border p-4 sm:grid-cols-2"><Button variant="ghost" type="button" className={secondaryButton} onClick={closePickupEditor}>Отменить</Button><Button variant="ghost" type="submit" className={primaryButton} disabled={saving}>{saving ? "Сохраняем…" : "Сохранить точку"}</Button></footer>
+          </fieldset></form> : null}
+      </EditorDialog>
     </div>
   );
 }

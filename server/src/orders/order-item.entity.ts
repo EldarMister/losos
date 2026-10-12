@@ -24,6 +24,9 @@ export class OrderItem {
   @Column()
   productName!: string;
 
+  @Column({ type: "varchar", length: 160, nullable: true })
+  categoryName!: string | null;
+
   @Column({ type: "int" })
   basePrice!: number;
 

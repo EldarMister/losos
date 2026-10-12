@@ -1,7 +1,12 @@
+import { AddOrderCategorySnapshot1785012000000 } from "./migrations/1785012000000-AddOrderCategorySnapshot";
+import { AdminReportsModule } from "./admin/admin-reports.module";
+import { AddAdminSecurity1785010000000 } from "./migrations/1785010000000-AddAdminSecurity";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AdminModule } from "./admin/admin.module";
+import { AdminNotificationsModule } from "./admin/notifications/admin-notifications.module";
+import { AddAdminNotifications1785011000000 } from "./migrations/1785011000000-AddAdminNotifications";
 import { PhoneAuthChallenge } from "./auth/phone-auth.entity";
 import { AuthorizedPhone } from "./auth/authorized-phone.entity";
 import { PhoneAccount } from "./auth/phone-account.entity";
@@ -100,6 +105,9 @@ import { AddCustomerRewardAdjustments1785006000000 } from "./migrations/17850060
             AddCancelledCoinWithdrawals1785007000000,
             AddCartConfiguration1785008000000,
             AddProductKitItems1785009000000,
+    AddAdminSecurity1785010000000,
+            AddAdminNotifications1785011000000,
+    AddOrderCategorySnapshot1785012000000,
           ],
           migrationsRun: true,
           synchronize:
@@ -112,6 +120,8 @@ import { AddCustomerRewardAdjustments1785006000000 } from "./migrations/17850060
     CatalogModule,
     PhoneAuthModule,
     AdminModule,
+    AdminReportsModule,
+    AdminNotificationsModule,
     OrdersModule,
   ],
   controllers: [HealthController],

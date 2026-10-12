@@ -29,7 +29,9 @@ test("server-renders the storefront", async () => {
   assert.match(html, /Накта суши — доставка суши и роллов в Бишкеке и Оше/);
   assert.match(html, /href="\/category\/rolly-2"/);
   assert.match(html, /Salmon Lovers Club/);
-  assert.match(html, /Соус сладкий васаби/);
+  // The live city catalog is fetched after hydration; SSR renders its loading state.
+  assert.match(html, /<nav[^>]*aria-label="Категории меню"/);
+  assert.match(html, /<div class="empty-search">Загружаем меню…<\/div>/);
   assert.match(html, /Корзина/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
@@ -98,7 +100,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /product-modal-\$\{selected\.modalKind/);
   assert.match(storefront, /className="address-modal"/);
   assert.match(storefront, /className="cart-drawer"/);
-  assert.match(storefront, /aria-label="Самовывоз"/);
+  assert.match(storefront, /aria-label=\{deliveryType === "pickup" \? "Самовывоз" : "Адрес доставки"\}/);
   assert.match(storefront, /pickup-location/);
   assert.match(storefront, /<YandexDeliveryMap/);
   assert.match(storefront, /deliveryLocation/);
@@ -143,7 +145,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /story-progress-segment/);
   assert.match(storefront, /promoPage/);
   assert.match(storefront, /profile-modal\$\{profileSection === "orders" \? " profile-orders-screen"/);
-  assert.match(globals, /\.profile-modal\.profile-orders-screen \{ width: 100vw;/);
+  assert.match(globals, /\.profile-modal\.profile-orders-screen\s*\{[^}]*width:\s*100%;[^}]*max-width:\s*none/);
   assert.match(storefront, /\/auth\/orders\/\$\{encodeURIComponent\(selectedProfileOrder\.id\)\}\/cancel/);
   assert.match(storefront, />Отменить заказ<\/button>/);
   assert.match(storefront, /После отмены восстановить заказ не получится\./);
@@ -184,7 +186,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /PHONE_AUTH_SESSION_STORAGE_KEY/);
   assert.match(storefront, /className="cart-kit-modal"/);
   assert.match(storefront, /kitItems: cartKitItems\.map/);
-  assert.match(storefront, /setKitQuantities/);
+  assert.match(storefront, /setKitAdjustments/);
+  assert.match(storefront, /selectedKitQuantity\(item\.quantity, kitAdjustments\[item\.id\]\)/);
   assert.match(storefront, /orderingClosed \? "Закрыто" : "Далее"/);
   assert.match(storefront, /className="delivery-info-sheet"/);
   assert.match(storefront, /setDeliveryInfoOpen\(true\)/);
@@ -206,7 +209,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /submitOrder/);
   assert.match(storefront, /idempotencyKey/);
   assert.match(storefront, /fetch\(`\$\{orderApiUrl\}\/orders`/);
-  assert.match(storefront, /setCatalogCategories\(categories\)/);
+  assert.match(storefront, /setCatalogSnapshot\(\{ region: regionSlug, categories: nextCategories, error: "" \}\)/);
   assert.match(storefront, /setRegionalPromotions\(null\)/);
   assert.match(storefront, /STOREFRONT_STORAGE_KEY/);
   assert.match(storefront, /parseStoredStorefrontState/);
@@ -254,12 +257,14 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /item\.slug === productSlug && item\.available !== false/);
   assert.match(storefront, /disabled=\{selected\.available === false \|\| !modifiersComplete\}/);
   assert.match(storefront, /className="footer-app-link footer-app-nakta"/);
-  assert.match(storefront, /0503 178 916/);
+  assert.match(storefront, /const footerPhone = "\+?[\d ]{7,}"/);
+  assert.match(storefront, /href=\{`tel:\$\{footerPhone\.replace/);
+  assert.match(storefront, /\{footerPhone\}<\/a>/);
   assert.match(storefront, /naktasushi@gmail\.com/);
   assert.doesNotMatch(storefront, /musaev\.janybek\.kg@gmail\.com/);
   assert.match(storefront, /format\(value\) \+ " сом"/);
   assert.match(storefront, /const cartLocation = address\.trim\(\)/);
-  assert.match(storefront, /const cartKitItems = useMemo\(\(\) => \(/);
+  assert.match(storefront, /const cartKitItems = useMemo\(\(\) => aggregateProductKitItems\(/);
   assert.match(storefront, /if \(mode === "cart"\) \{\s*return <img src=\{product\.image\}/);
   assert.match(catalog, /hity-prodaz-2/);
   assert.match(catalog, /Соус сладкий васаби/);
@@ -309,7 +314,8 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /draftAddress\.trim\(\) && !deliveryLocation \? " address-panel-expanded"/);
   assert.match(globals, /\.pickup-map-marker\s*\{[^}]*width:\s*38px[^}]*height:\s*56px/);
   assert.match(globals, /\.store-shell\s*\{[^}]*width:\s*min\(1280px/);
-  assert.match(globals, /\.store-shell\.header-pinned::after\s*\{[^}]*z-index:\s*24[^}]*height:\s*70px/);
+  assert.match(globals, /\.delivery-header\s*\{[^}]*position:\s*sticky[^}]*z-index:\s*25/);
+  assert.match(globals, /\.delivery-header::after\s*\{[^}]*position:\s*absolute[^}]*background:\s*#fff/);
   assert.match(globals, /\.product-image-wrap img\s*\{[^}]*width:\s*100%[^}]*height:\s*100%/);
   assert.match(globals, /\.product-image-wrap::after\s*\{\s*content:\s*none/);
   assert.match(globals, /grid-template-columns:\s*repeat\(auto-fill, minmax\(180px, 1fr\)\)/);
@@ -329,19 +335,19 @@ test("admin exposes the current operations workspace", async () => {
     readFile(new URL("../app/admin/OrdersWorkspace.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/admin/SettingsWorkspace.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(navigation, /label: "Заказы"[\s\S]*?label: "Аналитика"[\s\S]*?label: "Меню"[\s\S]*?label: "Категории"[\s\S]*?label: "Пользователи"[\s\S]*?label: "Акции"[\s\S]*?label: "Настройки"/);
-  assert.match(navigation, /NAKTA[\s\S]*?Панель управления/);
-  assert.match(navigation, /onClick=\{onLogout\}[\s\S]*?Выйти из системы/);
+  for (const label of ["Заказы", "Аналитика", "Товары", "Категории", "Пользователи", "Акции", "Настройки", "Персонал"]) assert.ok(navigation.includes(label));
+  assert.match(navigation, /NAKTA[\s\S]*?Управление рестораном/);
+  assert.match(navigation, /onClick=\{onLogout\}[\s\S]*?Выйти/);
   assert.doesNotMatch(navigation, /LoyaltyCenter|Лояльность|FinanceWorkspace|Финансы/);
   assert.match(admin, /useState<AdminSection>\("orders"\)/);
-  assert.match(admin, /section === "orders" \? <OrdersWorkspace/);
-  assert.match(admin, /section === "users" \? <UsersWorkspace/);
-  assert.match(admin, /section === "settings" \? <SettingsWorkspace/);
+  assert.match(admin, /section\s*===\s*"orders"[\s\S]*?<OrdersWorkspace/);
+  assert.match(admin, /section\s*===\s*"users"[\s\S]*?<UsersWorkspace/);
+  assert.match(admin, /section\s*===\s*"settings"[\s\S]*?<SettingsWorkspace/);
   assert.match(admin, /request<Region\[]>\("\/admin\/settings"\)/);
   assert.doesNotMatch(admin, /admin-notification-button|mdiBellOutline/);
   assert.match(ordersWorkspace, /request<OrdersResponse>\(`\/admin\/orders\?\$\{query\}`\)/);
   assert.match(ordersWorkspace, /`\/admin\/orders\/\$\{order\.id\}\/status`/);
-  assert.match(ordersWorkspace, /`\/admin\/orders\/\$\{selectedOrder\.id\}\/kit`/);
+  assert.match(ordersWorkspace, /`\/admin\/orders\/\$\{kitDraft\.orderId\}\/kit`/);
   assert.match(ordersWorkspace, /Состав заказа/);
   assert.match(ordersWorkspace, /Сохранить комплектацию/);
   assert.doesNotMatch(ordersWorkspace, /Новый заказ/);
@@ -403,7 +409,10 @@ test("public storefront and API omit legacy financial rewards", async () => {
     assert.match(hiddenRegionFields, new RegExp(`"${field}"`));
   }
   assert.equal((catalogApi.match(/\(\[key\]\) => key !== "naktaCoins"/g) ?? []).length, 2);
-  assert.match(catalogApi, /return regions\.map\(publicRegion\)/);
+  const regionsApi = catalogApi.slice(catalogApi.indexOf("  async regions()"), catalogApi.indexOf("  async categories("));
+  assert.match(regionsApi, /regions\.map\(async \(region\)/);
+  assert.match(regionsApi, /\.\.\.publicRegion\(region\)/);
+  assert.doesNotMatch(regionsApi, /\.\.\.region\b/);
   assert.match(catalogApi, /return promotions\.filter\(\(promotion\) => !isLegacyFinancialPromotion\(promotion\)\)/);
 
   assert.doesNotMatch(

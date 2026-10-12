@@ -1,15 +1,24 @@
 "use client";
 
+import { Button } from "./ui/button";
+import { Label } from "./ui/label";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
+import { Card } from "./ui/card";
+import { Input } from "./ui/input";
+
 import { Icon } from "@mdi/react";
 import {
   mdiChevronRight,
-  mdiClose,
   mdiMagnify,
   mdiMapMarkerOutline,
   mdiPhoneOutline,
   mdiRefresh,
 } from "@mdi/js";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { EditorDialog, ListPagination, WorkspaceHeading, WorkspaceStats } from "./workspace-kit";
+import { useDraftEditor } from "./use-unsaved-changes";
+import { useAdminAccess } from "./admin-access";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import type {
   AdminOrder,
   AdminRequest,
@@ -35,13 +44,13 @@ const statusLabels: Record<OrderStatus, string> = {
 };
 
 const statusStyles: Record<OrderStatus, string> = {
-  new: "border-blue-200 bg-blue-50 text-blue-700",
-  confirmed: "border-indigo-200 bg-indigo-50 text-indigo-700",
-  preparing: "border-amber-200 bg-amber-50 text-amber-800",
-  ready: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  delivering: "border-violet-200 bg-violet-50 text-violet-700",
-  completed: "border-slate-200 bg-slate-100 text-slate-700",
-  cancelled: "border-red-200 bg-red-50 text-red-700",
+  new: "border-primary/20 bg-primary/5 text-primary",
+  confirmed: "border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+  preparing: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  ready: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  delivering: "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400",
+  completed: "border-border bg-muted text-foreground",
+  cancelled: "border-destructive/20 bg-destructive/10 text-destructive",
 };
 
 const filterOptions: Array<{ value: "all" | OrderStatus; label: string }> = [
@@ -61,6 +70,7 @@ function formatMoney(value: number) {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Asia/Bishkek",
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -69,7 +79,7 @@ function formatDate(value: string) {
 }
 
 function orderNumber(order: AdminOrder) {
-  return `№${order.orderNumber || order.id.slice(0, 6).toUpperCase()}`;
+  return order.orderNumber ? `№${order.orderNumber}` : "Без номера";
 }
 
 function deliveryLabel(order: AdminOrder) {
@@ -78,7 +88,7 @@ function deliveryLabel(order: AdminOrder) {
 
 function paymentLabel(method: AdminOrder["paymentMethod"]) {
   if (method === "cash") return "Наличными";
-  if (method === "online") return "Оплачено онлайн";
+  if (method === "online") return "Онлайн";
   return "Картой";
 }
 
@@ -110,6 +120,8 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 type KitDraft = {
+  orderId: string;
+  expectedUpdatedAt?: string;
   noUtensils: boolean;
   utensilsCount: number;
   kitItems: OrderKitItem[];
@@ -120,9 +132,9 @@ function EmptyOrders({ filtered }: { filtered: boolean }) {
   return (
     <div className="grid min-h-64 place-items-center px-6 py-12 text-center">
       <div>
-        <p className="text-base font-semibold text-slate-900">{filtered ? "Заказы не найдены" : "Новых заказов пока нет"}</p>
-        <p className="mt-2 text-sm text-slate-500">
-          {filtered ? "Измените фильтр или поисковый запрос." : "Список обновляется автоматически каждые 20 секунд."}
+        <p className="text-base font-semibold text-foreground">{filtered ? "Заказы не найдены" : "Новых заказов пока нет"}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {filtered ? "Измените фильтр или поисковый запрос." : "Новые заказы появятся здесь автоматически."}
         </p>
       </div>
     </div>
@@ -137,28 +149,38 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<AdminOrder | null>(null);
-  const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
+  const [kitDraft, setKitDraft, closeKitEditor] = useDraftEditor<KitDraft>();
+  const { can } = useAdminAccess();
+  const [page, setPage] = useState(0);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [detailTab, setDetailTab] = useState("summary");
+  const [detailLoading, setDetailLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [kitSaving, setKitSaving] = useState(false);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
+  const detailSequence = useRef(0);
+  const notificationOpened = useRef(false);
 
   const loadOrders = useCallback(async (quiet = false) => {
     const sequence = ++requestSequence.current;
     if (!quiet) setLoading(true);
     setError("");
     try {
-      const query = new URLSearchParams({ regionSlug: region, limit: "100", offset: "0" });
+      const query = new URLSearchParams({ regionSlug: region, limit: "25", offset: String(page * 25) });
       if (filter !== "all") query.set("status", filter);
       if (search) query.set("search", search);
+      if (from) query.set("from", new Date(`${from}T00:00:00+06:00`).toISOString());
+      if (to) query.set("to", new Date(`${to}T23:59:59.999+06:00`).toISOString());
       const result = await request<OrdersResponse>(`/admin/orders?${query}`);
       if (sequence !== requestSequence.current) return;
       setOrders(result.items);
       setTotal(result.total);
       setCounts(result.statusCounts);
       setSelectedOrder((current) => current
-        ? result.items.find((item) => item.id === current.id) ?? current
+        ? { ...current, ...result.items.find((item) => item.id === current.id) }
         : null);
     } catch (loadError) {
       if (sequence !== requestSequence.current) return;
@@ -166,7 +188,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
     } finally {
       if (sequence === requestSequence.current && !quiet) setLoading(false);
     }
-  }, [filter, region, request, search]);
+  }, [filter, region, request, search, page, from, to]);
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => void loadOrders(), 0);
@@ -177,19 +199,42 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
     };
   }, [loadOrders]);
 
+  useEffect(() => {
+    const refresh = () => void loadOrders(true);
+    const open = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (!id || kitSaving || actionOrderId || !closeKitEditor()) return;
+      const sequence = ++detailSequence.current;
+      void request<AdminOrder>(`/admin/orders/${encodeURIComponent(id)}`).then((order) => {
+        if (sequence !== detailSequence.current) return;
+        setSelectedOrder(order); setDetailTab("summary");
+      }).catch((error: unknown) => {
+        if (sequence === detailSequence.current) onNotice(error instanceof Error ? error.message : "Не удалось открыть заказ", "error");
+      });
+    };
+    if (!notificationOpened.current) {
+      const id = new URLSearchParams(window.location.search).get("order");
+      if (id) { notificationOpened.current = true; open(new CustomEvent("admin:open-order", { detail: { id } })); }
+    }
+    window.addEventListener("admin:orders-changed", refresh);
+    window.addEventListener("admin:open-order", open);
+    return () => { window.removeEventListener("admin:orders-changed", refresh); window.removeEventListener("admin:open-order", open); };
+  }, [loadOrders, request, onNotice, closeKitEditor, kitSaving, actionOrderId]);
+
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
+    setPage(0);
     setSearch(searchDraft.trim());
   };
 
   const updateStatus = async (order: AdminOrder, status: OrderStatus) => {
-    if (actionOrderId) return;
+    if (actionOrderId || !can("orders.status")) return;
     if (status === "cancelled" && !window.confirm(`Отменить заказ ${orderNumber(order)}? Вернуть его в работу будет нельзя.`)) return;
     setActionOrderId(order.id);
     try {
       const updated = await request<AdminOrder>(`/admin/orders/${order.id}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, expectedStatus: order.status, expectedUpdatedAt: order.updatedAt }),
       });
       setOrders((current) => current.map((item) => item.id === updated.id ? updated : item));
       setSelectedOrder((current) => current?.id === updated.id ? updated : current);
@@ -197,14 +242,33 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
       await loadOrders(true);
     } catch (updateError) {
       onNotice(updateError instanceof Error ? updateError.message : "Не удалось изменить статус заказа", "error");
+      await loadOrders(true);
     } finally {
       setActionOrderId(null);
     }
   };
 
+  const openOrder = async (order: AdminOrder) => {
+    if (kitSaving || actionOrderId || !closeKitEditor()) return;
+    const sequence = ++detailSequence.current;
+    setSelectedOrder(order);
+    setDetailTab("summary");
+    setDetailLoading(true);
+    try {
+      const full = await request<AdminOrder>(`/admin/orders/${encodeURIComponent(order.id)}`);
+      if (sequence !== detailSequence.current) return;
+      setSelectedOrder((current) => current?.id === full.id ? full : current);
+    } catch (error) { onNotice(error instanceof Error ? error.message : "Не удалось загрузить подробности заказа", "error"); }
+    finally { if (sequence === detailSequence.current) setDetailLoading(false); }
+  };
+
   const openKitEditor = (order: AdminOrder) => {
+    if (detailLoading || !can("orders.edit") || order.status === "completed" || order.status === "cancelled") return;
+    detailSequence.current += 1;
     const includedItems = order.includedKitItems ?? order.kitItems ?? [];
     setKitDraft({
+      orderId: order.id,
+      expectedUpdatedAt: order.updatedAt,
       noUtensils: order.noUtensils,
       utensilsCount: Math.max(1, order.utensilsCount || 1),
       kitItems: includedItems.map((item) => ({ ...item, quantity: order.kitItems?.find((selected) => selected.id === item.id)?.quantity ?? 0 })),
@@ -222,12 +286,13 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
   };
 
   const saveKit = async () => {
-    if (!selectedOrder || !kitDraft || kitSaving) return;
+    if (!selectedOrder || !kitDraft || kitDraft.orderId !== selectedOrder.id || kitSaving || !can("orders.edit")) return;
     setKitSaving(true);
     try {
-      const updated = await request<AdminOrder>(`/admin/orders/${selectedOrder.id}/kit`, {
+      const updated = await request<AdminOrder>(`/admin/orders/${kitDraft.orderId}/kit`, {
         method: "PATCH",
         body: JSON.stringify({
+          expectedUpdatedAt: kitDraft.expectedUpdatedAt,
           noUtensils: kitDraft.noUtensils,
           utensilsCount: kitDraft.noUtensils ? 0 : kitDraft.utensilsCount,
           kitItems: kitDraft.kitItems.map(({ id, quantity }) => ({ id, quantity })),
@@ -245,35 +310,38 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
   };
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-xl border border-slate-200 bg-white" aria-label="Фильтры заказов">
-        <div className="grid gap-3 border-b border-slate-200 p-4 md:grid-cols-[minmax(260px,1fr)_auto] md:items-center">
+    <div className="space-y-6">
+      <WorkspaceHeading title="Заказы" description="Принимайте заказы, следите за приготовлением и выдачей." />
+      <WorkspaceStats items={[{label:"Новые",value:counts.new ?? 0},{label:"На кухне",value:(counts.confirmed ?? 0)+(counts.preparing ?? 0)},{label:"Готовы к выдаче",value:counts.ready ?? 0},{label:"В пути",value:counts.delivering ?? 0}]} />
+      <Card className="rounded-xl border border-border bg-card" aria-label="Фильтры заказов">
+        <div className="grid gap-3 border-b border-border p-4 md:grid-cols-[minmax(260px,1fr)_auto] md:items-center">
           <form className="flex min-w-0 gap-2" onSubmit={submitSearch}>
-            <label className="relative min-w-0 flex-1">
+            <Label className="relative min-w-0 flex-1">
               <span className="sr-only">Найти заказ</span>
-              <Icon path={mdiMagnify} size={0.78} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-slate-400" />
-              <input
+              <Icon path={mdiMagnify} size={0.78} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-muted-foreground" />
+              <Input
                 type="search"
                 value={searchDraft}
                 onChange={(event) => setSearchDraft(event.target.value)}
-                className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-3 focus:ring-blue-100"
+                className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-3 focus:ring-ring/20"
                 placeholder="Номер, имя или телефон"
               />
-            </label>
-            <button type="submit" className="h-11 shrink-0 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800">
+            </Label>
+            <Button variant="ghost" type="submit" className="h-11 shrink-0 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
               Найти
-            </button>
+            </Button>
           </form>
-          <button
+          <Button variant="ghost"
             type="button"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 text-sm font-medium text-foreground hover:bg-muted/50"
             onClick={() => void loadOrders()}
           >
             <Icon path={mdiRefresh} size={0.78} aria-hidden="true" />
             Обновить список
-          </button>
+          </Button>
         </div>
 
+        <div className="grid gap-3 border-b border-border p-4 sm:grid-cols-2 lg:grid-cols-[220px_220px_1fr]"><Label className="grid gap-1.5 text-xs text-muted-foreground">С даты<Input type="date" value={from} max={to || undefined} onChange={(event) => {setFrom(event.target.value);setPage(0);}} /></Label><Label className="grid gap-1.5 text-xs text-muted-foreground">По дату<Input type="date" value={to} min={from || undefined} onChange={(event) => {setTo(event.target.value);setPage(0);}} /></Label>{from || to || search ? <Button variant="ghost" className="self-end justify-self-start" onClick={() => {setFrom("");setTo("");setSearch("");setSearchDraft("");setPage(0);}}>Сбросить фильтры</Button> : null}</div>
         <div className="overflow-x-auto px-4 py-3">
           <div className="flex min-w-max gap-2" role="list" aria-label="Фильтр по статусу">
             {filterOptions.map((option) => {
@@ -282,191 +350,178 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                 ? Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0)
                 : counts[option.value] ?? 0;
               return (
-                <button
+                <Button variant="ghost"
                   key={option.value}
                   type="button"
                   aria-pressed={active}
                   className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
                     active
-                      ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900"
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground"
                   }`}
-                  onClick={() => setFilter(option.value)}
+                  onClick={() => { setFilter(option.value); setPage(0); }}
                 >
-                  {option.label} <span className={active ? "text-slate-300" : "text-slate-400"}>{count}</span>
-                </button>
+                  {option.label} <span className={active ? "text-primary-foreground/70" : "text-muted-foreground"}>{count}</span>
+                </Button>
               );
             })}
           </div>
         </div>
-      </section>
+      </Card>
 
       <div className="flex items-center justify-between gap-4 px-1">
-        <p className="text-sm text-slate-500">Показано: <strong className="font-semibold text-slate-900">{orders.length}</strong> из {total}</p>
-        {loading ? <span className="text-sm text-slate-500" role="status">Обновляем…</span> : null}
+        <p className="text-sm text-muted-foreground">Показано: <strong className="font-semibold text-foreground">{orders.length}</strong> из {total}</p>
+        {loading ? <span className="text-sm text-muted-foreground" role="status">Обновляем…</span> : null}
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
           <strong className="block font-semibold">Не удалось показать заказы</strong>
           <span className="mt-1 block">{error}</span>
-          <button type="button" className="mt-3 font-semibold underline" onClick={() => void loadOrders()}>Повторить загрузку</button>
+          <Button variant="ghost" type="button" className="mt-3 font-semibold underline" onClick={() => void loadOrders()}>Повторить загрузку</Button>
         </div>
       ) : null}
 
       {!error ? (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Список заказов">
+        <Card className="overflow-hidden rounded-xl border border-border bg-card" aria-label="Список заказов">
           {orders.length === 0 && !loading ? <EmptyOrders filtered={Boolean(search) || filter !== "new"} /> : null}
 
           {orders.length > 0 ? (
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[920px] border-collapse text-left">
-                <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-5 py-3.5">Заказ</th>
-                    <th className="px-5 py-3.5">Клиент</th>
-                    <th className="px-5 py-3.5">Получение</th>
-                    <th className="px-5 py-3.5">Сумма</th>
-                    <th className="px-5 py-3.5">Статус</th>
-                    <th className="px-5 py-3.5 text-right">Действие</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
+              <Table className="w-full min-w-[920px] border-collapse text-left">
+                <TableHeader className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-5 py-3.5">Заказ</TableHead>
+                    <TableHead className="px-5 py-3.5">Клиент</TableHead>
+                    <TableHead className="px-5 py-3.5">Получение</TableHead>
+                    <TableHead className="px-5 py-3.5">Сумма</TableHead>
+                    <TableHead className="px-5 py-3.5">Статус</TableHead>
+                    <TableHead className="px-5 py-3.5 text-right">Действие</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-border">
                   {orders.map((order) => {
                     const transition = primaryTransition(order);
                     return (
-                      <tr key={order.id} className="group hover:bg-slate-50/80">
-                        <td className="px-5 py-4 align-top">
-                          <button type="button" className="text-left" onClick={() => setSelectedOrder(order)}>
-                            <strong className="block text-sm font-semibold text-slate-950">{orderNumber(order)}</strong>
-                            <span className="mt-1 block text-xs text-slate-500">{formatDate(order.createdAt)}</span>
-                          </button>
-                        </td>
-                        <td className="px-5 py-4 align-top">
-                          <strong className="block max-w-52 truncate text-sm font-medium text-slate-900">{order.customerName || "Без имени"}</strong>
-                          <span className="mt-1 block text-xs text-slate-500">{order.phone}</span>
-                        </td>
-                        <td className="px-5 py-4 align-top">
-                          <span className="block text-sm text-slate-900">{deliveryLabel(order)}</span>
-                          <span className="mt-1 block max-w-64 truncate text-xs text-slate-500">{order.address || "Адрес не указан"}</span>
-                        </td>
-                        <td className="px-5 py-4 align-top text-sm font-semibold text-slate-950">{formatMoney(order.total)}</td>
-                        <td className="px-5 py-4 align-top"><StatusBadge status={order.status} /></td>
-                        <td className="px-5 py-4 align-top">
+                      <TableRow key={order.id} className="group hover:bg-muted/80">
+                        <TableCell className="px-5 py-4 align-top">
+                          <Button variant="ghost" type="button" className="admin-order-link text-left" onClick={() => void openOrder(order)}>
+                            <strong className="block text-sm font-semibold text-foreground">{orderNumber(order)}</strong>
+                            <span className="mt-1 block text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
+                          </Button>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 align-top">
+                          <strong className="block max-w-52 truncate text-sm font-medium text-foreground">{order.customerName || "Без имени"}</strong>
+                          <span className="mt-1 block text-xs text-muted-foreground">{order.phone}</span>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 align-top">
+                          <span className="block text-sm text-foreground">{deliveryLabel(order)}</span>
+                          <span className="mt-1 block max-w-64 truncate text-xs text-muted-foreground">{order.address || "Адрес не указан"}</span>
+                        </TableCell>
+                        <TableCell className="px-5 py-4 align-top text-sm font-semibold text-foreground">{formatMoney(order.total)}</TableCell>
+                        <TableCell className="px-5 py-4 align-top"><StatusBadge status={order.status} /></TableCell>
+                        <TableCell className="px-5 py-4 align-top">
                           <div className="flex justify-end gap-2">
-                            {transition ? (
-                              <button
+                            {transition && can("orders.status") ? (
+                              <Button variant="ghost"
                                 type="button"
                                 disabled={actionOrderId === order.id}
-                                className="min-h-10 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+                                className="min-h-10 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
                                 onClick={() => void updateStatus(order, transition.status)}
                               >
                                 {actionOrderId === order.id ? "Сохраняем…" : transition.label}
-                              </button>
+                              </Button>
                             ) : null}
-                            <button
+                            <Button variant="ghost"
                               type="button"
-                              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                              onClick={() => setSelectedOrder(order)}
+                              className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-input px-3 text-sm font-medium text-foreground hover:bg-muted/50"
+                              onClick={() => void openOrder(order)}
                             >
                               Подробнее <Icon path={mdiChevronRight} size={0.65} aria-hidden="true" />
-                            </button>
+                            </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : null}
 
           {orders.length > 0 ? (
-            <div className="divide-y divide-slate-200 md:hidden">
+            <div className="divide-y divide-border md:hidden">
               {orders.map((order) => {
                 const transition = primaryTransition(order);
                 return (
                   <article key={order.id} className="p-4">
-                    <button type="button" className="w-full text-left" onClick={() => setSelectedOrder(order)}>
-                      <span className="flex items-start justify-between gap-3">
-                        <span>
-                          <strong className="block text-base font-semibold text-slate-950">{orderNumber(order)}</strong>
-                          <small className="mt-1 block text-xs text-slate-500">{formatDate(order.createdAt)}</small>
+                    <Button variant="ghost" type="button" className="admin-order-summary w-full text-left" onClick={() => void openOrder(order)}>
+                      <span className="flex w-full min-w-0 items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <strong className="block text-base font-semibold text-foreground">{orderNumber(order)}</strong>
+                          <small className="mt-1 block text-xs text-muted-foreground">{formatDate(order.createdAt)}</small>
                         </span>
                         <StatusBadge status={order.status} />
                       </span>
-                      <span className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                        <span>
-                          <small className="block text-xs text-slate-500">Клиент</small>
-                          <strong className="mt-1 block truncate font-medium text-slate-900">{order.customerName || "Без имени"}</strong>
+                      <span className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 text-sm">
+                        <span className="min-w-0">
+                          <small className="block text-xs text-muted-foreground">Клиент</small>
+                          <strong className="mt-1 block break-words font-medium text-foreground">{order.customerName || "Без имени"}</strong>
                         </span>
                         <span>
-                          <small className="block text-xs text-slate-500">Сумма</small>
-                          <strong className="mt-1 block font-semibold text-slate-950">{formatMoney(order.total)}</strong>
+                          <small className="block text-xs text-muted-foreground">Сумма</small>
+                          <strong className="mt-1 block font-semibold text-foreground">{formatMoney(order.total)}</strong>
                         </span>
                       </span>
-                      <span className="mt-3 block border-t border-slate-100 pt-3 text-sm text-slate-600">
+                      <span className="mt-3 block min-w-0 break-words border-t border-border pt-3 text-sm text-muted-foreground">
                         {deliveryLabel(order)} · {order.address || "Адрес не указан"}
                       </span>
-                    </button>
+                    </Button>
                     <div className="mt-4 grid gap-2">
-                      {transition ? (
-                        <button
+                      {transition && can("orders.status") ? (
+                        <Button variant="ghost"
                           type="button"
                           disabled={actionOrderId === order.id}
-                          className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                          className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                           onClick={() => void updateStatus(order, transition.status)}
                         >
                           {actionOrderId === order.id ? "Сохраняем…" : transition.label}
-                        </button>
+                        </Button>
                       ) : null}
-                      <button type="button" className="min-h-11 rounded-lg border border-slate-300 text-sm font-medium text-slate-700" onClick={() => setSelectedOrder(order)}>
+                      <Button variant="ghost" type="button" className="min-h-11 rounded-lg border border-input text-sm font-medium text-foreground" onClick={() => void openOrder(order)}>
                         Открыть заказ
-                      </button>
+                      </Button>
                     </div>
                   </article>
                 );
               })}
             </div>
           ) : null}
-        </section>
+        </Card>
       ) : null}
 
-      {selectedOrder ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/45" role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedOrder(null);
-        }}>
-          <section className="flex h-dvh w-full flex-col bg-white shadow-2xl md:max-w-2xl" role="dialog" aria-modal="true" aria-labelledby="order-detail-title">
-            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 md:px-7 md:py-5">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 id="order-detail-title" className="text-xl font-semibold text-slate-950">Заказ {orderNumber(selectedOrder)}</h2>
-                  <StatusBadge status={selectedOrder.status} />
-                </div>
-                <p className="mt-1 text-sm text-slate-500">Создан {formatDate(selectedOrder.createdAt)}</p>
-              </div>
-              <button type="button" aria-label="Закрыть карточку заказа" className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" onClick={() => setSelectedOrder(null)}>
-                <Icon path={mdiClose} size={0.8} aria-hidden="true" />
-              </button>
-            </header>
+      <ListPagination total={total} page={page} loading={loading} onPageChange={setPage} />
 
+      <EditorDialog open={Boolean(selectedOrder) && !kitDraft} onClose={() => { if (!kitSaving && closeKitEditor()) { detailSequence.current += 1; setSelectedOrder(null); setDetailTab("summary"); setDetailLoading(false); } }} title={selectedOrder ? `Заказ ${orderNumber(selectedOrder)}` : "Заказ"} description={detailLoading ? "Загружаем актуальные сведения…" : selectedOrder ? `Создан ${formatDate(selectedOrder.createdAt)}` : undefined} wide>
+        {selectedOrder ? <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4"><Tabs value={detailTab} onValueChange={setDetailTab}><TabsList><TabsTrigger value="summary">Состав и клиент</TabsTrigger><TabsTrigger value="kit">Комплектация</TabsTrigger><TabsTrigger value="history">История</TabsTrigger></TabsList></Tabs><StatusBadge status={selectedOrder.status} /></div>
             <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7">
               <div className="grid gap-6">
-                <section aria-labelledby="customer-title">
-                  <h3 id="customer-title" className="text-sm font-semibold text-slate-950">Клиент и получение</h3>
-                  <div className="mt-3 rounded-xl border border-slate-200 p-4 text-sm">
-                    <strong className="block text-base text-slate-950">{selectedOrder.customerName || "Без имени"}</strong>
-                    <a className="mt-3 flex items-center gap-2 text-blue-700" href={`tel:${selectedOrder.phone}`}>
+                <Card className={detailTab === "summary" ? "gap-0 p-4" : "hidden"} aria-labelledby="customer-title">
+                  <h3 id="customer-title" className="text-sm font-semibold text-foreground">Клиент и получение</h3>
+                  <div className="mt-3 rounded-xl border border-border p-4 text-sm">
+                    <strong className="block text-base text-foreground">{selectedOrder.customerName || "Без имени"}</strong>
+                    <a className="mt-3 flex items-center gap-2 text-primary" href={`tel:${selectedOrder.phone}`}>
                       <Icon path={mdiPhoneOutline} size={0.72} aria-hidden="true" />
                       <span>Позвонить: {selectedOrder.phone}</span>
                     </a>
-                    <div className="mt-3 flex items-start gap-2 text-slate-700">
+                    <div className="mt-3 flex items-start gap-2 text-foreground">
                       <Icon path={mdiMapMarkerOutline} size={0.72} aria-hidden="true" className="mt-0.5 shrink-0" />
                       <span>
                         <strong className="block font-medium">{deliveryLabel(selectedOrder)}</strong>
-                        <span className="mt-1 block text-slate-600">{selectedOrder.address || "Адрес не указан"}</span>
+                        <span className="mt-1 block text-muted-foreground">{selectedOrder.address || "Адрес не указан"}</span>
                         {selectedOrder.deliveryType === "delivery" ? (
-                          <small className="mt-1 block text-slate-500">
+                          <small className="mt-1 block text-muted-foreground">
                             {[
                               selectedOrder.apartment && `кв. ${selectedOrder.apartment}`,
                               selectedOrder.entrance && `подъезд ${selectedOrder.entrance}`,
@@ -478,111 +533,108 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                       </span>
                     </div>
                     {selectedOrder.comment ? (
-                      <div className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-900">
+                      <div className="mt-4 rounded-lg bg-amber-500/10 p-3 text-amber-700 dark:text-amber-400">
                         <strong className="block text-xs font-semibold uppercase tracking-wide">Комментарий клиента</strong>
                         <p className="mt-1">{selectedOrder.comment}</p>
                       </div>
                     ) : null}
                   </div>
-                </section>
+                </Card>
 
-                <section aria-labelledby="items-title">
-                  <h3 id="items-title" className="text-sm font-semibold text-slate-950">Состав заказа</h3>
-                  <div className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200">
+                <Card className={detailTab === "summary" ? "gap-0 p-4" : "hidden"} aria-labelledby="items-title">
+                  <h3 id="items-title" className="text-sm font-semibold text-foreground">Состав заказа</h3>
+                  <div className="mt-3 divide-y divide-border rounded-xl border border-border">
                     {selectedOrder.items.map((item) => (
                       <div key={item.id} className="flex items-start justify-between gap-4 p-4">
                         <div className="min-w-0">
-                          <strong className="block text-sm font-medium text-slate-950">{item.quantity} × {item.productName}</strong>
+                          <strong className="block text-sm font-medium text-foreground">{item.quantity} × {item.productName}</strong>
                           {item.modifierSnapshots?.length ? (
-                            <ul className="mt-1 space-y-0.5 text-xs text-slate-500">
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
                               {item.modifierSnapshots.map((modifier) => (
                                 <li key={`${item.id}-${modifier.itemId}`}>{modifier.itemName}{modifier.quantity > 1 ? ` × ${modifier.quantity}` : ""}</li>
                               ))}
                             </ul>
                           ) : null}
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-slate-950">{formatMoney(item.lineTotal)}</span>
+                        <span className="shrink-0 text-sm font-semibold text-foreground">{formatMoney(item.lineTotal)}</span>
                       </div>
                     ))}
-                    <div className="grid gap-2 bg-slate-50 p-4 text-sm">
-                      <div className="flex justify-between gap-4 text-slate-600"><span>Оплата</span><span>{paymentLabel(selectedOrder.paymentMethod)}</span></div>
-                      <div className="flex justify-between gap-4 text-slate-600"><span>Приборы</span><span>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} шт.`}</span></div>
-                      <div className="flex justify-between gap-4 border-t border-slate-200 pt-3 text-base font-semibold text-slate-950"><span>Итого</span><span>{formatMoney(selectedOrder.total)}</span></div>
+                    <div className="grid gap-2 bg-muted/50 p-4 text-sm">
+                      <div className="flex justify-between gap-4 text-muted-foreground"><span>Оплата</span><span>{paymentLabel(selectedOrder.paymentMethod)}</span></div>
+                      <div className="flex justify-between gap-4 text-muted-foreground"><span>Приборы</span><span>{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} шт.`}</span></div>
+                      <div className="flex justify-between gap-4 border-t border-border pt-3 text-base font-semibold text-foreground"><span>Итого</span><span>{formatMoney(selectedOrder.total)}</span></div>
                     </div>
                   </div>
-                </section>
+                </Card>
 
-                <section aria-labelledby="kit-title">
+                <Card className={detailTab === "kit" ? "gap-0 p-4" : "hidden"} aria-labelledby="kit-title">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 id="kit-title" className="text-sm font-semibold text-slate-950">Комплектация</h3>
-                    {!(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
-                      <button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50" onClick={() => openKitEditor(selectedOrder)}>Изменить комплектацию</button>
+                    <h3 id="kit-title" className="text-sm font-semibold text-foreground">Комплектация</h3>
+                    {can("orders.edit") && !(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
+                      <Button variant="ghost" type="button" className="rounded-lg border border-input px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/50" onClick={() => openKitEditor(selectedOrder)}>Изменить комплектацию</Button>
                     ) : null}
                   </div>
-                  <div className="mt-3 rounded-xl border border-slate-200 p-4 text-sm">
-                    <div className="flex justify-between gap-4"><span className="text-slate-500">Приборы</span><strong className="font-medium text-slate-900">{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} персон`}</strong></div>
-                    <div className="mt-3 grid gap-2 border-t border-slate-100 pt-3">
+                  <div className="mt-3 rounded-xl border border-border p-4 text-sm">
+                    <div className="flex justify-between gap-4"><span className="text-muted-foreground">Приборы</span><strong className="font-medium text-foreground">{selectedOrder.noUtensils ? "Не нужны" : `${selectedOrder.utensilsCount} персон`}</strong></div>
+                    <div className="mt-3 grid gap-2 border-t border-border pt-3">
                       {(selectedOrder.kitItems ?? []).map((kitItem) => (
-                        <div key={kitItem.id} className="flex justify-between gap-4 text-slate-700"><span>{kitItem.name}</span><strong className="font-medium">{kitItem.quantity} шт.</strong></div>
+                        <div key={kitItem.id} className="flex justify-between gap-4 text-foreground"><span>{kitItem.name}</span><strong className="font-medium">{kitItem.quantity} шт.</strong></div>
                       ))}
-                      {!selectedOrder.kitItems?.length ? <p className="text-slate-500">Дополнительная комплектация не указана.</p> : null}
+                      {!selectedOrder.kitItems?.length ? <p className="text-muted-foreground">Дополнительная комплектация не указана.</p> : null}
                     </div>
                   </div>
-                </section>
+                </Card>
 
+                {detailTab === "history" ? <Card className="p-5"><h3 className="font-semibold">История обработки</h3><ol className="space-y-4 border-l border-border pl-5"><li className="text-sm"><strong className="block">Заказ создан</strong><span className="text-muted-foreground">{formatDate(selectedOrder.createdAt)}</span></li>{((selectedOrder as AdminOrder & {statusHistory?:Array<{id:string;status:OrderStatus;createdAt:string;actorName?:string}>}).statusHistory ?? []).map((entry) => <li key={entry.id} className="text-sm"><strong className="block">{statusLabels[entry.status]}</strong><span className="text-muted-foreground">{formatDate(entry.createdAt)}{entry.actorName ? ` · ${entry.actorName}` : ""}</span></li>)}</ol><p className="text-xs text-muted-foreground">Текущий статус: {statusLabels[selectedOrder.status]}</p></Card> : null}
                 {selectedOrder.posLastError ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+                  <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
                     <strong className="block">Ошибка передачи на кухню</strong>
-                    <span className="mt-1 block">{selectedOrder.posLastError}</span>
+                    <span className="mt-1 block">Не удалось передать заказ в систему кухни. Проверьте подключение в разделе интеграции.</span>
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <footer className="border-t border-slate-200 bg-white p-4 md:px-7">
+            <footer className="border-t border-border bg-card p-4 md:px-7">
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                {primaryTransition(selectedOrder) ? (
-                  <button
+                {primaryTransition(selectedOrder) && can("orders.status") ? (
+                  <Button variant="ghost"
                     type="button"
                     disabled={actionOrderId === selectedOrder.id}
-                    className="min-h-12 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                    className="min-h-12 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                     onClick={() => {
                       const transition = primaryTransition(selectedOrder);
                       if (transition) void updateStatus(selectedOrder, transition.status);
                     }}
                   >
                     {actionOrderId === selectedOrder.id ? "Сохраняем…" : primaryTransition(selectedOrder)?.label}
-                  </button>
+                  </Button>
                 ) : <div />}
-                {!(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
-                  <button
+                {can("orders.status") && !(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
+                  <Button variant="ghost"
                     type="button"
                     disabled={actionOrderId === selectedOrder.id}
-                    className="min-h-12 rounded-lg border border-red-200 px-5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                    className="min-h-12 rounded-lg border border-destructive/20 px-5 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-60"
                     onClick={() => void updateStatus(selectedOrder, "cancelled")}
                   >
                     Отменить заказ
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </footer>
-          </section>
-        </div>
-      ) : null}
+        </div> : null}
+      </EditorDialog>
 
-      {selectedOrder && kitDraft ? (
-        <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-slate-950/55 p-0 sm:p-5" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setKitDraft(null); }}>
-          <section className="flex min-h-dvh w-full max-w-lg flex-col bg-white shadow-2xl sm:min-h-0 sm:rounded-xl" role="dialog" aria-modal="true" aria-labelledby="kit-editor-title">
-            <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4"><div><h2 id="kit-editor-title" className="text-lg font-semibold text-slate-950">Комплектация {orderNumber(selectedOrder)}</h2><p className="mt-1 text-sm text-slate-500">Укажите точное количество для кухни.</p></div><button type="button" aria-label="Закрыть редактор комплектации" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600" onClick={() => setKitDraft(null)}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button></header>
+      <EditorDialog open={Boolean(selectedOrder && kitDraft)} onClose={() => { if (!kitSaving) closeKitEditor(); }} title={selectedOrder ? `Комплектация ${orderNumber(selectedOrder)}` : "Комплектация"} description="Укажите количество для кухни.">
+        {selectedOrder && kitDraft ? <fieldset disabled={kitSaving || !can("orders.edit")} className="flex min-h-0 flex-col">
             <div className="grid gap-4 overflow-y-auto p-5">
-              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-800"><span>Без приборов</span><input type="checkbox" className="size-5 accent-blue-600" checked={kitDraft.noUtensils} onChange={(event) => setKitDraft({ ...kitDraft, noUtensils: event.target.checked })} /></label>
-              {!kitDraft.noUtensils ? <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"><span><strong className="block text-sm text-slate-900">Количество персон</strong><small className="mt-1 block text-xs text-slate-500">Палочки и салфетки</small></span><span className="flex items-center gap-3"><button type="button" aria-label="Уменьшить количество персон" className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.max(1, kitDraft.utensilsCount - 1) })}>−</button><strong className="min-w-6 text-center text-base">{kitDraft.utensilsCount}</strong><button type="button" aria-label="Увеличить количество персон" className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.min(50, kitDraft.utensilsCount + 1) })}>+</button></span></div> : null}
-              {kitDraft.kitItems.length ? <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">{kitDraft.kitItems.map((kitItem) => <div key={kitItem.id} className="flex min-w-0 items-center justify-between gap-3 p-4"><span className="min-w-0"><strong className="block break-words text-sm font-medium text-slate-900">{kitItem.name}</strong><small className="mt-1 block text-xs text-slate-500">Входит в заказ: {kitDraft.maxQuantities[kitItem.id]} шт.</small></span><span className="flex shrink-0 items-center gap-2"><button type="button" aria-label={`Уменьшить ${kitItem.name}`} disabled={kitItem.quantity <= 0} className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700 disabled:opacity-40" onClick={() => changeKitQuantity(kitItem.id, -1)}>−</button><strong className="min-w-6 text-center text-base">{kitItem.quantity}</strong><button type="button" aria-label={`Увеличить ${kitItem.name}`} disabled={kitItem.quantity >= (kitDraft.maxQuantities[kitItem.id] ?? 0)} className="grid size-10 place-items-center rounded-lg border border-slate-300 text-xl text-slate-700 disabled:opacity-40" onClick={() => changeKitQuantity(kitItem.id, 1)}>+</button></span></div>)}</div> : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Для блюд этого заказа бесплатная комплектация не указана.</p>}
+              <Label className="flex items-center justify-between gap-4 rounded-xl border border-border p-4 text-sm font-medium text-foreground"><span>Без приборов</span><input type="checkbox" className="size-5 accent-primary" checked={kitDraft.noUtensils} onChange={(event) => setKitDraft({ ...kitDraft, noUtensils: event.target.checked })} /></Label>
+              {!kitDraft.noUtensils ? <div className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"><span><strong className="block text-sm text-foreground">Количество персон</strong><small className="mt-1 block text-xs text-muted-foreground">Палочки и салфетки</small></span><span className="flex items-center gap-3"><Button variant="ghost" type="button" aria-label="Уменьшить количество персон" className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.max(1, kitDraft.utensilsCount - 1) })}>−</Button><strong className="min-w-6 text-center text-base">{kitDraft.utensilsCount}</strong><Button variant="ghost" type="button" aria-label="Увеличить количество персон" className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.min(50, kitDraft.utensilsCount + 1) })}>+</Button></span></div> : null}
+              {kitDraft.kitItems.length ? <div className="divide-y divide-border rounded-xl border border-border">{kitDraft.kitItems.map((kitItem) => <div key={kitItem.id} className="flex min-w-0 items-center justify-between gap-3 p-4"><span className="min-w-0"><strong className="block break-words text-sm font-medium text-foreground">{kitItem.name}</strong><small className="mt-1 block text-xs text-muted-foreground">Входит в заказ: {kitDraft.maxQuantities[kitItem.id]} шт.</small></span><span className="flex shrink-0 items-center gap-2"><Button variant="ghost" type="button" aria-label={`Уменьшить ${kitItem.name}`} disabled={kitItem.quantity <= 0} className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground disabled:opacity-40" onClick={() => changeKitQuantity(kitItem.id, -1)}>−</Button><strong className="min-w-6 text-center text-base">{kitItem.quantity}</strong><Button variant="ghost" type="button" aria-label={`Увеличить ${kitItem.name}`} disabled={kitItem.quantity >= (kitDraft.maxQuantities[kitItem.id] ?? 0)} className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground disabled:opacity-40" onClick={() => changeKitQuantity(kitItem.id, 1)}>+</Button></span></div>)}</div> : <p className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">Для блюд этого заказа бесплатная комплектация не указана.</p>}
             </div>
-            <footer className="grid gap-2 border-t border-slate-200 p-4 sm:grid-cols-2"><button type="button" className="min-h-11 rounded-lg border border-slate-300 text-sm font-medium text-slate-700" onClick={() => setKitDraft(null)}>Отменить</button><button type="button" className="min-h-11 rounded-lg bg-blue-600 text-sm font-semibold text-white disabled:opacity-60" disabled={kitSaving} onClick={() => void saveKit()}>{kitSaving ? "Сохраняем…" : "Сохранить комплектацию"}</button></footer>
-          </section>
-        </div>
-      ) : null}
+            <footer className="grid gap-2 border-t border-border p-4 sm:grid-cols-2"><Button variant="ghost" type="button" className="min-h-11 rounded-lg border border-input text-sm font-medium text-foreground" onClick={closeKitEditor}>Отменить</Button><Button variant="ghost" type="button" className="min-h-11 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60" disabled={kitSaving} onClick={() => void saveKit()}>{kitSaving ? "Сохраняем…" : "Сохранить комплектацию"}</Button></footer>
+        </fieldset> : null}
+      </EditorDialog>
     </div>
   );
 }

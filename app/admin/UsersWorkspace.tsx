@@ -1,12 +1,22 @@
 "use client";
 
+import { Button } from "./ui/button";
+import { Label } from "./ui/label";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
+import { Card } from "./ui/card";
+import { Input } from "./ui/input";
+
 import {
   mdiArrowLeft,
   mdiMagnify,
   mdiRefresh,
 } from "@mdi/js";
 import { Icon } from "@mdi/react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Textarea } from "./ui/textarea";
+import { useDraftEditor } from "./use-unsaved-changes";
+import { useAdminAccess } from "./admin-access";
+import { EditorDialog, ListPagination, WorkspaceHeading } from "./workspace-kit";
 import type {
   AdminRequest,
   Customer,
@@ -20,9 +30,9 @@ type UsersWorkspaceProps = {
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
-const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60";
-const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60";
-const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-600 focus:ring-3 focus:ring-blue-100";
+const primaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60";
+const secondaryButton = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-input bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted/50 disabled:opacity-60";
+const inputClass = "h-11 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/20";
 
 const orderLabels: Record<OrderStatus, string> = {
   new: "Новый",
@@ -46,6 +56,7 @@ function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Asia/Bishkek",
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -54,42 +65,57 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-export function UsersWorkspace({ region, request }: UsersWorkspaceProps) {
+export function UsersWorkspace({ region, request, onNotice }: UsersWorkspaceProps) {
   const [users, setUsers] = useState<Customer[]>([]);
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
-  const [detail, setDetail] = useState<CustomerDetail | null>(null);
+  const [detail, setDetail] = useState<(CustomerDetail & {profile?:{name:string;notes:string};total?:number}) | null>(null);
+  const { can } = useAdminAccess();
+  const [profileEditor, setProfileEditor, closeProfileEditor] = useDraftEditor<{name:string;notes:string}>();
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [detailPage, setDetailPage] = useState(0);
   const [listLoading, setListLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState("");
+  const listSequence = useRef(0);
+  const detailSequence = useRef(0);
 
   const loadUsers = useCallback(async () => {
+    const sequence = ++listSequence.current;
     setListLoading(true);
     setError("");
     try {
-      const query = new URLSearchParams({ region, search, limit: "100", offset: "0" });
-      const result = await request<{ items: Customer[] }>(`/admin/customers?${query}`);
+      const query = new URLSearchParams({ region, search, limit: "25", offset: String(page * 25) });
+      const result = await request<{ items: Customer[]; total: number }>(`/admin/customers?${query}`);
+      if (sequence !== listSequence.current) return;
       setUsers(result.items);
+      setTotal(result.total);
     } catch (loadError) {
+      if (sequence !== listSequence.current) return;
       setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить пользователей");
     } finally {
-      setListLoading(false);
+      if (sequence === listSequence.current) setListLoading(false);
     }
-  }, [region, request, search]);
+  }, [region, request, search, page]);
 
   const loadDetail = useCallback(async (phone: string) => {
+    const sequence = ++detailSequence.current;
     setDetailLoading(true);
     setError("");
     try {
-      const result = await request<CustomerDetail>(`/admin/customers/${encodeURIComponent(phone)}?region=${encodeURIComponent(region)}`);
+      const result = await request<CustomerDetail & {profile?:{name:string;notes:string};total?:number}>(`/admin/customers/${encodeURIComponent(phone)}?${new URLSearchParams({region,limit:"25",offset:String(detailPage * 25)})}`);
+      if (sequence !== detailSequence.current) return;
       setDetail(result);
     } catch (loadError) {
+      if (sequence !== detailSequence.current) return;
       setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить карточку пользователя");
     } finally {
-      setDetailLoading(false);
+      if (sequence === detailSequence.current) setDetailLoading(false);
     }
-  }, [region, request]);
+  }, [region, request, detailPage]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadUsers(), 0);
@@ -98,108 +124,137 @@ export function UsersWorkspace({ region, request }: UsersWorkspaceProps) {
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setPage(0);
     setSearch(searchDraft.trim());
   };
 
   const openCustomer = (phone: string) => {
     setSelectedPhone(phone);
     setDetail(null);
-    void loadDetail(phone);
+    setDetailPage(0);
   };
 
   const closeCustomer = () => {
+    if (profileSaving || !closeProfileEditor()) return;
+    detailSequence.current += 1;
+    setDetailPage(0);
     setSelectedPhone(null);
     setDetail(null);
     setError("");
+  };
+
+  useEffect(() => {
+    if (!selectedPhone) return;
+    const timer = window.setTimeout(() => void loadDetail(selectedPhone), 0);
+    return () => window.clearTimeout(timer);
+  }, [selectedPhone, loadDetail]);
+
+  const saveProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!profileEditor || !selectedPhone || profileSaving || !can("customers.edit")) return;
+    setProfileSaving(true);
+    try {
+      await request(`/admin/customers/${encodeURIComponent(selectedPhone)}`, {method:"PATCH",body:JSON.stringify({name:profileEditor.name.trim(),notes:profileEditor.notes.trim()})});
+      setProfileEditor(null);
+      onNotice("Карточка клиента сохранена", "success");
+      await loadDetail(selectedPhone);
+      await loadUsers();
+    } catch (error) { onNotice(error instanceof Error ? error.message : "Не удалось сохранить карточку клиента", "error"); }
+    finally { setProfileSaving(false); }
   };
 
   if (selectedPhone) {
     return (
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" className={`${secondaryButton} self-start`} onClick={closeCustomer}>
+          <Button variant="ghost" type="button" className={`${secondaryButton} self-start`} onClick={closeCustomer}>
             <Icon path={mdiArrowLeft} size={0.72} aria-hidden="true" />
-            К списку пользователей
-          </button>
-          <button type="button" className={secondaryButton} onClick={() => void loadDetail(selectedPhone)} disabled={detailLoading}>
+            К списку клиентов
+          </Button>
+          <Button variant="ghost" type="button" className={secondaryButton} onClick={() => void loadDetail(selectedPhone)} disabled={detailLoading}>
             <Icon path={mdiRefresh} size={0.72} aria-hidden="true" />
             {detailLoading ? "Обновляем…" : "Обновить данные"}
-          </button>
+          </Button>
         </div>
 
         {error ? (
-          <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700" role="alert">
+          <Card className="rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive" role="alert">
             <p>{error}</p>
-            <button type="button" className="mt-3 font-semibold underline" onClick={() => void loadDetail(selectedPhone)}>Повторить</button>
-          </section>
+            <Button variant="ghost" type="button" className="mt-3 font-semibold underline" onClick={() => void loadDetail(selectedPhone)}>Повторить</Button>
+          </Card>
         ) : null}
 
-        {!error && detailLoading && !detail ? <section className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Загружаем карточку пользователя…</section> : null}
+        {!error && detailLoading && !detail ? <Card className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">Загружаем карточку пользователя…</Card> : null}
 
         {detail ? <>
-          <section className="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+          <Card className="rounded-xl border border-border bg-card p-5 sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Карточка пользователя</p>
-                <h2 className="mt-1 text-xl font-semibold text-slate-950">{detail.customerName || "Без имени"}</h2>
-                <a href={`tel:${detail.phone}`} className="mt-2 inline-block text-sm font-medium text-blue-700">Позвонить: {detail.phone}</a>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Карточка клиента</p>
+                <h2 className="mt-1 text-xl font-semibold text-foreground">{detail.profile?.name || detail.customerName || "Без имени"}</h2>
+                <a href={`tel:${detail.phone}`} className="mt-2 inline-block text-sm font-medium text-primary">Позвонить: {detail.phone}</a>
               </div>
-              <p className="text-sm text-slate-500">Последний заказ: {formatDate(detail.lastOrderAt)}</p>
+              <div className="grid gap-3"><p className="text-sm text-muted-foreground">Последний заказ: {formatDate(detail.lastOrderAt)}</p>{can("customers.edit") ? <Button variant="outline" onClick={() => setProfileEditor({name:detail.profile?.name || detail.customerName || "",notes:detail.profile?.notes || ""})}>Редактировать карточку</Button> : null}</div>
             </div>
+            {detail.profile?.notes ? <div className="mt-5 rounded-lg bg-muted/50 p-4"><h3 className="text-xs font-semibold text-muted-foreground">Заметка сотрудников</h3><p className="mt-2 whitespace-pre-wrap text-sm">{detail.profile.notes}</p></div> : null}
             <dl className="mt-6 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><dt className="text-xs text-slate-500">Всего заказов</dt><dd className="mt-2 text-2xl font-semibold text-slate-950">{formatNumber(detail.ordersCount)}</dd><span className="mt-1 block text-xs text-slate-500">Завершено: {formatNumber(detail.completedOrders)}</span></div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><dt className="text-xs text-slate-500">Сумма покупок</dt><dd className="mt-2 text-2xl font-semibold text-slate-950">{formatMoney(detail.revenue)}</dd><span className="mt-1 block text-xs text-slate-500">Только завершённые заказы</span></div>
+              <div className="rounded-xl border border-border bg-muted/50 p-4"><dt className="text-xs text-muted-foreground">Всего заказов</dt><dd className="mt-2 text-2xl font-semibold text-foreground">{formatNumber(detail.ordersCount)}</dd><span className="mt-1 block text-xs text-muted-foreground">Завершено: {formatNumber(detail.completedOrders)}</span></div>
+              <div className="rounded-xl border border-border bg-muted/50 p-4"><dt className="text-xs text-muted-foreground">Сумма покупок</dt><dd className="mt-2 text-2xl font-semibold text-foreground">{formatMoney(detail.revenue)}</dd><span className="mt-1 block text-xs text-muted-foreground">Только завершённые заказы</span></div>
             </dl>
-          </section>
+          </Card>
 
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 p-5"><h3 className="font-semibold text-slate-950">Все заказы</h3><p className="mt-1 text-sm text-slate-500">История заказов пользователя в выбранном городе.</p></div>
+          <Card className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="border-b border-border p-5"><h3 className="font-semibold text-foreground">Все заказы</h3><p className="mt-1 text-sm text-muted-foreground">История заказов пользователя в выбранном городе.</p></div>
             {detail.orders.length ? <>
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Заказ</th><th className="px-5 py-3">Дата</th><th className="px-5 py-3">Тип</th><th className="px-5 py-3">Статус</th><th className="px-5 py-3 text-right">Сумма</th></tr></thead>
-                  <tbody className="divide-y divide-slate-200">{detail.orders.map((order) => <tr key={order.id}><td className="px-5 py-4 font-semibold text-slate-950">№{order.orderNumber}</td><td className="px-5 py-4 text-slate-600">{formatDate(order.createdAt)}</td><td className="px-5 py-4 text-slate-600">{order.deliveryType === "delivery" ? "Доставка" : "Самовывоз"}</td><td className="px-5 py-4 text-slate-700">{orderLabels[order.status]}</td><td className="px-5 py-4 text-right font-semibold text-slate-950">{formatMoney(order.total)}</td></tr>)}</tbody>
-                </table>
+                <Table className="w-full min-w-[760px] text-left text-sm">
+                  <TableHeader className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground"><TableRow><TableHead className="px-5 py-3">Заказ</TableHead><TableHead className="px-5 py-3">Дата</TableHead><TableHead className="px-5 py-3">Тип</TableHead><TableHead className="px-5 py-3">Статус</TableHead><TableHead className="px-5 py-3 text-right">Сумма</TableHead></TableRow></TableHeader>
+                  <TableBody className="divide-y divide-border">{detail.orders.map((order) => <TableRow key={order.id}><TableCell className="px-5 py-4 font-semibold text-foreground">№{order.orderNumber}</TableCell><TableCell className="px-5 py-4 text-muted-foreground">{formatDate(order.createdAt)}</TableCell><TableCell className="px-5 py-4 text-muted-foreground">{order.deliveryType === "delivery" ? "Доставка" : "Самовывоз"}</TableCell><TableCell className="px-5 py-4 text-foreground">{orderLabels[order.status]}</TableCell><TableCell className="px-5 py-4 text-right font-semibold text-foreground">{formatMoney(order.total)}</TableCell></TableRow>)}</TableBody>
+                </Table>
               </div>
-              <div className="divide-y divide-slate-200 md:hidden">{detail.orders.map((order) => <article key={order.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="text-slate-950">Заказ №{order.orderNumber}</strong><span className="mt-1 block text-xs text-slate-500">{formatDate(order.createdAt)}</span></div><strong className="shrink-0 text-slate-950">{formatMoney(order.total)}</strong></div><div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600"><span className="rounded-full bg-slate-100 px-2.5 py-1">{orderLabels[order.status]}</span><span className="rounded-full bg-slate-100 px-2.5 py-1">{order.deliveryType === "delivery" ? "Доставка" : "Самовывоз"}</span></div></article>)}</div>
-            </> : <p className="p-8 text-center text-sm text-slate-500">Заказов пока нет.</p>}
-          </section>
+              <div className="divide-y divide-border md:hidden">{detail.orders.map((order) => <article key={order.id} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="text-foreground">Заказ №{order.orderNumber}</strong><span className="mt-1 block text-xs text-muted-foreground">{formatDate(order.createdAt)}</span></div><strong className="shrink-0 text-foreground">{formatMoney(order.total)}</strong></div><div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-full bg-muted px-2.5 py-1">{orderLabels[order.status]}</span><span className="rounded-full bg-muted px-2.5 py-1">{order.deliveryType === "delivery" ? "Доставка" : "Самовывоз"}</span></div></article>)}</div>
+            </> : <p className="p-8 text-center text-sm text-muted-foreground">Заказов пока нет.</p>}
+            <ListPagination total={detail.total ?? detail.ordersCount} page={detailPage} loading={detailLoading} onPageChange={setDetailPage} />
+          </Card>
 
         </> : null}
+        <EditorDialog open={Boolean(profileEditor)} onClose={() => {if (!profileSaving) closeProfileEditor();}} title="Карточка клиента" description="Имя и внутренняя заметка для сотрудников.">{profileEditor ? <form className="grid gap-5 p-5" onSubmit={saveProfile}><fieldset disabled={profileSaving || !can("customers.edit")} className="contents"><Label className="grid gap-2">Имя<Input required maxLength={140} value={profileEditor.name} onChange={(event) => setProfileEditor({...profileEditor,name:event.target.value})} /></Label><Label className="grid gap-2">Заметка<Textarea maxLength={2000} rows={5} value={profileEditor.notes} onChange={(event) => setProfileEditor({...profileEditor,notes:event.target.value})} /></Label><div className="flex justify-between gap-3 border-t border-border pt-4"><Button type="button" variant="outline" disabled={profileSaving} onClick={closeProfileEditor}>Отменить</Button><Button type="submit" disabled={profileSaving}>{profileSaving ? "Сохраняем…" : "Сохранить карточку"}</Button></div></fieldset></form> : null}</EditorDialog>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6">
+      <WorkspaceHeading title="Клиенты" description="История покупок, контакты и суммы завершённых заказов в выбранном городе." />
+      <Card className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <form className="flex min-w-0 flex-1 gap-2 sm:max-w-xl" onSubmit={submitSearch}>
-          <label className="relative min-w-0 flex-1">
-            <span className="sr-only">Найти пользователя</span>
-            <Icon path={mdiMagnify} size={0.75} aria-hidden="true" className="absolute left-3 top-3.5 text-slate-400" />
-            <input type="search" className={`${inputClass} pl-10`} placeholder="Имя или телефон" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
-          </label>
-          <button type="submit" className={primaryButton}>Найти</button>
+          <Label className="relative min-w-0 flex-1">
+            <span className="sr-only">Найти клиента</span>
+            <Icon path={mdiMagnify} size={0.75} aria-hidden="true" className="absolute left-3 top-3.5 text-muted-foreground" />
+            <Input type="search" className={`${inputClass} pl-10`} placeholder="Имя или телефон" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
+          </Label>
+          <Button variant="ghost" type="submit" className={primaryButton}>Найти</Button>
         </form>
-        <button type="button" className={secondaryButton} onClick={() => void loadUsers()} disabled={listLoading}><Icon path={mdiRefresh} size={0.72} aria-hidden="true" />{listLoading ? "Обновляем…" : "Обновить"}</button>
-      </section>
+        <Button variant="ghost" type="button" className={secondaryButton} onClick={() => void loadUsers()} disabled={listLoading}><Icon path={mdiRefresh} size={0.72} aria-hidden="true" />{listLoading ? "Обновляем…" : "Обновить"}</Button>
+      </Card>
 
-      {error ? <section className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700" role="alert">{error}</section> : null}
-      {!error && listLoading && !users.length ? <section className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">Загружаем пользователей…</section> : null}
+      {error ? <Card className="rounded-xl border border-destructive/20 bg-destructive/10 p-5 text-sm text-destructive" role="alert">{error}</Card> : null}
+      {!error && listLoading && !users.length ? <Card className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">Загружаем пользователей…</Card> : null}
 
       {!error && users.length ? (
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <Card className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="hidden overflow-x-auto lg:block">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Пользователь</th><th className="px-5 py-3">Заказы</th><th className="px-5 py-3">Сумма покупок</th><th className="px-5 py-3"><span className="sr-only">Действие</span></th></tr></thead>
-              <tbody className="divide-y divide-slate-200">{users.map((user) => <tr key={user.phone}><td className="px-5 py-4"><strong className="block text-slate-950">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-xs text-slate-500">{user.phone}</span></td><td className="px-5 py-4 text-slate-700"><strong>{formatNumber(user.ordersCount)}</strong><span className="mt-1 block text-xs text-slate-500">Завершено: {formatNumber(user.completedOrders)}</span></td><td className="px-5 py-4 font-semibold text-slate-950">{formatMoney(user.revenue)}</td><td className="px-5 py-4 text-right"><button type="button" className={secondaryButton} onClick={() => openCustomer(user.phone)}>Открыть карточку</button></td></tr>)}</tbody>
-            </table>
+            <Table className="w-full min-w-[760px] text-left text-sm">
+              <TableHeader className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground"><TableRow><TableHead className="px-5 py-3">Пользователь</TableHead><TableHead className="px-5 py-3">Заказы</TableHead><TableHead className="px-5 py-3">Сумма покупок</TableHead><TableHead className="px-5 py-3"><span className="sr-only">Действие</span></TableHead></TableRow></TableHeader>
+              <TableBody className="divide-y divide-border">{users.map((user) => <TableRow key={user.phone}><TableCell className="px-5 py-4"><strong className="block text-foreground">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-xs text-muted-foreground">{user.phone}</span></TableCell><TableCell className="px-5 py-4 text-foreground"><strong>{formatNumber(user.ordersCount)}</strong><span className="mt-1 block text-xs text-muted-foreground">Завершено: {formatNumber(user.completedOrders)}</span></TableCell><TableCell className="px-5 py-4 font-semibold text-foreground">{formatMoney(user.revenue)}</TableCell><TableCell className="px-5 py-4 text-right"><Button variant="ghost" type="button" className={secondaryButton} onClick={() => openCustomer(user.phone)}>Открыть карточку</Button></TableCell></TableRow>)}</TableBody>
+            </Table>
           </div>
-          <div className="divide-y divide-slate-200 lg:hidden">{users.map((user) => <article key={user.phone} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-sm text-slate-500">{user.phone}</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(user.revenue)}</strong></div><dl className="mt-4 border-t border-slate-100 pt-3 text-sm"><div><dt className="text-xs text-slate-500">Заказы</dt><dd className="mt-1 font-semibold text-slate-950">{formatNumber(user.ordersCount)}</dd></div></dl><button type="button" className={`${primaryButton} mt-4 w-full`} onClick={() => openCustomer(user.phone)}>Открыть карточку пользователя</button></article>)}</div>
-        </section>
+          <div className="divide-y divide-border lg:hidden">{users.map((user) => <article key={user.phone} className="p-4"><div className="flex items-start justify-between gap-3"><div><strong className="block text-foreground">{user.customerName || "Без имени"}</strong><span className="mt-1 block text-sm text-muted-foreground">{user.phone}</span></div><strong className="shrink-0 text-sm text-foreground">{formatMoney(user.revenue)}</strong></div><dl className="mt-4 border-t border-border pt-3 text-sm"><div><dt className="text-xs text-muted-foreground">Заказы</dt><dd className="mt-1 font-semibold text-foreground">{formatNumber(user.ordersCount)}</dd></div></dl><Button variant="ghost" type="button" className={`${primaryButton} mt-4 w-full`} onClick={() => openCustomer(user.phone)}>Открыть карточку клиента</Button></article>)}</div>
+        </Card>
       ) : null}
 
-      {!error && !listLoading && !users.length ? <section className="rounded-xl border border-slate-200 bg-white p-10 text-center"><h2 className="font-semibold text-slate-950">Пользователи не найдены</h2><p className="mt-1 text-sm text-slate-500">Измените запрос или дождитесь первого заказа.</p></section> : null}
+      {!error && !listLoading && !users.length ? <Card className="rounded-xl border border-border bg-card p-10 text-center"><h2 className="font-semibold text-foreground">Клиенты не найдены</h2><p className="mt-1 text-sm text-muted-foreground">Измените запрос или дождитесь первого заказа.</p></Card> : null}
+      <ListPagination total={total} page={page} loading={listLoading} onPageChange={setPage} />
     </div>
   );
 }

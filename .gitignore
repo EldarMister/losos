@@ -48,3 +48,6 @@ next-env.d.ts
 /.vinext-goal-*.log
 !.env.example
 !server/.env.example
+
+# Local browser diagnostic artifacts
+/.playwright-mcp/

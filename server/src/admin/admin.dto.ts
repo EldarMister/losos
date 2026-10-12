@@ -66,7 +66,8 @@ export class CreateRegionDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  slug!: string;
+  @IsOptional()
+  slug?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -273,7 +274,8 @@ export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
-  slug!: string;
+  @IsOptional()
+  slug?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -328,7 +330,8 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(160)
-  slug!: string;
+  @IsOptional()
+  slug?: string;
 
   @Type(() => Number)
   @IsInt()

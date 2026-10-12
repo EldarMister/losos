@@ -82,9 +82,18 @@ export class ListOrdersQueryDto {
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)
   status!: OrderStatus;
+
+  @IsOptional() @IsEnum(OrderStatus)
+  expectedStatus?: OrderStatus;
+
+  @IsOptional() @IsDateString()
+  expectedUpdatedAt?: string;
 }
 
 export class UpdateOrderKitDto {
+  @IsOptional() @IsDateString()
+  expectedUpdatedAt?: string;
+
   @Type(() => Number)
   @IsInt()
   @Min(0)

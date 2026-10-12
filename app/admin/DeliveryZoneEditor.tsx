@@ -1,6 +1,8 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { Button } from "./ui/button";
+
 import { useEffect, useRef, useState } from "react";
 import type { DeliveryZonePoint } from "./admin-types";
 
@@ -8,6 +10,7 @@ type DeliveryZoneEditorProps = {
   cityName: string;
   points: DeliveryZonePoint[];
   regionSlug: string;
+  readOnly?: boolean;
   onChange: (points: DeliveryZonePoint[]) => void;
 };
 
@@ -55,7 +58,7 @@ function coordinateKey(points: DeliveryZonePoint[]) {
   return points.map((point) => `${point.latitude.toFixed(6)},${point.longitude.toFixed(6)}`).join(";");
 }
 
-export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange }: DeliveryZoneEditorProps) {
+export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange, readOnly = false }: DeliveryZoneEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const polygonRef = useRef<any>(null);
   const mapRef = useRef<any>(null);
@@ -80,6 +83,7 @@ export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange }: D
       );
       map.geoObjects.add(polygon);
       polygon.geometry.events.add("change", () => {
+        if (readOnly) return;
         const outerRing = polygon.geometry.getCoordinates()?.[0] || [];
         const nextPoints = outerRing.map(([latitude, longitude]: [number, number]) => ({ latitude: Number(latitude.toFixed(6)), longitude: Number(longitude.toFixed(6)) }));
         const nextKey = coordinateKey(nextPoints);
@@ -91,12 +95,12 @@ export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange }: D
       polygonRef.current = polygon;
       mapRef.current = map;
       if (points.length >= 3) {
-        polygon.editor.startEditing();
+        if (!readOnly) polygon.editor.startEditing();
         map.setBounds(polygon.geometry.getBounds(), { checkZoomRange: true, zoomMargin: 42 });
-        setStatus(`${points.length} точек. Перетаскивайте вершины.`);
+        setStatus(readOnly ? "Зона доставки · только просмотр" : `${points.length} точек. Перетаскивайте вершины.`);
       } else {
-        polygon.editor.startDrawing();
-        setStatus("Кликайте по карте, чтобы нарисовать границу.");
+        if (!readOnly) polygon.editor.startDrawing();
+        setStatus(readOnly ? "Зона доставки пока не задана" : "Кликайте по карте, чтобы нарисовать границу.");
       }
     }).catch((error) => {
       if (!cancelled) setStatus(error instanceof Error ? error.message : "Карта недоступна");
@@ -108,9 +112,9 @@ export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange }: D
       mapRef.current = null;
       map?.destroy();
     };
-    // The map must be recreated only when the selected city changes.
+    // Recreate for city or access changes; coordinate changes are applied below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regionSlug]);
+  }, [regionSlug, readOnly]);
 
   useEffect(() => {
     const polygon = polygonRef.current;
@@ -121,13 +125,15 @@ export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange }: D
     polygon.editor.stopDrawing();
     polygon.editor.stopEditing();
     polygon.geometry.setCoordinates(points.length >= 3 ? [points.map((point) => [point.latitude, point.longitude])] : []);
-    if (points.length >= 3) polygon.editor.startEditing();
-    else polygon.editor.startDrawing();
-  }, [points]);
+    if (!readOnly) {
+      if (points.length >= 3) polygon.editor.startEditing();
+      else polygon.editor.startDrawing();
+    }
+  }, [points, readOnly]);
 
   const redraw = () => {
     const polygon = polygonRef.current;
-    if (!polygon) return;
+    if (!polygon || readOnly) return;
     polygon.editor.stopEditing();
     polygon.editor.stopDrawing();
     externalKeyRef.current = "";
@@ -138,16 +144,16 @@ export function DeliveryZoneEditor({ cityName, points, regionSlug, onChange }: D
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <div className="h-[360px] w-full bg-slate-100 sm:h-[440px]" ref={containerRef} />
-      <div className="grid gap-3 border-t border-slate-200 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
-        <span className="text-sm text-slate-600">{status}</span>
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="h-[360px] w-full bg-muted sm:h-[440px]" ref={containerRef} />
+      <div className="grid gap-3 border-t border-border p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+        <span className="text-sm text-muted-foreground">{status}</span>
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-50" disabled={points.length < 3} onClick={() => {
+          <Button variant="ghost" type="button" className="min-h-10 rounded-lg border border-input px-3 text-sm font-medium text-foreground disabled:opacity-50" disabled={points.length < 3} onClick={() => {
             const bounds = polygonRef.current?.geometry.getBounds();
             if (bounds) mapRef.current?.setBounds(bounds, { checkZoomRange: true, zoomMargin: 42 });
-          }}>Показать всю зону</button>
-          <button type="button" className="min-h-10 rounded-lg border border-red-200 px-3 text-sm font-medium text-red-700 hover:bg-red-50" onClick={redraw}>Нарисовать заново</button>
+          }}>Показать всю зону</Button>
+          {!readOnly ? <Button variant="ghost" type="button" className="min-h-10 rounded-lg border border-destructive/20 px-3 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={redraw}>Нарисовать заново</Button> : null}
         </div>
       </div>
     </div>

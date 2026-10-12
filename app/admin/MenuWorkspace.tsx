@@ -1,9 +1,21 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
+import { Label } from "./ui/label";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Input } from "./ui/input";
+
 import { Icon } from "@mdi/react";
-import { mdiClose, mdiMagnify, mdiPlus } from "@mdi/js";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { mdiMagnify, mdiPlus } from "@mdi/js";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Badge } from "./ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
+import { EditorDialog, ListPagination, WorkspaceHeading } from "./workspace-kit";
+import { useDraftEditor } from "./use-unsaved-changes";
+import { useAdminAccess } from "./admin-access";
 import { ImageUpload } from "./ImageUpload";
 import { RowActions } from "./RowActions";
 import { notifyCatalogUpdated } from "../lib/catalog-sync";
@@ -13,6 +25,7 @@ import type { AdminRequest, Category, Dashboard, ModifierGroup, Product, Product
 
 type MenuWorkspaceProps = {
   region: string;
+  mode?: "products" | "modifiers" | "kits";
   request: AdminRequest;
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
@@ -39,21 +52,11 @@ type ProductEditor = {
   carbs: string;
 };
 
-const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100";
-const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
+const inputClass = "h-11 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-3 focus:ring-ring/20";
+const labelClass = "grid gap-1.5 text-sm font-medium text-foreground";
 
 function formatMoney(value: number) {
   return `${Math.round(value).toLocaleString("ru-RU")} сом`;
-}
-
-function slugify(value: string) {
-  const letters: Record<string, string> = {
-    а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z", и: "i", й: "y",
-    к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u", ф: "f",
-    х: "h", ц: "ts", ч: "ch", ш: "sh", щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
-  };
-  return value.toLowerCase().split("").map((letter) => letters[letter] ?? letter).join("")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function emptyEditor(categoryId: string, sortOrder: number): ProductEditor {
@@ -103,36 +106,50 @@ function editorFromProduct(product: Product, category: Category): ProductEditor 
   };
 }
 
-export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps) {
+export function MenuWorkspace({ region, request, onNotice, mode = "products" }: MenuWorkspaceProps) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
-  const [editor, setEditor] = useState<ProductEditor | null>(null);
+  const [editor, setEditor, discardEditor] = useDraftEditor<ProductEditor>();
+  const { can } = useAdminAccess();
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [page, setPage] = useState(0);
+  const [total, setTotal] = useState(0);
   const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition" | "kit">("main");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
     setError("");
     try {
-      setDashboard(await request<Dashboard>(`/admin/dashboard?region=${encodeURIComponent(region)}`));
+      const query = new URLSearchParams({region, search, limit:"25",offset:String(page * 25)});
+      if (categoryFilter !== "all") query.set("categoryId", categoryFilter);
+      const result = await request<{items: (Product & {categoryId: number})[];total: number; categories: Category[]; region: Dashboard["region"]; menuRegionSlug: string; kitCatalog: Dashboard["kitCatalog"]}>(`/admin/catalog-page?${query}`);
+      if (sequence !== requestSequence.current) return;
+      setTotal(result.total);
+      setDashboard({region:result.region,menuRegionSlug:result.menuRegionSlug,kitCatalog:result.kitCatalog,promotionRegionSlug:region,promotions:[],categories:result.categories.map((category) => ({...category,products:result.items.filter((product) => product.categoryId === category.id)}))});
     } catch (loadError) {
+      if (sequence !== requestSequence.current) return;
       setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить меню");
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
-  }, [region, request]);
+  }, [region, request, search, categoryFilter, page]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
+    const timer = window.setTimeout(() => void load(), 200);
     return () => window.clearTimeout(timer);
   }, [load]);
 
   const rows = useMemo(() => (dashboard?.categories ?? [])
     .flatMap((category) => category.products.map((product) => ({ product, category })))
     .filter(({ product }) => product.name.toLowerCase().includes(search.toLowerCase())), [dashboard, search]);
+  const canEdit = can(mode === "modifiers" ? "modifiers.edit" : mode === "kits" ? "kits.edit" : "products.edit");
+  const openProduct = (product: Product, category: Category) => { setEditor(editorFromProduct(product, category)); setEditorSection(mode === "modifiers" ? "modifiers" : mode === "kits" ? "kit" : "main"); };
 
   const kitCatalog = dashboard?.kitCatalog ?? dashboard?.region.freeKitItems ?? fallbackFreeKitItems;
   const availableKitItems = kitCatalog.filter((item) => item.enabled !== false);
@@ -149,28 +166,27 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
   };
 
   const closeEditor = () => {
-    setEditor(null);
-    setEditorSection("main");
+    if (!saving && discardEditor()) setEditorSection("main");
   };
 
   const saveProduct = async (event: FormEvent) => {
     event.preventDefault();
-    if (!editor || saving) return;
-    if (!editor.image) {
+    if (!editor || saving || !(editor.product ? canEdit : can("products.create"))) return;
+    if (mode === "products" && !editor.image) {
       onNotice("Загрузите фотографию блюда", "error");
       setEditorSection("main");
       return;
     }
-    if (!editor.categoryId) {
+    if (mode === "products" && !editor.categoryId) {
       onNotice("Сначала создайте категорию", "error");
       return;
     }
-    if (unavailableKitItems.length) {
+    if (mode !== "modifiers" && can("kits.edit") && unavailableKitItems.length) {
       onNotice("Удалите недоступные позиции из комплектации блюда или включите их в настройках", "error");
       setEditorSection("kit");
       return;
     }
-    if (editor.kitItems.length > 20) {
+    if (mode !== "modifiers" && can("kits.edit") && editor.kitItems.length > 20) {
       onNotice("В комплектации одного блюда может быть не более 20 позиций", "error");
       setEditorSection("kit");
       return;
@@ -180,15 +196,15 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
       const payload = {
         categoryId: Number(editor.categoryId),
         name: editor.name.trim(),
-        slug: editor.slug.trim() || slugify(editor.name),
+        ...(editor.product ? { slug: editor.product.slug } : {}),
         price: Number(editor.price),
         oldPrice: editor.oldPrice === "" ? null : Number(editor.oldPrice),
         image: editor.image,
         description: editor.description.trim(),
         composition: editor.composition.trim(),
         isNew: editor.isNew,
-        modifierGroups: editor.modifierGroups,
-        kitItems: editor.kitItems.filter((item) => item.quantity > 0),
+        ...(can("modifiers.edit") ? {modifierGroups: editor.modifierGroups} : {}),
+        ...(can("kits.edit") ? {kitItems: editor.kitItems.filter((item) => item.quantity > 0)} : {}),
         available: editor.available,
         sortOrder: Number(editor.sortOrder),
         weight: Number(editor.weight),
@@ -198,7 +214,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
         carbs: Number(editor.carbs),
       };
       if (editor.product) {
-        await request(`/admin/products/${editor.product.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+        await request(`/admin/products/${editor.product.id}`, { method: "PATCH", body: JSON.stringify(mode === "modifiers" ? { modifierGroups: editor.modifierGroups } : mode === "kits" ? { kitItems: editor.kitItems } : payload) });
       } else {
         await request("/admin/products", {
           method: "POST",
@@ -207,7 +223,8 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
       }
       notifyCatalogUpdated();
       onNotice(editor.product ? "Изменения блюда сохранены" : "Блюдо добавлено", "success");
-      closeEditor();
+      setEditor(null);
+      setEditorSection("main");
       await load();
     } catch (saveError) {
       onNotice(saveError instanceof Error ? saveError.message : "Не удалось сохранить блюдо", "error");
@@ -217,7 +234,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
   };
 
   const deleteProduct = async (product: Product) => {
-    if (deletingProductId !== null) return;
+    if (deletingProductId !== null || !can("products.delete") || mode !== "products") return;
     if (!window.confirm(`Удалить блюдо «${product.name}» полностью? Блюдо исчезнет из меню всех городов, использующих этот каталог. История заказов сохранится. Отменить удаление нельзя.`)) return;
     setDeletingProductId(product.id);
     try {
@@ -240,131 +257,33 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
     }
   };
 
-  if (loading && !dashboard) {
-    return <div className="grid min-h-56 place-items-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">Загружаем меню…</div>;
-  }
-
-  if (error && !dashboard) {
-    return <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700" role="alert">{error}</div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-        <label className="relative min-w-0 flex-1 sm:max-w-md">
-          <span className="sr-only">Найти блюдо</span>
-          <Icon path={mdiMagnify} size={0.75} aria-hidden="true" className="absolute left-3 top-3 text-slate-400" />
-          <input type="search" className={`${inputClass} pl-10`} placeholder="Найти блюдо" value={search} onChange={(event) => setSearch(event.target.value)} />
-        </label>
-        <button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => {
-          setEditor(emptyEditor(String(dashboard?.categories[0]?.id ?? ""), rows.length));
-          setEditorSection("main");
-        }}>
-          <Icon path={mdiPlus} size={0.75} aria-hidden="true" />
-          Добавить блюдо
-        </button>
+  if (loading && !dashboard) return <Card className="p-12 text-center text-muted-foreground" role="status">Загружаем каталог…</Card>;
+  if (error && !dashboard) return <Card className="p-6 text-destructive" role="alert">{error}<Button variant="outline" onClick={() => void load()}>Повторить</Button></Card>;
+  return <div className="space-y-6">
+    <WorkspaceHeading title={mode === "modifiers" ? "Модификаторы" : mode === "kits" ? "Комплектации блюд" : "Каталог блюд"} description={mode === "modifiers" ? "Группы выбора, добавки и доплаты. Откройте блюдо, чтобы настроить варианты." : mode === "kits" ? "Бесплатные позиции в каждой порции. Состав настраивается отдельно от платных добавок." : "Фотографии, цены и доступность вашего меню."} action={mode === "products" && can("products.create") ? <Button className="min-h-10" onClick={() => { setEditor(emptyEditor(String(dashboard?.categories[0]?.id ?? ""), total)); setEditorSection("main"); }}><Icon path={mdiPlus} size={0.7} />Добавить блюдо</Button> : undefined} />
+    <Card className="gap-0 py-0">
+      <div className="grid gap-3 border-b border-border p-4 sm:grid-cols-[1fr_220px]">
+        <Label className="relative"><span className="sr-only">Поиск блюд</span><Icon path={mdiMagnify} size={0.75} className="pointer-events-none absolute left-3 top-3 text-muted-foreground" /><Input type="search" className="h-10 pl-10" placeholder="Поиск по названию" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0); }} /></Label>
+        <select aria-label="Категория" className={inputClass} value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value); setPage(0); }}><option value="all">Все категории</option>{dashboard?.categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}</select>
       </div>
-
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        {rows.length ? (
-          <>
-            <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-5 py-3">Блюдо</th><th className="px-5 py-3">Категория</th><th className="px-5 py-3">Цена</th><th className="px-5 py-3">Доступность</th><th className="px-5 py-3 text-right">Действия</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {rows.map(({ product, category }) => (
-                    <tr key={product.id}>
-                      <td className="px-5 py-4 font-medium text-slate-950">{product.name}</td>
-                      <td className="px-5 py-4 text-slate-600">{category.title}</td>
-                      <td className="px-5 py-4 font-semibold text-slate-900">{formatMoney(product.price)}</td>
-                      <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${product.available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{product.available ? "Доступно" : "Скрыто"}</span></td>
-                      <td className="px-5 py-4"><RowActions label="блюдо" name={product.name} deleting={deletingProductId === product.id} deletionDisabled={deletingProductId !== null} onEdit={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }} onDelete={() => void deleteProduct(product)} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="divide-y divide-slate-200 md:hidden">
-              {rows.map(({ product, category }) => (
-                <article key={product.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3"><div><strong className="block text-slate-950">{product.name}</strong><span className="mt-1 block text-sm text-slate-500">{category.title}</span></div><strong className="shrink-0 text-sm text-slate-950">{formatMoney(product.price)}</strong></div>
-                  <div className="mt-3"><RowActions label="блюдо" name={product.name} deleting={deletingProductId === product.id} deletionDisabled={deletingProductId !== null} onEdit={() => { setEditor(editorFromProduct(product, category)); setEditorSection("main"); }} onDelete={() => void deleteProduct(product)} /></div>
-                </article>
-              ))}
-            </div>
-          </>
-        ) : <div className="grid min-h-52 place-items-center p-8 text-center text-sm text-slate-500">Блюда не найдены.</div>}
-      </section>
-
-      {editor ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/45 p-0 sm:p-5" role="presentation">
-          <form className="mx-auto flex h-dvh w-full max-w-5xl flex-col bg-white shadow-2xl sm:h-[calc(100dvh-40px)] sm:rounded-xl" role="dialog" aria-modal="true" aria-labelledby="product-editor-title" onSubmit={saveProduct}>
-            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-              <div><h2 id="product-editor-title" className="text-lg font-semibold text-slate-950">{editor.product ? "Редактировать блюдо" : "Добавить блюдо"}</h2><p className="mt-1 text-sm text-slate-500">Заполните только понятные клиенту параметры.</p></div>
-              <button type="button" aria-label="Закрыть редактор блюда" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600" onClick={closeEditor}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button>
-            </header>
-            <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4" aria-label="Разделы формы блюда">
-              {([['main', 'Основное'], ['modifiers', `Модификации · ${editor.modifierGroups.length}`], ['kit', `Комплектация · ${editor.kitItems.length}`], ['nutrition', 'Пищевая ценность']] as const).map(([value, label]) => <button key={value} type="button" aria-current={editorSection === value ? "page" : undefined} className={`min-h-12 shrink-0 border-b-2 px-3 text-sm font-medium ${editorSection === value ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500"}`} onClick={() => setEditorSection(value)}>{label}</button>)}
-            </nav>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {editorSection === "main" ? (
-                <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-                  <ImageUpload label="Фотография блюда" value={editor.image} hint="Рекомендуемый размер — 800×800 px." onChange={(image) => setEditor({ ...editor, image })} onError={(message) => onNotice(message, "error")} />
-                  <div className="grid content-start gap-4">
-                    <label className={labelClass}>Название<input required className={inputClass} value={editor.name} onChange={(event) => setEditor({ ...editor, name: event.target.value, slug: editor.product ? editor.slug : slugify(event.target.value) })} /></label>
-                    <div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Категория<select required className={inputClass} value={editor.categoryId} onChange={(event) => setEditor({ ...editor, categoryId: event.target.value })}>{dashboard?.categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}</select></label><label className={labelClass}>Порядок<input min="0" type="number" className={inputClass} value={editor.sortOrder} onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })} /></label></div>
-                    <div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Цена, сом<input required min="0" type="number" className={inputClass} value={editor.price} onChange={(event) => setEditor({ ...editor, price: event.target.value })} /></label><label className={labelClass}>Старая цена<input min="0" type="number" className={inputClass} value={editor.oldPrice} onChange={(event) => setEditor({ ...editor, oldPrice: event.target.value })} /></label></div>
-                    <label className={labelClass}>Описание<textarea className="min-h-24 rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={editor.description} onChange={(event) => setEditor({ ...editor, description: event.target.value })} /></label>
-                    <label className={labelClass}>Состав<textarea className="min-h-24 rounded-lg border border-slate-300 p-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={editor.composition} onChange={(event) => setEditor({ ...editor, composition: event.target.value })} /></label>
-                    <label className={labelClass}>Вес, г<input min="0" step="0.01" type="number" className={inputClass} value={editor.weight} onChange={(event) => setEditor({ ...editor, weight: event.target.value })} /></label>
-                    <div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 accent-blue-600" checked={editor.available} onChange={(event) => setEditor({ ...editor, available: event.target.checked })} />Доступно для заказа</label><label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 accent-blue-600" checked={editor.isNew} onChange={(event) => setEditor({ ...editor, isNew: event.target.checked })} />Показывать «Новинка»</label></div>
-                  </div>
-                </div>
-              ) : null}
-
-              {editorSection === "modifiers" ? <ProductModifierEditor groups={editor.modifierGroups} onChange={(modifierGroups) => setEditor({ ...editor, modifierGroups })} /> : null}
-
-              {editorSection === "kit" ? (
-                <section className="mx-auto grid max-w-3xl gap-4" aria-label="Комплектация блюда">
-                  <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-                    <strong className="block font-semibold text-slate-950">Что входит в одну порцию блюда</strong>
-                    <p className="mt-1">Укажите количество бесплатных соусов и добавок для одного блюда. В заказе оно умножается на количество порций. Значение 0 означает, что позиция не входит в комплектацию.</p>
-                  </div>
-                  {availableKitItems.length ? availableKitItems.map((kitItem) => (
-                    <article key={kitItem.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 p-4">
-                      {kitItem.image ? <img src={kitItem.image} alt="" className="size-14 shrink-0 rounded-lg object-contain" /> : null}
-                      <strong className="min-w-0 flex-1 break-words text-sm text-slate-900">{kitItem.name}</strong>
-                      <label className={`${labelClass} w-24 shrink-0 text-xs`}>
-                        На 1 блюдо
-                        <input type="number" min="0" max="20" step="1" className={inputClass} aria-label={`${kitItem.name}: количество на одно блюдо`} value={editor.kitItems.find((item) => item.id === kitItem.id)?.quantity ?? 0} onChange={(event) => setKitQuantity(kitItem.id, Number(event.target.value))} />
-                      </label>
-                    </article>
-                  )) : <p className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Добавьте позиции комплектации в настройках города, затем выберите их для блюда.</p>}
-                  {unavailableKitItems.map((kitItem) => (
-                    <article key={kitItem.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                      <div className="min-w-0 text-sm"><strong className="break-words text-slate-900">{kitCatalog.find((item) => item.id === kitItem.id)?.name ?? kitItem.id} · {kitItem.quantity} шт.</strong><p className="mt-1 text-amber-800">Позиция отключена или удалена из справочника. Включите её в настройках или удалите из блюда.</p></div>
-                      <button type="button" className="min-h-11 rounded-lg border border-amber-300 bg-white px-4 text-sm font-medium text-amber-900" onClick={() => setKitQuantity(kitItem.id, 0)}>Убрать из блюда</button>
-                    </article>
-                  ))}
-                </section>
-              ) : null}
-
-              {editorSection === "nutrition" ? (
-                <div className="mx-auto grid max-w-2xl gap-4 sm:grid-cols-2">
-                  {([['calories', 'Калории, ккал'], ['protein', 'Белки, г'], ['fat', 'Жиры, г'], ['carbs', 'Углеводы, г']] as const).map(([key, label]) => <label key={key} className={labelClass}>{label}<input min="0" type="number" className={inputClass} value={editor[key]} onChange={(event) => setEditor({ ...editor, [key]: event.target.value })} /></label>)}
-                </div>
-              ) : null}
-            </div>
-            <footer className="grid gap-2 border-t border-slate-200 bg-white p-4 sm:grid-cols-[auto_1fr] sm:px-6">
-              <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-5 text-sm font-medium text-slate-700" onClick={closeEditor}>Отменить</button>
-              <button type="submit" className="min-h-11 rounded-lg bg-blue-600 px-5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 sm:justify-self-end" disabled={saving}>{saving ? "Сохраняем…" : editor.product ? "Сохранить изменения" : "Добавить блюдо"}</button>
-            </footer>
-          </form>
-        </div>
-      ) : null}
-    </div>
-  );
+      {error ? <p role="alert" className="p-4 text-sm text-destructive">{error}</p> : null}
+      {rows.length ? <>
+        <div className="hidden overflow-x-auto md:block"><Table><TableHeader><TableRow><TableHead className="pl-5">Блюдо</TableHead><TableHead>Категория</TableHead><TableHead>{mode === "modifiers" ? "Группы выбора" : mode === "kits" ? "Комплектация" : "Цена"}</TableHead><TableHead>Доступность</TableHead><TableHead className="pr-5 text-right">Действия</TableHead></TableRow></TableHeader><TableBody>{rows.map(({product,category}) => <TableRow key={product.id}><TableCell className="pl-5"><div className="flex items-center gap-3"><img src={product.image} alt="" className="size-12 rounded-lg bg-muted object-contain" /><div><button type="button" className="text-left font-medium hover:underline" onClick={() => openProduct(product,category)}>{product.name}</button>{product.weight > 0 ? <p className="mt-1 text-xs text-muted-foreground">{product.weight} г</p> : null}</div></div></TableCell><TableCell className="text-muted-foreground">{category.title}</TableCell><TableCell className="font-medium">{mode === "modifiers" ? `${product.modifierGroups?.length ?? 0} групп` : mode === "kits" ? `${product.kitItems?.length ?? 0} позиций` : formatMoney(product.price)}</TableCell><TableCell><Badge variant={product.available ? "secondary" : "outline"}>{product.available ? "Доступно" : "Скрыто"}</Badge></TableCell><TableCell className="pr-4"><RowActions label="блюдо" name={product.name} deleting={deletingProductId === product.id} deletionDisabled={deletingProductId !== null} editAllowed={canEdit} deleteAllowed={mode === "products" && can("products.delete")} onEdit={() => openProduct(product,category)} onDelete={() => void deleteProduct(product)} /></TableCell></TableRow>)}</TableBody></Table></div>
+        <div className="divide-y divide-border md:hidden">{rows.map(({product,category}) => <article key={product.id} className="p-4"><div className="flex gap-3"><img src={product.image} alt="" className="size-16 shrink-0 rounded-lg bg-muted object-contain" /><div className="min-w-0 flex-1"><button type="button" className="text-left font-medium" onClick={() => openProduct(product,category)}>{product.name}</button><p className="mt-1 text-xs text-muted-foreground">{category.title}</p><p className="mt-2 text-sm font-semibold">{formatMoney(product.price)}</p></div><Badge variant="outline" className="self-start">{product.available ? "В меню" : "Скрыто"}</Badge></div><RowActions label="блюдо" name={product.name} deleting={deletingProductId === product.id} deletionDisabled={deletingProductId !== null} editAllowed={canEdit} deleteAllowed={mode === "products" && can("products.delete")} onEdit={() => openProduct(product,category)} onDelete={() => void deleteProduct(product)} /></article>)}</div>
+      </> : <div className="p-12 text-center"><h3 className="font-medium">Блюда не найдены</h3><p className="mt-2 text-sm text-muted-foreground">Измените поиск или добавьте первое блюдо.</p></div>}
+      <ListPagination total={total} page={page} loading={loading} onPageChange={setPage} />
+    </Card>
+    <EditorDialog open={Boolean(editor)} onClose={closeEditor} title={editor?.product ? editor.product.name : "Новое блюдо"} description="Изменения появятся в меню после сохранения." wide>
+      {editor ? <form onSubmit={saveProduct} className="flex min-h-0 flex-1 flex-col">
+        {mode === "products" ? <Tabs value={editorSection} onValueChange={(value) => setEditorSection(value as typeof editorSection)} className="shrink-0 border-b border-border px-5 py-3"><TabsList className="h-auto w-full justify-start overflow-x-auto"><TabsTrigger value="main">Основное</TabsTrigger>{can("modifiers.view") ? <TabsTrigger value="modifiers">Модификаторы · {editor.modifierGroups.length}</TabsTrigger> : null}{can("kits.view") ? <TabsTrigger value="kit">Комплектация · {editor.kitItems.length}</TabsTrigger> : null}<TabsTrigger value="nutrition">Дополнительно</TabsTrigger></TabsList></Tabs> : null}
+        <fieldset disabled={saving || (editor.product ? !canEdit : !can("products.create"))} className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+          {editorSection === "main" ? <div className="grid gap-6 lg:grid-cols-[minmax(220px,0.8fr)_1.2fr]"><Card><CardHeader><CardTitle>Фото в меню</CardTitle></CardHeader><CardContent><ImageUpload label="Фотография блюда" value={editor.image} hint="800 × 800 px, до 5 МБ." onChange={(image) => setEditor({...editor,image})} onError={(message) => onNotice(message,"error")} /></CardContent></Card><div className="grid content-start gap-5"><Label className={labelClass}>Название<Input required maxLength={140} value={editor.name} onChange={(event) => setEditor({...editor,name:event.target.value})} /></Label><Label className={labelClass}>Категория<select required className={inputClass} value={editor.categoryId} onChange={(event) => setEditor({...editor,categoryId:event.target.value})}>{dashboard?.categories.map((category) => <option key={category.id} value={category.id}>{category.title}</option>)}</select></Label><div className="grid grid-cols-2 gap-4"><Label className={labelClass}>Цена, сом<Input required type="number" min="0" value={editor.price} onChange={(event) => setEditor({...editor,price:event.target.value})} /></Label><Label className={labelClass}>Вес, г<Input type="number" min="0" step="0.01" value={editor.weight} onChange={(event) => setEditor({...editor,weight:event.target.value})} /></Label></div><Label className={labelClass}>Описание<Textarea rows={3} value={editor.description} onChange={(event) => setEditor({...editor,description:event.target.value})} /></Label><Label className={labelClass}>Состав<Textarea rows={3} value={editor.composition} onChange={(event) => setEditor({...editor,composition:event.target.value})} /></Label><Label className="flex items-center gap-3 rounded-lg border border-border p-4"><input type="checkbox" checked={editor.available} onChange={(event) => setEditor({...editor,available:event.target.checked})} className="size-4 accent-primary" /><span><strong className="block text-sm font-medium">Доступно для заказа</strong><small className="text-muted-foreground">Скрытое блюдо остаётся в каталоге</small></span></Label></div></div> : null}
+          {editorSection === "modifiers" && can("modifiers.view") ? <fieldset disabled={!can("modifiers.edit")}><ProductModifierEditor groups={editor.modifierGroups} onChange={(modifierGroups) => setEditor({...editor,modifierGroups})} /></fieldset> : null}
+          {editorSection === "kit" && can("kits.view") ? <fieldset disabled={!can("kits.edit")} className="mx-auto grid max-w-3xl gap-4"><div className="rounded-xl bg-muted p-4"><h3 className="font-medium">Комплектация одной порции</h3><p className="mt-1 text-sm text-muted-foreground">Укажите бесплатные позиции. Количество умножается на число порций в заказе.</p></div>{availableKitItems.map((item) => <Label key={item.id} className="flex items-center gap-4 rounded-xl border border-border p-4">{item.image ? <img src={item.image} alt="" className="size-12 rounded-lg object-contain" /> : null}<span className="min-w-0 flex-1 font-medium">{item.name}</span><Input aria-label={`Количество: ${item.name}`} type="number" min="0" max="20" className="w-24" value={editor.kitItems.find((selected) => selected.id === item.id)?.quantity ?? 0} onChange={(event) => setKitQuantity(item.id,Number(event.target.value))} /></Label>)}{!availableKitItems.length ? <p className="text-sm text-muted-foreground">Добавьте бесплатные позиции в настройках комплектации.</p> : null}{unavailableKitItems.map((item,index) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-destructive/10 p-4 text-sm text-destructive"><span>Недоступная позиция {index+1} · {item.quantity} шт.</span><Button variant="destructive" type="button" onClick={() => setKitQuantity(item.id,0)}>Удалить</Button></div>)}</fieldset> : null}
+          {editorSection === "nutrition" ? <div className="mx-auto grid max-w-3xl gap-6"><Card><CardHeader><CardTitle>Отображение в меню</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><Label className={labelClass}>Старая цена, сом<Input type="number" min="0" value={editor.oldPrice} onChange={(event) => setEditor({...editor,oldPrice:event.target.value})} /></Label><Label className={labelClass}>Порядок в категории<Input type="number" min="0" value={editor.sortOrder} onChange={(event) => setEditor({...editor,sortOrder:event.target.value})} /></Label><Label className="flex items-center gap-3"><input type="checkbox" className="size-4 accent-primary" checked={editor.isNew} onChange={(event) => setEditor({...editor,isNew:event.target.checked})} />Отметка «Новинка»</Label></CardContent></Card><Card><CardHeader><CardTitle>Пищевая ценность</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">{([['calories','Калории, ккал'],['protein','Белки, г'],['fat','Жиры, г'],['carbs','Углеводы, г']] as const).map(([key,label]) => <Label key={key} className={labelClass}>{label}<Input type="number" min="0" value={editor[key]} onChange={(event) => setEditor({...editor,[key]:event.target.value})} /></Label>)}</CardContent></Card></div> : null}
+        </fieldset>
+        <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/30 p-4"><Button variant="outline" type="button" onClick={closeEditor}>Отменить</Button>{(editor.product ? canEdit : can("products.create")) ? <Button type="submit" className="min-h-10" disabled={saving}>{saving ? "Сохраняем…" : "Сохранить блюдо"}</Button> : <span className="text-xs text-muted-foreground">Доступ только для просмотра</span>}</footer>
+      </form> : null}
+    </EditorDialog>
+  </div>;
 }

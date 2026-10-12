@@ -53,6 +53,7 @@ test("order creation derives its kit from source-menu dishes and saves full incl
     save: async (data) => { saved = data; return data; },
   };
   const manager = {
+    query: async () => [],
     getRepository: (entity) => {
       if (entity === Order) return orderRepository;
       if (entity === OrderItem) return { create: (data) => data };
@@ -155,10 +156,11 @@ test("legacy retries without kit selections can reconstruct known defaults after
 
 test("admin kit reductions can restore saved included limits without consulting changed dishes", async () => {
   const includedKitItems = [{ id: "soy-sauce", name: "Соус соевый", quantity: 4 }];
-  const order = { id: "kit-order", status: OrderStatus.NEW, noUtensils: false, utensilsCount: 1, items: [], kitItems: [{ ...includedKitItems[0], quantity: 0 }], includedKitItems };
+  const order = { id: "kit-order", status: OrderStatus.NEW, updatedAt: new Date(), noUtensils: false, utensilsCount: 1, items: [], kitItems: [{ ...includedKitItems[0], quantity: 0 }], includedKitItems };
+  const update = { update() { return this; }, set() { return this; }, where() { return this; }, andWhere() { return this; }, execute: async () => ({ affected: 1 }) };
   const service = new AdminService(
     {}, {}, {}, {}, {},
-    { findOne: async () => order, save: async (value) => value },
+    { findOne: async () => order, createQueryBuilder: () => update },
     {}, {},
   );
   const updated = await service.updateOrderKit(order.id, { noUtensils: false, utensilsCount: 2, kitItems: [{ id: "soy-sauce", quantity: 4 }] });

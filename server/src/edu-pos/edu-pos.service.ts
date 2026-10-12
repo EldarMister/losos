@@ -278,9 +278,11 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
         posLastError: "",
         posLastSyncAt: now,
         posNextRetryAt: null,
+        updatedAt: () => `GREATEST(date_trunc('milliseconds', CURRENT_TIMESTAMP), date_trunc('milliseconds', "updatedAt") + interval '1 millisecond')`,
       })
       .where("id = :id", { id: order.id })
       .andWhere("status = :status", { status: OrderStatus.NEW })
+      .andWhere(`date_trunc('milliseconds', "updatedAt") = :expectedUpdatedAt`, { expectedUpdatedAt: order.updatedAt })
       .andWhere(`(
         "posSyncStatus" IN (:...claimable)
         OR ("posSyncStatus" = :submitting AND ("posLastSyncAt" IS NULL OR "posLastSyncAt" < :staleAt))
@@ -294,7 +296,8 @@ export class EduPosService implements OnModuleInit, OnModuleDestroy {
     if (!claim.affected) {
       const current = await this.orders.findOne({ where: { id: order.id }, relations: { items: true } });
       if (!current) throw new BadRequestException("Заказ не найден");
-      if (current.status !== OrderStatus.NEW) return current;
+      if (current.status === OrderStatus.CONFIRMED) return current;
+      if (current.status !== OrderStatus.NEW) throw new ConflictException("Заказ изменён другим сотрудником. Обновите карточку.");
       if (current.posSyncStatus === "synced" && current.posOrderId) {
         current.status = OrderStatus.CONFIRMED;
         current.adminConfirmedAt = new Date();

@@ -14,6 +14,14 @@
     "migration:run": "npm run build && typeorm -d dist/data-source.js migration:run",
     "migration:revert": "npm run build && typeorm -d dist/data-source.js migration:revert",
     "test": "tsx --test test/backend.test.ts",
+    "test:admin": "npm run build && node --test test/admin-security.test.cjs test/admin-reports.integration.cjs && tsx --test test/admin-notifications.test.ts",
+    "test:admin:integration": "npm run build && node test/run-admin-integration.cjs all",
+    "test:admin-security": "npm run build && node --test test/admin-security.test.cjs",
+    "test:admin-security:integration": "npm run build && node test/run-admin-integration.cjs security",
+    "test:admin-reports": "npm run build && node --test test/admin-reports.integration.cjs",
+    "test:admin-reports:integration": "npm run build && node test/run-admin-integration.cjs reports",
+    "test:admin-notifications": "tsx --test test/admin-notifications.test.ts",
+    "test:admin-notifications:integration": "npm run build && node test/run-admin-integration.cjs notifications",
     "test:kits": "npm run build && node --test test/product-kit.test.cjs",
     "test:promotions": "npm run build && node --test test/promotions.test.cjs",
     "test:cities": "npm run build && node --test test/city-visibility.integration.cjs",
@@ -30,11 +38,13 @@
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "typeorm": "^0.3.26"
+    "typeorm": "^0.3.26",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",
     "@types/node": "^22.18.6",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.2"
   }

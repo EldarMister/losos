@@ -1,6 +1,10 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
+import { Button } from "./ui/button";
+import { Label } from "./ui/label";
+import { Input } from "./ui/input";
+
 import { Icon } from "@mdi/react";
 import { mdiDeleteOutline, mdiImagePlusOutline } from "@mdi/js";
 import { ChangeEvent, useId, useState } from "react";
@@ -31,7 +35,9 @@ function optimizeImage(file: File) {
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(source.width * scale));
         canvas.height = Math.max(1, Math.round(source.height * scale));
-        canvas.getContext("2d")?.drawImage(source, 0, 0, canvas.width, canvas.height);
+        const context = canvas.getContext("2d");
+        if (!context) { reject(new Error("Браузер не смог обработать изображение")); return; }
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
         const result = canvas.toDataURL("image/webp", 0.78);
         if (result.length > 1_950_000) {
           reject(new Error("Изображение получилось слишком большим. Выберите файл меньшего размера"));
@@ -66,36 +72,36 @@ export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, 
 
   return (
     <fieldset className="grid min-w-0 w-full content-start gap-3">
-      <legend className="text-sm font-medium text-slate-700">{label}</legend>
+      <legend className="text-sm font-medium text-foreground">{label}</legend>
       {previewValue ? (
-        <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/50">
           <img src={previewValue} alt={`Предпросмотр: ${label}`} className={`${compact ? "h-32" : "h-52"} w-full object-contain`} />
-          <div className={`grid gap-2 border-t border-slate-200 bg-white ${compact ? "p-2" : `${value ? "grid-cols-2 " : ""}p-3`}`}>
-            <label htmlFor={inputId} className="inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 px-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <div className={`grid gap-2 border-t border-border bg-card ${compact ? "p-2" : `${value ? "grid-cols-2 " : ""}p-3`}`}>
+            <Label htmlFor={inputId} className="inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-input px-2 text-center text-sm font-medium text-foreground hover:bg-muted/50">
               <Icon path={mdiImagePlusOutline} size={0.72} aria-hidden="true" className="shrink-0" />
               Заменить фото
-            </label>
-            {value ? <button type="button" className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-red-200 px-2 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => onChange("")}>
+            </Label>
+            {value ? <Button variant="ghost" type="button" className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-2 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => onChange("")}>
               <Icon path={mdiDeleteOutline} size={0.72} aria-hidden="true" className="shrink-0" />
               Удалить фото
-            </button> : null}
+            </Button> : null}
           </div>
         </div>
       ) : (
-        <label htmlFor={inputId} className={`grid min-w-0 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-center hover:border-blue-400 hover:bg-blue-50/40 ${compact ? "min-h-32 p-3" : "min-h-44 p-6"}`}>
+        <Label htmlFor={inputId} className={`grid min-w-0 cursor-pointer place-items-center rounded-xl border border-dashed border-input bg-muted/50 text-center hover:border-primary hover:bg-primary/5 ${compact ? "min-h-32 p-3" : "min-h-44 p-6"}`}>
           <span>
-            <Icon path={mdiImagePlusOutline} size={1.35} aria-hidden="true" className="mx-auto text-slate-400" />
-            <strong className="mt-3 block text-sm font-semibold text-slate-900">{processing ? "Обрабатываем изображение…" : "Загрузить фотографию"}</strong>
-            <small className="mt-1 block text-xs text-slate-500">JPG, PNG или WEBP до 5 МБ</small>
+            <Icon path={mdiImagePlusOutline} size={1.35} aria-hidden="true" className="mx-auto text-muted-foreground" />
+            <strong className="mt-3 block text-sm font-semibold text-foreground">{processing ? "Обрабатываем изображение…" : "Загрузить фотографию"}</strong>
+            <small className="mt-1 block text-xs text-muted-foreground">JPG, PNG или WEBP до 5 МБ</small>
           </span>
-        </label>
+        </Label>
       )}
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={processing} onChange={(event) => void selectFile(event)} />
-      <p className="text-xs text-slate-500">{hint}</p>
-      <label className="grid min-w-0 gap-1.5 text-sm font-medium text-slate-700">
-        Или вставьте ссылку
-        <input type="url" className="h-11 min-w-0 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100" value={value.startsWith("data:") ? "" : value} placeholder="https://…" onChange={(event) => onChange(event.target.value)} />
-      </label>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+      <details className="min-w-0"><summary className="cursor-pointer text-xs text-muted-foreground">Изображение по ссылке</summary><Label className="mt-3 grid min-w-0 gap-1.5 text-sm font-medium text-foreground">
+        Ссылка на изображение
+        <Input type="url" className="h-11 min-w-0 w-full rounded-lg border border-input px-3 text-sm outline-none focus:border-primary focus:ring-3 focus:ring-ring/20" value={value.startsWith("data:") ? "" : value} placeholder="https://…" onChange={(event) => onChange(event.target.value)} />
+      </Label></details>
     </fieldset>
   );
 }

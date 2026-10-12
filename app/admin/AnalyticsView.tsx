@@ -1,100 +1,32 @@
 "use client";
-
-import { useCallback, useEffect, useState } from "react";
-import type { AdminRequest, Analytics } from "./admin-types";
-
-type AnalyticsViewProps = {
-  region: string;
-  request: AdminRequest;
-};
-
-function formatMoney(value: number) {
-  return `${Math.round(value).toLocaleString("ru-RU")} сом`;
-}
-
-export function AnalyticsView({ region, request }: AnalyticsViewProps) {
-  const [period, setPeriod] = useState<"today" | "week" | "month">("week");
-  const [data, setData] = useState<Analytics | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      setData(await request<Analytics>(`/admin/analytics?region=${encodeURIComponent(region)}&period=${period}`));
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить аналитику");
-    } finally {
-      setLoading(false);
-    }
-  }, [period, region, request]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
-
-  if (loading && !data) {
-    return <div className="grid min-h-56 place-items-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500" role="status">Загружаем данные…</div>;
-  }
-
-  if (error && !data) {
-    return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700" role="alert">
-        <strong className="block">Не удалось загрузить данные</strong>
-        <span className="mt-1 block">{error}</span>
-        <button type="button" className="mt-3 font-semibold underline" onClick={() => void load()}>Повторить загрузку</button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <strong className="block text-sm font-semibold text-slate-950">Период отчёта</strong>
-          <span className="mt-1 block text-xs text-slate-500">Основные показатели продаж</span>
-        </div>
-        <div className="flex gap-2 overflow-x-auto" aria-label="Период аналитики">
-          {(["today", "week", "month"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={period === value}
-              className={`min-h-10 shrink-0 rounded-lg px-3 text-sm font-medium ${period === value ? "bg-slate-950 text-white" : "border border-slate-300 bg-white text-slate-700"}`}
-              onClick={() => setPeriod(value)}
-            >
-              {value === "today" ? "Сегодня" : value === "week" ? "7 дней" : "30 дней"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <dl className="grid gap-3 sm:grid-cols-3">
-        {[
-          ["Заказы", data?.orders ?? 0, "шт."],
-          ["Выручка", formatMoney(data?.revenue ?? 0), ""],
-          ["Средний чек", formatMoney(data?.average ?? 0), ""],
-        ].map(([label, value, suffix]) => (
-          <div key={label} className="rounded-xl border border-slate-200 bg-white p-5">
-            <dt className="text-sm text-slate-500">{label}</dt>
-            <dd className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{value} {suffix}</dd>
-          </div>
-        ))}
-      </dl>
-
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <header className="border-b border-slate-200 px-5 py-4"><h2 className="font-semibold text-slate-950">Популярные блюда</h2></header>
-        {data?.products.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[540px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Блюдо</th><th className="px-5 py-3">Продано</th><th className="px-5 py-3 text-right">Выручка</th></tr></thead>
-              <tbody className="divide-y divide-slate-200">{data.products.slice(0, 5).map((product) => <tr key={product.name}><td className="px-5 py-4 font-medium text-slate-900">{product.name}</td><td className="px-5 py-4 text-slate-600">{product.count} шт.</td><td className="px-5 py-4 text-right font-semibold text-slate-900">{formatMoney(product.revenue)}</td></tr>)}</tbody>
-            </table>
-          </div>
-        ) : <div className="p-8 text-center text-sm text-slate-500">Продаж пока нет.</div>}
-      </section>
-    </div>
-  );
+import { useEffect,useState } from "react";
+import { Download,TrendingUp,TrendingDown } from "lucide-react";
+import { Area,AreaChart,Bar,BarChart,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis } from "recharts";
+import { Button } from "./ui/button";import { Input } from "./ui/input";import { Label } from "./ui/label";
+import { Card,CardHeader,CardTitle,CardDescription,CardContent } from "./ui/card";
+import { Table,TableHeader,TableHead,TableRow,TableBody,TableCell } from "./ui/table";
+import { Tabs,TabsList,TabsTrigger,TabsContent } from "./ui/tabs";
+import { useAdminAccess } from "./admin-access";import type { AdminRequest } from "./admin-types";
+type Metric={orders:number;completed:number;revenue:number;average:number;cancelled:number;newCustomers:number;repeatCustomers:number};type Ranking={name:string;count:number;revenue?:number};
+type Report={employees?:{recordedSince:string|null;items:{name:string;statusChanges:number;completions:number}[]}|null;current:Metric;previous:Metric;period:{from:string;to:string;previousFrom:string;previousTo:string};days:{label:string;revenue:number;count:number}[];hours:{hour:number;count:number;revenue:number}[];statuses:{status:string;count:number}[];products:Ranking[];categories:Ranking[];modifiers:Ranking[];kits:Ranking[]};
+const money=(value:number)=>`${Math.round(value).toLocaleString("ru-RU")} сом`;
+const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bishkek"}).format(new Date());
+const dayBefore=(days:number)=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Bishkek"}).format(new Date(Date.now()-days*86400000));
+const statusNames:Record<string,string>={new:"Новые",confirmed:"Подтверждены",preparing:"Готовятся",ready:"Готовы",delivering:"В пути",completed:"Завершены",cancelled:"Отменены"};
+export function AnalyticsView({region,request}:{region:string;request:AdminRequest}){
+ const {can}=useAdminAccess();const [from,setFrom]=useState(()=>dayBefore(6));const [to,setTo]=useState(today);const [data,setData]=useState<Report|null>(null);const [error,setError]=useState("");const [loading,setLoading]=useState(true);const [retry,setRetry]=useState(0);const [exporting,setExporting]=useState(false);
+ const query=`region=${encodeURIComponent(region)}&from=${from}&to=${to}`;
+ useEffect(()=>{let active=true;const timer=setTimeout(()=>{setLoading(true);setData(null);setError("");void request<Report>(`/admin/reports?${query}`).then(result=>{if(active)setData(result)}).catch(e=>{if(active)setError(e instanceof Error?e.message:"Не удалось загрузить отчёт")}).finally(()=>{if(active)setLoading(false)})},150);return()=>{active=false;clearTimeout(timer)}},[query,request,retry]);
+ async function exportReport(){setExporting(true);try{const value=await request<{filename:string;csv:string}>(`/admin/reports/export?${query}`);const url=URL.createObjectURL(new Blob([value.csv],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download=value.filename;link.click();URL.revokeObjectURL(url)}catch(e){setError(e instanceof Error?e.message:"Не удалось экспортировать отчёт")}finally{setExporting(false)}}
+ return <div className="space-y-6"><Card><CardContent className="flex flex-wrap items-end gap-4"><div className="grid gap-2"><Label htmlFor="report-from">Начало периода</Label><Input id="report-from" type="date" value={from} max={to} onChange={e=>setFrom(e.target.value)}/></div><div className="grid gap-2"><Label htmlFor="report-to">Конец периода</Label><Input id="report-to" type="date" value={to} min={from} onChange={e=>setTo(e.target.value)}/></div><div className="flex flex-wrap gap-2">{[{days:0,label:"Сегодня"},{days:6,label:"7 дней"},{days:29,label:"30 дней"}].map(item=><Button key={item.days} variant="outline" onClick={()=>{setFrom(dayBefore(item.days));setTo(today())}}>{item.label}</Button>)}</div>{can("analytics.export")&&<Button className="sm:ml-auto" variant="outline" disabled={exporting||loading||!data} onClick={()=>void exportReport()}><Download/>{exporting?"Подготовка…":"Экспорт CSV"}</Button>}</CardContent></Card>
+ {error&&<p role="alert" className="rounded-lg bg-destructive/10 p-4 text-sm text-destructive">{error}<Button variant="link" onClick={()=>setRetry(v=>v+1)}>Повторить</Button></p>}{loading&&<Card><CardContent className="py-10 text-center text-sm text-muted-foreground" role="status">Рассчитываем отчёт…</CardContent></Card>}
+ {data&&<><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{([{key:"orders",label:"Заказов создано",hint:"Все статусы"},{key:"revenue",label:"Выручка",hint:"Завершённые заказы"},{key:"average",label:"Средний чек",hint:"По завершённым заказам"},{key:"completed",label:"Заказов завершено",hint:"По времени завершения"}] as const).map(metric=>{const value=data.current[metric.key],previous=data.previous[metric.key];const change=previous?Math.round((value-previous)/previous*100):null;return <Card key={metric.key}><CardHeader><CardDescription>{metric.label}</CardDescription></CardHeader><CardContent><div className="text-3xl font-semibold tracking-tight">{metric.key==="revenue"||metric.key==="average"?money(value):value}</div><p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">{change!==null?<>{change>=0?<TrendingUp className="size-3"/>:<TrendingDown className="size-3"/>}{change>0?"+":""}{change}% к предыдущему периоду</>:"В предыдущем периоде — 0"}</p><p className="mt-1 text-xs text-muted-foreground">{metric.hint}</p></CardContent></Card>})}</div>
+ <p className="text-xs text-muted-foreground">Сравнение с {data.period.previousFrom} — {data.period.previousTo}. Часовой пояс: Бишкек (UTC+6).</p>
+ <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]"><Card><CardHeader><CardTitle>Динамика выручки</CardTitle><CardDescription>Сумма завершённых заказов по дням</CardDescription></CardHeader><CardContent><div className="h-72 min-w-0" role="img" aria-label="Выручка по дням"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data.days} margin={{left:0,right:8,top:10,bottom:0}}><defs><linearGradient id="revenue-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--chart-2)" stopOpacity={.35}/><stop offset="100%" stopColor="var(--chart-2)" stopOpacity={.02}/></linearGradient></defs><CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="label" tickFormatter={s=>String(s).slice(5)} axisLine={false} tickLine={false} fontSize={11}/><YAxis width={55} axisLine={false} tickLine={false} fontSize={11}/><Tooltip contentStyle={{background:"var(--popover)",borderColor:"var(--border)",color:"var(--foreground)",borderRadius:10}} formatter={value=>[money(Number(value)),"Выручка"]}/><Area type="monotone" dataKey="revenue" stroke="var(--chart-2)" strokeWidth={2} fill="url(#revenue-fill)"/></AreaChart></ResponsiveContainer></div></CardContent></Card><Card><CardHeader><CardTitle>Статусы заказов</CardTitle><CardDescription>Заказы, созданные за выбранный период</CardDescription></CardHeader><CardContent className="space-y-4">{data.statuses.length?data.statuses.map(item=><div key={item.status}><div className="mb-1.5 flex justify-between text-sm"><span>{statusNames[item.status]||"Другой статус"}</span><strong>{item.count}</strong></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{width:`${data.current.orders?item.count/data.current.orders*100:0}%`}}/></div></div>):<p className="py-12 text-center text-sm text-muted-foreground">Заказов за этот период нет.</p>}</CardContent></Card></div>
+ <div className="grid gap-6 lg:grid-cols-3"><Card className="lg:col-span-2"><CardHeader><CardTitle>Завершение заказов по часам</CardTitle></CardHeader><CardContent><div className="h-48" role="img" aria-label="Завершённые заказы по часам"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.hours}><CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="hour" tickLine={false} axisLine={false} fontSize={11}/><YAxis allowDecimals={false} axisLine={false} tickLine={false} width={30} fontSize={11}/><Tooltip contentStyle={{background:"var(--popover)",borderColor:"var(--border)"}}/><Bar name="Заказов" dataKey="count" fill="var(--chart-2)" radius={[3,3,0,0]}/></BarChart></ResponsiveContainer></div></CardContent></Card><Card><CardHeader><CardTitle>Клиенты и отмены</CardTitle></CardHeader><CardContent className="space-y-4">{[["Новые клиенты",data.current.newCustomers],["Повторные клиенты",data.current.repeatCustomers],["Отменённые заказы",data.current.cancelled]].map(([label,value])=><div key={label} className="flex justify-between border-b pb-3 text-sm"><span className="text-muted-foreground">{label}</span><strong>{value}</strong></div>)}<p className="text-xs text-muted-foreground">Возвраты и себестоимость не учитываются в текущей системе.</p></CardContent></Card></div>
+ <Card><CardHeader><CardTitle>Что выбирают гости</CardTitle><CardDescription>До 50 самых популярных позиций. Суммы позиций включают доплаты, до общей скидки заказа.</CardDescription></CardHeader><CardContent><Tabs defaultValue="products"><TabsList className="mb-4 w-full justify-start overflow-x-auto">{[["products","Товары"],["categories","Категории"],["modifiers","Модификаторы"],["kits","Комплектации"]].map(([value,label])=><TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}</TabsList>{(["products","categories","modifiers","kits"] as const).map(key=><TabsContent key={key} value={key}><Table><TableHeader><TableRow><TableHead>Название</TableHead><TableHead className="text-right">Количество</TableHead>{key!=="kits"&&<TableHead className="text-right">Сумма</TableHead>}</TableRow></TableHeader><TableBody>{data[key].map((item,index)=><TableRow key={`${item.name}-${index}`}><TableCell className="font-medium">{item.name}</TableCell><TableCell className="text-right">{item.count}</TableCell>{key!=="kits"&&<TableCell className="text-right">{money(item.revenue||0)}</TableCell>}</TableRow>)}{!data[key].length&&<TableRow><TableCell colSpan={3} className="h-28 text-center text-muted-foreground">Нет продаж за этот период.</TableCell></TableRow>}</TableBody></Table>{key==="categories"&&<p className="mt-4 text-xs text-muted-foreground">Категории сохраняются в новых заказах после обновления. Для старых заказов категория не восстанавливается по текущему каталогу.</p>}</TabsContent>)}</Tabs></CardContent></Card>
+ {data.employees&&<Card><CardHeader><CardTitle>Работа команды</CardTitle><CardDescription>{data.employees.recordedSince?`Учёт с ${new Date(data.employees.recordedSince).toLocaleDateString("ru-RU",{timeZone:"Asia/Bishkek"})}`:"Учёт действий только начат"}. Только подтверждённые действия сотрудников.</CardDescription></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Сотрудник</TableHead><TableHead className="text-right">Смены статуса</TableHead><TableHead className="text-right">Завершено вручную</TableHead></TableRow></TableHeader><TableBody>{data.employees.items.map((item,index)=><TableRow key={`${item.name}-${index}`}><TableCell>{item.name}</TableCell><TableCell className="text-right">{item.statusChanges}</TableCell><TableCell className="text-right">{item.completions}</TableCell></TableRow>)}{!data.employees.items.length&&<TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">Действий за этот период нет.</TableCell></TableRow>}</TableBody></Table><p className="mt-3 text-xs text-muted-foreground">Автоматические изменения кухни не приписываются сотрудникам. История до включения журнала не восстанавливается.</p></CardContent></Card>}
+ <details className="rounded-xl border bg-card p-4 text-sm"><summary className="cursor-pointer font-medium">Как считаются показатели</summary><div className="mt-3 space-y-2 text-muted-foreground"><p>Выручка — сумма итогов завершённых заказов по времени завершения. Итог берётся из сохранённого заказа; отмены не включаются. Для старых записей без времени завершения используется время последнего обновления.</p><p>Средний чек — выручка / число завершённых заказов. Количество созданных заказов и распределение статусов считаются по дате создания, поэтому могут отличаться от числа завершённых.</p><p>Новый клиент — номер телефона с первым заказом в выбранном городе за период. Повторный — первый заказ был раньше периода. Возвраты и прибыль не рассчитываются: отдельных данных для них нет.</p></div></details>
+ </>}
+ </div>
 }

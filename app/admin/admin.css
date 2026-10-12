@@ -1,32 +1,19 @@
-body:has(.admin-root) {
-  background: #f8fafc;
-}
-
-body:has(.admin-mobile-menu-open) {
-  overflow: hidden;
-}
-
-.admin-root {
-  font-family: Inter, Arial, Helvetica, sans-serif;
-  line-height: 1.5;
-}
-
-.admin-root button,
-.admin-root input,
-.admin-root select,
-.admin-root textarea {
-  font: inherit;
-}
-
-.admin-root button:disabled {
-  cursor: not-allowed;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .admin-root *,
-  .admin-root *::before,
-  .admin-root *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-  }
-}
+@import "./template-theme.css";
+@import "tw-animate-css";
+body:has(.admin-root) { background: var(--sidebar); color: var(--foreground); }
+.admin-root { font-family: Inter, Arial, sans-serif; line-height: 1.5; color: var(--foreground); background: var(--background); overflow-x: clip; }
+.admin-root *, body:has(.admin-root) [data-base-ui-portal] * { border-color: var(--border); }
+.admin-root button, .admin-root input, .admin-root select, .admin-root textarea { font: inherit; }
+.admin-root button:disabled { cursor: not-allowed; }
+.admin-root button[data-slot="button"] { border-width: 1px; }
+.admin-root [data-slot="sidebar-inset"] { min-width: 0; }
+.admin-root input, .admin-root textarea, .admin-root select { max-width: 100%; }
+.admin-root .admin-page-enter { animation: admin-enter .18s ease-out; }
+.admin-root [data-slot="table-container"] { max-width: 100%; }
+/* A whole order summary is a content card, so it must not inherit the compact button layout. */
+.admin-root .admin-order-summary { display: block; width: 100%; min-width: 0; height: auto; min-height: 0; padding: 0; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.admin-root .admin-order-link { height: auto; flex-direction: column; align-items: flex-start; gap: 0; padding: 0; white-space: normal; text-align: left; }
+body:has(.admin-root) [data-slot="dialog-content"], body:has(.admin-root) [data-slot="sheet-content"] { max-height: 92dvh; overflow-y: auto; }
+@keyframes admin-enter { from { opacity: .3; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .admin-root [data-slot="button"] { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .admin-root *, .admin-root *::before, .admin-root *::after { animation: none !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

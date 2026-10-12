@@ -1,4 +1,7 @@
+import { AddOrderCategorySnapshot1785012000000 } from "./migrations/1785012000000-AddOrderCategorySnapshot";
+import { AddAdminSecurity1785010000000 } from "./migrations/1785010000000-AddAdminSecurity";
 import "reflect-metadata";
+import { AddAdminNotifications1785011000000 } from "./migrations/1785011000000-AddAdminNotifications";
 import { DataSource } from "typeorm";
 import { Category } from "./catalog/category.entity";
 import { Product } from "./catalog/product.entity";
@@ -94,6 +97,9 @@ export default new DataSource({
     AddCancelledCoinWithdrawals1785007000000,
     AddCartConfiguration1785008000000,
     AddProductKitItems1785009000000,
+    AddAdminSecurity1785010000000,
+    AddAdminNotifications1785011000000,
+    AddOrderCategorySnapshot1785012000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

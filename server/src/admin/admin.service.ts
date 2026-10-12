@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import type { StaffIdentity } from "./admin-permissions";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { QueryFailedError, Repository } from "typeorm";
 import { Category } from "../catalog/category.entity";
 import {
   assertValidModifierGroups,
@@ -211,8 +213,8 @@ export class AdminService {
           orders.*,
           COALESCE(
             orders."completedAt" AT TIME ZONE 'Asia/Bishkek',
-            (orders."updatedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bishkek',
-            (orders."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Bishkek'
+            (orders."updatedAt" AT TIME ZONE current_setting('TIMEZONE')) AT TIME ZONE 'Asia/Bishkek',
+            (orders."createdAt" AT TIME ZONE current_setting('TIMEZONE')) AT TIME ZONE 'Asia/Bishkek'
           ) AS "eventLocal"
         FROM "orders" orders
         CROSS JOIN bounds
@@ -437,18 +439,20 @@ export class AdminService {
       WITH matched_phones AS (
         SELECT DISTINCT matched."phone"
         FROM "orders" matched
+        LEFT JOIN "admin_customer_profiles" profile ON profile."phone" = matched."phone"
         WHERE matched."regionSlug" = $1
-          AND ($2 = '%%' OR matched."phone" ILIKE $2 OR matched."customerName" ILIKE $2)
+          AND ($2 = '%%' OR matched."phone" ILIKE $2 OR matched."customerName" ILIKE $2 OR profile."name" ILIKE $2)
       )
       SELECT
         orders."phone",
-        (array_agg(orders."customerName" ORDER BY orders."createdAt" DESC))[1] AS "customerName",
+        COALESCE(NULLIF(MAX(profile."name"), ''), (array_agg(orders."customerName" ORDER BY orders."createdAt" DESC))[1]) AS "customerName",
         COUNT(*)::bigint AS "ordersCount",
         COUNT(*) FILTER (WHERE orders."status" = $5)::bigint AS "completedOrders",
         COALESCE(SUM(orders."total") FILTER (WHERE orders."status" = $5), 0)::bigint AS "revenue",
         MAX(orders."createdAt") AS "lastOrderAt"
       FROM "orders" orders
       INNER JOIN matched_phones ON matched_phones."phone" = orders."phone"
+      LEFT JOIN "admin_customer_profiles" profile ON profile."phone" = orders."phone"
       WHERE orders."regionSlug" = $1
       GROUP BY orders."phone"
       ORDER BY MAX(orders."createdAt") DESC
@@ -457,8 +461,9 @@ export class AdminService {
     const [{ total = 0 } = {}] = await this.orderRepository.query(`
       SELECT COUNT(DISTINCT orders."phone")::int AS "total"
       FROM "orders" orders
+      LEFT JOIN "admin_customer_profiles" profile ON profile."phone" = orders."phone"
       WHERE orders."regionSlug" = $1
-        AND ($2 = '%%' OR orders."phone" ILIKE $2 OR orders."customerName" ILIKE $2)
+        AND ($2 = '%%' OR orders."phone" ILIKE $2 OR orders."customerName" ILIKE $2 OR profile."name" ILIKE $2)
     `, [regionSlug, pattern]) as Array<{ total: number }>;
     const items = rows.map((row) => ({
       ...row,
@@ -469,17 +474,20 @@ export class AdminService {
     return { items, total: Number(total), limit, offset };
   }
 
-  async customer(phone: string, regionSlug: string) {
+  async customer(phone: string, regionSlug: string, requestedLimit = 25, requestedOffset = 0) {
     await this.requireRegion(regionSlug);
+    const limit = Number.isInteger(requestedLimit) ? Math.min(100, Math.max(1, requestedLimit)) : 25;
+    const offset = Number.isInteger(requestedOffset) ? Math.max(0, requestedOffset) : 0;
     const [summary] = await this.orderRepository.query(`
       SELECT
         orders."phone",
-        (array_agg(orders."customerName" ORDER BY orders."createdAt" DESC))[1] AS "customerName",
+        COALESCE(NULLIF(MAX(profile."name"), ''), (array_agg(orders."customerName" ORDER BY orders."createdAt" DESC))[1]) AS "customerName",
         COUNT(*)::int AS "ordersCount",
         COUNT(*) FILTER (WHERE orders."status" = $3)::int AS "completedOrders",
         COALESCE(SUM(orders."total") FILTER (WHERE orders."status" = $3), 0)::bigint AS "revenue",
         MAX(orders."createdAt") AS "lastOrderAt"
       FROM "orders" orders
+      LEFT JOIN "admin_customer_profiles" profile ON profile."phone" = orders."phone"
       WHERE orders."phone" = $1 AND orders."regionSlug" = $2
       GROUP BY orders."phone"
     `, [phone, regionSlug, OrderStatus.COMPLETED]) as Array<Record<string, unknown>>;
@@ -488,6 +496,8 @@ export class AdminService {
     const orders = await this.orderRepository.find({
       where: { phone, regionSlug },
       order: { createdAt: "DESC" },
+      take: limit,
+      skip: offset,
     });
     return {
       phone,
@@ -497,6 +507,9 @@ export class AdminService {
       completedOrders: Number(summary.completedOrders),
       revenue: Number(summary.revenue),
       lastOrderAt: summary.lastOrderAt,
+      total: Number(summary.ordersCount),
+      limit,
+      offset,
       orders: orders.map((order) => ({
         id: order.id,
         orderNumber: order.orderNumber,
@@ -511,12 +524,17 @@ export class AdminService {
   }
 
   async createRegion(dto: CreateRegionDto) {
-    const slug = dto.slug.trim().toLowerCase();
+    const slug = dto.slug?.trim().toLowerCase() || `city-${randomUUID()}`;
     const exists = await this.regions.findOne({ where: { slug } });
     if (exists) throw new BadRequestException("Город с таким адресом уже существует");
     const sources = await this.validateContentSources(slug, dto);
-    const saved = await this.regions.save(this.regions.create({ ...dto, ...sources, slug }));
-    return publicRegion(saved);
+    try {
+      const saved = await this.regions.save(this.regions.create({ ...dto, ...sources, slug }));
+      return publicRegion(saved);
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.driverError.code === "23505") throw new ConflictException("Город с таким адресом уже существует");
+      throw error;
+    }
   }
 
   async updateRegion(id: number, dto: UpdateRegionDto) {
@@ -563,7 +581,9 @@ export class AdminService {
   }
 
   async order(id: string) {
-    return publicAdminOrder(await this.requireOrder(id));
+    const order = await this.requireOrder(id);
+    const statusHistory = await this.orderRepository.query(`SELECT id, "actorName", "createdAt", details->>'status' AS status FROM admin_audit WHERE action='order.status' AND target=$1 ORDER BY id`, [id]);
+    return { ...publicAdminOrder(order), statusHistory };
   }
 
   private async requireOrder(id: string) {
@@ -580,20 +600,30 @@ export class AdminService {
     if ([OrderStatus.COMPLETED, OrderStatus.CANCELLED].includes(order.status)) {
       throw new BadRequestException("Комплектацию завершённого или отменённого заказа изменить нельзя");
     }
+    if (order.posSyncStatus === "submitting") throw new ConflictException("Заказ отправляется на кухню. Повторите после подтверждения.");
+    if (dto.expectedUpdatedAt && new Date(dto.expectedUpdatedAt).getTime() !== order.updatedAt.getTime()) throw new ConflictException("Заказ уже изменён другим сотрудником. Обновите карточку.");
     order.noUtensils = dto.noUtensils;
     order.utensilsCount = dto.noUtensils ? 0 : dto.utensilsCount;
     order.kitItems = normalizeOrderKitItems(
       dto.kitItems,
       order.includedKitItems ?? order.kitItems ?? [],
     );
-    const saved = await this.orderRepository.save(order);
-    return publicAdminOrder(saved);
+    const result = await this.orderRepository.createQueryBuilder().update(Order).set({ noUtensils: order.noUtensils, utensilsCount: order.utensilsCount, kitItems: order.kitItems, updatedAt: () => `GREATEST(date_trunc('milliseconds', CURRENT_TIMESTAMP), date_trunc('milliseconds', "updatedAt") + interval '1 millisecond')` }).where("id = :id", { id }).andWhere(`date_trunc('milliseconds', "updatedAt") = :updatedAt`, { updatedAt: order.updatedAt }).andWhere('status NOT IN (:...closed)', { closed: [OrderStatus.COMPLETED, OrderStatus.CANCELLED] }).andWhere('"posSyncStatus" <> :submitting', { submitting: "submitting" }).execute();
+    if (!result.affected) throw new ConflictException("Заказ уже изменён другим сотрудником. Обновите карточку.");
+    return publicAdminOrder(await this.requireOrder(id));
   }
 
-  async updateOrderStatus(id: string, nextStatus: OrderStatus) {
+  async updateOrderStatus(id: string, nextStatus: OrderStatus, expectedStatus?: OrderStatus, expectedUpdatedAt?: string, actor?: StaffIdentity) {
     const current = await this.requireOrder(id);
+    if (current.status === nextStatus) return publicAdminOrder(current);
+    const checkVersion = (order: Order) => {
+      if (expectedStatus && order.status !== expectedStatus || expectedUpdatedAt && order.updatedAt.getTime() !== new Date(expectedUpdatedAt).getTime()) throw new ConflictException("Статус заказа изменён другим сотрудником. Обновите карточку.");
+      if (order.posSyncStatus === "submitting") throw new ConflictException("Заказ уже отправляется на кухню. Дождитесь ответа.");
+    };
+    checkVersion(current);
     if (shouldSubmitOrderToEduPosAfterAdminTransition(current.status, nextStatus)) {
       const confirmed = await this.eduPos.confirmOrder(current);
+      if (actor) await this.orderRepository.query(`INSERT INTO admin_audit ("actorId","actorName",action,target,details) VALUES ($1,$2,'order.status',$3,$4)`, [actor.id, actor.name, id, JSON.stringify({ from: current.status, status: confirmed.status })]);
       dispatchOrderStatusPush(this.pushNotifications, confirmed);
       return publicAdminOrder(confirmed);
     }
@@ -605,6 +635,8 @@ export class AdminService {
         lock: { mode: "pessimistic_write" },
       });
       if (!order) throw new NotFoundException("Order not found");
+      if (order.status === nextStatus) { order.items = await manager.getRepository(OrderItem).find({ where: { order: { id } } }); return order; }
+      checkVersion(order);
       const items = await manager.getRepository(OrderItem).find({
         where: { order: { id } },
       });
@@ -612,9 +644,13 @@ export class AdminService {
         throw new BadRequestException(`Order cannot transition from ${order.status} to ${nextStatus}`);
       }
       if (order.status === nextStatus) return order;
+      const previousStatus = order.status;
       order.status = nextStatus;
+      // Browser versions have millisecond precision, so every write must advance it.
+      order.updatedAt = new Date(Math.max(Date.now(), order.updatedAt.getTime() + 1));
       if (nextStatus === OrderStatus.COMPLETED) order.completedAt = new Date();
       const saved = await orders.save(order);
+      if (actor) await manager.query(`INSERT INTO admin_audit ("actorId","actorName",action,target,details) VALUES ($1,$2,'order.status',$3,$4)`, [actor.id, actor.name, id, JSON.stringify({ from: previousStatus, status: nextStatus })]);
       saved.items = items;
       return saved;
     });
@@ -663,21 +699,33 @@ export class AdminService {
   async createCategory(dto: CreateCategoryDto) {
     const requestedRegion = await this.requireRegion(dto.regionSlug);
     const region = await this.contentSource(requestedRegion, "menuSourceRegionSlug");
-    const exists = await this.categories.findOne({ where: { region: { id: region.id }, slug: dto.slug } });
+    const slug = dto.slug?.trim() || `category-${randomUUID()}`;
+    const exists = await this.categories.findOne({ where: { region: { id: region.id }, slug } });
     if (exists) throw new BadRequestException("Category slug already exists in this region");
-    const saved = await this.categories.save(this.categories.create({ ...dto, region }));
-    return publicAdminCategory(saved);
+    try {
+      const saved = await this.categories.save(this.categories.create({ ...dto, slug, region }));
+      return publicAdminCategory(saved);
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.driverError.code === "23505") throw new ConflictException("Категория с таким адресом уже существует в этом городе");
+      throw error;
+    }
   }
 
   async updateCategory(id: number, dto: UpdateCategoryDto) {
     const category = await this.requireCategory(id);
     Object.assign(category, dto);
-    const saved = await this.categories.save(category);
-    return publicAdminCategory(saved);
+    try {
+      const saved = await this.categories.save(category);
+      return publicAdminCategory(saved);
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.driverError.code === "23505") throw new ConflictException("Категория с таким адресом уже существует в этом городе");
+      throw error;
+    }
   }
 
   async deleteCategory(id: number) {
     const category = await this.requireCategory(id);
+    if (await this.products.count({ where: { category: { id } } })) throw new ConflictException("Сначала переместите товары из этой категории. Категорию с товарами удалить нельзя.");
     await this.categories.remove(category);
     return { deleted: true };
   }
@@ -693,6 +741,7 @@ export class AdminService {
     const { regionSlug: _regionSlug, categoryId: _categoryId, ...data } = dto;
     const saved = await this.products.save(this.products.create({
       ...data,
+      slug: data.slug?.trim() || `product-${randomUUID()}`,
       sourceId: null,
       category,
     }));
