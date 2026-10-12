@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Switch } from "./ui/switch";
 
 import { ImageUpload } from "./ImageUpload";
 import { useState } from "react";
@@ -12,10 +14,11 @@ import type { ModifierGroup, ModifierItem } from "./admin-types";
 
 type ProductModifierEditorProps = {
   groups: ModifierGroup[];
+  disabled?: boolean;
   onChange: (groups: ModifierGroup[]) => void;
 };
 
-const inputClass = "h-10 w-full rounded-lg border border-input bg-card px-3 text-sm outline-none focus:border-primary focus:ring-3 focus:ring-ring/20";
+const inputClass = "w-full";
 
 function identifier(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -46,7 +49,7 @@ function emptyGroup(): ModifierGroup {
   };
 }
 
-export function ProductModifierEditor({ groups, onChange }: ProductModifierEditorProps) {
+export function ProductModifierEditor({ groups, onChange, disabled = false }: ProductModifierEditorProps) {
   const [imageError, setImageError] = useState("");
   const updateGroup = (index: number, patch: Partial<ModifierGroup>) => {
     onChange(groups.map((group, groupIndex) => groupIndex === index ? { ...group, ...patch } : group));
@@ -66,7 +69,7 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
         <div>
           <h3 className="font-semibold text-foreground">Группы выбора</h3>
         </div>
-        <Button variant="ghost" type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-input px-3 text-sm font-medium text-foreground hover:bg-muted/50" onClick={() => onChange([...groups, emptyGroup()])}>
+        <Button variant="outline" type="button"  onClick={() => onChange([...groups, emptyGroup()])}>
           <Plus className="size-4 shrink-0" aria-hidden="true" />
           Добавить группу
         </Button>
@@ -83,7 +86,7 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
               Название группы
               <Input required className={inputClass} value={group.title} onChange={(event) => updateGroup(groupIndex, { title: event.target.value })} />
             </Label>
-            <Button variant="ghost" type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-3 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить группу «${group.title}» и все её варианты? Изменение применится после сохранения блюда.`)) onChange(groups.filter((_, index) => index !== groupIndex)); }}>
+            <Button variant="destructive" type="button"  onClick={() => { if (window.confirm(`Удалить группу «${group.title}» и все её варианты? Изменение применится после сохранения блюда.`)) onChange(groups.filter((_, index) => index !== groupIndex)); }}>
               <Trash2 className="size-4 shrink-0" aria-hidden="true" />
               Удалить группу
             </Button>
@@ -92,10 +95,7 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
           <div className="grid gap-3 border-b border-border p-4 sm:grid-cols-2 lg:grid-cols-4">
             <Label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
               Выбор клиента
-              <select className={inputClass} value={group.selectionType} onChange={(event) => updateGroup(groupIndex, { selectionType: event.target.value as ModifierGroup["selectionType"] })}>
-                <option value="single">Один вариант</option>
-                <option value="multiple">Несколько вариантов</option>
-              </select>
+              <Select value={group.selectionType} disabled={disabled} onValueChange={(selectionType) => { if (selectionType) updateGroup(groupIndex, { selectionType: selectionType as ModifierGroup["selectionType"] }); }}><SelectTrigger className="w-full" aria-label="Выбор клиента"><SelectValue>{group.selectionType === "single" ? "Один вариант" : "Несколько вариантов"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="single">Один вариант</SelectItem><SelectItem value="multiple">Несколько вариантов</SelectItem></SelectContent></Select>
             </Label>
             <Label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
               Минимум
@@ -106,12 +106,12 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
               <Input type="number" min="1" max="99" className={inputClass} value={group.maxSelections ?? 1} onChange={(event) => updateGroup(groupIndex, { maxSelections: Number(event.target.value) })} />
             </Label>
             <Label className="flex min-h-10 items-center gap-3 self-end rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground">
-              <input type="checkbox" className="size-4 accent-primary" checked={group.required} onChange={(event) => updateGroup(groupIndex, { required: event.target.checked })} />
+              <Switch disabled={disabled} checked={group.required} onCheckedChange={(required) => updateGroup(groupIndex, { required })} />
               Обязательный выбор
             </Label>
           </div>
 
-          <details className="border-b border-border px-4 py-3"><summary className="cursor-pointer text-sm font-medium">Дополнительные настройки группы</summary><div className="mt-4 grid gap-4 sm:grid-cols-2"><Label className="grid gap-1.5 text-sm">Как начислять доплату<select className={inputClass} value={group.priceScope ?? "per-line"} onChange={(event) => updateGroup(groupIndex,{priceScope:event.target.value as ModifierGroup["priceScope"]})}><option value="per-line">Один раз за позицию заказа</option><option value="per-product">За каждую порцию блюда</option></select></Label><Label className="grid gap-1.5 text-sm">Показывать варианты<select className={inputClass} value={group.presentation ?? "rows"} onChange={(event) => updateGroup(groupIndex,{presentation:event.target.value as ModifierGroup["presentation"]})}><option value="rows">Списком</option><option value="cards">Карточками с фото</option></select></Label></div></details>
+          <details className="border-b border-border px-4 py-3"><summary className="cursor-pointer text-sm font-medium">Дополнительные настройки группы</summary><div className="mt-4 grid gap-4 sm:grid-cols-2"><Label className="grid gap-1.5 text-sm">Как начислять доплату<Select value={group.priceScope ?? "per-line"} disabled={disabled} onValueChange={(priceScope) => { if (priceScope) updateGroup(groupIndex, { priceScope: priceScope as ModifierGroup["priceScope"] }); }}><SelectTrigger className="w-full" aria-label="Как начислять доплату"><SelectValue>{group.priceScope === "per-product" ? "За каждую порцию блюда" : "Один раз за позицию заказа"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="per-line">Один раз за позицию заказа</SelectItem><SelectItem value="per-product">За каждую порцию блюда</SelectItem></SelectContent></Select></Label><Label className="grid gap-1.5 text-sm">Показывать варианты<Select value={group.presentation ?? "rows"} disabled={disabled} onValueChange={(presentation) => { if (presentation) updateGroup(groupIndex, { presentation: presentation as ModifierGroup["presentation"] }); }}><SelectTrigger className="w-full" aria-label="Показывать варианты"><SelectValue>{group.presentation === "cards" ? "Карточками с фото" : "Списком"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="rows">Списком</SelectItem><SelectItem value="cards">Карточками с фото</SelectItem></SelectContent></Select></Label></div></details>
           <div className="grid gap-3 p-4">
             {group.items.map((item, itemIndex) => (
               <article key={item.id} className="rounded-lg border border-border bg-card p-3">
@@ -128,18 +128,18 @@ export function ProductModifierEditor({ groups, onChange }: ProductModifierEdito
                     Макс. кол-во
                     <Input type="number" min="1" max="99" className={inputClass} value={item.maxQuantity ?? 1} onChange={(event) => updateItem(groupIndex, itemIndex, { maxQuantity: Number(event.target.value) })} />
                   </Label>
-                  <Button variant="ghost" type="button" aria-label={`Удалить вариант ${item.name || itemIndex + 1}`} className="grid size-10 place-items-center rounded-lg border border-destructive/20 text-destructive hover:bg-destructive/10" onClick={() => { if (window.confirm(`Удалить вариант «${item.name}»?`)) updateGroup(groupIndex, { items: group.items.filter((_, index) => index !== itemIndex) }); }}>
+                  <Button variant="destructive" type="button" aria-label={`Удалить вариант ${item.name || itemIndex + 1}`}  onClick={() => { if (window.confirm(`Удалить вариант «${item.name}»?`)) updateGroup(groupIndex, { items: group.items.filter((_, index) => index !== itemIndex) }); }}>
                     <Trash2 className="size-4 shrink-0" aria-hidden="true" />
                   </Button>
                 </div>
                 {group.presentation === "cards" ? <details className="mt-3 rounded-lg bg-muted/40 p-3"><summary className="cursor-pointer text-xs font-medium">Фотография варианта</summary><div className="mt-3"><ImageUpload compact label="Фото варианта" value={item.image} hint="Изображение для выбора в карточке блюда." onChange={(image) => updateItem(groupIndex,itemIndex,{image})} onError={setImageError} /></div></details> : null}
                 <Label className="mt-3 flex items-center gap-3 text-sm text-foreground">
-                  <input type="checkbox" className="size-4 accent-primary" checked={item.enabled !== false} onChange={(event) => updateItem(groupIndex, itemIndex, { enabled: event.target.checked })} />
+                  <Switch disabled={disabled} checked={item.enabled !== false} onCheckedChange={(enabled) => updateItem(groupIndex, itemIndex, { enabled })} />
                   Вариант доступен клиентам
                 </Label>
               </article>
             ))}
-            <Button variant="ghost" type="button" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-input bg-card px-3 text-sm font-medium text-foreground hover:border-primary hover:text-primary" onClick={() => updateGroup(groupIndex, { items: [...group.items, emptyItem()] })}>
+            <Button variant="outline" type="button"  onClick={() => updateGroup(groupIndex, { items: [...group.items, emptyItem()] })}>
               <Plus className="size-4 shrink-0" aria-hidden="true" />
               Добавить вариант
             </Button>

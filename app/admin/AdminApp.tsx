@@ -1,11 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Moon, Sun, MapPin, ShieldAlert } from "lucide-react";
+import { Moon, Sun, ShieldAlert } from "lucide-react";
 import { AdminNavigation,adminSections } from "./AdminNavigation";
 import { AdminLogin } from "./AdminLogin";
 import { AdminAccessContext, type Staff } from "./admin-access";
 import { adminFetch,adminApiUrl } from "./admin-api";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "./ui/sidebar";
+import { Separator } from "./ui/separator";
+import { AdminCommandSearch } from "./AdminCommandSearch";
+import { AdminSelect } from "./AdminSelect";
 import { Button } from "./ui/button";
 import { Card,CardContent } from "./ui/card";
 import { AnalyticsView } from "./AnalyticsView";
@@ -49,6 +52,7 @@ export function AdminApp(){
  useEffect(()=>{if(!token)return;const refreshRegions=()=>{void request<Region[]>("/admin/settings").then(items=>{if(tokenRef.current===token)setRegions(items)}).catch(e=>{if(tokenRef.current===token)onNotice(e instanceof Error?e.message:"Не удалось обновить города","error")})};window.addEventListener("admin:regions-changed",refreshRegions);return()=>window.removeEventListener("admin:regions-changed",refreshRegions)},[request,token,onNotice]);
  const allowed=adminSections.find(s=>s.id===section);const hasAccess=allowed&&can(allowed.permission);
  const selectSection=(next:AdminSection)=>{if(!confirmAdminNavigation())return;setSection(next);const url=new URL(window.location.href);url.searchParams.set("section",next);url.searchParams.delete("order");window.history.pushState({},"",url)};
+ const openOrder=(id:string)=>{setSection("orders");const url=new URL(window.location.href);url.searchParams.set("section","orders");url.searchParams.set("order",id);window.history.pushState({},"",url);window.dispatchEvent(new CustomEvent("admin:open-order",{detail:{id}}))};
  useEffect(()=>{const pop=()=>{const next=new URLSearchParams(window.location.search).get("section");if(adminSections.some(s=>s.id===next)&&confirmAdminNavigation())setSection(next as AdminSection)};window.addEventListener("popstate",pop);return()=>window.removeEventListener("popstate",pop)},[]);
  const login=(nextToken:string,nextStaff:Staff)=>{sessionStorage.setItem(sessionKey,nextToken);tokenRef.current=nextToken;setToken(nextToken);setStaff(nextStaff);setAuthError("");setLoginNotice("");const query=new URLSearchParams(window.location.search);if(query.has("order"))setSection("orders");else if(!query.has("section")){setSection(nextStaff.role==="MANAGER"?"orders":"dashboard")}};
  const logout=async()=>{
@@ -66,14 +70,14 @@ export function AdminApp(){
  if(!token)return <div className={`admin-root ${dark?"dark":""}`}><AdminLogin onLogin={login} notice={loginNotice}/></div>;
  if(!staff)return <div className={`admin-root grid min-h-dvh place-items-center p-6 ${dark?"dark":""}`}><Card><CardContent className="grid gap-4 p-6"><p>{authError||"Проверяем доступ…"}</p>{authError&&<><Button onClick={()=>void refreshAuth()}>Повторить</Button><Button variant="outline" onClick={clearSession}>Вернуться ко входу</Button></>}</CardContent></Card></div>;
  const viewProps={region,request:request as AdminRequest,onNotice};
- return <AdminAccessContext.Provider value={access}><div className={`admin-root ${dark?"dark":""}`}><SidebarProvider className="min-h-dvh" style={{"--sidebar-width":"16rem","--header-height":"4rem"} as React.CSSProperties}>
+ return <AdminAccessContext.Provider value={access}><div className={`admin-root ${dark?"dark":""}`}><SidebarProvider className="min-h-dvh" style={{"--sidebar-width":"16rem","--sidebar-width-icon":"3rem","--header-height":"3.5rem"} as React.CSSProperties}>
  <AdminNavigation active={section} onSelect={selectSection} onLogout={()=>void logout()}/><SidebarInset>
- <header className="admin-header sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur lg:px-6"><SidebarTrigger aria-label="Переключить меню"/><span className="min-w-0 flex-1" aria-hidden="true"/>{regions.length>0&&<label className="admin-city-selector flex min-w-0 max-w-[160px] items-center gap-2 rounded-lg border px-2 text-sm"><MapPin className="size-4 shrink-0 text-muted-foreground" aria-hidden="true"/><span className="sr-only">Город</span><select aria-label="Город" className="min-w-0 w-full bg-transparent outline-none" value={region} onChange={e=>{if(confirmAdminNavigation())setRegion(e.target.value)}}>{regions.map(item=><option key={item.id} value={item.slug}>{item.name}</option>)}</select></label>}<Button variant="ghost" size="icon" aria-label={dark?"Светлая тема":"Тёмная тема"} title={dark?"Светлая тема":"Тёмная тема"} onClick={()=>{setDark(!dark);localStorage.setItem("nakta-admin-theme",!dark?"dark":"light")}}>{dark?<Sun className="size-4" aria-hidden="true"/>:<Moon className="size-4" aria-hidden="true"/>}</Button><AdminNotifications staffId={staff.id} token={token} apiUrl={adminApiUrl} canViewOrders={can("orders.view")} onOrdersChanged={()=>setRefresh(v=>v+1)} onAccessRevoked={()=>void refreshAuth()} onOpenOrder={id=>{setSection("orders");const url=new URL(window.location.href);url.searchParams.set("section","orders");url.searchParams.set("order",id);window.history.pushState({},"",url);window.dispatchEvent(new CustomEvent("admin:open-order",{detail:{id}}))}}/></header>
+ <header className="admin-header sticky top-0 z-30 flex h-(--header-height) shrink-0 items-center border-b bg-background transition-[width,height] ease-linear"><div className="flex w-full items-center gap-1 px-4 py-3 lg:gap-2 lg:px-6"><SidebarTrigger className="-ml-1" aria-label="Переключить меню"/><Separator orientation="vertical" className="mx-2 data-vertical:h-4 data-vertical:self-center"/><div className="min-w-0 max-w-sm sm:flex-1"><AdminCommandSearch onSelect={selectSection}/></div><div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">{regions.length>0&&<div className="w-28 sm:w-40"><AdminSelect aria-label="Город" value={region} options={regions.map(item=>({value:item.slug,label:item.name}))} onValueChange={next=>{if(confirmAdminNavigation())setRegion(next)}}/></div>}<Button variant="outline" size="icon" aria-label={dark?"Светлая тема":"Тёмная тема"} title={dark?"Светлая тема":"Тёмная тема"} onClick={()=>{setDark(!dark);localStorage.setItem("nakta-admin-theme",!dark?"dark":"light")}}>{dark?<Sun className="size-4" aria-hidden="true"/>:<Moon className="size-4" aria-hidden="true"/>}</Button><AdminNotifications staffId={staff.id} token={token} apiUrl={adminApiUrl} canViewOrders={can("orders.view")} onOrdersChanged={()=>setRefresh(v=>v+1)} onAccessRevoked={()=>void refreshAuth()} onOpenOrder={openOrder}/></div></div></header>
  {authError&&<div className="mx-4 mt-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">{authError}</div>}
- <section aria-label="Рабочая область" className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 p-4 md:p-6 lg:p-8">{["dashboard","analytics","staff","profile"].includes(section)&&<h1 className="mb-6 text-2xl font-semibold tracking-tight">{allowed?.label}</h1>}
+ <section aria-label="Рабочая область" className="@container/main flex w-full min-w-0 flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">{["dashboard","analytics","staff","profile"].includes(section)&&<h1 className="text-2xl font-bold tracking-tight">{allowed?.label}</h1>}
  <div className="admin-page-enter" key={`${section}:${region}:${staff.effectivePermissions.join(",")}`}>
  {!hasAccess?<Card><CardContent className="grid justify-items-start gap-4 p-8"><ShieldAlert className="size-8 text-muted-foreground"/><h2 className="text-lg font-semibold">Нет доступа к разделу</h2><p className="text-sm text-muted-foreground">Обратитесь к владельцу, если этот раздел нужен для работы.</p><Button onClick={()=>selectSection(adminSections.find(s=>can(s.permission))?.id||"profile")}>Открыть доступный раздел</Button></CardContent></Card>:<>
- {section==="dashboard"&&<OverviewView {...viewProps} refresh={refresh} onSelect={selectSection}/>}
+ {section==="dashboard"&&<OverviewView {...viewProps} refresh={refresh} onSelect={selectSection} onOpenOrder={openOrder}/>}
  {section==="orders"&&<OrdersWorkspace {...viewProps}/>}
  {section==="analytics"&&<AnalyticsView {...viewProps}/>}
  {(section==="menu"||section==="modifiers"||section==="kits")&&<MenuWorkspace {...viewProps} mode={section==="menu"?"products":section}/>}

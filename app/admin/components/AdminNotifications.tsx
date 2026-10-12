@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { claimOrderSound, orderEventCursor, parseSseFrame, type OrderNotice } from "../notifications/event-dedup";
+import { DEFAULT_ORDER_SOUND_VOLUME, orderSoundVolume, playOrderSound, type OrderSoundPlayback } from "../notifications/order-sound";
 import { confirmAdminNavigation } from "../use-unsaved-changes";
 import "../notifications/notifications.css";
 
@@ -59,7 +60,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   const [connection, setConnection] = useState<"connecting" | "online" | "offline" | "stopped">("connecting");
   const [online, setOnline] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolume] = useState(DEFAULT_ORDER_SOUND_VOLUME);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<OrderNotice | null>(null);
   const [pushState, setPushState] = useState<"off" | "on" | "busy" | "unsupported">("off");
@@ -69,7 +70,8 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   const [installed, setInstalled] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const audio = useRef<AudioContext | null>(null);
-  const soundRef = useRef({ enabled: false, volume: 0.5 });
+  const soundPlayback = useRef<OrderSoundPlayback | null>(null);
+  const soundRef = useRef({ enabled: false, volume: DEFAULT_ORDER_SOUND_VOLUME });
   const callbacks = useRef({ onOrdersChanged, onAccessRevoked, onOpenOrder });
   const stopRef = useRef<(() => void) | null>(null);
   const noticeIds = useRef(new Set<string>());
@@ -101,19 +103,8 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       setMessage("Браузер приостановил звук. Нажмите «Включить звук».");
       return;
     }
-    const gain = context.createGain();
-    gain.gain.setValueAtTime(0, context.currentTime);
-    gain.gain.linearRampToValueAtTime(soundRef.current.volume * 0.25, context.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.42);
-    gain.connect(context.destination);
-    const oscillator = context.createOscillator();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(740, context.currentTime);
-    oscillator.frequency.setValueAtTime(990, context.currentTime + 0.15);
-    oscillator.connect(gain);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.45);
-    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    soundPlayback.current?.stop();
+    soundPlayback.current = playOrderSound(context, soundRef.current.volume);
   }, []);
 
   useEffect(() => {
@@ -121,10 +112,11 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
     const readSettings = () => {
       try {
         const settings = JSON.parse(localStorage.getItem(key) || "{}");
-        const nextVolume = typeof settings.volume === "number" ? Math.min(1, Math.max(0, settings.volume)) : 0.5;
+        const nextVolume = orderSoundVolume(settings.volume);
         soundRef.current.volume = nextVolume;
+        soundPlayback.current?.setVolume(nextVolume);
         setVolume(nextVolume);
-        if (settings.enabled === false) { soundRef.current.enabled = false; setSoundEnabled(false); }
+        if (settings.enabled === false) { soundRef.current.enabled = false; soundPlayback.current?.stop(); setSoundEnabled(false); }
       } catch { /* Browsers with blocked storage still show visual notices. */ }
     };
     readSettings();
@@ -135,6 +127,8 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       setSoundEnabled(false);
       setNotice(null);
       noticeIds.current.clear();
+      soundPlayback.current?.stop();
+      soundPlayback.current = null;
       void audio.current?.close();
       audio.current = null;
       if ("serviceWorker" in navigator) {
@@ -298,6 +292,8 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
 
   const saveSound = (enabled: boolean, nextVolume = volume) => {
     soundRef.current = { enabled, volume: nextVolume };
+    if (!enabled) soundPlayback.current?.stop();
+    else soundPlayback.current?.setVolume(nextVolume);
     setSoundEnabled(enabled); setVolume(nextVolume);
     try { localStorage.setItem(`nakta-admin-sound:${staffId}`, JSON.stringify({ enabled, volume: nextVolume })); } catch { /* optional preference storage */ }
   };

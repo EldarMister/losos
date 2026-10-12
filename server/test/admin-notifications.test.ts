@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { claimOrderSound, orderEventCursor, parseSseFrame } from "../../app/admin/notifications/event-dedup";
+import { DEFAULT_ORDER_SOUND_VOLUME, orderSoundVolume, playOrderSound } from "../../app/admin/notifications/order-sound";
 import { isAllowedPushEndpoint, validEventCursor } from "../src/admin/notifications/admin-notification-policy";
 
 const now = 1_800_000_000_000;
@@ -18,6 +19,86 @@ function browserPorts() {
   } };
   return { storage, locks };
 }
+
+type AudioPoint = { method: "set" | "linear" | "exponential"; value: number; at: number };
+function audioPorts() {
+  let currentTime = 10;
+  function parameter() {
+    const points: AudioPoint[] = [];
+    const at = (time: number) => {
+      let previous = { value: 0, at: 0 };
+      for (const point of points) {
+        if (time < point.at) {
+          if (point.method === "set") return previous.value;
+          const fraction = (time - previous.at) / (point.at - previous.at);
+          return point.method === "linear" ? previous.value + fraction * (point.value - previous.value) : previous.value * Math.pow(point.value / previous.value, fraction);
+        }
+        previous = point;
+      }
+      return previous.value;
+    };
+    return {
+      points, at, get value() { return at(currentTime); },
+      setValueAtTime(value: number, time: number) { points.push({ method: "set", value, at: time }); },
+      linearRampToValueAtTime(value: number, time: number) { points.push({ method: "linear", value, at: time }); },
+      exponentialRampToValueAtTime(value: number, time: number) { points.push({ method: "exponential", value, at: time }); },
+      cancelScheduledValues(time: number) { const index = points.findIndex(point => point.at >= time); if (index >= 0) points.splice(index); },
+    };
+  }
+  const gains: { gain: ReturnType<typeof parameter>; disconnected: number; connect(target: unknown): void; disconnect(): void }[] = [];
+  const oscillators: { type: string; frequency: ReturnType<typeof parameter>; starts: number[]; stops: number[]; disconnected: number; onended: (() => void) | null; connect(target: unknown): void; disconnect(): void; start(time: number): void; stop(time: number): void }[] = [];
+  const context = {
+    get currentTime() { return currentTime; }, destination: {},
+    createGain() { const gain = { gain: parameter(), disconnected: 0, connect(_target: unknown) {}, disconnect() { this.disconnected++; } }; gains.push(gain); return gain; },
+    createOscillator() { const oscillator: typeof oscillators[number] = { type: "", frequency: parameter(), starts: [], stops: [], disconnected: 0, onended: null, connect(_target: unknown) {}, disconnect() { this.disconnected++; }, start(time) { this.starts.push(time); }, stop(time) { this.stops.push(time); } }; oscillators.push(oscillator); return oscillator; },
+  };
+  return { context: context as unknown as AudioContext, gains, oscillators, advance(time: number) { currentTime = time; } };
+}
+
+test("order alert plays three ding/dong pairs for three seconds with smooth unclipped envelopes", () => {
+  const { context, gains, oscillators } = audioPorts();
+  playOrderSound(context, DEFAULT_ORDER_SOUND_VOLUME);
+  assert.equal(oscillators.length, 6);
+  assert.deepEqual(oscillators.map(node => node.frequency.points[0].value), [880, 659.25, 880, 659.25, 880, 659.25]);
+  assert.ok(oscillators.every(node => node.type === "sine"));
+  assert.equal(Math.max(...oscillators.flatMap(node => node.stops)) - context.currentTime, 3);
+  assert.equal(gains[0].gain.points[0].value, 0.8, "new preference default is 80 percent");
+  assert.ok(gains.slice(1).every(node => node.gain.points[0].value === 0 && node.gain.points.at(-1)?.value === 0), "each note fades in and returns to silence");
+  const peak = gains[1].gain.at(context.currentTime + 0.025) * gains[0].gain.at(context.currentTime);
+  assert.ok(Math.abs(peak - 0.44) < 1e-9, "default peak amplitude is 0.44 instead of the previous 0.125");
+  for (let offset = 0; offset <= 3; offset += 0.005) {
+    const summedEnvelopeAtFullVolume = gains.slice(1).reduce((sum, node) => sum + node.gain.at(context.currentTime + offset), 0);
+    assert.ok(summedEnvelopeAtFullVolume < 0.6, "even overlapping tails remain below clipping at maximum volume");
+  }
+  oscillators.forEach(node => node.onended?.());
+  assert.ok([...oscillators, ...gains].every(node => node.disconnected === 1), "all voices and master gain disconnect after playback");
+});
+
+test("sound respects saved volume, live volume changes and immediate mute cleanup", () => {
+  assert.equal(orderSoundVolume(undefined), 0.8);
+  assert.equal(orderSoundVolume(Number.NaN), 0.8);
+  for (const saved of [0, 0.2, 0.5, 1]) assert.equal(orderSoundVolume(saved), saved);
+  assert.equal(orderSoundVolume(-1), 0);
+  assert.equal(orderSoundVolume(2), 1);
+  const { context, gains, oscillators, advance } = audioPorts();
+  const playback = playOrderSound(context, 0.2);
+  assert.equal(gains[0].gain.points[0].value, 0.2);
+  advance(10.2);
+  playback.setVolume(0.5);
+  assert.equal(gains[0].gain.points.at(-1)?.method, "linear");
+  assert.equal(gains[0].gain.points.at(-1)?.value, 0.5);
+  assert.ok(Math.abs(gains[0].gain.points.at(-1)!.at - 10.22) < 1e-9);
+  advance(10.3);
+  playback.stop();
+  assert.equal(gains[0].gain.points.at(-1)?.value, 0);
+  assert.ok(oscillators.every(node => Math.abs(node.stops.at(-1)! - 10.325) < 1e-9), "mute stops every pending/current note within 25 ms");
+  const lengths = oscillators.map(node => node.stops.length);
+  playback.stop();
+  playback.setVolume(1);
+  assert.deepEqual(oscillators.map(node => node.stops.length), lengths, "stop is idempotent and volume cannot restart a muted pattern");
+  oscillators.forEach(node => node.onended?.());
+  assert.ok([...oscillators, ...gains].every(node => node.disconnected === 1));
+});
 
 test("one stable event is audible once across concurrent tabs and reconnect", async () => {
   const { storage, locks } = browserPorts();
@@ -78,7 +159,7 @@ test("notification clicks preserve open editors and only open same-origin admin 
     postMessage: (message: { type: string; url: string }) => messages.push(message),
     navigate: () => { assert.fail("Worker must not discard an open editor by navigating directly"); },
   };
-  runInNewContext(readFileSync("public/admin/sw.js", "utf8"), {
+  runInNewContext(readFileSync(new URL("../../public/admin/sw.js", import.meta.url), "utf8"), {
     URL,
     self: {
       location: { origin: "https://nakta.example" },
@@ -108,7 +189,7 @@ test("notification clicks preserve open editors and only open same-origin admin 
 test("service worker never caches mutable development chunks or admin API data", async () => {
   const handlers = new Map<string, (event: unknown) => void>();
   let cacheRequests = 0;
-  runInNewContext(readFileSync("public/admin/sw.js", "utf8"), {
+  runInNewContext(readFileSync(new URL("../../public/admin/sw.js", import.meta.url), "utf8"), {
     URL,
     caches: { open: async () => ({ match: async () => { cacheRequests++; return { ok: true }; } }) },
     self: { location: { origin: "https://nakta.example" }, addEventListener: (name: string, handler: (event: unknown) => void) => handlers.set(name, handler) },

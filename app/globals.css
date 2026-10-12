@@ -1,7 +1,9 @@
 @import "tailwindcss";
+@import "./admin/template-utilities.css";
+@reference "./admin/template-utilities.css";
 @custom-variant dark (&:is(.dark *));
-@custom-variant data-horizontal (&[data-orientation="horizontal"]);
-@custom-variant data-vertical (&[data-orientation="vertical"]);
+
+
 
 @theme inline {
   --font-sans: var(--font-inter);

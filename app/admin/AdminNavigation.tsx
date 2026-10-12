@@ -1,10 +1,10 @@
 "use client";
 import Image from "next/image";
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Layers3, SlidersHorizontal, Package, MapPin, Clock3, Users, UserCog, ChartNoAxesCombined, Settings2, BadgePercent, LogOut, UserRound, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Layers3, SlidersHorizontal, Package, MapPin, Clock3, Users, UserCog, ChartNoAxesCombined, Settings2, BadgePercent, LogOut, UserRound, EllipsisVertical, type LucideIcon } from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./ui/sidebar";
 import { useAdminAccess } from "./admin-access";
 import type { AdminSection } from "./admin-types";
-import { Button } from "./ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 
 export const adminSections: Array<{id:AdminSection;label:string;description:string;permission:string;group:string;icon:LucideIcon}> = [
   {id:"dashboard",label:"Обзор",description:"Сегодня в вашем бизнесе",permission:"dashboard.view",group:"Работа",icon:LayoutDashboard},
@@ -23,15 +23,23 @@ export const adminSections: Array<{id:AdminSection;label:string;description:stri
   {id:"profile",label:"Мой профиль",description:"Учётная запись и устройства",permission:"",group:"Аккаунт",icon:UserRound},
 ];
 export function AdminNavigation({active,onSelect,onLogout}:{active:AdminSection;onSelect:(section:AdminSection)=>void;onLogout:()=>void}) {
-  const {can,staff}=useAdminAccess(); const {setOpenMobile}=useSidebar();
+  const {can,staff}=useAdminAccess(); const {setOpenMobile,isMobile}=useSidebar();
   return <Sidebar variant="inset" collapsible="icon">
     <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" onClick={()=>{onSelect(can("dashboard.view")?"dashboard":"orders");setOpenMobile(false)}}>
-      <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white"><Image src="/logo.webp" alt="Накта суши" width={36} height={36} style={{width:36,height:36}}/></span><span className="text-base font-semibold tracking-widest">NAKTA</span>
+      <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-white"><Image src="/logo.webp" alt="Накта суши" width={32} height={32} style={{width:32,height:32}}/></span><span className="grid flex-1 text-left text-sm leading-tight"><span className="truncate font-medium">NAKTA</span><span className="truncate text-xs text-muted-foreground">Панель управления</span></span>
     </SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
     <SidebarContent>{["Работа","Каталог","Управление"].map(group=>{
       const items=adminSections.filter(item=>item.group===group&&can(item.permission)); if(!items.length)return null;
       return <SidebarGroup key={group}><SidebarGroupLabel>{group}</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{items.map(item=><SidebarMenuItem key={item.id}><SidebarMenuButton isActive={active===item.id} tooltip={item.label} onClick={()=>{onSelect(item.id);setOpenMobile(false)}}><item.icon className="size-4 shrink-0" aria-hidden="true"/><span>{item.label}</span></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup>
     })}</SidebarContent>
-    <SidebarFooter><SidebarMenu><SidebarMenuItem><div className="flex min-w-0 items-center gap-1"><SidebarMenuButton size="lg" isActive={active==="profile"} onClick={()=>{onSelect("profile");setOpenMobile(false)}}><span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted font-semibold">{staff?.name?.slice(0,1)}</span><span className="grid min-w-0"><strong className="truncate text-sm">{staff?.name}</strong><span className="text-xs text-muted-foreground">{staff?.role==="OWNER"?"Владелец":staff?.role==="ADMIN"?"Администратор":"Менеджер"}</span></span></SidebarMenuButton><Button variant="ghost" size="icon" onClick={onLogout} title="Выйти" className="group-data-[collapsible=icon]:hidden"><LogOut className="size-4" aria-hidden="true"/><span className="sr-only">Выйти</span></Button></div></SidebarMenuItem></SidebarMenu></SidebarFooter>
+    <SidebarFooter><SidebarMenu><SidebarMenuItem><DropdownMenu>
+      <DropdownMenuTrigger render={<SidebarMenuButton size="lg" className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" aria-label="Меню аккаунта"/>}>
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted font-medium">{staff?.name?.slice(0,1)}</span><span className="grid flex-1 text-left text-sm leading-tight"><span className="truncate font-medium">{staff?.name}</span><span className="truncate text-xs text-muted-foreground">{staff?.role==="OWNER"?"Владелец":staff?.role==="ADMIN"?"Администратор":"Менеджер"}</span></span><EllipsisVertical className="ml-auto size-4" aria-hidden="true"/>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="min-w-56 rounded-lg" side={isMobile?"bottom":"right"} align="end" sideOffset={4}>
+        <DropdownMenuGroup><DropdownMenuLabel>{staff?.name}</DropdownMenuLabel><DropdownMenuItem onClick={()=>{onSelect("profile");setOpenMobile(false)}}><UserRound className="size-4"/>Мой профиль</DropdownMenuItem></DropdownMenuGroup><DropdownMenuSeparator/>
+        <DropdownMenuGroup><DropdownMenuItem onClick={onLogout}><LogOut className="size-4"/>Выйти</DropdownMenuItem></DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu></SidebarMenuItem></SidebarMenu></SidebarFooter>
   </Sidebar>
 }

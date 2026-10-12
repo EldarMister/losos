@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 
-import { ChangeEvent, useId, useState } from "react";
+import { ChangeEvent, useId, useRef, useState } from "react";
 
 type ImageUploadProps = {
   label: string;
@@ -52,6 +52,7 @@ function optimizeImage(file: File) {
 
 export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, onError, compact = false }: ImageUploadProps) {
   const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
   const previewValue = value || fallbackValue;
 
@@ -76,11 +77,11 @@ export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, 
         <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/50">
           <img src={previewValue} alt={`Предпросмотр: ${label}`} className={`${compact ? "h-32" : "h-52"} w-full object-contain`} />
           <div className={`grid gap-2 border-t border-border bg-card ${compact ? "p-2" : `${value ? "grid-cols-2 " : ""}p-3`}`}>
-            <Label htmlFor={inputId} className="inline-flex min-h-10 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-input px-2 text-center text-sm font-medium text-foreground hover:bg-muted/50">
+            <Button type="button" variant="outline" disabled={processing} onClick={() => inputRef.current?.click()}>
               <ImagePlus className="size-4 shrink-0 " aria-hidden="true" />
               Заменить фото
-            </Label>
-            {value ? <Button variant="ghost" type="button" className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-2 text-sm font-medium text-destructive hover:bg-destructive/10" onClick={() => onChange("")}>
+            </Button>
+            {value ? <Button variant="destructive" type="button"  onClick={() => onChange("")}>
               <Trash2 className="size-4 shrink-0 " aria-hidden="true" />
               Удалить фото
             </Button> : null}
@@ -95,11 +96,11 @@ export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, 
           </span>
         </Label>
       )}
-      <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={processing} onChange={(event) => void selectFile(event)} />
+      <input ref={inputRef} id={inputId} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={processing} onChange={(event) => void selectFile(event)} />
       <p className="text-xs text-muted-foreground">{hint}</p>
       <details className="min-w-0"><summary className="cursor-pointer text-xs text-muted-foreground">Изображение по ссылке</summary><Label className="mt-3 grid min-w-0 gap-1.5 text-sm font-medium text-foreground">
         Ссылка на изображение
-        <Input type="url" className="h-11 min-w-0 w-full rounded-lg border border-input px-3 text-sm outline-none focus:border-primary focus:ring-3 focus:ring-ring/20" value={value.startsWith("data:") ? "" : value} placeholder="https://…" onChange={(event) => onChange(event.target.value)} />
+        <Input type="url" className="min-w-0 w-full" value={value.startsWith("data:") ? "" : value} placeholder="https://…" onChange={(event) => onChange(event.target.value)} />
       </Label></details>
     </fieldset>
   );

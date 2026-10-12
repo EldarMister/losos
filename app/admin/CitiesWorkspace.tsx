@@ -1,8 +1,11 @@
 "use client";
 
 import { Button } from "./ui/button";
+import { DialogFooter } from "./ui/dialog";
 import { Pencil, Plus } from "lucide-react";
 import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Switch } from "./ui/switch";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -104,7 +107,7 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
   };
 
   return (
-    <div className="space-y-6"><WorkspaceHeading title="Города" action={can("cities.create") ? <Button onClick={() => openEditor()}><Plus className="size-4" />Добавить город</Button> : undefined} /><Card className="gap-0 rounded-xl border border-border bg-card px-5 py-0" aria-label="Города">
+    <div className="space-y-6"><WorkspaceHeading title="Города" action={can("cities.create") ? <Button onClick={() => openEditor()}><Plus className="size-4" />Добавить город</Button> : undefined} /><Card className="gap-0 px-4 py-0" aria-label="Города">
       {regions.length ? (
         <ul className="divide-y divide-border">
           {regions.map((region) => (
@@ -112,14 +115,14 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-foreground">{region.name}</p>
               </div>
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${region.enabled ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>{region.enabled ? "Виден" : "Скрыт"}</span>
+              <Badge variant={region.enabled ? "secondary" : "outline"}>{region.enabled ? "Виден" : "Скрыт"}</Badge>
               {can("cities.edit") || can("settings.edit") ? <Button variant="ghost" size="icon" aria-label={`Редактировать город ${region.name}`} title="Редактировать" disabled={saving || savingId !== null} onClick={() => openEditor(region)}><Pencil className="size-4" /></Button> : null}
-              <Button variant="ghost"
+              <Button variant="outline"
                 type="button"
                 aria-label={`${region.enabled ? "Скрыть" : "Показать"} город ${region.name}`}
                 disabled={savingId !== null || !can("cities.edit")}
                 onClick={() => void changeVisibility(region)}
-                className="inline-flex min-h-11 min-w-25 items-center justify-center rounded-lg border border-input bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted/50 disabled:cursor-wait disabled:opacity-60"
+
               >
                 {savingId === region.id ? "Сохраняем…" : region.enabled ? "Скрыть" : "Показать"}
               </Button>
@@ -128,18 +131,18 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
         </ul>
       ) : <p className="py-6 text-sm text-muted-foreground">Городов пока нет.</p>}
     </Card>
-    <EditorDialog open={Boolean(editor)} onClose={() => { if (!saving) closeEditor(); }} title={editor?.region ? "Редактировать город" : "Новый город"} description="Название, порядок в списке и меню для клиентов.">
-      {editor ? <form className="grid min-h-0 gap-5 overflow-y-auto p-5" onSubmit={saveCity}>
+    <EditorDialog open={Boolean(editor)} onClose={() => { if (!saving) closeEditor(); }} title={editor?.region ? "Редактировать город" : "Новый город"}>
+      {editor ? <form className="grid min-h-0 gap-4 overflow-y-auto p-4" onSubmit={saveCity}>
         <fieldset disabled={saving || !(editor.region ? can("cities.edit") : can("cities.create"))} className="grid gap-4">
           <Label className="grid gap-2">Название города<Input required maxLength={100} value={editor.name} onChange={(event) => setEditor({...editor,name:event.target.value})} /></Label>
           <Label className="grid gap-2">Порядок в списке<Input required type="number" min="0" step="1" value={editor.sortOrder} onChange={(event) => setEditor({...editor,sortOrder:event.target.value})} /><span className="text-xs font-normal text-muted-foreground">Города с меньшим значением показаны первыми.</span></Label>
-          <Label className="flex items-center gap-3 rounded-lg border border-border p-4"><input type="checkbox" className="size-4 accent-primary" checked={editor.enabled} onChange={(event) => setEditor({...editor,enabled:event.target.checked})} />Показывать город клиентам</Label>
+          <Label className="flex items-center gap-3 rounded-lg border border-border p-4"><Switch disabled={saving || !(editor.region ? can("cities.edit") : can("cities.create"))} checked={editor.enabled} onCheckedChange={(enabled) => setEditor({...editor,enabled})} />Показывать город клиентам</Label>
         </fieldset>
         {can("settings.edit") ? <fieldset disabled={saving} className="grid gap-4 rounded-xl border border-border p-4"><legend className="px-1 text-sm font-semibold">Меню и акции</legend><p className="text-sm text-muted-foreground">Можно использовать собственный каталог или содержимое другого города.</p>
-          <Label className="grid gap-2">Меню<Select value={editor.menuSourceRegionSlug || "own"} onValueChange={(value) => setEditor({...editor,menuSourceRegionSlug:value === "own" ? "" : String(value)})}><SelectTrigger className="w-full"><SelectValue>{editor.menuSourceRegionSlug ? regions.find((region) => region.slug === editor.menuSourceRegionSlug)?.name ?? "Выбранный город" : "Собственное меню"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="own">Собственное меню</SelectItem>{regions.filter((region) => region.id !== editor.region?.id).map((region) => <SelectItem key={region.id} value={region.slug}>{region.name}</SelectItem>)}</SelectContent></Select></Label>
-          <Label className="grid gap-2">Акции<Select value={editor.promotionSourceRegionSlug || "own"} onValueChange={(value) => setEditor({...editor,promotionSourceRegionSlug:value === "own" ? "" : String(value)})}><SelectTrigger className="w-full"><SelectValue>{editor.promotionSourceRegionSlug ? regions.find((region) => region.slug === editor.promotionSourceRegionSlug)?.name ?? "Выбранный город" : "Собственные акции"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="own">Собственные акции</SelectItem>{regions.filter((region) => region.id !== editor.region?.id).map((region) => <SelectItem key={region.id} value={region.slug}>{region.name}</SelectItem>)}</SelectContent></Select></Label>
+          <Label className="grid gap-2">Меню<Select disabled={saving} value={editor.menuSourceRegionSlug || "own"} onValueChange={(value) => setEditor({...editor,menuSourceRegionSlug:value === "own" ? "" : String(value)})}><SelectTrigger className="w-full"><SelectValue>{editor.menuSourceRegionSlug ? regions.find((region) => region.slug === editor.menuSourceRegionSlug)?.name ?? "Выбранный город" : "Собственное меню"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="own">Собственное меню</SelectItem>{regions.filter((region) => region.id !== editor.region?.id).map((region) => <SelectItem key={region.id} value={region.slug}>{region.name}</SelectItem>)}</SelectContent></Select></Label>
+          <Label className="grid gap-2">Акции<Select disabled={saving} value={editor.promotionSourceRegionSlug || "own"} onValueChange={(value) => setEditor({...editor,promotionSourceRegionSlug:value === "own" ? "" : String(value)})}><SelectTrigger className="w-full"><SelectValue>{editor.promotionSourceRegionSlug ? regions.find((region) => region.slug === editor.promotionSourceRegionSlug)?.name ?? "Выбранный город" : "Собственные акции"}</SelectValue></SelectTrigger><SelectContent><SelectItem value="own">Собственные акции</SelectItem>{regions.filter((region) => region.id !== editor.region?.id).map((region) => <SelectItem key={region.id} value={region.slug}>{region.name}</SelectItem>)}</SelectContent></Select></Label>
         </fieldset> : null}
-        <footer className="flex justify-between gap-3 border-t border-border pt-4"><Button type="button" variant="outline" disabled={saving} onClick={closeEditor}>Отменить</Button><Button type="submit" disabled={saving}>{saving ? "Сохраняем…" : editor.region ? "Сохранить город" : "Добавить город"}</Button></footer>
+        <DialogFooter><Button type="button" variant="outline" disabled={saving} onClick={closeEditor}>Отменить</Button><Button type="submit" disabled={saving}>{saving ? "Сохраняем…" : editor.region ? "Сохранить город" : "Добавить город"}</Button></DialogFooter>
       </form> : null}
     </EditorDialog></div>
   );

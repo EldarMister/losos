@@ -45,14 +45,14 @@ export function AdminLogin({ onLogin, notice }: { onLogin: (token: string, staff
     }
   }
 
-  return <main className="grid min-h-dvh place-items-center bg-background px-4 py-10">
-    <div className="w-full max-w-sm">
-      <div className="mb-8 flex items-center justify-center gap-3">
-        <Image src="/logo.webp" alt="Накта суши" width={44} height={44} style={{ width: 44, height: 44 }} />
-        <span className="text-xl font-semibold tracking-widest">NAKTA</span>
+  return <main className="flex min-h-dvh flex-col items-center justify-center bg-muted p-6 md:p-10">
+    <div className="flex w-full max-w-sm flex-col gap-6">
+      <div className="flex items-center gap-2 self-center font-medium">
+        <Image src="/logo.webp" alt="Накта суши" width={36} height={36} style={{ width: 36, height: 36 }} />
+        <span>NAKTA</span>
       </div>
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 text-center">
           <CardTitle className="text-xl">{bootstrap ? "Создать первого владельца" : "Вход в панель"}</CardTitle>
           {bootstrap && <CardDescription>Создайте учётную запись владельца для начала работы.</CardDescription>}
         </CardHeader>

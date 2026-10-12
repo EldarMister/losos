@@ -2,6 +2,8 @@
 
 import { ChevronRight, MapPin, Phone, RefreshCw, Search } from "lucide-react";
 import { Button } from "./ui/button";
+import { AdminSelect } from "./AdminSelect";
+import { DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { Card } from "./ui/card";
@@ -179,7 +181,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
       if (sequence !== requestSequence.current) return;
       setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить заказы");
     } finally {
-      if (sequence === requestSequence.current && !quiet) setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, [filter, region, request, search, page, from, to]);
 
@@ -310,62 +312,28 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
 
   return (
     <div className="space-y-6">
-      <WorkspaceHeading title="Заказы" />
-      <Card className="gap-0 overflow-hidden rounded-xl border border-border bg-card py-0" aria-label="Фильтры заказов">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border p-4">
-          <form className="flex min-w-0 gap-2" onSubmit={submitSearch}>
-            <Label className="relative min-w-0 flex-1">
-              <span className="sr-only">Найти заказ</span>
-              <Search className="size-4 shrink-0 pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input
-                type="search"
-                value={searchDraft}
-                onChange={(event) => setSearchDraft(event.target.value)}
-                className="h-11 w-full rounded-lg border border-input bg-card pl-10 pr-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-3 focus:ring-ring/20"
-                placeholder="Номер, имя или телефон"
-              />
-            </Label>
+      <WorkspaceHeading title="Заказы" action={<Button variant="outline" size="icon" aria-label="Обновить заказы" title="Обновить заказы" disabled={loading} onClick={() => void loadOrders()}><RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} /></Button>} />
+      <div className="flex flex-col gap-4" aria-label="Фильтры заказов">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <form className="min-w-0 flex-1 lg:max-w-sm" onSubmit={submitSearch}>
+            <Label className="relative block"><span className="sr-only">Найти заказ</span><Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input type="search" className="pl-9" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="Номер, имя или телефон" /></Label>
           </form>
-          <Button variant="ghost"
-            type="button"
-            size="icon"
-            className="size-11"
-            aria-label="Обновить заказы"
-            title="Обновить заказы"
-            disabled={loading}
-            onClick={() => void loadOrders()}
-          >
-            <RefreshCw className="size-4 shrink-0" aria-hidden="true" />
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 border-b border-border p-4 lg:grid-cols-[220px_220px_1fr]"><Label className="grid gap-1.5 text-xs text-muted-foreground">С даты<Input type="date" value={from} max={to || undefined} onChange={(event) => {setFrom(event.target.value);setPage(0);}} /></Label><Label className="grid gap-1.5 text-xs text-muted-foreground">По дату<Input type="date" value={to} min={from || undefined} onChange={(event) => {setTo(event.target.value);setPage(0);}} /></Label>{from || to || search ? <Button variant="ghost" className="self-end justify-self-start" onClick={() => {setFrom("");setTo("");setSearch("");setSearchDraft("");setPage(0);}}>Сбросить фильтры</Button> : null}</div>
-        <div className="overflow-x-auto px-4 py-3">
-          <div className="flex min-w-max gap-2" role="list" aria-label="Фильтр по статусу">
-            {filterOptions.map((option) => {
-              const active = option.value === filter;
-              const count = option.value === "all"
-                ? Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0)
-                : counts[option.value] ?? 0;
-              return (
-                <Button variant="ghost"
-                  key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  className={`rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-ring hover:text-foreground"
-                  }`}
-                  onClick={() => { setFilter(option.value); setPage(0); }}
-                >
-                  {option.label} <span className={active ? "text-primary-foreground/70" : "text-muted-foreground"}>{count}</span>
-                </Button>
-              );
-            })}
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <Label className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-2 text-muted-foreground sm:flex">С<Input type="date" className="w-full sm:w-40 lg:w-36" value={from} max={to || undefined} onChange={(event) => {setFrom(event.target.value);setPage(0);}} /></Label>
+            <Label className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)] items-center gap-2 text-muted-foreground sm:flex">По<Input type="date" className="w-full sm:w-40 lg:w-36" value={to} min={from || undefined} onChange={(event) => {setTo(event.target.value);setPage(0);}} /></Label>
+            {from || to || search ? <Button variant="ghost" onClick={() => {setFrom("");setTo("");setSearch("");setSearchDraft("");setPage(0);}}>Сбросить</Button> : null}
           </div>
         </div>
-      </Card>
+        <div className="xl:hidden"><AdminSelect aria-label="Статус заказа" value={filter} options={filterOptions.map((option) => ({ value: option.value, label: `${option.label} · ${option.value === "all" ? Object.values(counts).reduce((sum, value) => sum + (value ?? 0), 0) : counts[option.value] ?? 0}` }))} onValueChange={(value) => {setFilter(value as typeof filter);setPage(0);}} /></div>
+        <Tabs value={filter} onValueChange={(value) => {setFilter(value as typeof filter);setPage(0);}} className="hidden xl:flex">
+          <TabsList aria-label="Статус заказа" className="w-max">
+            {filterOptions.map((option) => {
+              const count = option.value === "all" ? Object.values(counts).reduce((sum,value) => sum+(value ?? 0),0) : counts[option.value] ?? 0;
+              return <TabsTrigger key={option.value} value={option.value}>{option.label}<span className="text-xs tabular-nums text-muted-foreground">{count}</span></TabsTrigger>;
+            })}
+          </TabsList>
+        </Tabs>
+      </div>
 
       {loading ? <span className="sr-only" role="status">Обновляем заказы…</span> : null}
 
@@ -378,50 +346,50 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
       ) : null}
 
       {!error ? (
-        <Card className="gap-0 overflow-hidden rounded-xl border border-border bg-card py-0" aria-label="Список заказов">
+        <div className="overflow-hidden rounded-md border" aria-label="Список заказов">
           {orders.length === 0 && !loading ? <EmptyOrders filtered={Boolean(search) || filter !== "new"} /> : null}
 
           {orders.length > 0 ? (
             <div className="hidden overflow-x-auto md:block">
               <Table className="w-full min-w-[920px] border-collapse text-left">
-                <TableHeader className="bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="px-5 py-3.5">Заказ</TableHead>
-                    <TableHead className="px-5 py-3.5">Клиент</TableHead>
-                    <TableHead className="px-5 py-3.5">Получение</TableHead>
-                    <TableHead className="px-5 py-3.5">Сумма</TableHead>
-                    <TableHead className="px-5 py-3.5">Статус</TableHead>
-                    <TableHead className="px-5 py-3.5 text-right">Действие</TableHead>
+                    <TableHead className="px-4">Заказ</TableHead>
+                    <TableHead className="px-4">Клиент</TableHead>
+                    <TableHead className="px-4">Получение</TableHead>
+                    <TableHead className="px-4">Сумма</TableHead>
+                    <TableHead className="px-4">Статус</TableHead>
+                    <TableHead className="px-4 text-right">Действие</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-border">
                   {orders.map((order) => {
                     const transition = primaryTransition(order);
                     return (
-                      <TableRow key={order.id} className="group hover:bg-muted/80">
-                        <TableCell className="px-5 py-4 align-top">
+                      <TableRow key={order.id} className="group">
+                        <TableCell className="px-4 py-3 align-middle">
                           <Button variant="ghost" type="button" className="admin-order-link text-left hover:underline" onClick={() => void openOrder(order)}>
                             <strong className="block text-sm font-semibold text-foreground">{orderNumber(order)}</strong>
                             <span className="mt-1 block text-xs text-muted-foreground">{formatDate(order.createdAt)}</span>
                           </Button>
                         </TableCell>
-                        <TableCell className="px-5 py-4 align-top">
+                        <TableCell className="px-4 py-3 align-middle">
                           <strong className="block max-w-52 truncate text-sm font-medium text-foreground">{order.customerName || "Без имени"}</strong>
                           <span className="mt-1 block text-xs text-muted-foreground">{order.phone}</span>
                         </TableCell>
-                        <TableCell className="px-5 py-4 align-top">
+                        <TableCell className="px-4 py-3 align-middle">
                           <span className="block text-sm text-foreground">{deliveryLabel(order)}</span>
                           <span className="mt-1 block max-w-64 truncate text-xs text-muted-foreground">{order.address || "Адрес не указан"}</span>
                         </TableCell>
-                        <TableCell className="px-5 py-4 align-top text-sm font-semibold text-foreground">{formatMoney(order.total)}</TableCell>
-                        <TableCell className="px-5 py-4 align-top"><StatusBadge status={order.status} /></TableCell>
-                        <TableCell className="px-5 py-4 align-top">
+                        <TableCell className="px-4 py-3 align-middle text-sm font-semibold text-foreground">{formatMoney(order.total)}</TableCell>
+                        <TableCell className="px-4 py-3 align-middle"><StatusBadge status={order.status} /></TableCell>
+                        <TableCell className="px-4 py-3 align-middle">
                           <div className="flex justify-end gap-2">
                             {transition && can("orders.status") ? (
-                              <Button variant="ghost"
+                              <Button variant="default"
                                 type="button"
                                 disabled={actionOrderId === order.id}
-                                className="min-h-10 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
+
                                 onClick={() => void updateStatus(order, transition.status)}
                               >
                                 {actionOrderId === order.id ? "Сохраняем…" : transition.label}
@@ -467,10 +435,10 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                     </Button>
                     <div className="mt-4 grid gap-2">
                       {transition && can("orders.status") ? (
-                        <Button variant="ghost"
+                        <Button variant="default"
                           type="button"
                           disabled={actionOrderId === order.id}
-                          className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+
                           onClick={() => void updateStatus(order, transition.status)}
                         >
                           {actionOrderId === order.id ? "Сохраняем…" : transition.label}
@@ -482,7 +450,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
               })}
             </div>
           ) : null}
-        </Card>
+        </div>
       ) : null}
 
       <ListPagination total={total} page={page} loading={loading} onPageChange={setPage} />
@@ -556,7 +524,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                   <div className="flex items-center justify-between gap-3">
                     <h3 id="kit-title" className="text-sm font-semibold text-foreground">Комплектация</h3>
                     {can("orders.edit") && !(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
-                      <Button variant="ghost" type="button" className="rounded-lg border border-input px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/50" onClick={() => openKitEditor(selectedOrder)}>Изменить комплектацию</Button>
+                      <Button variant="outline" type="button"  onClick={() => openKitEditor(selectedOrder)}>Изменить комплектацию</Button>
                     ) : null}
                   </div>
                   <div className="mt-3 rounded-xl border border-border p-4 text-sm">
@@ -583,10 +551,10 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
             <footer className="border-t border-border bg-card p-4 md:px-7">
               <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                 {primaryTransition(selectedOrder) && can("orders.status") ? (
-                  <Button variant="ghost"
+                  <Button variant="default"
                     type="button"
                     disabled={actionOrderId === selectedOrder.id}
-                    className="min-h-12 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+
                     onClick={() => {
                       const transition = primaryTransition(selectedOrder);
                       if (transition) void updateStatus(selectedOrder, transition.status);
@@ -596,10 +564,10 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
                   </Button>
                 ) : <div />}
                 {can("orders.status") && !(["completed", "cancelled"] as OrderStatus[]).includes(selectedOrder.status) ? (
-                  <Button variant="ghost"
+                  <Button variant="destructive"
                     type="button"
                     disabled={actionOrderId === selectedOrder.id}
-                    className="min-h-12 rounded-lg border border-destructive/20 px-5 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:opacity-60"
+
                     onClick={() => void updateStatus(selectedOrder, "cancelled")}
                   >
                     Отменить заказ
@@ -614,10 +582,10 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
         {selectedOrder && kitDraft ? <fieldset disabled={kitSaving || !can("orders.edit")} className="flex min-h-0 flex-col">
             <div className="grid gap-4 overflow-y-auto p-5">
               <Label className="flex items-center justify-between gap-4 rounded-xl border border-border p-4 text-sm font-medium text-foreground"><span>Без приборов</span><input type="checkbox" className="size-5 accent-primary" checked={kitDraft.noUtensils} onChange={(event) => setKitDraft({ ...kitDraft, noUtensils: event.target.checked })} /></Label>
-              {!kitDraft.noUtensils ? <div className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"><span><strong className="block text-sm text-foreground">Количество персон</strong><small className="mt-1 block text-xs text-muted-foreground">Палочки и салфетки</small></span><span className="flex items-center gap-3"><Button variant="ghost" type="button" aria-label="Уменьшить количество персон" className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.max(1, kitDraft.utensilsCount - 1) })}>−</Button><strong className="min-w-6 text-center text-base">{kitDraft.utensilsCount}</strong><Button variant="ghost" type="button" aria-label="Увеличить количество персон" className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground" onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.min(50, kitDraft.utensilsCount + 1) })}>+</Button></span></div> : null}
-              {kitDraft.kitItems.length ? <div className="divide-y divide-border rounded-xl border border-border">{kitDraft.kitItems.map((kitItem) => <div key={kitItem.id} className="flex min-w-0 items-center justify-between gap-3 p-4"><span className="min-w-0"><strong className="block break-words text-sm font-medium text-foreground">{kitItem.name}</strong><small className="mt-1 block text-xs text-muted-foreground">Входит в заказ: {kitDraft.maxQuantities[kitItem.id]} шт.</small></span><span className="flex shrink-0 items-center gap-2"><Button variant="ghost" type="button" aria-label={`Уменьшить ${kitItem.name}`} disabled={kitItem.quantity <= 0} className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground disabled:opacity-40" onClick={() => changeKitQuantity(kitItem.id, -1)}>−</Button><strong className="min-w-6 text-center text-base">{kitItem.quantity}</strong><Button variant="ghost" type="button" aria-label={`Увеличить ${kitItem.name}`} disabled={kitItem.quantity >= (kitDraft.maxQuantities[kitItem.id] ?? 0)} className="grid size-10 place-items-center rounded-lg border border-input text-xl text-foreground disabled:opacity-40" onClick={() => changeKitQuantity(kitItem.id, 1)}>+</Button></span></div>)}</div> : <p className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">Для блюд этого заказа бесплатная комплектация не указана.</p>}
+              {!kitDraft.noUtensils ? <div className="flex items-center justify-between gap-4 rounded-xl border border-border p-4"><span><strong className="block text-sm text-foreground">Количество персон</strong><small className="mt-1 block text-xs text-muted-foreground">Палочки и салфетки</small></span><span className="flex items-center gap-3"><Button variant="outline" type="button" aria-label="Уменьшить количество персон"  onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.max(1, kitDraft.utensilsCount - 1) })}>−</Button><strong className="min-w-6 text-center text-base">{kitDraft.utensilsCount}</strong><Button variant="outline" type="button" aria-label="Увеличить количество персон"  onClick={() => setKitDraft({ ...kitDraft, utensilsCount: Math.min(50, kitDraft.utensilsCount + 1) })}>+</Button></span></div> : null}
+              {kitDraft.kitItems.length ? <div className="divide-y divide-border rounded-xl border border-border">{kitDraft.kitItems.map((kitItem) => <div key={kitItem.id} className="flex min-w-0 items-center justify-between gap-3 p-4"><span className="min-w-0"><strong className="block break-words text-sm font-medium text-foreground">{kitItem.name}</strong><small className="mt-1 block text-xs text-muted-foreground">Входит в заказ: {kitDraft.maxQuantities[kitItem.id]} шт.</small></span><span className="flex shrink-0 items-center gap-2"><Button variant="outline" type="button" aria-label={`Уменьшить ${kitItem.name}`} disabled={kitItem.quantity <= 0}  onClick={() => changeKitQuantity(kitItem.id, -1)}>−</Button><strong className="min-w-6 text-center text-base">{kitItem.quantity}</strong><Button variant="outline" type="button" aria-label={`Увеличить ${kitItem.name}`} disabled={kitItem.quantity >= (kitDraft.maxQuantities[kitItem.id] ?? 0)}  onClick={() => changeKitQuantity(kitItem.id, 1)}>+</Button></span></div>)}</div> : <p className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">Для блюд этого заказа бесплатная комплектация не указана.</p>}
             </div>
-            <footer className="grid gap-2 border-t border-border p-4 sm:grid-cols-2"><Button variant="ghost" type="button" className="min-h-11 rounded-lg border border-input text-sm font-medium text-foreground" onClick={closeKitEditor}>Отменить</Button><Button variant="ghost" type="button" className="min-h-11 rounded-lg bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60" disabled={kitSaving} onClick={() => void saveKit()}>{kitSaving ? "Сохраняем…" : "Сохранить комплектацию"}</Button></footer>
+            <DialogFooter className="mx-0 mb-0 shrink-0"><Button variant="outline" type="button"  onClick={closeKitEditor}>Отменить</Button><Button variant="default" type="button"  disabled={kitSaving} onClick={() => void saveKit()}>{kitSaving ? "Сохраняем…" : "Сохранить комплектацию"}</Button></DialogFooter>
         </fieldset> : null}
       </EditorDialog>
     </div>
