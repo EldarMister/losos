@@ -6,6 +6,7 @@ import { AdminNavigation,adminSections } from "./AdminNavigation";
 import { AdminLogin } from "./AdminLogin";
 import { AdminAccessContext, type Staff } from "./admin-access";
 import { adminFetch,adminApiUrl } from "./admin-api";
+import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, saveAdminSession } from "./admin-session";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "./ui/sidebar";
 import { Separator } from "./ui/separator";
 import { AdminCommandSearch } from "./AdminCommandSearch";
@@ -27,7 +28,6 @@ import { confirmAdminNavigation } from "./use-unsaved-changes";
 import type { AdminRequest,AdminSection,Region } from "./admin-types";
 
 type Notice={message:string;tone:"success"|"error"};
-const sessionKey="nakta-admin-session";
 export function AdminApp(){return <><AdminWorkspace/><AdminConfirmationDialog/></>}
 function AdminWorkspace(){
  const [hydrated,setHydrated]=useState(false);const [token,setToken]=useState("");const [staff,setStaff]=useState<Staff|null>(null);
@@ -37,7 +37,7 @@ function AdminWorkspace(){
  const [refresh,setRefresh]=useState(0);const tokenRef=useRef(token);const acceptedUrl=useRef("");
  const can=useCallback((permission:string)=>!permission||!!staff&&(staff.role==="OWNER"||staff.effectivePermissions.includes(permission)),[staff]);
  const onNotice=useCallback((message:string,tone:"success"|"error"="success")=>setNotice({message,tone}),[]);
- const clearSession=useCallback(()=>{tokenRef.current="";try{sessionStorage.removeItem(sessionKey);sessionStorage.removeItem("losos-admin-token")}catch{/* Local UI must still clear when browser storage is unavailable. */}setToken("");setStaff(null);setRegions([]);setNotice(null);setAuthError("");window.dispatchEvent(new Event("admin:logout"));},[]);
+ const clearSession=useCallback(()=>{clearAdminSession(tokenRef.current);tokenRef.current="";try{sessionStorage.removeItem("losos-admin-token")}catch{/* Local UI must still clear when browser storage is unavailable. */}setToken("");setStaff(null);setRegions([]);setNotice(null);setAuthError("");window.dispatchEvent(new Event("admin:logout"));},[]);
  const refreshAuth=useCallback(async()=>{
    const activeToken=tokenRef.current;if(!activeToken)return;
    try{const next=await adminFetch<Staff>("/admin/auth/me",activeToken);if(tokenRef.current===activeToken){setStaff(previous=>JSON.stringify(previous)===JSON.stringify(next)?previous:next);setAuthError("")}}
@@ -46,7 +46,8 @@ function AdminWorkspace(){
  const request=useCallback(async<T,>(path:string,init?:RequestInit):Promise<T>=>{
    try{return await adminFetch<T>(path,token,init)}catch(e){if(tokenRef.current===token){const status=(e as {status?:number}).status;if(status===401)clearSession();if(status===403){void refreshAuth();onNotice("Доступ к этому действию закрыт. Права обновляются.","error")}}throw e}
  },[token,clearSession,refreshAuth,onNotice]);
- useEffect(()=>{queueMicrotask(()=>{acceptedUrl.current=window.location.href;const initialToken=sessionStorage.getItem(sessionKey)||"";tokenRef.current=initialToken;setToken(initialToken);setDark(localStorage.getItem("nakta-admin-theme")==="dark");const next=new URLSearchParams(window.location.search).get("section");if(adminSections.some(s=>s.id===next))setSection(next as AdminSection);else if(new URLSearchParams(window.location.search).has("order"))setSection("orders");setHydrated(true)})},[]);
+ useEffect(()=>{queueMicrotask(()=>{acceptedUrl.current=window.location.href;const initialToken=readAdminSession();tokenRef.current=initialToken;setToken(initialToken);try{setDark(localStorage.getItem("nakta-admin-theme")==="dark")}catch{/* Theme storage is optional. */}const next=new URLSearchParams(window.location.search).get("section");if(adminSections.some(s=>s.id===next))setSection(next as AdminSection);else if(new URLSearchParams(window.location.search).has("order"))setSection("orders");setHydrated(true)})},[]);
+ useEffect(()=>{const syncSession=(event:StorageEvent)=>{if(event.key!==ADMIN_SESSION_KEY&&event.key!==null)return;if(event.newValue===null){clearSession();return;}const next=readAdminSession();if(next===tokenRef.current)return;if(!next){clearSession();return;}window.dispatchEvent(new Event("admin:logout"));tokenRef.current=next;setStaff(null);setRegions([]);setNotice(null);setAuthError("");setLoginNotice("");setToken(next)};window.addEventListener("storage",syncSession);return()=>window.removeEventListener("storage",syncSession)},[clearSession]);
  useEffect(()=>{if(!token)return;const id=window.setTimeout(()=>void refreshAuth(),0);const timer=window.setInterval(()=>void refreshAuth(),15000);const focus=()=>void refreshAuth();window.addEventListener("focus",focus);return()=>{clearTimeout(id);clearInterval(timer);window.removeEventListener("focus",focus)}},[token,refreshAuth]);
  useEffect(()=>{document.documentElement.classList.toggle("dark",dark);return()=>document.documentElement.classList.remove("dark")},[dark]);
  useEffect(()=>{if(!token||!staff)return;let active=true;const task=setTimeout(()=>void request<Region[]>("/admin/settings").then(items=>{if(!active||tokenRef.current!==token)return;setRegions(items);setRegion(current=>items.some(i=>i.slug===current)?current:items[0]?.slug||"bishkek")}).catch(e=>{if(active&&tokenRef.current===token)onNotice(e instanceof Error?e.message:"Не удалось загрузить города","error")}),0);return()=>{active=false;clearTimeout(task)}},[request,token,staff,onNotice]);
@@ -56,7 +57,7 @@ function AdminWorkspace(){
  const selectSection=async(next:AdminSection)=>{if(!await confirmAdminNavigation())return;setSection(next);const url=new URL(window.location.href);url.searchParams.set("section",next);url.searchParams.delete("order");window.history.pushState({},"",url);acceptedUrl.current=url.href};
  const openOrder=(id:string)=>{setSection("orders");const url=new URL(window.location.href);url.searchParams.set("section","orders");url.searchParams.set("order",id);window.history.pushState({},"",url);acceptedUrl.current=url.href;window.dispatchEvent(new CustomEvent("admin:open-order",{detail:{id}}))};
  useEffect(()=>{const pop=async()=>{const next=new URLSearchParams(window.location.search).get("section");if(adminSections.some(s=>s.id===next)){const requested=window.location.href;if(await confirmAdminNavigation()){acceptedUrl.current=requested;setSection(next as AdminSection)}else if(acceptedUrl.current)window.history.pushState({},"",acceptedUrl.current)}};window.addEventListener("popstate",pop);return()=>window.removeEventListener("popstate",pop)},[]);
- const login=(nextToken:string,nextStaff:Staff)=>{sessionStorage.setItem(sessionKey,nextToken);tokenRef.current=nextToken;setToken(nextToken);setStaff(nextStaff);setAuthError("");setLoginNotice("");const query=new URLSearchParams(window.location.search);if(query.has("order"))setSection("orders");else if(!query.has("section")){setSection(nextStaff.role==="MANAGER"?"orders":"dashboard")}};
+ const login=(nextToken:string,nextStaff:Staff)=>{saveAdminSession(nextToken);tokenRef.current=nextToken;setToken(nextToken);setStaff(nextStaff);setAuthError("");setLoginNotice("");const query=new URLSearchParams(window.location.search);if(query.has("order"))setSection("orders");else if(!query.has("section")){setSection(nextStaff.role==="MANAGER"?"orders":"dashboard")}};
  const logout=async()=>{
    if(!await confirmAdminNavigation())return;
    const activeToken=tokenRef.current;if(!activeToken)return;

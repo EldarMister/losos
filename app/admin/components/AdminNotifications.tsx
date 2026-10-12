@@ -9,7 +9,9 @@ import { Switch } from "../ui/switch";
 import { claimOrderSound, orderEventCursor, parseSseFrame, type OrderNotice } from "../notifications/event-dedup";
 import { DEFAULT_ORDER_SOUND_VOLUME, loadOrderSound, orderSoundVolume, playOrderSound, playRecordedOrderSound, type OrderSoundPlayback } from "../notifications/order-sound";
 import { confirmAdminAction } from "../AdminConfirmationDialog";
-import { confirmAdminNavigation } from "../use-unsaved-changes";
+import { confirmAdminNavigation, reloadAdminAfterConfirmation } from "../use-unsaved-changes";
+import { readAdminSession } from "../admin-session";
+import { activateAdminUpdate } from "../notifications/app-update";
 import "../notifications/notifications.css";
 
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -39,7 +41,7 @@ export async function disconnectAdminDevice(apiUrl: string, token: string) {
   } catch { /* Optional cursor storage must not prevent logout. */ }
   const stillLoggingOut = () => {
     if (controller.signal.aborted) return false;
-    const currentToken = sessionStorage.getItem("nakta-admin-session");
+    const currentToken = readAdminSession();
     return !currentToken || currentToken === token;
   };
   const jobs: Promise<unknown>[] = [fetch(`${apiUrl}/admin/push/subscriptions`, {
@@ -73,6 +75,8 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   const audio = useRef<AudioContext | null>(null);
   const soundPlayback = useRef<OrderSoundPlayback | null>(null);
   const soundSequence = useRef(0);
+  const updateCleanup = useRef<(() => void) | null>(null);
+  const [updating, setUpdating] = useState(false);
   const soundRef = useRef({ enabled: false, volume: DEFAULT_ORDER_SOUND_VOLUME });
   const callbacks = useRef({ onOrdersChanged, onAccessRevoked, onOpenOrder });
   const stopRef = useRef<(() => void) | null>(null);
@@ -143,7 +147,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.controller?.postMessage({ type: "LOGOUT" });
         void registrationForAdmin().then(value => {
-          const currentToken = sessionStorage.getItem("nakta-admin-session");
+          const currentToken = readAdminSession();
           if (!currentToken || currentToken === token) value?.active?.postMessage({ type: "LOGOUT" });
         }).catch(() => undefined);
       }
@@ -216,7 +220,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
         void current.update().catch(() => undefined);
       }).catch(() => { if (active) setMessage("Установка приложения недоступна в этом браузере. Продолжайте работу на сайте."); });
     }
-    return () => { active = false; cleanupUpdate(); window.removeEventListener("beforeinstallprompt", beforeInstall); window.removeEventListener("appinstalled", afterInstall); };
+    return () => { active = false; cleanupUpdate(); updateCleanup.current?.(); window.removeEventListener("beforeinstallprompt", beforeInstall); window.removeEventListener("appinstalled", afterInstall); };
   }, []);
 
   useEffect(() => {
@@ -363,9 +367,12 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       : "Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран», если этот пункт доступен.");
   };
   const applyUpdate = async () => {
-    if (!waiting || !await confirmAdminNavigation() || !await confirmAdminAction("Обновить приложение? Сначала сохраните открытые формы. Страница будет перезагружена.")) return;
-    navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
-    waiting.postMessage({ type: "ACTIVATE_UPDATE" });
+    if (updating || !await confirmAdminNavigation() || !await confirmAdminAction("Обновить приложение? Сначала сохраните открытые формы. Страница будет перезагружена.", { destructive: false })) return;
+    setUpdating(true);
+    try {
+      const current = await registrationForAdmin();
+      updateCleanup.current = activateAdminUpdate(navigator.serviceWorker, current?.waiting ?? null, reloadAdminAfterConfirmation);
+    } catch { reloadAdminAfterConfirmation(); }
   };
 
   const connectionLabel = !online ? "Нет соединения" : connection === "online" ? "Заказы обновляются" : connection === "connecting" ? "Подключаем обновления" : "Обновления приостановлены";
@@ -373,7 +380,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   return <div className="admin-notifications">
     {(!online || canViewOrders && connection === "offline") && typeof document !== "undefined" && createPortal(<span className="admin-connection-warning" role="alert" title="Данные могут быть неактуальны. Восстанавливаем соединение."><WifiOff className="admin-notification-icon" aria-hidden="true"/>Нет связи</span>, document.body)}
     <div className="admin-notifications-toolbar">
-      {waiting && <Button type="button" variant="ghost" size="icon" className="admin-update-trigger" onClick={applyUpdate} aria-label="Обновить приложение после сохранения" title="Доступна новая версия"><RefreshCw className="admin-notification-icon" aria-hidden="true"/></Button>}
+      {waiting && <Button type="button" variant="ghost" size="icon" className="admin-update-trigger" disabled={updating} onClick={applyUpdate} aria-label={updating ? "Обновляем приложение" : "Обновить приложение после сохранения"} title={updating ? "Обновляем приложение" : "Доступна новая версия"}><RefreshCw className={`admin-notification-icon ${updating ? "animate-spin" : ""}`} aria-hidden="true"/></Button>}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <span className="admin-notification-trigger-wrap">
           <DialogTrigger render={<Button type="button" variant="ghost" size="icon" className="admin-notification-trigger" aria-label="Уведомления и приложение" title="Уведомления и приложение"/>}><Bell className="admin-notification-icon" aria-hidden="true"/></DialogTrigger>

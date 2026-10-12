@@ -87,6 +87,23 @@ test('security HTTP + PostgreSQL transactions (isolated test schema)', { skip: !
     const manager = await createStaff('manager');
     const admin = await createStaff('admin', 'ADMIN');
 
+    await t.test('persistent sessions last 30 days, renew valid legacy sessions and never revive expired sessions', async () => {
+      const { hashSessionToken } = require('../dist/admin/admin-security.service');
+      const session = await createStaff('remembered-device');
+      const hash = hashSessionToken(session.token);
+      const readExpiry = async () => (await db.query('SELECT "expiresAt" FROM admin_sessions WHERE "tokenHash"=$1', [hash]))[0].expiresAt;
+      const initial = new Date(await readExpiry()).getTime();
+      assert.ok(initial > Date.now() + 29 * 86400000 && initial < Date.now() + 31 * 86400000);
+      assert.equal((await request('/auth/me', session.token)).status, 200);
+      assert.equal(new Date(await readExpiry()).getTime(), initial, 'frequent access does not continually write expiration');
+      await db.query('UPDATE admin_sessions SET "expiresAt"=now()+interval \'12 hours\' WHERE "tokenHash"=$1', [hash]);
+      assert.equal((await request('/auth/me', session.token)).status, 200);
+      assert.ok(new Date(await readExpiry()).getTime() > Date.now() + 29 * 86400000);
+      await db.query('UPDATE admin_sessions SET "expiresAt"=now()-interval \'1 second\' WHERE "tokenHash"=$1', [hash]);
+      assert.equal((await request('/auth/me', session.token)).status, 401);
+      assert.ok(new Date(await readExpiry()).getTime() < Date.now());
+    });
+
     await t.test('bootstrap one-shot; session secrets hashed; legacy admin header rejected', async () => {
       const status = await request('/auth/bootstrap-status');
       assert.equal(status.status, 200);

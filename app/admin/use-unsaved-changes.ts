@@ -9,6 +9,12 @@ export async function confirmAdminNavigation() {
   return dirtyForms.size === 0 || await confirmAdminAction("Есть несохранённые изменения. Покинуть страницу и потерять их?", { title: "Покинуть страницу?" });
 }
 
+/** Only call after the user has approved leaving/updating in the admin dialog. */
+export function reloadAdminAfterConfirmation() {
+  dirtyForms.clear();
+  window.location.reload();
+}
+
 export function useUnsavedChanges(dirty: boolean) {
   const id = useId();
   useEffect(() => {

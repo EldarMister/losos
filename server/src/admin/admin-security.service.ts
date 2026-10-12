@@ -7,6 +7,7 @@ import { CreateStaffDto, StaffBootstrapDto, StaffLoginDto, UpdateCustomerProfile
 type StaffRow = StaffIdentity & { passwordHash: string };
 type Queryable = Pick<EntityManager, "query">;
 const SECURITY_LOCK = 71428019;
+export const ADMIN_SESSION_DAYS = 30;
 export const hashSessionToken = (token: string) => createHash("sha256").update(token).digest("hex");
 const derivePassword = (password: string, salt: string) => new Promise<Buffer>((resolve, reject) => scrypt(password, salt, 64, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }, (error, value) => error ? reject(error) : resolve(value)));
 export async function hashStaffPassword(password: string): Promise<string> {
@@ -34,14 +35,20 @@ export class AdminSecurityService {
 
   async authenticate(token: string): Promise<StaffIdentity> {
     if (!/^[a-f0-9]{64}$/.test(token)) throw new UnauthorizedException("Войдите в учётную запись сотрудника");
-    const [row] = await this.db.query(`SELECT staff.*, sessions."id" AS "sessionId" FROM "admin_sessions" sessions JOIN "admin_staff" staff ON staff."id"=sessions."staffId" WHERE sessions."tokenHash"=$1 AND sessions."expiresAt">now() AND staff."active"=true`, [hashSessionToken(token)]) as (StaffRow & { sessionId: string })[];
+    const [row] = await this.db.query(`SELECT staff.*, sessions."id" AS "sessionId", sessions."expiresAt" AS "sessionExpiresAt" FROM "admin_sessions" sessions JOIN "admin_staff" staff ON staff."id"=sessions."staffId" WHERE sessions."tokenHash"=$1 AND sessions."expiresAt">now() AND staff."active"=true`, [hashSessionToken(token)]) as (StaffRow & { sessionId: string; sessionExpiresAt: Date })[];
     if (!row) throw new UnauthorizedException("Сессия завершена. Войдите снова");
+    // Refresh only once per day; frequent auth/SSE checks should not write on
+    // every request. Existing valid 12-hour sessions migrate on their next use.
+    if (new Date(row.sessionExpiresAt).getTime() < Date.now() + (ADMIN_SESSION_DAYS - 1) * 86400000) {
+      const renewed = await this.db.query(`WITH renewed AS (UPDATE "admin_sessions" SET "expiresAt"=now()+$2::int*interval '1 day' WHERE "id"=$1 AND "expiresAt">now() AND EXISTS (SELECT 1 FROM "admin_staff" WHERE "id"="admin_sessions"."staffId" AND "active"=true) RETURNING "id") SELECT "id" FROM renewed`, [row.sessionId, ADMIN_SESSION_DAYS]);
+      if (!renewed.length) throw new UnauthorizedException("Сессия завершена. Войдите снова");
+    }
     return { ...publicStaff(row), sessionId: row.sessionId };
   }
 
   private async issueSession(staff: StaffIdentity, query: Queryable = this.db.manager) {
     const token = randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + ADMIN_SESSION_DAYS * 86400000);
     await query.query(`DELETE FROM "admin_sessions" WHERE "expiresAt"<=now()`);
     await query.query(`INSERT INTO "admin_sessions" ("id","staffId","tokenHash","expiresAt") VALUES ($1,$2,$3,$4)`, [randomUUID(), staff.id, hashSessionToken(token), expiresAt]);
     return { token, expiresAt: expiresAt.toISOString(), staff: publicStaff(staff) };
