@@ -48,7 +48,7 @@ export function AdminLogin({ onLogin, notice }: { onLogin: (token: string, staff
   return <main className="flex min-h-dvh flex-col items-center justify-center bg-muted p-6 md:p-10">
     <div className="flex w-full max-w-sm flex-col gap-6">
       <div className="flex items-center gap-2 self-center font-medium">
-        <Image src="/logo.webp" alt="Накта суши" width={36} height={36} style={{ width: 36, height: 36 }} />
+        <Image src="/admin/app-icon.png" alt="Накта суши" width={36} height={36} style={{ width: 36, height: 36 }} />
         <span>NAKTA</span>
       </div>
       <Card>

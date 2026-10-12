@@ -26,7 +26,7 @@ export function AdminNavigation({active,onSelect,onLogout}:{active:AdminSection;
   const {can,staff}=useAdminAccess(); const {setOpenMobile,isMobile}=useSidebar();
   return <Sidebar variant="inset" collapsible="icon">
     <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" onClick={()=>{onSelect(can("dashboard.view")?"dashboard":"orders");setOpenMobile(false)}}>
-      <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-white"><Image src="/logo.webp" alt="Накта суши" width={32} height={32} style={{width:32,height:32}}/></span><span className="grid flex-1 text-left text-sm leading-tight"><span className="truncate font-medium">NAKTA</span><span className="truncate text-xs text-muted-foreground">Панель управления</span></span>
+      <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-white"><Image src="/admin/app-icon.png" alt="Накта суши" width={32} height={32} style={{width:32,height:32}}/></span><span className="grid flex-1 text-left text-sm leading-tight"><span className="truncate font-medium">NAKTA</span><span className="truncate text-xs text-muted-foreground">Панель управления</span></span>
     </SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
     <SidebarContent>{["Работа","Каталог","Управление"].map(group=>{
       const items=adminSections.filter(item=>item.group===group&&can(item.permission)); if(!items.length)return null;

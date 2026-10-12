@@ -1,6 +1,6 @@
 /* NAKTA admin only. Never cache API responses or personalized HTML. */
-const VERSION = "nakta-admin-static-v2";
-const STATIC = ["/admin/offline.html", "/admin/icon-192.png", "/admin/icon-512.png", "/admin/icon-maskable-512.png", "/admin/manifest.webmanifest"];
+const VERSION = "nakta-admin-static-v3";
+const STATIC = ["/admin/offline.html", "/admin/app-icon.png", "/admin/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(STATIC)));
@@ -87,7 +87,7 @@ self.addEventListener("push", (event) => {
     if (!data?.eventId || !data?.orderId || !await claimPush(data.eventId)) return;
     await self.registration.showNotification("Новый заказ · NAKTA", {
       body: `Заказ №${Number(data.orderNumber) || ""} ожидает обработки`,
-      icon: "/admin/icon-192.png", badge: "/admin/icon-192.png",
+      icon: "/admin/app-icon.png", badge: "/admin/app-icon.png",
       tag: `nakta-order:${data.eventId}`, renotify: false,
       data: { url: `/admin?section=orders&order=${encodeURIComponent(data.orderId)}` },
     });

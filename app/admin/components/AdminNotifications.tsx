@@ -193,14 +193,24 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
         if (!active) return;
         setRegistration(current);
         setWaiting(current.waiting);
+        const watched = new Map<ServiceWorker, () => void>();
         const updateFound = () => {
           const worker = current.installing;
-          worker?.addEventListener("statechange", () => {
+          if (!worker || watched.has(worker)) return;
+          const stateChanged = () => {
             if (active && worker.state === "installed" && current.active) setWaiting(current.waiting || worker);
-          });
+          };
+          watched.set(worker, stateChanged);
+          worker.addEventListener("statechange", stateChanged);
+          stateChanged();
         };
         current.addEventListener("updatefound", updateFound);
-        cleanupUpdate = () => current.removeEventListener("updatefound", updateFound);
+        // register() can resolve after updatefound has already fired.
+        updateFound();
+        cleanupUpdate = () => {
+          current.removeEventListener("updatefound", updateFound);
+          for (const [worker, listener] of watched) worker.removeEventListener("statechange", listener);
+        };
         if (!("PushManager" in window) || !("Notification" in window)) setPushState("unsupported");
         else if (await current.pushManager.getSubscription()) setPushState("on");
         void current.update().catch(() => undefined);
