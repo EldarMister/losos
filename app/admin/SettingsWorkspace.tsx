@@ -2,12 +2,13 @@
 import { confirmAdminAction } from "./AdminConfirmationDialog";
 /* eslint-disable @next/next/no-img-element */
 
-import { PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Check, PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
 import { Card } from "./ui/card";
 import { Input } from "./ui/input";
+import { Switch } from "./ui/switch";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { EditorDialog, ListPagination, WorkspaceHeading } from "./workspace-kit";
@@ -457,10 +458,30 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
           </Card>
         ) : null}
 
-        {tab === "hours" ? <Card className="p-5"><div><h2 className="font-semibold">Расписание приёма заказов</h2><p className="mt-1 text-xs text-muted-foreground">Время Бишкека · UTC+6</p></div><div className="grid gap-4 sm:grid-cols-2">                <Label className={labelClass}>Начало работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryOpenTime} onChange={(event) => setDraft({ ...draft, deliveryOpenTime: event.target.value })} /></Label>
-                <Label className={labelClass}>Окончание работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryCloseTime} onChange={(event) => setDraft({ ...draft, deliveryCloseTime: event.target.value })} /></Label>
-                <Label className="flex items-center gap-3 self-end rounded-lg border border-border p-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 accent-primary" checked={draft.deliveryIs24Hours} onChange={(event) => setDraft({ ...draft, deliveryIs24Hours: event.target.checked })} />Круглосуточно</Label>
-</div>              <fieldset className="mt-5"><legend className="text-sm font-medium text-foreground">Рабочие дни</legend><div className="mt-2 flex flex-wrap gap-2">{weekdays.map((day) => <Button key={day.value} type="button" variant={draft.deliveryWorkingDays.includes(day.value) ? "secondary" : "outline"} aria-pressed={draft.deliveryWorkingDays.includes(day.value)} onClick={() => setDraft({ ...draft, deliveryWorkingDays: draft.deliveryWorkingDays.includes(day.value) ? draft.deliveryWorkingDays.filter((value) => value !== day.value) : [...draft.deliveryWorkingDays, day.value] })}>{day.label}</Button>)}</div></fieldset></Card> : null}
+        {tab === "hours" ? (
+          <Card className="p-5">
+            <div><h2 className="font-semibold">Расписание приёма заказов</h2><p className="mt-1 text-xs text-muted-foreground">Время Бишкека · UTC+6</p></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Label className={labelClass}>Начало работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryOpenTime} onChange={(event) => setDraft({ ...draft, deliveryOpenTime: event.target.value })} /></Label>
+              <Label className={labelClass}>Окончание работы<Input required type="time" disabled={draft.deliveryIs24Hours} className={inputClass} value={draft.deliveryCloseTime} onChange={(event) => setDraft({ ...draft, deliveryCloseTime: event.target.value })} /></Label>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                <Label htmlFor="delivery-24-hours" className="cursor-pointer text-sm font-medium">Круглосуточно</Label>
+                <Switch id="delivery-24-hours" checked={draft.deliveryIs24Hours} onCheckedChange={(checked) => setDraft({ ...draft, deliveryIs24Hours: checked })} />
+              </div>
+            </div>
+            <fieldset><legend className="text-sm font-medium text-foreground">Рабочие дни</legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {weekdays.map((day) => {
+                  const selected = draft.deliveryWorkingDays.includes(day.value);
+                  return <Button key={day.value} type="button" variant={selected ? "default" : "outline"} className="min-w-14 gap-1.5" aria-pressed={selected}
+                    onClick={() => setDraft({ ...draft, deliveryWorkingDays: selected ? draft.deliveryWorkingDays.filter((value) => value !== day.value) : [...draft.deliveryWorkingDays, day.value] })}>
+                    <Check aria-hidden="true" className={`size-3.5 ${selected ? "opacity-100" : "opacity-0"}`} />{day.label}
+                  </Button>;
+                })}
+              </div>
+            </fieldset>
+          </Card>
+        ) : null}
 
         {tab === "delivery" ? (
           <div className="space-y-4">
