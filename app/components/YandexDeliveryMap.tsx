@@ -3,6 +3,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Icon } from "@mdi/react";
+import { mdiNavigationVariant } from "@mdi/js";
 
 export type DeliveryLocation = {
   address: string;
@@ -740,7 +742,7 @@ export function YandexDeliveryMap({
         </div>,
         suggestionsHost,
       ) : null}
-      {status === "ready" ? <button className="map-locate" type="button" onClick={locateUser} aria-label="Определить моё местоположение">➤</button> : null}
+      {status === "ready" ? <button className="map-locate" type="button" onClick={locateUser} aria-label="Определить моё местоположение"><Icon path={mdiNavigationVariant} size={0.85} aria-hidden="true" /></button> : null}
       {status !== "ready" ? (
         <div className={`map-state map-state-${status}`} role={status === "error" ? "alert" : "status"}>
           {status === "loading" ? <span className="map-spinner" aria-hidden="true" /> : null}

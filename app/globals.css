@@ -252,7 +252,6 @@ a { color: inherit; text-decoration: none; }
 }
 .product-modal { width: min(1160px, calc(100vw - 40px)); height: min(920px, calc(100dvh - 40px)); background: var(--soft); border-radius: 40px; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(376px, 400px); }
 .product-modal-simple { width: min(905px, calc(100vw - 40px)); grid-template-columns: 64% 36%; }
-.product-sheet-handle { display: none; }
 .product-sheet-scroll { display: contents; }
 .modal-close { position: absolute; z-index: 3; right: 18px; top: 14px; background: transparent; color: #8d8d92; font-size: 34px; line-height: 1; }
 .address-panel > .modal-close { top: 8px; }
@@ -359,8 +358,9 @@ a { color: inherit; text-decoration: none; }
 .delivery-map-marker::before { content: ""; position: absolute; z-index: -1; left: 21px; bottom: -25px; width: 2px; height: 21px; border-radius: 2px; background: #ff5300; }
 .delivery-map-marker::after { content: ""; position: absolute; z-index: -1; left: 16px; bottom: -7px; width: 11px; height: 11px; border-right: 2px solid #ff5300; border-bottom: 2px solid #ff5300; border-radius: 0 0 3px; background: #fff; transform: rotate(45deg); }
 .delivery-map-marker img { position: relative; z-index: 1; width: 32px; height: 32px; object-fit: contain; }
-.map-back { position: absolute; z-index: 2; left: 14px; top: 16px; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.86); font-size: 27px; color: #555; }
-.map-locate { display: block; position: absolute; z-index: 2; right: 14px; top: 16px; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.94); color: #404047; font-size: 18px; transform: rotate(-45deg); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.map-back { display: grid; place-items: center; padding: 0; line-height: 0; position: absolute; z-index: 2; left: 14px; top: 16px; width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,.86); color: #555; }
+.map-locate { display: grid; place-items: center; padding: 0; line-height: 0; position: absolute; z-index: 2; right: 14px; top: 16px; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.94); color: #404047; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.map-back svg, .map-locate svg { display: block; }
 .map-state { position: absolute; z-index: 1; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 30px; background: linear-gradient(145deg, #f5f2eb, #e8e6df); color: #666; text-align: center; }
 .map-state-error { color: #4b4944; }
 .map-spinner { width: 32px; height: 32px; border: 3px solid #d9d4cb; border-top-color: var(--orange); border-radius: 50%; animation: map-loading .8s linear infinite; }
@@ -932,9 +932,6 @@ a { color: inherit; text-decoration: none; }
   .product-modal { --product-sheet-top: 42px; display: flex; flex-direction: column; width: 100%; height: calc(100dvh - var(--product-sheet-top)); margin-top: var(--product-sheet-top); border-radius: 40px 40px 0 0; overflow: hidden; background: var(--soft); transform: translateY(var(--product-sheet-offset, 0px)); transition: transform 180ms ease-out, margin-top 180ms ease-out, height 180ms ease-out; }
   .product-modal.sheet-expanded { --product-sheet-top: 12px; }
   .product-modal.sheet-dragging { transition: none; user-select: none; }
-  .product-sheet-handle { position: absolute; z-index: 5; top: 0; left: calc(50% - 36px); display: grid; place-items: center; width: 72px; height: 24px; padding: 0; background: transparent; touch-action: none; cursor: grab; }
-  .product-sheet-handle::before { content: ""; width: 36px; height: 4px; border-radius: 4px; background: #b8b8bc; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
-  .product-sheet-handle:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; border-radius: 12px; }
   .product-sheet-scroll { display: block; flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: none; }
   .product-sheet-scroll > .modal-close { display: none; }
   .modal-art { width: calc(100% - 8px); height: auto; aspect-ratio: 1; margin: 0 4px; display: grid; place-items: center; border-radius: 36px 36px 0 0; }

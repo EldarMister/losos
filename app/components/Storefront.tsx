@@ -2101,7 +2101,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <source media="(max-width: 720px)" srcSet="/mobile-header-1600-transparent-v2.png" />
           <img src="/desktop-header-20260726-v3.png" alt="Накта суши" />
         </picture>
-        <img className="brand-smile" src="/смайлик.webp" alt="" aria-hidden="true" />
+        <img className="brand-smile" src={encodeURI("/смайлик.webp")} alt="" aria-hidden="true" />
         <a className="download-app download-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
           <strong>Скачайте<br />приложение</strong>
@@ -2406,7 +2406,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
           <div className="address-modal">
             <div className={`map-placeholder ${deliveryType === "pickup" ? "pickup-map yandex-map-host" : "delivery-map yandex-map-host"}`}>
-              <button className="map-back" onClick={closeAddress} aria-label="Назад">←</button>
+              <button className="map-back" onClick={closeAddress} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
               {deliveryType === "delivery" ? (
                 <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexDeliveryMap
                   inputId="delivery-address-input"

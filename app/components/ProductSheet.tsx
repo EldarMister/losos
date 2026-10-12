@@ -17,7 +17,6 @@ type SheetGesture = {
   lastTime: number;
   velocity: number;
   dragging: boolean;
-  fromHandle: boolean;
   canExpand: boolean;
   expanded: boolean;
 };
@@ -26,11 +25,9 @@ const interactiveSelector = "button, a, input, select, textarea, label, [role='b
 
 export function ProductSheet({ className, onClose, children }: ProductSheetProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const handleRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef(onClose);
   const expandedRef = useRef(false);
   const closingRef = useRef(false);
-  const suppressHandleClickUntil = useRef(0);
   const [expanded, setExpanded] = useState(false);
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -41,16 +38,15 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
 
   useEffect(() => {
     const scroll = scrollRef.current;
-    const handle = handleRef.current;
-    if (!scroll || !handle) return;
+    if (!scroll) return;
 
     let gesture: SheetGesture | null = null;
     let closeTimer: number | undefined;
     const mobile = () => window.matchMedia("(max-width: 720px)").matches;
 
     const releasePointer = (current: SheetGesture | null) => {
-      if (current?.pointerId !== undefined && handle.hasPointerCapture(current.pointerId)) {
-        handle.releasePointerCapture(current.pointerId);
+      if (current?.pointerId !== undefined && scroll.hasPointerCapture(current.pointerId)) {
+        scroll.releasePointerCapture(current.pointerId);
       }
     };
 
@@ -63,10 +59,10 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
       setOffset(0);
     };
 
-    const start = (event: Event, x: number, y: number, source: SheetGesture["source"], fromHandle: boolean, pointerId?: number) => {
+    const start = (event: Event, x: number, y: number, source: SheetGesture["source"], pointerId?: number) => {
       if (!mobile() || closingRef.current || gesture) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (!fromHandle && (scroll.scrollTop > 0 || target?.closest(interactiveSelector))) return;
+      if (scroll.scrollTop > 0 || target?.closest(interactiveSelector)) return;
       gesture = {
         source,
         pointerId,
@@ -76,11 +72,10 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
         lastTime: performance.now(),
         velocity: 0,
         dragging: false,
-        fromHandle,
-        canExpand: fromHandle || Boolean(target?.closest(".modal-art")),
+        canExpand: Boolean(target?.closest(".modal-art")),
         expanded: expandedRef.current,
       };
-      if (pointerId !== undefined) handle.setPointerCapture(pointerId);
+      if (pointerId !== undefined) scroll.setPointerCapture(pointerId);
     };
 
     const move = (event: TouchEvent | PointerEvent, x: number, y: number) => {
@@ -90,7 +85,7 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
       const dy = y - current.startY;
       if (!current.dragging) {
         if (Math.max(Math.abs(dx), Math.abs(dy)) < 6) return;
-        if (Math.abs(dx) > Math.abs(dy) || (dy < 0 && (!current.canExpand || (current.expanded && !current.fromHandle)))) {
+        if (Math.abs(dx) > Math.abs(dy) || (dy < 0 && (!current.canExpand || current.expanded))) {
           cancel();
           return;
         }
@@ -112,7 +107,6 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
       releasePointer(current);
       if (!current.dragging) return;
       if (event.cancelable) event.preventDefault();
-      if (current.fromHandle) suppressHandleClickUntil.current = Date.now() + 500;
       setDragging(false);
       const distance = current.lastY - current.startY;
       const velocity = performance.now() - current.lastTime < 80 ? current.velocity : 0;
@@ -133,12 +127,7 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
     const scrollTouchStart = (event: TouchEvent) => {
       if (event.touches.length !== 1) { cancel(); return; }
       const touch = event.touches[0];
-      start(event, touch.clientX, touch.clientY, "touch", false);
-    };
-    const handleTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) { cancel(); return; }
-      const touch = event.touches[0];
-      start(event, touch.clientX, touch.clientY, "touch", true);
+      start(event, touch.clientX, touch.clientY, "touch");
     };
     const touchMove = (event: TouchEvent) => {
       if (gesture?.source !== "touch") return;
@@ -152,7 +141,7 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
     const touchCancel = () => { if (gesture?.source === "touch") cancel(); };
     const pointerDown = (event: PointerEvent) => {
       if (event.pointerType === "touch" || event.button !== 0) return;
-      start(event, event.clientX, event.clientY, "pointer", true, event.pointerId);
+      start(event, event.clientX, event.clientY, "pointer", event.pointerId);
     };
     const pointerMove = (event: PointerEvent) => {
       if (gesture?.source === "pointer" && gesture.pointerId === event.pointerId) move(event, event.clientX, event.clientY);
@@ -165,20 +154,19 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
     };
     const resize = () => { if (gesture) cancel(); };
     const options = { passive: false };
-    const touchTargets: HTMLElement[] = [scroll, handle];
+    const touchTargets: HTMLElement[] = [scroll];
 
     scroll.addEventListener("touchstart", scrollTouchStart, options);
-    handle.addEventListener("touchstart", handleTouchStart, options);
     for (const element of touchTargets) {
       element.addEventListener("touchmove", touchMove, options);
       element.addEventListener("touchend", touchEnd, options);
       element.addEventListener("touchcancel", touchCancel, options);
     }
-    handle.addEventListener("pointerdown", pointerDown);
-    handle.addEventListener("pointermove", pointerMove);
-    handle.addEventListener("pointerup", pointerUp);
-    handle.addEventListener("pointercancel", pointerCancel);
-    handle.addEventListener("lostpointercapture", pointerCancel);
+    scroll.addEventListener("pointerdown", pointerDown);
+    scroll.addEventListener("pointermove", pointerMove);
+    scroll.addEventListener("pointerup", pointerUp);
+    scroll.addEventListener("pointercancel", pointerCancel);
+    scroll.addEventListener("lostpointercapture", pointerCancel);
     window.addEventListener("resize", resize);
 
     return () => {
@@ -187,17 +175,16 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
       releasePointer(current);
       if (closeTimer !== undefined) window.clearTimeout(closeTimer);
       scroll.removeEventListener("touchstart", scrollTouchStart);
-      handle.removeEventListener("touchstart", handleTouchStart);
       for (const element of touchTargets) {
         element.removeEventListener("touchmove", touchMove);
         element.removeEventListener("touchend", touchEnd);
         element.removeEventListener("touchcancel", touchCancel);
       }
-      handle.removeEventListener("pointerdown", pointerDown);
-      handle.removeEventListener("pointermove", pointerMove);
-      handle.removeEventListener("pointerup", pointerUp);
-      handle.removeEventListener("pointercancel", pointerCancel);
-      handle.removeEventListener("lostpointercapture", pointerCancel);
+      scroll.removeEventListener("pointerdown", pointerDown);
+      scroll.removeEventListener("pointermove", pointerMove);
+      scroll.removeEventListener("pointerup", pointerUp);
+      scroll.removeEventListener("pointercancel", pointerCancel);
+      scroll.removeEventListener("lostpointercapture", pointerCancel);
       window.removeEventListener("resize", resize);
     };
   }, []);
@@ -206,20 +193,6 @@ export function ProductSheet({ className, onClose, children }: ProductSheetProps
 
   return (
     <div className={[className, expanded && "sheet-expanded", dragging && "sheet-dragging", closing && "sheet-closing"].filter(Boolean).join(" ")} style={style} inert={closing}>
-      <button
-        ref={handleRef}
-        type="button"
-        className="product-sheet-handle"
-        aria-label={expanded ? "Свернуть карточку блюда" : "Развернуть карточку блюда"}
-        aria-expanded={expanded}
-        onClick={(event) => {
-          if (closingRef.current || (event.detail > 0 && Date.now() < suppressHandleClickUntil.current)) {
-            event.preventDefault();
-            return;
-          }
-          setExpanded((current) => !current);
-        }}
-      ><span aria-hidden="true" /></button>
       <div ref={scrollRef} className="product-sheet-scroll">{children}</div>
     </div>
   );
