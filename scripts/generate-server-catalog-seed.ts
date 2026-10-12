@@ -18,6 +18,7 @@ const seedCategories = categories.map((category, categoryIndex) => ({
     image: product.image,
     description: product.description ?? "",
     composition: product.composition ?? "",
+    kitItems: product.kitItems ?? [],
     weight: product.weight ?? 0,
     calories: product.calories ?? 0,
     protein: product.protein ?? 0,

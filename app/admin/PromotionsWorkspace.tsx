@@ -1,9 +1,10 @@
 "use client";
 
 import { Icon } from "@mdi/react";
-import { mdiClose, mdiPlus } from "@mdi/js";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { mdiClose, mdiDeleteOutline, mdiLoading, mdiPlus, mdiPower } from "@mdi/js";
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useRef, useState } from "react";
 import { ImageUpload } from "./ImageUpload";
+import { RowActions } from "./RowActions";
 import type { AdminRequest, Dashboard, Promotion } from "./admin-types";
 
 type PromotionsWorkspaceProps = {
@@ -22,8 +23,24 @@ type PromotionEditor = {
   sortOrder: string;
 };
 
-const inputClass = "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100";
-const labelClass = "grid gap-1.5 text-sm font-medium text-slate-700";
+const inputClass = "h-11 min-w-0 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-600 focus:ring-3 focus:ring-blue-100";
+const labelClass = "grid min-w-0 gap-1.5 text-sm font-medium text-slate-700";
+const iconButtonClass = "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60";
+
+function trapDialogFocus(event: KeyboardEvent<HTMLDivElement>) {
+  if (event.key !== "Tab") return;
+  const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), [tabindex='0']"))
+    .filter((element) => element.getClientRects().length > 0 && !element.classList.contains("sr-only"));
+  const first = controls[0];
+  const last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last?.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first?.focus();
+  }
+}
 
 export function PromotionsWorkspace({ region, request, onNotice }: PromotionsWorkspaceProps) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -31,6 +48,37 @@ export function PromotionsWorkspace({ region, request, onNotice }: PromotionsWor
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Promotion | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ id: number; type: "toggle" | "delete" } | null>(null);
+  const dialogTitleId = useId();
+  const deleteDescriptionId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const modalOpen = Boolean(editor || deleteTarget);
+  const modalMode = deleteTarget ? "delete" : editor ? "editor" : null;
+  const deleting = pendingAction?.type === "delete";
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.querySelector<HTMLElement>("button:not(:disabled)")?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [modalOpen, modalMode]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape" || saving || deleting) return;
+      if (deleteTarget) setDeleteTarget(null);
+      else setEditor(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [modalOpen, deleteTarget, saving, deleting]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,12 +133,34 @@ export function PromotionsWorkspace({ region, request, onNotice }: PromotionsWor
   };
 
   const toggle = async (item: Promotion) => {
+    if (pendingAction) return;
+    setPendingAction({ id: item.id, type: "toggle" });
     try {
       await request(`/admin/promotions/${item.id}`, { method: "PATCH", body: JSON.stringify({ enabled: !item.enabled }) });
       onNotice(item.enabled ? "Акция выключена" : "Акция включена", "success");
       await load();
     } catch (toggleError) {
       onNotice(toggleError instanceof Error ? toggleError.message : "Не удалось изменить акцию", "error");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const deletePromotion = async () => {
+    if (!deleteTarget || pendingAction) return;
+    const item = deleteTarget;
+    setPendingAction({ id: item.id, type: "delete" });
+    try {
+      await request(`/admin/promotions/${item.id}`, { method: "DELETE" });
+      setDashboard((current) => current ? { ...current, promotions: current.promotions.filter((promotion) => promotion.id !== item.id) } : current);
+      setDeleteTarget(null);
+      setEditor(null);
+      onNotice("Акция удалена полностью", "success");
+      await load();
+    } catch (deleteError) {
+      onNotice(deleteError instanceof Error ? deleteError.message : "Не удалось удалить акцию", "error");
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -111,30 +181,48 @@ export function PromotionsWorkspace({ region, request, onNotice }: PromotionsWor
         {dashboard?.promotions.length ? (
           <div className="divide-y divide-slate-200">
             {dashboard.promotions.map((item) => (
-              <article key={item.id} className="grid gap-4 p-4 sm:grid-cols-[72px_1fr_auto] sm:items-center sm:px-5">
+              <article key={item.id} className="grid min-w-0 grid-cols-[64px_minmax(0,1fr)] items-center gap-3 p-4 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-4 sm:px-5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.image} alt="" className="size-18 rounded-lg border border-slate-200 object-cover" />
-                <div><div className="flex flex-wrap items-center gap-2"><strong className="text-slate-950">{item.title}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{item.enabled ? "Активна" : "Выключена"}</span></div><span className="mt-2 block text-sm text-slate-500">{item.cta || "Без кнопки"}</span></div>
-                <div className="grid grid-cols-2 gap-2"><button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700" onClick={() => void toggle(item)}>{item.enabled ? "Выключить" : "Включить"}</button><button type="button" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700" onClick={() => setEditor({ promotion: item, title: item.title, image: item.image, cta: item.cta || "", ctaUrl: item.ctaUrl || "", enabled: item.enabled, sortOrder: String(item.sortOrder) })}>Редактировать</button></div>
+                <img src={item.image} alt="" className="size-16 rounded-lg border border-slate-200 object-cover sm:size-18" />
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="break-words text-slate-950">{item.title}</strong><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{item.enabled ? "Активна" : "Выключена"}</span></div><span className="mt-2 block break-words text-sm text-slate-500">{item.cta || "Без кнопки"}</span></div>
+                <div className="col-span-2 flex items-center justify-end gap-1 sm:col-span-1">
+                  <button type="button" className={`${iconButtonClass} ${item.enabled ? "text-emerald-600 hover:text-slate-700" : "hover:text-emerald-600"}`} aria-label={`${item.enabled ? "Выключить" : "Включить"} акцию «${item.title}»`} title={item.enabled ? "Выключить акцию" : "Включить акцию"} aria-pressed={item.enabled} disabled={pendingAction !== null} onClick={() => void toggle(item)}>
+                    <Icon path={pendingAction?.id === item.id && pendingAction.type === "toggle" ? mdiLoading : mdiPower} size={0.83} className={pendingAction?.id === item.id && pendingAction.type === "toggle" ? "animate-spin" : undefined} aria-hidden="true" />
+                  </button>
+                  <RowActions label="акцию" name={item.title} deleting={pendingAction?.id === item.id && deleting} deletionDisabled={pendingAction !== null} onEdit={() => setEditor({ promotion: item, title: item.title, image: item.image, cta: item.cta || "", ctaUrl: item.ctaUrl || "", enabled: item.enabled, sortOrder: String(item.sortOrder) })} onDelete={() => setDeleteTarget(item)} />
+                </div>
               </article>
             ))}
           </div>
         ) : <div className="grid min-h-52 place-items-center p-8 text-center text-sm text-slate-500">Акций пока нет.</div>}
       </section>
 
-      {editor ? (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/45 p-0 sm:p-5" role="presentation">
-          <form className="flex min-h-dvh w-full max-w-2xl flex-col bg-white shadow-2xl sm:min-h-0 sm:rounded-xl" onSubmit={save}>
-            <header className="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4"><h2 className="text-lg font-semibold text-slate-950">{editor.promotion ? "Редактировать акцию" : "Добавить акцию"}</h2><button type="button" aria-label="Закрыть редактор акции" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600" onClick={() => setEditor(null)}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button></header>
-            <div className="grid gap-5 overflow-y-auto p-5">
+      {editor && !deleteTarget ? (
+        <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-950/45 sm:p-5" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId} onKeyDown={trapDialogFocus}>
+          <form className="flex max-h-dvh min-h-0 min-w-0 w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)] sm:rounded-xl" onSubmit={save} aria-busy={saving}>
+            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4"><h2 id={dialogTitleId} className="min-w-0 text-lg font-semibold text-slate-950">{editor.promotion ? "Редактировать акцию" : "Добавить акцию"}</h2><button type="button" aria-label="Закрыть редактор акции" className={`${iconButtonClass} border border-slate-200`} disabled={saving} onClick={() => setEditor(null)}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button></header>
+            <div className="grid min-h-0 min-w-0 gap-5 overflow-y-auto overscroll-contain p-4 sm:p-5">
               <ImageUpload label="Баннер акции" value={editor.image} hint="Рекомендуемый размер — 1200×600 px." onChange={(image) => setEditor({ ...editor, image })} onError={(message) => onNotice(message, "error")} />
               <label className={labelClass}>Название<input required className={inputClass} value={editor.title} onChange={(event) => setEditor({ ...editor, title: event.target.value })} /></label>
-              <div className="grid gap-4 sm:grid-cols-2"><label className={labelClass}>Текст кнопки<input className={inputClass} value={editor.cta} onChange={(event) => setEditor({ ...editor, cta: event.target.value })} /></label><label className={labelClass}>Порядок<input min="0" type="number" className={inputClass} value={editor.sortOrder} onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })} /></label></div>
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2"><label className={labelClass}>Текст кнопки<input className={inputClass} value={editor.cta} onChange={(event) => setEditor({ ...editor, cta: event.target.value })} /></label><label className={labelClass}>Порядок<input min="0" type="number" className={inputClass} value={editor.sortOrder} onChange={(event) => setEditor({ ...editor, sortOrder: event.target.value })} /></label></div>
               <label className={labelClass}>Ссылка<input type="url" className={inputClass} placeholder="https://…" value={editor.ctaUrl} onChange={(event) => setEditor({ ...editor, ctaUrl: event.target.value })} /></label>
               <label className="flex items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 accent-blue-600" checked={editor.enabled} onChange={(event) => setEditor({ ...editor, enabled: event.target.checked })} />Акция включена</label>
             </div>
-            <footer className="grid gap-2 border-t border-slate-200 p-4 sm:grid-cols-2"><button type="button" className="min-h-11 rounded-lg border border-slate-300 text-sm font-medium text-slate-700" onClick={() => setEditor(null)}>Отменить</button><button type="submit" className="min-h-11 rounded-lg bg-blue-600 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>{saving ? "Сохраняем…" : editor.promotion ? "Сохранить изменения" : "Добавить акцию"}</button></footer>
+            <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-slate-200 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+              <button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-60" disabled={saving} onClick={() => setEditor(null)}>Отменить</button>
+              <button type="submit" className="min-h-11 rounded-lg bg-blue-600 px-3 text-sm font-semibold text-white disabled:opacity-60" disabled={saving}>{saving ? "Сохраняем…" : editor.promotion ? "Сохранить изменения" : "Добавить акцию"}</button>
+              {editor.promotion ? <button type="button" className="col-span-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60" disabled={saving || pendingAction !== null} onClick={() => { if (editor.promotion) setDeleteTarget(editor.promotion); }}><Icon path={mdiDeleteOutline} size={0.78} aria-hidden="true" />Удалить полностью</button> : null}
+            </footer>
           </form>
+        </div>
+      ) : null}
+
+      {deleteTarget ? (
+        <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-950/45 p-3 sm:p-5" role="alertdialog" aria-modal="true" aria-labelledby={dialogTitleId} aria-describedby={deleteDescriptionId} onKeyDown={trapDialogFocus}>
+          <div className="flex max-h-[calc(100dvh-1.5rem)] min-h-0 min-w-0 w-full max-w-md flex-col overflow-hidden rounded-xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2.5rem)]" aria-busy={deleting}>
+            <div className="min-h-0 overflow-y-auto p-5"><h2 id={dialogTitleId} className="text-lg font-semibold text-slate-950">Удалить акцию полностью?</h2><p id={deleteDescriptionId} className="mt-3 break-words text-sm leading-6 text-slate-600">Акция «{deleteTarget.title}» исчезнет с сайта и из панели управления во всех городах, где она показывается. Восстановить её после удаления нельзя.</p></div>
+            <footer className="grid shrink-0 gap-2 border-t border-slate-200 p-4 sm:grid-cols-2"><button type="button" className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 disabled:opacity-60" disabled={deleting} onClick={() => setDeleteTarget(null)}>Отменить</button><button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-red-600 px-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60" disabled={pendingAction !== null} onClick={() => void deletePromotion()}><Icon path={deleting ? mdiLoading : mdiDeleteOutline} size={0.78} className={deleting ? "animate-spin" : undefined} aria-hidden="true" />{deleting ? "Удаляем…" : "Удалить полностью"}</button></footer>
+          </div>
         </div>
       ) : null}
     </div>

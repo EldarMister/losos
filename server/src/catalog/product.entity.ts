@@ -1,5 +1,6 @@
 import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Category } from "./category.entity";
+import type { ProductKitItem } from "./product-kit";
 
 export type ModifierPriceScope = "per-product" | "per-line";
 
@@ -78,6 +79,9 @@ export class Product {
 
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   modifierGroups!: ProductModifierGroup[];
+
+  @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
+  kitItems!: ProductKitItem[];
 
   @Column({ default: true })
   available!: boolean;

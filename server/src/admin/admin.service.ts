@@ -19,6 +19,7 @@ import { Order } from "../orders/order.entity";
 import { canTransitionOrderStatus, OrderStatus } from "../orders/order.enums";
 import { normalizeOrderKitItems } from "../orders/order-kit";
 import { freeKitItemsForRegion } from "../catalog/cart-configuration";
+import { assertValidProductKitItems, ProductKitValidationError } from "../catalog/product-kit";
 import {
   type AdminAnalyticsPeriod,
   ListOrdersQueryDto,
@@ -159,6 +160,7 @@ export class AdminService {
       },
       menuRegionSlug: menuRegion.slug,
       promotionRegionSlug: promotionRegion.slug,
+      kitCatalog: freeKitItemsForRegion(menuRegion.freeKitItems),
       categories: categories.map(publicAdminCategory),
       promotions: promotions
         .filter((promotion) => !isLegacyFinancialPromotion(promotion))
@@ -580,11 +582,9 @@ export class AdminService {
     }
     order.noUtensils = dto.noUtensils;
     order.utensilsCount = dto.noUtensils ? 0 : dto.utensilsCount;
-    const region = await this.regions.findOne({ where: { slug: order.regionSlug } });
-    if (!region) throw new NotFoundException("Регион заказа не найден");
     order.kitItems = normalizeOrderKitItems(
       dto.kitItems,
-      freeKitItemsForRegion(region.freeKitItems),
+      order.includedKitItems ?? order.kitItems ?? [],
     );
     const saved = await this.orderRepository.save(order);
     return publicAdminOrder(saved);
@@ -689,6 +689,7 @@ export class AdminService {
     const region = await this.contentSource(requestedRegion, "menuSourceRegionSlug");
     const category = await this.requireCategory(dto.categoryId);
     if (category.region.id !== region.id) throw new BadRequestException("Category belongs to another region");
+    this.validateProductKitItems(dto.kitItems, region);
     const { regionSlug: _regionSlug, categoryId: _categoryId, ...data } = dto;
     const saved = await this.products.save(this.products.create({
       ...data,
@@ -701,6 +702,7 @@ export class AdminService {
   async updateProduct(id: number, dto: UpdateProductDto) {
     if (dto.modifierGroups !== undefined) this.validateModifierGroups(dto.modifierGroups);
     const product = await this.requireProduct(id);
+    if (dto.kitItems !== undefined) this.validateProductKitItems(dto.kitItems, product.category.region);
     const { categoryId, ...data } = dto;
     this.validateOldPrice(
       data.price ?? product.price,
@@ -804,6 +806,15 @@ export class AdminService {
     const promotion = await this.promotions.findOne({ where: { id }, relations: { region: true } });
     if (!promotion) throw new NotFoundException("Promotion not found");
     return promotion;
+  }
+
+  private validateProductKitItems(items: CreateProductDto["kitItems"] | undefined, region: Region) {
+    try {
+      assertValidProductKitItems(items, freeKitItemsForRegion(region.freeKitItems));
+    } catch (error) {
+      if (error instanceof ProductKitValidationError) throw new BadRequestException(error.message);
+      throw error;
+    }
   }
 
   private validateModifierGroups(groups: CreateProductDto["modifierGroups"]) {

@@ -9,6 +9,7 @@ export type SeedProduct = {
   image: string;
   description: string;
   composition: string;
+  kitItems: Array<{ id: string; quantity: number }>;
   weight: number;
   calories: number;
   protein: number;

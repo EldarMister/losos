@@ -15,10 +15,11 @@ import { Order } from "./order.entity";
 import { DeliveryType, OrderStatus, PaymentMethod } from "./order.enums";
 import { OrderPricingError, priceOrderLine } from "./order-pricing";
 import { normalizeOrderKitItems } from "./order-kit";
-import { freeKitItemsForRegion } from "../catalog/cart-configuration";
+import { DEFAULT_FREE_KIT_ITEMS, freeKitItemsForRegion } from "../catalog/cart-configuration";
 import type { OrderKitItem } from "./order-kit";
+import { aggregateProductKitItems, ProductKitValidationError } from "../catalog/product-kit";
 
-function fingerprintRequest(dto: CreateOrderDto, kitItems: OrderKitItem[]) {
+export function fingerprintRequest(dto: CreateOrderDto, legacyKitItems?: OrderKitItem[]) {
   const items = (dto.items ?? []).map((item) => ({
     productId: item.productId,
     quantity: item.quantity,
@@ -47,7 +48,9 @@ function fingerprintRequest(dto: CreateOrderDto, kitItems: OrderKitItem[]) {
     paymentMethod: dto.paymentMethod || PaymentMethod.CASH,
     utensilsCount: dto.noUtensils ? 0 : (dto.utensilsCount ?? 1),
     noUtensils: dto.noUtensils ?? false,
-    kitItems,
+    kitItems: legacyKitItems ?? (dto.kitItems
+      ? dto.kitItems.map(({ id, quantity }) => ({ id, quantity })).sort((left, right) => left.id.localeCompare(right.id))
+      : null),
     items,
   };
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
@@ -89,19 +92,11 @@ export class OrdersService {
     if (!dto.items?.length) throw new BadRequestException("Order must contain at least one item");
     const idempotencyKey = dto.idempotencyKey || randomUUID();
     const regionSlug = dto.regionSlug || "bishkek";
-    const configuredRegion = await this.orders.manager.getRepository(Region).findOne({
-      where: { slug: regionSlug, enabled: true },
-    });
-    if (!configuredRegion) throw new BadRequestException(`Region ${regionSlug} is unavailable`);
-    const kitItems = normalizeOrderKitItems(
-      dto.kitItems,
-      freeKitItemsForRegion(configuredRegion.freeKitItems),
-    );
-    const requestFingerprint = fingerprintRequest(dto, kitItems);
+    const requestFingerprint = fingerprintRequest(dto);
 
     const existing = await this.findByIdempotencyKey(idempotencyKey);
     if (existing) {
-      return publicOrder(this.ensureMatchingIdempotency(existing, requestFingerprint));
+      return publicOrder(this.ensureMatchingIdempotency(existing, requestFingerprint, dto));
     }
 
     try {
@@ -116,7 +111,7 @@ export class OrdersService {
           relations: { items: true },
         });
         if (concurrentExisting) {
-          return this.ensureMatchingIdempotency(concurrentExisting, requestFingerprint);
+          return this.ensureMatchingIdempotency(concurrentExisting, requestFingerprint, dto);
         }
 
         const ids = [...new Set(dto.items.map((item) => item.productId))];
@@ -161,6 +156,18 @@ export class OrdersService {
           }
         });
 
+        let includedKitItems: OrderKitItem[];
+        try {
+          includedKitItems = aggregateProductKitItems(
+            dto.items.map((entry) => ({ quantity: entry.quantity, kitItems: byId.get(entry.productId)!.kitItems })),
+            freeKitItemsForRegion(products[0].category.region.freeKitItems),
+          ).map(({ id, name, quantity }) => ({ id, name, quantity }));
+        } catch (error) {
+          if (error instanceof ProductKitValidationError) throw new BadRequestException(error.message);
+          throw error;
+        }
+        const kitItems = normalizeOrderKitItems(dto.kitItems, includedKitItems);
+
         const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
         if (
           !Number.isSafeInteger(subtotal)
@@ -193,6 +200,7 @@ export class OrdersService {
           utensilsCount: dto.noUtensils ? 0 : (dto.utensilsCount ?? 1),
           noUtensils: dto.noUtensils ?? false,
           kitItems,
+          includedKitItems,
           idempotencyKey,
           requestFingerprint,
           externalOrderId: `NAKTA-${idempotencyKey}`,
@@ -211,7 +219,7 @@ export class OrdersService {
       const racedOrder = await this.findByIdempotencyKey(idempotencyKey);
       if (!racedOrder) throw error;
       this.logger.warn(`Recovered concurrent order ${racedOrder.id} (idempotency ${idempotencyKey})`);
-      return publicOrder(this.ensureMatchingIdempotency(racedOrder, requestFingerprint));
+      return publicOrder(this.ensureMatchingIdempotency(racedOrder, requestFingerprint, dto));
     }
   }
 
@@ -222,8 +230,39 @@ export class OrdersService {
     });
   }
 
-  private ensureMatchingIdempotency(order: Order, requestFingerprint: string) {
+  private ensureMatchingIdempotency(order: Order, requestFingerprint: string, dto: CreateOrderDto) {
     if (order.requestFingerprint !== requestFingerprint) {
+      // Orders created before per-dish kits used the resolved kit snapshot in the fingerprint.
+      const legacyItems = order.includedKitItems ?? order.kitItems ?? [];
+      try {
+        const legacyIds = new Set(legacyItems.map((item) => item.id));
+        const quantities = new Map<string, number>();
+        for (const item of dto.kitItems ?? []) {
+          if (!legacyIds.has(item.id) || quantities.has(item.id) || !Number.isInteger(item.quantity) || item.quantity < 0 || item.quantity > 20) {
+            throw new Error("Invalid legacy kit selection");
+          }
+          quantities.set(item.id, item.quantity);
+        }
+        // Submitted legacy quantities reconstruct the original request even when
+        // the administrator reduced the saved kit before this migration.
+        const legacyFingerprint = fingerprintRequest(dto, legacyItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: quantities.get(item.id) ?? item.quantity,
+        })));
+        if (order.requestFingerprint === legacyFingerprint) return order;
+        if (dto.kitItems === undefined || dto.kitItems === null) {
+          const knownDefaults = new Map(DEFAULT_FREE_KIT_ITEMS.map((item) => [item.id, item.defaultQuantity]));
+          const defaultFingerprint = fingerprintRequest(dto, legacyItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: knownDefaults.get(item.id) ?? item.quantity,
+          })));
+          if (order.requestFingerprint === defaultFingerprint) return order;
+        }
+      } catch {
+        // A different kit selection remains an idempotency conflict.
+      }
       throw new ConflictException("Idempotency key was already used for another order");
     }
     return order;

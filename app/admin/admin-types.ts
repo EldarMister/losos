@@ -57,6 +57,7 @@ export type AdminOrder = {
   utensilsCount: number;
   noUtensils: boolean;
   kitItems?: OrderKitItem[];
+  includedKitItems?: OrderKitItem[];
   paymentMethod: "cash" | "card" | "online";
   subtotal: number;
   total: number;
@@ -86,6 +87,7 @@ export type Product = {
   composition: string;
   isNew: boolean;
   modifierGroups: ModifierGroup[];
+  kitItems: ProductKitItem[];
   available: boolean;
   sortOrder: number;
   weight: number;
@@ -93,6 +95,11 @@ export type Product = {
   protein: number;
   fat: number;
   carbs: number;
+};
+
+export type ProductKitItem = {
+  id: string;
+  quantity: number;
 };
 
 export type ModifierItem = {
@@ -186,6 +193,7 @@ export type Region = {
 export type Dashboard = {
   region: Region;
   menuRegionSlug: string;
+  kitCatalog?: FreeKitItem[];
   promotionRegionSlug: string;
   categories: Category[];
   promotions: Promotion[];

@@ -69,6 +69,9 @@ import {
 } from "../src/edu-pos/edu-pos.policy";
 import { CreateOrderDto } from "../src/orders/create-order.dto";
 import { normalizeOrderKitItems } from "../src/orders/order-kit";
+import { aggregateProductKitItems, assertValidProductKitItems } from "../src/catalog/product-kit";
+import { DEFAULT_FREE_KIT_ITEMS } from "../src/catalog/cart-configuration";
+import { AddProductKitItems1785009000000 } from "../src/migrations/1785009000000-AddProductKitItems";
 import { OrdersController } from "../src/orders/orders.controller";
 import {
   canTransitionOrderStatus,
@@ -950,7 +953,11 @@ test("order DTO accepts KG and RU E.164 phones and rejects empty orders", () => 
   assert.ok(coordinateErrors.some((error) => error.property === "longitude"));
 });
 
-test("order kit validates, keeps explicit quantities, and preserves mobile defaults", () => {
+test("order kit uses only dish-derived quantities and validates customer reductions", () => {
+  const included = aggregateProductKitItems([
+    { quantity: 2, kitItems: [{ id: "soy-sauce", quantity: 2 }, { id: "wasabi", quantity: 1 }, { id: "pickled-ginger", quantity: 2 }] },
+    { quantity: 1, kitItems: [] },
+  ], DEFAULT_FREE_KIT_ITEMS);
   const selections = [
     { id: "soy-sauce", quantity: 2 },
     { id: "wasabi", quantity: 0 },
@@ -964,22 +971,23 @@ test("order kit validates, keeps explicit quantities, and preserves mobile defau
   });
   assert.deepEqual(validateSync(orderDto), []);
   assert.deepEqual(validateSync(adminDto), []);
-  assert.deepEqual(normalizeOrderKitItems(selections), [
+  assert.deepEqual(normalizeOrderKitItems(selections, included), [
     { id: "soy-sauce", name: "Соус соевый", quantity: 2 },
     { id: "wasabi", name: "Васаби", quantity: 0 },
     { id: "pickled-ginger", name: "Имбирь", quantity: 3 },
   ]);
-  assert.deepEqual(normalizeOrderKitItems(), [
-    { id: "soy-sauce", name: "Соус соевый", quantity: 2 },
-    { id: "wasabi", name: "Васаби", quantity: 1 },
-    { id: "pickled-ginger", name: "Имбирь", quantity: 1 },
+  assert.deepEqual(normalizeOrderKitItems(undefined, included), [
+    { id: "soy-sauce", name: "Соус соевый", quantity: 4 },
+    { id: "wasabi", name: "Васаби", quantity: 2 },
+    { id: "pickled-ginger", name: "Имбирь", quantity: 4 },
   ]);
+  assert.deepEqual(normalizeOrderKitItems(), []);
   assert.throws(() => normalizeOrderKitItems([
     { id: "soy-sauce", quantity: 1 },
     { id: "soy-sauce", quantity: 2 },
   ]), /несколько раз/);
   assert.deepEqual(normalizeOrderKitItems(undefined, [
-    { id: "napkins", name: "Салфетки", image: "", defaultQuantity: 3, enabled: true },
+    { id: "napkins", name: "Салфетки", quantity: 3 },
   ]), [
     { id: "napkins", name: "Салфетки", quantity: 3 },
   ]);
@@ -987,13 +995,60 @@ test("order kit validates, keeps explicit quantities, and preserves mobile defau
   assert.throws(() => normalizeOrderKitItems([
     { id: "unknown", quantity: 1 },
   ], []), /Неизвестная комплектующая/);
+  assert.throws(() => normalizeOrderKitItems([{ id: "soy-sauce", quantity: 5 }], included), /превышает/);
 
   const invalid = plainToInstance(UpdateOrderKitDto, {
     utensilsCount: 1,
     noUtensils: false,
-    kitItems: [{ id: "unknown", quantity: 21 }],
+    kitItems: [{ id: "unknown", quantity: 40001 }],
   });
   assert.ok(validateSync(invalid).some((error) => error.property === "kitItems"));
+});
+
+test("product kits aggregate per dish, omit unconfigured and disabled extras, and allow no kit", () => {
+  const catalog = [
+    ...DEFAULT_FREE_KIT_ITEMS,
+    { id: "napkins", name: "Салфетки", image: "", defaultQuantity: 20, enabled: false },
+  ];
+  const lines = [
+    { quantity: 3, kitItems: [{ id: "soy-sauce", quantity: 2 }, { id: "wasabi", quantity: 1 }] },
+    { quantity: 2, kitItems: [{ id: "wasabi", quantity: 2 }, { id: "napkins", quantity: 1 }] },
+    { quantity: 5, kitItems: [] },
+    { quantity: 4 },
+  ];
+  assert.deepEqual(aggregateProductKitItems(lines, catalog).map(({ id, quantity }) => ({ id, quantity })), [
+    { id: "soy-sauce", quantity: 6 },
+    { id: "wasabi", quantity: 7 },
+  ]);
+  assert.deepEqual(aggregateProductKitItems([{ quantity: 2 }], DEFAULT_FREE_KIT_ITEMS), []);
+  assert.deepEqual(aggregateProductKitItems(lines, []), []);
+  const large = aggregateProductKitItems([{ quantity: 20, kitItems: [{ id: "soy-sauce", quantity: 20 }] }], catalog);
+  assert.equal(normalizeOrderKitItems([{ id: "soy-sauce", quantity: 400 }], large)[0].quantity, 400);
+  assert.throws(() => normalizeOrderKitItems([{ id: "soy-sauce", quantity: 401 }], large), /превышает/);
+});
+
+test("product kit updates support clearing and reject invalid, duplicate or unavailable entries", () => {
+  assert.deepEqual(validateSync(plainToInstance(UpdateProductDto, { kitItems: [] })), []);
+  assert.deepEqual(validateSync(plainToInstance(UpdateProductDto, { kitItems: [{ id: "soy-sauce", quantity: 2 }] })), []);
+  assert.ok(validateSync(plainToInstance(UpdateProductDto, { kitItems: [{ id: "soy-sauce", quantity: 0 }] })).length > 0);
+  assert.ok(validateSync(plainToInstance(UpdateProductDto, { kitItems: [{ id: "soy-sauce", quantity: 21 }] })).length > 0);
+  assertValidProductKitItems([], DEFAULT_FREE_KIT_ITEMS);
+  assertValidProductKitItems([{ id: "soy-sauce", quantity: 2 }], DEFAULT_FREE_KIT_ITEMS);
+  assert.throws(() => assertValidProductKitItems([{ id: "soy-sauce", quantity: 1 }, { id: "soy-sauce", quantity: 2 }], DEFAULT_FREE_KIT_ITEMS), /несколько раз/);
+  assert.throws(() => assertValidProductKitItems([{ id: "soy-sauce", quantity: 1 }], []), /Неизвестная/);
+});
+
+test("product kit migration initializes roll and sushi kits and preserves historical order kit limits", async () => {
+  const migration = new AddProductKitItems1785009000000();
+  const queries: string[] = [];
+  const runner = { query: async (statement: string) => { queries.push(statement); return []; } };
+  await migration.up(runner as never);
+  assert.ok(queries.some((statement) => statement.includes('ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "kitItems" jsonb NOT NULL DEFAULT')));
+  assert.ok(queries.some((statement) => statement.includes('UPDATE "orders" SET "includedKitItems" = "kitItems"')));
+  assert.ok(queries.some((statement) => statement.includes('eligible_dishes') && statement.includes('category."regionId" = eligible_dishes."regionId"')));
+  await migration.down(runner as never);
+  assert.ok(queries.some((statement) => statement.includes('ALTER TABLE "products" DROP COLUMN IF EXISTS "kitItems"')));
+  assert.ok(queries.some((statement) => statement.includes('ALTER TABLE "orders" DROP COLUMN IF EXISTS "includedKitItems"')));
 });
 
 const modifierGroups: ProductModifierGroup[] = [

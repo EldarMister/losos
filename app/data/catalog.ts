@@ -11,6 +11,7 @@ export type Product = {
   image: string;
   description?: string;
   composition?: string;
+  kitItems?: Array<{ id: string; quantity: number }>;
   weight?: number;
   calories?: number;
   protein?: number;
@@ -659,6 +660,23 @@ export const categories: Category[] = [
     ],
   },
 ];
+
+const rollAndSushiNames = new Set(categories
+  .filter((category) => !/сет/i.test(category.title) && /ролл|суши/i.test(category.title))
+  .flatMap((category) => category.products)
+  .filter((product) => !/сашими|сет/i.test(product.name))
+  .map((product) => product.name.trim().replace(/\s+/g, " ").toLowerCase()));
+
+for (const category of categories) {
+  for (const product of category.products) {
+    product.kitItems = rollAndSushiNames.has(product.name.trim().replace(/\s+/g, " ").toLowerCase()) && !/сет/i.test(category.title)
+      ? [
+          { id: "soy-sauce", quantity: 1 },
+          { id: "pickled-ginger", quantity: 1 },
+          { id: "wasabi", quantity: 1 },
+        ] : [];
+  }
+}
 
 export const promoCards = [
   { alt: "Скидка студентам", src: "https://storage.yandexcloud.net/thapl-public/thapl-project172/img/promo/104b14d17af4e66ab32a1f99bfa9cb23_resize_in_box_1104_1104.jpg" },

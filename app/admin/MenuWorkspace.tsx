@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { Icon } from "@mdi/react";
 import { mdiClose, mdiMagnify, mdiPlus } from "@mdi/js";
@@ -7,7 +8,8 @@ import { ImageUpload } from "./ImageUpload";
 import { RowActions } from "./RowActions";
 import { notifyCatalogUpdated } from "../lib/catalog-sync";
 import { ProductModifierEditor } from "./ProductModifierEditor";
-import type { AdminRequest, Category, Dashboard, ModifierGroup, Product } from "./admin-types";
+import { fallbackFreeKitItems } from "./kit-catalog";
+import type { AdminRequest, Category, Dashboard, ModifierGroup, Product, ProductKitItem } from "./admin-types";
 
 type MenuWorkspaceProps = {
   region: string;
@@ -27,6 +29,7 @@ type ProductEditor = {
   composition: string;
   isNew: boolean;
   modifierGroups: ModifierGroup[];
+  kitItems: ProductKitItem[];
   available: boolean;
   sortOrder: string;
   weight: string;
@@ -65,6 +68,7 @@ function emptyEditor(categoryId: string, sortOrder: number): ProductEditor {
     composition: "",
     isNew: false,
     modifierGroups: [],
+    kitItems: [],
     available: true,
     sortOrder: String(sortOrder),
     weight: "0",
@@ -88,6 +92,7 @@ function editorFromProduct(product: Product, category: Category): ProductEditor 
     composition: product.composition || "",
     isNew: Boolean(product.isNew),
     modifierGroups: product.modifierGroups || [],
+    kitItems: (product.kitItems ?? []).map((item) => ({ ...item })),
     available: product.available,
     sortOrder: String(product.sortOrder ?? 0),
     weight: String(product.weight ?? 0),
@@ -102,7 +107,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<ProductEditor | null>(null);
-  const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition">("main");
+  const [editorSection, setEditorSection] = useState<"main" | "modifiers" | "nutrition" | "kit">("main");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
@@ -129,6 +134,20 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
     .flatMap((category) => category.products.map((product) => ({ product, category })))
     .filter(({ product }) => product.name.toLowerCase().includes(search.toLowerCase())), [dashboard, search]);
 
+  const kitCatalog = dashboard?.kitCatalog ?? dashboard?.region.freeKitItems ?? fallbackFreeKitItems;
+  const availableKitItems = kitCatalog.filter((item) => item.enabled !== false);
+  const unavailableKitItems = editor?.kitItems.filter((item) => !availableKitItems.some((entry) => entry.id === item.id)) ?? [];
+
+  const setKitQuantity = (id: string, quantity: number) => {
+    const nextQuantity = Number.isFinite(quantity) ? Math.max(0, Math.min(20, Math.trunc(quantity))) : 0;
+    setEditor((current) => current ? {
+      ...current,
+      kitItems: nextQuantity > 0
+        ? [...current.kitItems.filter((item) => item.id !== id), { id, quantity: nextQuantity }]
+        : current.kitItems.filter((item) => item.id !== id),
+    } : current);
+  };
+
   const closeEditor = () => {
     setEditor(null);
     setEditorSection("main");
@@ -146,6 +165,16 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
       onNotice("Сначала создайте категорию", "error");
       return;
     }
+    if (unavailableKitItems.length) {
+      onNotice("Удалите недоступные позиции из комплектации блюда или включите их в настройках", "error");
+      setEditorSection("kit");
+      return;
+    }
+    if (editor.kitItems.length > 20) {
+      onNotice("В комплектации одного блюда может быть не более 20 позиций", "error");
+      setEditorSection("kit");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -159,6 +188,7 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
         composition: editor.composition.trim(),
         isNew: editor.isNew,
         modifierGroups: editor.modifierGroups,
+        kitItems: editor.kitItems.filter((item) => item.quantity > 0),
         available: editor.available,
         sortOrder: Number(editor.sortOrder),
         weight: Number(editor.weight),
@@ -270,13 +300,13 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
 
       {editor ? (
         <div className="fixed inset-0 z-50 bg-slate-950/45 p-0 sm:p-5" role="presentation">
-          <form className="mx-auto flex h-dvh w-full max-w-5xl flex-col bg-white shadow-2xl sm:h-[calc(100dvh-40px)] sm:rounded-xl" onSubmit={saveProduct}>
+          <form className="mx-auto flex h-dvh w-full max-w-5xl flex-col bg-white shadow-2xl sm:h-[calc(100dvh-40px)] sm:rounded-xl" role="dialog" aria-modal="true" aria-labelledby="product-editor-title" onSubmit={saveProduct}>
             <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-              <div><h2 className="text-lg font-semibold text-slate-950">{editor.product ? "Редактировать блюдо" : "Добавить блюдо"}</h2><p className="mt-1 text-sm text-slate-500">Заполните только понятные клиенту параметры.</p></div>
+              <div><h2 id="product-editor-title" className="text-lg font-semibold text-slate-950">{editor.product ? "Редактировать блюдо" : "Добавить блюдо"}</h2><p className="mt-1 text-sm text-slate-500">Заполните только понятные клиенту параметры.</p></div>
               <button type="button" aria-label="Закрыть редактор блюда" className="grid size-10 place-items-center rounded-lg border border-slate-200 text-slate-600" onClick={closeEditor}><Icon path={mdiClose} size={0.78} aria-hidden="true" /></button>
             </header>
             <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4" aria-label="Разделы формы блюда">
-              {([['main', 'Основное'], ['modifiers', `Модификации · ${editor.modifierGroups.length}`], ['nutrition', 'Пищевая ценность']] as const).map(([value, label]) => <button key={value} type="button" aria-current={editorSection === value ? "page" : undefined} className={`min-h-12 shrink-0 border-b-2 px-3 text-sm font-medium ${editorSection === value ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500"}`} onClick={() => setEditorSection(value)}>{label}</button>)}
+              {([['main', 'Основное'], ['modifiers', `Модификации · ${editor.modifierGroups.length}`], ['kit', `Комплектация · ${editor.kitItems.length}`], ['nutrition', 'Пищевая ценность']] as const).map(([value, label]) => <button key={value} type="button" aria-current={editorSection === value ? "page" : undefined} className={`min-h-12 shrink-0 border-b-2 px-3 text-sm font-medium ${editorSection === value ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500"}`} onClick={() => setEditorSection(value)}>{label}</button>)}
             </nav>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -296,6 +326,31 @@ export function MenuWorkspace({ region, request, onNotice }: MenuWorkspaceProps)
               ) : null}
 
               {editorSection === "modifiers" ? <ProductModifierEditor groups={editor.modifierGroups} onChange={(modifierGroups) => setEditor({ ...editor, modifierGroups })} /> : null}
+
+              {editorSection === "kit" ? (
+                <section className="mx-auto grid max-w-3xl gap-4" aria-label="Комплектация блюда">
+                  <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+                    <strong className="block font-semibold text-slate-950">Что входит в одну порцию блюда</strong>
+                    <p className="mt-1">Укажите количество бесплатных соусов и добавок для одного блюда. В заказе оно умножается на количество порций. Значение 0 означает, что позиция не входит в комплектацию.</p>
+                  </div>
+                  {availableKitItems.length ? availableKitItems.map((kitItem) => (
+                    <article key={kitItem.id} className="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 p-4">
+                      {kitItem.image ? <img src={kitItem.image} alt="" className="size-14 shrink-0 rounded-lg object-contain" /> : null}
+                      <strong className="min-w-0 flex-1 break-words text-sm text-slate-900">{kitItem.name}</strong>
+                      <label className={`${labelClass} w-24 shrink-0 text-xs`}>
+                        На 1 блюдо
+                        <input type="number" min="0" max="20" step="1" className={inputClass} aria-label={`${kitItem.name}: количество на одно блюдо`} value={editor.kitItems.find((item) => item.id === kitItem.id)?.quantity ?? 0} onChange={(event) => setKitQuantity(kitItem.id, Number(event.target.value))} />
+                      </label>
+                    </article>
+                  )) : <p className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Добавьте позиции комплектации в настройках города, затем выберите их для блюда.</p>}
+                  {unavailableKitItems.map((kitItem) => (
+                    <article key={kitItem.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <div className="min-w-0 text-sm"><strong className="break-words text-slate-900">{kitCatalog.find((item) => item.id === kitItem.id)?.name ?? kitItem.id} · {kitItem.quantity} шт.</strong><p className="mt-1 text-amber-800">Позиция отключена или удалена из справочника. Включите её в настройках или удалите из блюда.</p></div>
+                      <button type="button" className="min-h-11 rounded-lg border border-amber-300 bg-white px-4 text-sm font-medium text-amber-900" onClick={() => setKitQuantity(kitItem.id, 0)}>Убрать из блюда</button>
+                    </article>
+                  ))}
+                </section>
+              ) : null}
 
               {editorSection === "nutrition" ? (
                 <div className="mx-auto grid max-w-2xl gap-4 sm:grid-cols-2">

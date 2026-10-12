@@ -17,6 +17,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { DeliveryType, PaymentMethod } from "./order.enums";
+import { MAX_ORDER_KIT_QUANTITY } from "../catalog/product-kit";
 
 const trim = ({ value }: { value: unknown }) => typeof value === "string" ? value.trim() : value;
 const normalizePhone = ({ value }: { value: unknown }) =>
@@ -74,7 +75,7 @@ export class CreateOrderKitItemDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  @Max(20)
+  @Max(MAX_ORDER_KIT_QUANTITY)
   quantity!: number;
 }
 

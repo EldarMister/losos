@@ -15,6 +15,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { DeliveryZoneEditor } from "./DeliveryZoneEditor";
 import { ImageUpload } from "./ImageUpload";
 import { CitiesWorkspace } from "./CitiesWorkspace";
+import { fallbackFreeKitItems } from "./kit-catalog";
 import type {
   AdminRequest,
   DeliveryZonePoint,
@@ -30,6 +31,7 @@ type SettingsWorkspaceProps = {
   regions: Region[];
   request: AdminRequest;
   onRegionUpdated: (region: Region) => void;
+  onSelectRegion: (regionSlug: string) => void;
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
@@ -105,12 +107,6 @@ const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: "edu-pos", label: "EDU POS" },
 ];
 
-const fallbackFreeKitItems: FreeKitItem[] = [
-  { id: "soy-sauce", name: "Соус соевый", image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/8a6ed9632df66e2010fc4a1eccef758c_thumb_75_1152_1152.JPEG", defaultQuantity: 2, enabled: true },
-  { id: "wasabi", name: "Васаби", image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/aa8eef7dfdda0436a337ddb4c0970125_thumb_75_1152_1152.JPEG", defaultQuantity: 1, enabled: true },
-  { id: "pickled-ginger", name: "Имбирь", image: "https://thapl-public.storage.yandexcloud.net/thapl-project172/img/CatalogItem/a71852e053134d8a7863bc1ce6a13ece_thumb_75_1152_1152.JPEG", defaultQuantity: 1, enabled: true },
-];
-
 const toppingCategoryPattern = /топпинг|соус|добав|васаби|имбир/i;
 
 function legacyToppingIds(categories: Category[]) {
@@ -179,11 +175,13 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onNotice }: SettingsWorkspaceProps) {
+export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onSelectRegion, onNotice }: SettingsWorkspaceProps) {
   const [tab, setTab] = useState<SettingsTab>("basic");
   const [item, setItem] = useState<Region | null>(null);
   const [draft, setDraft] = useState<SettingsDraft | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [menuRegionSlug, setMenuRegionSlug] = useState(region);
+  const [kitCatalog, setKitCatalog] = useState<FreeKitItem[]>([]);
   const [pickupEditor, setPickupEditor] = useState<PickupEditor | null>(null);
   const [eduPosStatus, setEduPosStatus] = useState<EduPosStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,6 +201,8 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
       const selected = regions.find((candidate) => candidate.slug === region) ?? regions[0] ?? null;
       setItem(selected);
       setCategories(dashboard.categories);
+      setMenuRegionSlug(dashboard.menuRegionSlug);
+      setKitCatalog(dashboard.kitCatalog ?? dashboard.region.freeKitItems ?? fallbackFreeKitItems);
       setDraft(selected ? draftFromRegion(selected, dashboard.categories) : null);
       setEduPosStatus(status);
     } catch (loadError) {
@@ -211,6 +211,9 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
       setLoading(false);
     }
   }, [region, request]);
+
+  const usesSharedKitCatalog = menuRegionSlug !== region;
+  const menuRegionName = regions.find((candidate) => candidate.slug === menuRegionSlug)?.name ?? menuRegionSlug;
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -250,7 +253,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
           maximumOrderAmount: Number(draft.maximumOrderAmount),
           estimatedDeliveryMinutes: Number(draft.estimatedDeliveryMinutes),
           ...(draft.deliveryZone.length >= 3 ? { deliveryZone: draft.deliveryZone } : {}),
-          freeKitItems: draft.freeKitItems,
+          ...(usesSharedKitCatalog ? {} : { freeKitItems: draft.freeKitItems }),
           toppingProductIds: draft.toppingProductIds,
         }),
       });
@@ -448,11 +451,19 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
 
         {tab === "kit" ? (
           <div className="space-y-4">
+            {usesSharedKitCatalog ? (
+              <section className="rounded-xl border border-slate-200 bg-white p-5">
+                <h2 className="font-semibold text-slate-950">Справочник бесплатной комплектации</h2>
+                <p className="mt-1 text-sm text-slate-500">Меню этого города использует каталог города «{menuRegionName}». Комплектация блюд настраивается в меню, а бесплатные позиции справочника — в настройках города «{menuRegionName}».</p>
+                <button type="button" className={`${secondaryButton} mt-4`} onClick={() => onSelectRegion(menuRegionSlug)}>Открыть настройки: {menuRegionName}</button>
+                {kitCatalog.length ? <ul className="mt-4 grid gap-2 sm:grid-cols-2">{kitCatalog.map((kitItem) => <li key={kitItem.id} className="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 p-3">{kitItem.image ? <img src={kitItem.image} alt="" className="size-12 shrink-0 rounded-lg object-contain" /> : null}<span className="min-w-0 break-words text-sm text-slate-900">{kitItem.name}</span></li>)}</ul> : <p className="mt-4 text-sm text-slate-500">В справочнике пока нет бесплатных позиций.</p>}
+              </section>
+            ) : (
             <section className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="font-semibold text-slate-950">Бесплатная комплектация</h2>
-                  <p className="mt-1 text-sm text-slate-500">Эти позиции и указанное количество автоматически добавляются к каждому заказу.</p>
+                  <h2 className="font-semibold text-slate-950">Справочник бесплатной комплектации</h2>
+                  <p className="mt-1 text-sm text-slate-500">Добавьте соусы и другие бесплатные позиции. Их количество на одну порцию указывается отдельно в разделе «Меню» → «Комплектация» каждого блюда.</p>
                 </div>
                 <button
                   type="button"
@@ -488,14 +499,16 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                       />
                       <div className="grid min-w-0 content-start gap-4">
                         <label className={labelClass}>Название<input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></label>
-                        <label className={labelClass}>Количество по умолчанию<input required min="0" max="20" type="number" className={inputClass} value={kitItem.defaultQuantity} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, defaultQuantity: Number(event.target.value) } : entry) })} /></label>
+                        <p className="text-xs text-slate-500">Количество задаётся в комплектации каждого блюда.</p>
+                        <label className="flex items-center gap-3 text-sm font-medium text-slate-700"><input type="checkbox" className="size-4 shrink-0 accent-blue-600" checked={kitItem.enabled !== false} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, enabled: event.target.checked } : entry) })} />Доступно для выбора в блюдах</label>
                         <button type="button" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-red-200 px-4 text-sm font-medium text-red-700 hover:bg-red-50" onClick={() => setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) })}><Icon path={mdiDeleteOutline} size={0.7} aria-hidden="true" />Удалить из комплектации</button>
                       </div>
                     </article>
                   ))}
                 </div>
-              ) : <div className="mt-5 rounded-lg bg-slate-50 p-5 text-sm text-slate-500">Бесплатных позиций нет. Заказ будет оформляться без соусов и добавок по умолчанию.</div>}
+              ) : <div className="mt-5 rounded-lg bg-slate-50 p-5 text-sm text-slate-500">В справочнике пока нет бесплатных позиций. Добавьте их, чтобы настроить комплектацию блюд.</div>}
             </section>
+            )}
 
             <section className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="border-b border-slate-200 pb-4">

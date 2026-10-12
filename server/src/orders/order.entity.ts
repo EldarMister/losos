@@ -66,6 +66,9 @@ export class Order {
   @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
   kitItems!: OrderKitItem[];
 
+  @Column({ type: "jsonb", default: () => "'[]'::jsonb" })
+  includedKitItems!: OrderKitItem[];
+
   @Column({ type: "varchar", length: 30, default: PaymentMethod.CASH })
   paymentMethod!: PaymentMethod;
 

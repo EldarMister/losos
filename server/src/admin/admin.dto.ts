@@ -248,6 +248,18 @@ export class ProductModifierGroupDto {
   items!: ProductModifierItemDto[];
 }
 
+export class ProductKitItemDto {
+  @IsString()
+  @Matches(/^[a-z0-9][a-z0-9_-]{0,99}$/i)
+  id!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  quantity!: number;
+}
+
 export class CreateCategoryDto {
   @IsString()
   @IsNotEmpty()
@@ -354,6 +366,13 @@ export class CreateProductDto {
   @Type(() => ProductModifierGroupDto)
   modifierGroups: ProductModifierGroupDto[] = [];
 
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProductKitItemDto)
+  kitItems: ProductKitItemDto[] = [];
+
   @Transform(optionalBoolean)
   @IsBoolean()
   available = true;
@@ -420,6 +439,12 @@ export class UpdateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ProductModifierGroupDto)
   modifierGroups?: ProductModifierGroupDto[];
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => ProductKitItemDto)
+  kitItems?: ProductKitItemDto[];
   @IsOptional() @Transform(optionalBoolean) @IsBoolean() available?: boolean;
   @IsOptional() @IsString() @MaxLength(160) posDishId?: string | null;
   @IsOptional() @IsString() @MaxLength(160) posVariantId?: string | null;

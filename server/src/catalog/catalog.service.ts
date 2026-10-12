@@ -8,6 +8,7 @@ import { Region } from "./region.entity";
 import { isLegacyFinancialPromotion } from "./financial-promotion";
 import { regionContentSourceSlug, type RegionContentSourceField } from "./region-content-source";
 import { seedCategories } from "./seed-data";
+import { freeKitItemsForRegion } from "./cart-configuration";
 
 const defaultRegions: Array<{
   slug: string;
@@ -98,6 +99,7 @@ export const publicProduct = (product: Product) => {
     Object.entries(product).filter(([key]) => key !== "naktaCoins"),
   );
   result.available = product.available && product.posAvailable;
+  result.kitItems = product.kitItems ?? [];
   result.modifierGroups = product.modifierGroups.map((group) => ({
     ...group,
     items: group.items.map((item) => Object.fromEntries(
@@ -171,7 +173,10 @@ export class CatalogService implements OnModuleInit {
       relations: { pickupLocations: true },
       order: { sortOrder: "ASC", id: "ASC" },
     });
-    return regions.map(publicRegion);
+    return Promise.all(regions.map(async (region) => {
+      const menuRegion = await this.contentSource(region, "menuSourceRegionSlug");
+      return { ...publicRegion(region), kitCatalog: freeKitItemsForRegion(menuRegion.freeKitItems) };
+    }));
   }
 
   async categories(regionSlug = "bishkek") {

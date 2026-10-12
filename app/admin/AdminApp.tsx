@@ -235,7 +235,7 @@ export function AdminApp() {
           {section === "categories" ? <CategoriesView {...viewProps} /> : null}
           {section === "users" ? <UsersWorkspace key={region} {...viewProps} /> : null}
           {section === "promotions" ? <PromotionsWorkspace {...viewProps} /> : null}
-          {section === "settings" ? <SettingsWorkspace {...viewProps} regions={regions} onRegionUpdated={onRegionUpdated} /> : null}
+          {section === "settings" ? <SettingsWorkspace {...viewProps} regions={regions} onRegionUpdated={onRegionUpdated} onSelectRegion={setRegion} /> : null}
         </main>
       </div>
 
