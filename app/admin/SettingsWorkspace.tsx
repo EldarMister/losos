@@ -2,7 +2,7 @@
 import { confirmAdminAction } from "./AdminConfirmationDialog";
 /* eslint-disable @next/next/no-img-element */
 
-import { Check, PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { Button } from "./ui/button";
 import { DialogFooter } from "./ui/dialog";
 import { Label } from "./ui/label";
@@ -473,9 +473,9 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
               <div className="mt-2 flex flex-wrap gap-2">
                 {weekdays.map((day) => {
                   const selected = draft.deliveryWorkingDays.includes(day.value);
-                  return <Button key={day.value} type="button" variant={selected ? "default" : "outline"} className="min-w-14 gap-1.5" aria-pressed={selected}
+                  return <Button key={day.value} type="button" variant={selected ? "default" : "outline"} className="min-w-10" aria-pressed={selected}
                     onClick={() => setDraft({ ...draft, deliveryWorkingDays: selected ? draft.deliveryWorkingDays.filter((value) => value !== day.value) : [...draft.deliveryWorkingDays, day.value] })}>
-                    <Check aria-hidden="true" className={`size-3.5 ${selected ? "opacity-100" : "opacity-0"}`} />{day.label}
+                    {day.label}
                   </Button>;
                 })}
               </div>
