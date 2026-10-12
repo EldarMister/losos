@@ -137,6 +137,12 @@ export class AdminController {
     return filterAdminRegion(await this.admin.updateRegion(id, dto), request.staff);
   }
 
+  @Delete("regions/:id")
+  @RequirePermissions("cities.delete")
+  deleteRegion(@Param("id", ParseIntPipe) id: number) {
+    return this.admin.deleteRegion(id);
+  }
+
   @Post("pickup-locations")
   @RequirePermissions("cities.create")
   createPickupLocation(@Body() dto: CreatePickupLocationDto) {

@@ -1,4 +1,5 @@
 "use client";
+import { confirmAdminAction } from "./AdminConfirmationDialog";
 
 import { ChevronRight, MapPin, Phone, RefreshCw, Search } from "lucide-react";
 import { Button } from "./ui/button";
@@ -196,9 +197,9 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
 
   useEffect(() => {
     const refresh = () => void loadOrders(true);
-    const open = (event: Event) => {
+    const open = async (event: Event) => {
       const id = (event as CustomEvent<{ id?: string }>).detail?.id;
-      if (!id || kitSaving || actionOrderId || !closeKitEditor()) return;
+      if (!id || kitSaving || actionOrderId || !await closeKitEditor()) return;
       const sequence = ++detailSequence.current;
       void request<AdminOrder>(`/admin/orders/${encodeURIComponent(id)}`).then((order) => {
         if (sequence !== detailSequence.current) return;
@@ -230,7 +231,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
 
   const updateStatus = async (order: AdminOrder, status: OrderStatus) => {
     if (actionOrderId || !can("orders.status")) return;
-    if (status === "cancelled" && !window.confirm(`Отменить заказ ${orderNumber(order)}? Вернуть его в работу будет нельзя.`)) return;
+    if (status === "cancelled" && !await confirmAdminAction(`Отменить заказ ${orderNumber(order)}? Вернуть его в работу будет нельзя.`)) return;
     setActionOrderId(order.id);
     try {
       const updated = await request<AdminOrder>(`/admin/orders/${order.id}/status`, {
@@ -250,7 +251,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
   };
 
   const openOrder = async (order: AdminOrder) => {
-    if (kitSaving || actionOrderId || !closeKitEditor()) return;
+    if (kitSaving || actionOrderId || !await closeKitEditor()) return;
     const sequence = ++detailSequence.current;
     setSelectedOrder(order);
     setDetailTab("summary");
@@ -455,7 +456,7 @@ export default function OrdersWorkspace({ region, request, onNotice }: OrdersWor
 
       <ListPagination total={total} page={page} loading={loading} onPageChange={setPage} />
 
-      <EditorDialog open={Boolean(selectedOrder) && !kitDraft} onClose={() => { if (!kitSaving && closeKitEditor()) { detailSequence.current += 1; setSelectedOrder(null); setDetailTab("summary"); setDetailLoading(false); } }} title={selectedOrder ? `Заказ ${orderNumber(selectedOrder)}` : "Заказ"} description={detailLoading ? "Загружаем актуальные сведения…" : selectedOrder ? `Создан ${formatDate(selectedOrder.createdAt)}` : undefined} wide>
+      <EditorDialog open={Boolean(selectedOrder) && !kitDraft} onClose={async () => { if (!kitSaving && await closeKitEditor()) { detailSequence.current += 1; setSelectedOrder(null); setDetailTab("summary"); setDetailLoading(false); } }} title={selectedOrder ? `Заказ ${orderNumber(selectedOrder)}` : "Заказ"} description={detailLoading ? "Загружаем актуальные сведения…" : selectedOrder ? `Создан ${formatDate(selectedOrder.createdAt)}` : undefined} wide>
         {selectedOrder ? <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4"><Tabs value={detailTab} onValueChange={setDetailTab}><TabsList><TabsTrigger value="summary">Состав и клиент</TabsTrigger><TabsTrigger value="kit">Комплектация</TabsTrigger><TabsTrigger value="history">История</TabsTrigger></TabsList></Tabs><StatusBadge status={selectedOrder.status} /></div>
             <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7">

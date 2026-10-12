@@ -1,4 +1,5 @@
 "use client";
+import { confirmAdminAction } from "./AdminConfirmationDialog";
 
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { Check, Ellipsis, History, LoaderCircle, Minus, Pencil, Plus, ShieldCheck, UserRound, UserRoundCheck, UserRoundX, X } from "lucide-react";
@@ -142,8 +143,8 @@ export function StaffWorkspace({ request, onNotice, onAccessChanged }: {
     setEditorTab("data");
   }
 
-  function close() {
-    if (mutationInFlight.current || dirty && !window.confirm("Закрыть карточку? Несохранённые изменения будут потеряны.")) return;
+  async function close() {
+    if (mutationInFlight.current || dirty && !await confirmAdminAction("Закрыть карточку? Несохранённые изменения будут потеряны.")) return;
     setCreating(false);
     setEditing(null);
     setPassword("");
@@ -187,7 +188,7 @@ export function StaffWorkspace({ request, onNotice, onAccessChanged }: {
 
   async function toggle(item: Staff) {
     if (mutationInFlight.current || !can("staff.edit") || !owner && item.role === "OWNER") return;
-    if (!window.confirm(`${item.active ? "Отключить" : "Включить"} доступ сотрудника «${item.name}»?${item.active ? " Его сеансы будут завершены." : ""}`)) return;
+    if (!await confirmAdminAction(`${item.active ? "Отключить" : "Включить"} доступ сотрудника «${item.name}»?${item.active ? " Его сеансы будут завершены." : ""}`)) return;
     mutationInFlight.current = true;
     setTogglingId(item.id);
     try {

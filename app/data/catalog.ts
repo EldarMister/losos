@@ -46,6 +46,7 @@ const productCompositionsByName = liveProductCompositions as Record<string, stri
 const productMetaByName = liveProductMeta as Record<string, Partial<Product>>;
 
 export type Category = {
+  imageHidden?: boolean;
   slug: string;
   title: string;
   image?: string;

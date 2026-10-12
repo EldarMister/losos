@@ -262,6 +262,10 @@ export class ProductKitItemDto {
 }
 
 export class CreateCategoryDto {
+  @IsOptional()
+  @IsBoolean()
+  imageHidden?: boolean;
+
   @IsString()
   @IsNotEmpty()
   regionSlug!: string;
@@ -289,6 +293,10 @@ export class CreateCategoryDto {
 }
 
 export class UpdateCategoryDto {
+  @IsOptional()
+  @IsBoolean()
+  imageHidden?: boolean;
+
   @IsOptional()
   @IsString()
   @IsNotEmpty()

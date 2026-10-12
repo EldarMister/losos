@@ -17,6 +17,7 @@ body:has(.admin-root) { background: var(--sidebar); color: var(--foreground); fo
 .admin-root [data-slot="table-container"] { max-width: 100%; }
 .admin-root .admin-order-summary { display: block; width: 100%; min-width: 0; height: auto; padding: 0; white-space: normal; text-align: left; overflow-wrap: anywhere; }
 .admin-root .admin-order-link { height: auto; flex-direction: column; align-items: flex-start; gap: 0; padding: 0; white-space: normal; text-align: left; }
-body:has(.admin-root) [data-slot="dialog-content"], body:has(.admin-root) [data-slot="sheet-content"] { max-height: 92dvh; overflow-y: auto; }
+body:has(.admin-root) [data-slot="dialog-content"], body:has(.admin-root) [data-slot="sheet-content"] { max-height: 92dvh; }
+body:has(.admin-root) [data-slot="dialog-content"] > form { min-height: 0; }
 @keyframes admin-enter { from { opacity: .5; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .admin-root *, .admin-root *::before, .admin-root *::after { animation: none !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }

@@ -8,6 +8,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, Di
 import { Switch } from "../ui/switch";
 import { claimOrderSound, orderEventCursor, parseSseFrame, type OrderNotice } from "../notifications/event-dedup";
 import { DEFAULT_ORDER_SOUND_VOLUME, orderSoundVolume, playOrderSound, type OrderSoundPlayback } from "../notifications/order-sound";
+import { confirmAdminAction } from "../AdminConfirmationDialog";
 import { confirmAdminNavigation } from "../use-unsaved-changes";
 import "../notifications/notifications.css";
 
@@ -80,13 +81,13 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || !canViewOrders || !token) return;
-    const openOrder = (event: MessageEvent) => {
+    const openOrder = async (event: MessageEvent) => {
       if (event.data?.type !== "OPEN_ADMIN_ORDER" || typeof event.data.url !== "string") return;
       let target: URL;
       try { target = new URL(event.data.url, window.location.origin); } catch { return; }
       const orderId = target.searchParams.get("order");
       if (target.origin !== window.location.origin || target.pathname !== "/admin" || target.searchParams.get("section") !== "orders" || !orderId) return;
-      if (!confirmAdminNavigation()) return;
+      if (!await confirmAdminNavigation()) return;
       if (callbacks.current.onOpenOrder) callbacks.current.onOpenOrder(orderId);
       else window.location.assign(target.href);
       setNotice(null);
@@ -342,8 +343,8 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       ? "В Safari откройте «Поделиться» → «На экран Домой». Затем запускайте NAKTA с экрана Домой."
       : "Откройте меню браузера и выберите «Установить приложение» или «Добавить на главный экран», если этот пункт доступен.");
   };
-  const applyUpdate = () => {
-    if (!waiting || !confirmAdminNavigation() || !window.confirm("Обновить приложение? Сначала сохраните открытые формы. Страница будет перезагружена.")) return;
+  const applyUpdate = async () => {
+    if (!waiting || !await confirmAdminNavigation() || !await confirmAdminAction("Обновить приложение? Сначала сохраните открытые формы. Страница будет перезагружена.")) return;
     navigator.serviceWorker.addEventListener("controllerchange", () => window.location.reload(), { once: true });
     waiting.postMessage({ type: "ACTIVATE_UPDATE" });
   };
@@ -374,6 +375,6 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
         </DialogContent>
       </Dialog>
     </div>
-    {notice && canViewOrders && typeof document !== "undefined" && createPortal(<aside className="admin-new-order" role="status" aria-live="polite"><strong>Новый заказ №{notice.orderNumber}</strong><Button type="button" size="sm" onClick={() => { if (!confirmAdminNavigation()) return; if (callbacks.current.onOpenOrder) callbacks.current.onOpenOrder(notice.orderId); else window.location.assign(`/admin?section=orders&order=${encodeURIComponent(notice.orderId)}`); setNotice(null); }}>Открыть заказ</Button><Button type="button" variant="ghost" size="icon-sm" aria-label="Закрыть уведомление" onClick={() => setNotice(null)}><X className="admin-notification-icon" aria-hidden="true"/></Button></aside>, document.body)}
+    {notice && canViewOrders && typeof document !== "undefined" && createPortal(<aside className="admin-new-order" role="status" aria-live="polite"><strong>Новый заказ №{notice.orderNumber}</strong><Button type="button" size="sm" onClick={async () => { if (!await confirmAdminNavigation()) return; if (callbacks.current.onOpenOrder) callbacks.current.onOpenOrder(notice.orderId); else window.location.assign(`/admin?section=orders&order=${encodeURIComponent(notice.orderId)}`); setNotice(null); }}>Открыть заказ</Button><Button type="button" variant="ghost" size="icon-sm" aria-label="Закрыть уведомление" onClick={() => setNotice(null)}><X className="admin-notification-icon" aria-hidden="true"/></Button></aside>, document.body)}
   </div>;
 }

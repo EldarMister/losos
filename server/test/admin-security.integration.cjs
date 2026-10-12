@@ -102,6 +102,7 @@ test('security HTTP + PostgreSQL transactions (isolated test schema)', { skip: !
 
     await t.test('manager direct restricted URLs return 403; allowed orders work; settings is redacted', async () => {
       assert.equal((await request('/orders', manager.token)).status, 200);
+        assert.equal((await request('/regions/999999', manager.token, null, 'DELETE')).status, 403);
       assert.equal((await request('/analytics', manager.token)).status, 403);
       assert.equal((await request('/staff', manager.token)).status, 403);
       assert.equal((await request('/dashboard', manager.token)).status, 403);

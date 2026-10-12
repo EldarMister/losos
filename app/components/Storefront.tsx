@@ -910,6 +910,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           slug: category.slug,
           title: category.title,
           image: typeof category.image === "string" ? category.image : "",
+          imageHidden: category.imageHidden === true,
           products: category.products.map((product) => ({ ...product, category: category.slug })),
         }));
         setCatalogSnapshot({ region: regionSlug, categories: nextCategories, error: "" });

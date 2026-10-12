@@ -21,6 +21,7 @@
     "test:admin-reports": "npm run build && node --test test/admin-reports.integration.cjs",
     "test:admin-reports:integration": "npm run build && node test/run-admin-integration.cjs reports",
     "test:admin-notifications": "tsx --test test/admin-notifications.test.ts",
+    "test:admin-editor:integration": "npm run build && node --test test/admin-editor.integration.cjs",
     "test:admin-notifications:integration": "npm run build && node test/run-admin-integration.cjs notifications",
     "test:kits": "npm run build && node --test test/product-kit.test.cjs",
     "test:promotions": "npm run build && node --test test/promotions.test.cjs",

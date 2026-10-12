@@ -26,6 +26,7 @@ test("admin can hide a city from both clients and show it again without deleting
       return cities[index];
     },
   };
+  repository.manager = { transaction: callback => callback({ query: async () => [], getRepository: () => repository }) };
   const admin = Object.assign(Object.create(AdminService.prototype), { regions: repository });
   const catalog = Object.assign(Object.create(CatalogService.prototype), { regionRepository: repository });
   const hide = plainToInstance(UpdateRegionDto, { enabled: false });

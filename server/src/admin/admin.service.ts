@@ -60,6 +60,7 @@ const publicAdminCategory = (category: Category) => ({
   slug: category.slug,
   title: category.title,
   image: category.image,
+  imageHidden: category.imageHidden,
   sortOrder: category.sortOrder,
   products: category.products?.map(publicProduct) ?? [],
 });
@@ -524,26 +525,60 @@ export class AdminService {
   }
 
   async createRegion(dto: CreateRegionDto) {
-    const slug = dto.slug?.trim().toLowerCase() || `city-${randomUUID()}`;
-    const exists = await this.regions.findOne({ where: { slug } });
-    if (exists) throw new BadRequestException("Город с таким адресом уже существует");
-    const sources = await this.validateContentSources(slug, dto);
-    try {
-      const saved = await this.regions.save(this.regions.create({ ...dto, ...sources, slug }));
-      return publicRegion(saved);
-    } catch (error) {
-      if (error instanceof QueryFailedError && error.driverError.code === "23505") throw new ConflictException("Город с таким адресом уже существует");
-      throw error;
-    }
+    return this.regions.manager.transaction(async manager => {
+      await manager.query('LOCK TABLE "regions" IN SHARE ROW EXCLUSIVE MODE');
+      const regions = manager.getRepository(Region);
+      const slug = dto.slug?.trim().toLowerCase() || `city-${randomUUID()}`;
+      const exists = await regions.findOne({ where: { slug } });
+      if (exists) throw new BadRequestException("Город с таким адресом уже существует");
+      const sources = await this.validateContentSources(slug, dto, regions);
+      try {
+        const saved = await regions.save(regions.create({ ...dto, ...sources, slug }));
+        return publicRegion(saved);
+      } catch (error) {
+        if (error instanceof QueryFailedError && error.driverError.code === "23505") throw new ConflictException("Город с таким адресом уже существует");
+        throw error;
+      }
+    });
   }
 
   async updateRegion(id: number, dto: UpdateRegionDto) {
-    const region = await this.regions.findOne({ where: { id } });
-    if (!region) throw new NotFoundException("Город не найден");
-    const sources = await this.validateContentSources(region.slug, dto);
-    Object.assign(region, dto, sources);
-    const saved = await this.regions.save(region);
-    return publicRegion(saved);
+    return this.regions.manager.transaction(async manager => {
+      await manager.query('LOCK TABLE "regions" IN SHARE ROW EXCLUSIVE MODE');
+      const regions = manager.getRepository(Region);
+      const region = await regions.findOne({ where: { id } });
+      if (!region) throw new NotFoundException("Город не найден");
+      const sources = await this.validateContentSources(region.slug, dto, regions);
+      Object.assign(region, dto, sources);
+      const saved = await regions.save(region);
+      return publicRegion(saved);
+    });
+  }
+
+  async deleteRegion(id: number) {
+    return this.regions.manager.transaction(async manager => {
+      // Serialize removals so two requests cannot both delete the last city.
+      await manager.query('LOCK TABLE "regions" IN SHARE ROW EXCLUSIVE MODE');
+      const regions = manager.getRepository(Region);
+      const region = await regions.findOne({ where: { id }, lock: { mode: "pessimistic_write" } });
+      if (!region) throw new NotFoundException("Город не найден");
+      if (await regions.count() <= 1) throw new ConflictException("Последний город удалить нельзя.");
+      const [{ used }] = await manager.query(`SELECT EXISTS (
+        SELECT 1 FROM regions WHERE id <> $1 AND ("menuSourceRegionSlug"=$2 OR "promotionSourceRegionSlug"=$2)
+      ) AS used`, [id, region.slug]);
+      if (used) throw new ConflictException("Другие города используют меню или акции этого города. Сначала измените их источник.");
+      if (await manager.getRepository(Order).count({ where: { regionSlug: region.slug } })) {
+        throw new ConflictException("У города есть история заказов. Используйте «Скрыть», чтобы сохранить её доступной.");
+      }
+      const [{ hasContents }] = await manager.query(`SELECT EXISTS (
+        SELECT 1 FROM categories WHERE "regionId"=$1
+        UNION ALL SELECT 1 FROM promotions WHERE "regionId"=$1
+        UNION ALL SELECT 1 FROM pickup_locations WHERE "regionId"=$1
+      ) AS "hasContents"`, [id]);
+      if (hasContents) throw new ConflictException("Сначала удалите категории, акции и точки самовывоза этого города. Для рабочего города используйте «Скрыть».");
+      await regions.remove(region);
+      return { deleted: true, id };
+    });
   }
 
   async orders(query: ListOrdersQueryDto) {
@@ -816,6 +851,7 @@ export class AdminService {
   private async validateContentSources(
     regionSlug: string,
     dto: Pick<CreateRegionDto | UpdateRegionDto, "menuSourceRegionSlug" | "promotionSourceRegionSlug">,
+    regions: Repository<Region> = this.regions,
   ) {
     const entries = [
       ["menuSourceRegionSlug", dto.menuSourceRegionSlug],
@@ -829,7 +865,7 @@ export class AdminService {
         result[field] = null;
         continue;
       }
-      const source = await this.regions.findOne({ where: { slug: sourceSlug } });
+      const source = await regions.findOne({ where: { slug: sourceSlug } });
       if (!source) throw new BadRequestException("Выбранный источник контента не найден");
       result[field] = source.slug;
     }

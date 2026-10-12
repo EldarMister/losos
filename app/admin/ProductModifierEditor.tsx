@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Switch } from "./ui/switch";
 
 import { ImageUpload } from "./ImageUpload";
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import { confirmAdminAction } from "./AdminConfirmationDialog";
 import type { ModifierGroup, ModifierItem } from "./admin-types";
 
 type ProductModifierEditorProps = {
   groups: ModifierGroup[];
   disabled?: boolean;
-  onChange: (groups: ModifierGroup[]) => void;
+  onChange: Dispatch<SetStateAction<ModifierGroup[]>>;
 };
 
 const inputClass = "w-full";
@@ -52,14 +53,16 @@ function emptyGroup(): ModifierGroup {
 export function ProductModifierEditor({ groups, onChange, disabled = false }: ProductModifierEditorProps) {
   const [imageError, setImageError] = useState("");
   const updateGroup = (index: number, patch: Partial<ModifierGroup>) => {
-    onChange(groups.map((group, groupIndex) => groupIndex === index ? { ...group, ...patch } : group));
+    const id = groups[index]?.id;
+    onChange(current => current.map(group => group.id === id ? { ...group, ...patch } : group));
   };
 
   const updateItem = (groupIndex: number, itemIndex: number, patch: Partial<ModifierItem>) => {
-    const group = groups[groupIndex];
-    updateGroup(groupIndex, {
-      items: group.items.map((item, currentIndex) => currentIndex === itemIndex ? { ...item, ...patch } : item),
-    });
+    const groupId = groups[groupIndex]?.id;
+    const itemId = groups[groupIndex]?.items[itemIndex]?.id;
+    onChange(current => current.map(group => group.id === groupId ? {
+      ...group, items: group.items.map(item => item.id === itemId ? { ...item, ...patch } : item),
+    } : group));
   };
 
   return (
@@ -86,7 +89,7 @@ export function ProductModifierEditor({ groups, onChange, disabled = false }: Pr
               Название группы
               <Input required className={inputClass} value={group.title} onChange={(event) => updateGroup(groupIndex, { title: event.target.value })} />
             </Label>
-            <Button variant="destructive" type="button"  onClick={() => { if (window.confirm(`Удалить группу «${group.title}» и все её варианты? Изменение применится после сохранения блюда.`)) onChange(groups.filter((_, index) => index !== groupIndex)); }}>
+            <Button variant="destructive" type="button" onClick={async () => { if (await confirmAdminAction(`Удалить группу «${group.title}» и все её варианты? Изменение применится после сохранения блюда.`)) onChange(current => current.filter(entry => entry.id !== group.id)); }}>
               <Trash2 className="size-4 shrink-0" aria-hidden="true" />
               Удалить группу
             </Button>
@@ -128,7 +131,7 @@ export function ProductModifierEditor({ groups, onChange, disabled = false }: Pr
                     Макс. кол-во
                     <Input type="number" min="1" max="99" className={inputClass} value={item.maxQuantity ?? 1} onChange={(event) => updateItem(groupIndex, itemIndex, { maxQuantity: Number(event.target.value) })} />
                   </Label>
-                  <Button variant="destructive" type="button" aria-label={`Удалить вариант ${item.name || itemIndex + 1}`}  onClick={() => { if (window.confirm(`Удалить вариант «${item.name}»?`)) updateGroup(groupIndex, { items: group.items.filter((_, index) => index !== itemIndex) }); }}>
+                  <Button variant="destructive" type="button" aria-label={`Удалить вариант ${item.name || itemIndex + 1}`} onClick={async () => { if (await confirmAdminAction(`Удалить вариант «${item.name || `№${itemIndex + 1}`}»? Изменение применится после сохранения блюда.`)) onChange(current => current.map(entry => entry.id === group.id ? { ...entry, items: entry.items.filter(option => option.id !== item.id) } : entry)); }}>
                     <Trash2 className="size-4 shrink-0" aria-hidden="true" />
                   </Button>
                 </div>

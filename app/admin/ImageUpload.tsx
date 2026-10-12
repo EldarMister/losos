@@ -16,6 +16,7 @@ type ImageUploadProps = {
   onChange: (value: string) => void;
   onError: (message: string) => void;
   compact?: boolean;
+  onRemove?: () => void;
 };
 
 function optimizeImage(file: File) {
@@ -50,7 +51,7 @@ function optimizeImage(file: File) {
   });
 }
 
-export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, onError, compact = false }: ImageUploadProps) {
+export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, onError, compact = false, onRemove }: ImageUploadProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
@@ -76,12 +77,12 @@ export function ImageUpload({ label, value, fallbackValue = "", hint, onChange, 
       {previewValue ? (
         <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/50">
           <img src={previewValue} alt={`Предпросмотр: ${label}`} className={`${compact ? "h-32" : "h-52"} w-full object-contain`} />
-          <div className={`grid gap-2 border-t border-border bg-card ${compact ? "p-2" : `${value ? "grid-cols-2 " : ""}p-3`}`}>
+          <div className={`grid gap-2 border-t border-border bg-card ${compact ? "p-2" : `${value || onRemove ? "sm:grid-cols-2 " : ""}p-3`}`}>
             <Button type="button" variant="outline" disabled={processing} onClick={() => inputRef.current?.click()}>
               <ImagePlus className="size-4 shrink-0 " aria-hidden="true" />
               Заменить фото
             </Button>
-            {value ? <Button variant="destructive" type="button"  onClick={() => onChange("")}>
+            {value || onRemove ? <Button variant="destructive" type="button" disabled={processing} onClick={() => onRemove ? onRemove() : onChange("")}>
               <Trash2 className="size-4 shrink-0 " aria-hidden="true" />
               Удалить фото
             </Button> : null}

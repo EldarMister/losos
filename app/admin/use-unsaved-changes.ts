@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState, type Dispatch, type SetStateAction } from "react";
+import { confirmAdminAction } from "./AdminConfirmationDialog";
 
 const dirtyForms = new Set<string>();
 
-export function confirmAdminNavigation() {
-  return dirtyForms.size === 0 || window.confirm("Есть несохранённые изменения. Покинуть страницу и потерять их?");
+export async function confirmAdminNavigation() {
+  return dirtyForms.size === 0 || await confirmAdminAction("Есть несохранённые изменения. Покинуть страницу и потерять их?", { title: "Покинуть страницу?" });
 }
 
 export function useUnsavedChanges(dirty: boolean) {
@@ -38,8 +39,8 @@ export function useDraftEditor<T>() {
       return { value, original: previous.value === null && value !== null ? value : value === null ? null : previous.original };
     });
   }, []);
-  const close = useCallback(() => {
-    if (dirty && !window.confirm("Закрыть форму без сохранения изменений?")) return false;
+  const close = useCallback(async () => {
+    if (dirty && !await confirmAdminAction("Закрыть форму без сохранения изменений?", { title: "Закрыть форму?" })) return false;
     setValue(null);
     return true;
   }, [dirty, setValue]);

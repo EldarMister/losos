@@ -1,4 +1,5 @@
 import { AddOrderCategorySnapshot1785012000000 } from "./migrations/1785012000000-AddOrderCategorySnapshot";
+import { AddCategoryImageVisibility1785013000000 } from "./migrations/1785013000000-AddCategoryImageVisibility";
 import { AddAdminSecurity1785010000000 } from "./migrations/1785010000000-AddAdminSecurity";
 import "reflect-metadata";
 import { AddAdminNotifications1785011000000 } from "./migrations/1785011000000-AddAdminNotifications";
@@ -100,6 +101,7 @@ export default new DataSource({
     AddAdminSecurity1785010000000,
     AddAdminNotifications1785011000000,
     AddOrderCategorySnapshot1785012000000,
+    AddCategoryImageVisibility1785013000000,
   ],
   synchronize: false,
   ssl: databaseUrl.includes("localhost") ? false : { rejectUnauthorized: false },

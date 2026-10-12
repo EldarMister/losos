@@ -132,6 +132,8 @@ export type ModifierGroup = {
 };
 
 export type Category = {
+  imageHidden?: boolean;
+  fallbackImage?: string;
   id: number;
   title: string;
   slug: string;

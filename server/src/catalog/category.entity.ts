@@ -17,6 +17,9 @@ export class Category {
   @Column({ type: "text", default: "" })
   image!: string;
 
+  @Column({ default: false })
+  imageHidden!: boolean;
+
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 

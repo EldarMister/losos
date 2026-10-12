@@ -1,8 +1,10 @@
 "use client";
+import { confirmAdminAction } from "./AdminConfirmationDialog";
 
 import { Button } from "./ui/button";
 import { DialogFooter } from "./ui/dialog";
-import { Pencil, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { RowActions } from "./RowActions";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Switch } from "./ui/switch";
@@ -20,6 +22,7 @@ type CitiesWorkspaceProps = {
   regions: Region[];
   request: AdminRequest;
   onRegionUpdated: (region: Region) => void;
+  onRegionRemoved: (id: number) => void;
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
 
@@ -33,13 +36,28 @@ type CityDraft = {
   promotionSourceRegionSlug: string;
 };
 
-export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }: CitiesWorkspaceProps) {
+export function CitiesWorkspace({ regions, request, onRegionUpdated, onRegionRemoved, onNotice }: CitiesWorkspaceProps) {
   const { can } = useAdminAccess();
   const [savingId, setSavingId] = useState<number | null>(null);
   const [editor, setEditor, closeEditor] = useDraftEditor<CityDraft>();
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const deleteCity = async (region: Region) => {
+    if (saving || savingId !== null || deletingId !== null || !can("cities.delete")) return;
+    if (!await confirmAdminAction(`Удалить город «${region.name}»? Удаление нельзя отменить. Города с заказами или собственным каталогом можно скрыть.`)) return;
+    setDeletingId(region.id);
+    try {
+      await request(`/admin/regions/${region.id}`, { method: "DELETE" });
+      onRegionRemoved(region.id);
+      window.dispatchEvent(new Event("admin:regions-changed"));
+      onNotice("Город удалён", "success");
+    } catch (error) { onNotice(error instanceof Error ? error.message : "Не удалось удалить город", "error"); }
+    finally { setDeletingId(null); }
+  };
 
   const openEditor = (region?: ContentRegion) => {
+    if (saving || savingId !== null || deletingId !== null) return;
     if (region ? !can("cities.edit") && !can("settings.edit") : !can("cities.create")) return;
     setEditor({
       region,
@@ -54,7 +72,7 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
   const saveCity = async (event: FormEvent) => {
     event.preventDefault();
     if (!editor || saving || (editor.region ? !can("cities.edit") && !can("settings.edit") : !can("cities.create"))) return;
-    if (editor.region?.enabled && !editor.enabled && can("cities.edit") && !window.confirm(`Скрыть город «${editor.name}»? Клиенты не смогут выбрать его для новых заказов.`)) return;
+    if (editor.region?.enabled && !editor.enabled && can("cities.edit") && !await confirmAdminAction(`Скрыть город «${editor.name}»? Клиенты не смогут выбрать его для новых заказов.`)) return;
     const payload: Record<string, string | number | boolean> = {};
     if (editor.region ? can("cities.edit") : can("cities.create")) {
       payload.name = editor.name.trim();
@@ -87,7 +105,7 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
 
   const changeVisibility = async (region: Region) => {
     if (savingId !== null || !can("cities.edit")) return;
-    if (region.enabled && !window.confirm(`Скрыть город «${region.name}»? Новые клиенты не смогут выбрать его для заказа.`)) return;
+    if (region.enabled && !await confirmAdminAction(`Скрыть город «${region.name}»? Новые клиенты не смогут выбрать его для заказа.`)) return;
     setSavingId(region.id);
     try {
       const saved = await request<Region>(`/admin/regions/${region.id}`, {
@@ -116,11 +134,11 @@ export function CitiesWorkspace({ regions, request, onRegionUpdated, onNotice }:
                 <p className="font-medium text-foreground">{region.name}</p>
               </div>
               <Badge variant={region.enabled ? "secondary" : "outline"}>{region.enabled ? "Виден" : "Скрыт"}</Badge>
-              {can("cities.edit") || can("settings.edit") ? <Button variant="ghost" size="icon" aria-label={`Редактировать город ${region.name}`} title="Редактировать" disabled={saving || savingId !== null} onClick={() => openEditor(region)}><Pencil className="size-4" /></Button> : null}
+              <RowActions label="город" name={region.name} editAllowed={can("cities.edit") || can("settings.edit")} deleteAllowed={can("cities.delete")} deleting={deletingId === region.id} deletionDisabled={saving || savingId !== null || deletingId !== null} onEdit={() => openEditor(region)} onDelete={() => void deleteCity(region)} />
               <Button variant="outline"
                 type="button"
                 aria-label={`${region.enabled ? "Скрыть" : "Показать"} город ${region.name}`}
-                disabled={savingId !== null || !can("cities.edit")}
+                disabled={saving || savingId !== null || deletingId !== null || !can("cities.edit")}
                 onClick={() => void changeVisibility(region)}
 
               >

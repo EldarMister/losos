@@ -1,4 +1,5 @@
 "use client";
+import { confirmAdminAction } from "./AdminConfirmationDialog";
 /* eslint-disable @next/next/no-img-element */
 
 import { PlugZap, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
@@ -32,6 +33,7 @@ type SettingsWorkspaceProps = {
   regions: Region[];
   request: AdminRequest;
   onRegionUpdated: (region: Region) => void;
+  onRegionRemoved: (id: number) => void;
   onSelectRegion: (regionSlug: string) => void;
   onNotice: (message: string, tone?: "success" | "error") => void;
 };
@@ -175,7 +177,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onSelectRegion, onNotice, initialTab = "basic" }: SettingsWorkspaceProps) {
+export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onRegionRemoved, onSelectRegion, onNotice, initialTab = "basic" }: SettingsWorkspaceProps) {
   const { can } = useAdminAccess();
   const tabPermissions: Record<SettingsTab, string> = { basic:"cities",cities:"cities",delivery:"settings",hours:"hours",pickup:"cities",kit:"kits","edu-pos":"integrations" };
   const [requestedTab, setTab] = useState<SettingsTab>(initialTab);
@@ -187,6 +189,8 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
   const [productTotal, setProductTotal] = useState(0);
   const canViewKits = can("kits.view");
   const canViewIntegrations = can("integrations.view");
+  const needsCatalog = canViewKits && tab === "kit";
+  const needsIntegrationStatus = canViewIntegrations && tab === "edu-pos";
   const canSyncMenu = ["integrations.edit", "products.edit", "categories.edit", "modifiers.edit"].every(can);
   const canExportMenu = ["integrations.export", "products.view", "categories.view", "modifiers.view"].every(can);
   const [item, setItem] = useState<Region | null>(null);
@@ -207,8 +211,8 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
     try {
       const [regionItems, status, catalog] = await Promise.all([
         request<Region[]>("/admin/settings"),
-        canViewIntegrations ? request<EduPosStatus>("/admin/edu-pos/status").catch(() => null) : Promise.resolve(null),
-        canViewKits ? request<{items:(Dashboard["categories"][number]["products"][number] & {categoryId:number})[];categories:Category[];total:number;menuRegionSlug:string;kitCatalog:FreeKitItem[];effectiveToppingProductIds:number[]}>(`/admin/catalog-page?${new URLSearchParams({region,limit:"25",offset:"0"})}`) : Promise.resolve(null),
+        needsIntegrationStatus ? request<EduPosStatus>("/admin/edu-pos/status").catch(() => null) : Promise.resolve(null),
+        needsCatalog ? request<{items:(Dashboard["categories"][number]["products"][number] & {categoryId:number})[];categories:Category[];total:number;menuRegionSlug:string;kitCatalog:FreeKitItem[];effectiveToppingProductIds:number[]}>(`/admin/catalog-page?${new URLSearchParams({region,limit:"25",offset:"0"})}`) : Promise.resolve(null),
       ]);
       const selected = regionItems.find((candidate) => candidate.slug === region) ?? regionItems[0] ?? null;
       const nextCategories = catalog?.categories.map((category) => ({...category,products:catalog.items.filter((product) => product.categoryId === category.id)})) ?? [];
@@ -227,13 +231,13 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
     } finally {
       setLoading(false);
     }
-  }, [region, request, canViewKits, canViewIntegrations]);
+  }, [region, request, needsCatalog, needsIntegrationStatus]);
 
   const settingsDirty = draft !== null && savedDraft !== JSON.stringify(draft);
   useUnsavedChanges(settingsDirty);
-  const changeTab = (next: SettingsTab) => {
+  const changeTab = async (next: SettingsTab) => {
     if (next === tab || saving || posAction) return;
-    if (!confirmAdminNavigation()) return;
+    if (!await confirmAdminNavigation()) return;
     if (settingsDirty && savedDraft) setDraft(JSON.parse(savedDraft) as SettingsDraft);
     setTab(next);
   };
@@ -366,7 +370,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
 
   const deletePickup = async (location: PickupLocation) => {
     if (!can("cities.delete")) return;
-    if (!window.confirm(`Удалить точку «${location.title || location.address}»?`)) return;
+    if (!await confirmAdminAction(`Удалить точку «${location.title || location.address}»?`)) return;
     try {
       await request(`/admin/pickup-locations/${location.id}`, { method: "DELETE" });
       onNotice("Точка самовывоза удалена", "success");
@@ -438,7 +442,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
       {initialTab !== "hours" ? <Card className="gap-1 p-2 lg:sticky lg:top-20"><nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label="Разделы настроек">{tabs.filter((entry) => can(`${tabPermissions[entry.id]}.view`)).map((entry) => <Button key={entry.id} type="button" variant={tab === entry.id ? "secondary" : "ghost"} className="justify-start" aria-current={tab === entry.id ? "page" : undefined} onClick={() => changeTab(entry.id)}>{entry.label}</Button>)}</nav></Card> : null}
       <div className="min-w-0 space-y-4">
       {tab === "kit" ? <Card className="p-4"><Label className="grid gap-2 text-sm font-medium">Поиск платных топпингов<Input type="search" placeholder="Найти товар для топпинга" value={productSearch} onChange={(event) => {setProductSearch(event.target.value);setProductPage(0);}} /></Label></Card> : null}
-      {tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onNotice={onNotice} /> : <form className="space-y-4" onSubmit={saveRegion}><fieldset disabled={!canEditTab || saving} className="space-y-4">
+      {tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onRegionRemoved={onRegionRemoved} onNotice={onNotice} /> : <form className="space-y-4" onSubmit={saveRegion}><fieldset disabled={!canEditTab || saving} className="space-y-4">
         {tab === "basic" ? (
           <Card className="rounded-xl border border-border bg-card p-5">
             <div className="border-b border-border pb-4">
@@ -530,7 +534,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
                         <Label className={labelClass}>Название<Input required maxLength={140} className={inputClass} value={kitItem.name} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, name: event.target.value } : entry) })} /></Label>
                         <p className="text-xs text-muted-foreground">Количество задаётся в комплектации каждого блюда.</p>
                         <Label className="flex items-center gap-3 text-sm font-medium text-foreground"><input type="checkbox" className="size-4 shrink-0 accent-primary" checked={kitItem.enabled !== false} onChange={(event) => setDraft({ ...draft, freeKitItems: draft.freeKitItems.map((entry, entryIndex) => entryIndex === index ? { ...entry, enabled: event.target.checked } : entry) })} />Доступно для выбора в блюдах</Label>
-                        <Button variant="destructive" type="button"  onClick={() => { if (window.confirm(`Удалить «${kitItem.name}» из справочника? Проверьте комплектацию блюд после сохранения.`)) setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) }); }}><Trash2 className="size-4 shrink-0" aria-hidden="true" />Удалить</Button>
+                        <Button variant="destructive" type="button"  onClick={async () => { if (await confirmAdminAction(`Удалить «${kitItem.name}» из справочника? Проверьте комплектацию блюд после сохранения.`)) setDraft({ ...draft, freeKitItems: draft.freeKitItems.filter((_, entryIndex) => entryIndex !== index) }); }}><Trash2 className="size-4 shrink-0" aria-hidden="true" />Удалить</Button>
                       </div>
                     </article>
                   ))}

@@ -126,6 +126,7 @@ export class OrdersService {
         const byId = new Map(products.map((product) => [product.id, product]));
         const orderRegion = await regionRepository.findOne({
           where: { slug: regionSlug, enabled: true },
+          lock: { mode: "pessimistic_read" },
         });
         if (!orderRegion) throw new BadRequestException(`Region ${regionSlug} is unavailable`);
         const menuRegionSlug = regionContentSourceSlug(orderRegion, "menuSourceRegionSlug");

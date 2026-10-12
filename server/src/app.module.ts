@@ -1,4 +1,5 @@
 import { AddOrderCategorySnapshot1785012000000 } from "./migrations/1785012000000-AddOrderCategorySnapshot";
+import { AddCategoryImageVisibility1785013000000 } from "./migrations/1785013000000-AddCategoryImageVisibility";
 import { AdminReportsModule } from "./admin/admin-reports.module";
 import { AddAdminSecurity1785010000000 } from "./migrations/1785010000000-AddAdminSecurity";
 import { Module } from "@nestjs/common";
@@ -108,6 +109,7 @@ import { AddCustomerRewardAdjustments1785006000000 } from "./migrations/17850060
     AddAdminSecurity1785010000000,
             AddAdminNotifications1785011000000,
     AddOrderCategorySnapshot1785012000000,
+    AddCategoryImageVisibility1785013000000,
           ],
           migrationsRun: true,
           synchronize:
