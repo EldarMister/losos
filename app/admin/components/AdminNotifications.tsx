@@ -63,6 +63,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   const [connection, setConnection] = useState<"connecting" | "online" | "offline" | "stopped">("connecting");
   const [online, setOnline] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundReady, setSoundReady] = useState(false);
   const [volume, setVolume] = useState(DEFAULT_ORDER_SOUND_VOLUME);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<OrderNotice | null>(null);
@@ -101,12 +102,19 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
     return () => navigator.serviceWorker.removeEventListener("message", openOrder);
   }, [canViewOrders, token]);
 
+  const getAudioContext = useCallback(() => {
+    if (audio.current && audio.current.state !== "closed") return audio.current;
+    const context = new AudioContext();
+    audio.current = context;
+    context.onstatechange = () => { if (audio.current === context) setSoundReady(context.state === "running"); };
+    setSoundReady(context.state === "running");
+    return context;
+  }, []);
+
   const playTone = useCallback(async (testOnly = false) => {
     const context = audio.current;
     if (!context || context.state !== "running") {
-      soundRef.current.enabled = false;
-      setSoundEnabled(false);
-      setMessage("Браузер приостановил звук. Нажмите «Включить звук».");
+      setSoundReady(false);
       return;
     }
     const sequence = ++soundSequence.current;
@@ -121,18 +129,28 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
 
   useEffect(() => {
     const key = `nakta-admin-sound:${staffId}`;
+    const resumeSound = () => {
+      if (!soundRef.current.enabled || !canViewOrders || !token || !navigator.locks) return;
+      try {
+        const context = getAudioContext();
+        void context.resume().then(() => { if (audio.current === context) setSoundReady(context.state === "running"); }).catch(() => undefined);
+      } catch { /* Keep the preference; a later gesture can retry. */ }
+    };
     const readSettings = () => {
       try {
         const settings = JSON.parse(localStorage.getItem(key) || "{}");
-        const nextVolume = orderSoundVolume(settings.volume);
-        soundRef.current.volume = nextVolume;
+        const enabled = settings?.enabled === true;
+        const nextVolume = orderSoundVolume(settings?.volume);
+        soundRef.current = { enabled, volume: nextVolume };
         soundPlayback.current?.setVolume(nextVolume);
         setVolume(nextVolume);
-        if (settings.enabled === false) { soundSequence.current++; soundRef.current.enabled = false; soundPlayback.current?.stop(); setSoundEnabled(false); }
+        setSoundEnabled(enabled);
+        if (!enabled) { soundSequence.current++; soundPlayback.current?.stop(); }
+        else resumeSound();
       } catch { /* Browsers with blocked storage still show visual notices. */ }
     };
     readSettings();
-    const change = (event: StorageEvent) => { if (event.key === key) readSettings(); };
+    const change = (event: StorageEvent) => { if (event.key === key || event.key === null) readSettings(); };
     const logout = () => {
       soundSequence.current++;
       stopRef.current?.();
@@ -142,8 +160,10 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
       noticeIds.current.clear();
       soundPlayback.current?.stop();
       soundPlayback.current = null;
+      if (audio.current) audio.current.onstatechange = null;
       void audio.current?.close();
       audio.current = null;
+      setSoundReady(false);
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.controller?.postMessage({ type: "LOGOUT" });
         void registrationForAdmin().then(value => {
@@ -154,8 +174,11 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
     };
     window.addEventListener("storage", change);
     window.addEventListener("admin:logout", logout);
-    return () => { window.removeEventListener("storage", change); window.removeEventListener("admin:logout", logout); logout(); };
-  }, [canViewOrders, staffId, token]);
+    const gesture = (event: Event) => { if (event.isTrusted) resumeSound(); };
+    document.addEventListener("click", gesture, true);
+    document.addEventListener("keydown", gesture, true);
+    return () => { window.removeEventListener("storage", change); window.removeEventListener("admin:logout", logout); document.removeEventListener("click", gesture, true); document.removeEventListener("keydown", gesture, true); logout(); };
+  }, [canViewOrders, getAudioContext, staffId, token]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -323,14 +346,16 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
   const enableSound = async (testOnly = false) => {
     if (!canViewOrders) return;
     if (!navigator.locks) { setMessage("Браузер не поддерживает безопасный звук в нескольких вкладках. Используйте актуальный Chrome, Safari или Firefox."); return; }
+    if (!testOnly) saveSound(true);
+    const sequence = soundSequence.current;
     try {
-      audio.current ??= new AudioContext();
-      await audio.current.resume();
-      if (audio.current.state !== "running") throw new Error("blocked");
-      if (!testOnly) saveSound(true);
+      const context = getAudioContext();
+      await context.resume();
+      if (audio.current !== context || sequence !== soundSequence.current) return;
+      if (context.state !== "running") throw new Error("blocked");
       await playTone(testOnly);
-      if (audio.current?.state === "running") setMessage(testOnly ? "Проверочный сигнал воспроизведён" : "Звук включён для этой вкладки и устройства");
-    } catch { saveSound(false); setMessage("Браузер заблокировал звук. Разрешите воспроизведение и нажмите «Включить звук» ещё раз."); }
+      if (audio.current === context && context.state === "running" && (testOnly || soundRef.current.enabled)) setMessage(testOnly ? "Проверочный сигнал воспроизведён" : "Звук включён на этом устройстве");
+    } catch { if (sequence === soundSequence.current) setMessage("Браузер заблокировал воспроизведение. Разрешите звук в настройках сайта и нажмите «Проверить звук»."); }
   };
 
   const togglePush = async () => {
@@ -393,6 +418,7 @@ export function AdminNotifications({ staffId, token, apiUrl, canViewOrders, onOr
             <div className="admin-notification-group">
               <div className="admin-notification-row"><span className="admin-notification-label"><Volume2 className="admin-notification-icon" aria-hidden="true"/>Звук заказов</span><div className="admin-notification-controls"><Button type="button" variant="ghost" size="icon-sm" aria-label="Проверить звук" title="Проверить звук" onClick={() => void enableSound(true)}><Play className="admin-notification-icon" aria-hidden="true"/></Button><Switch checked={soundEnabled} onCheckedChange={checked => checked ? void enableSound() : saveSound(false)} aria-label={soundEnabled ? "Выключить звук" : "Включить звук"}/></div></div>
               <label className="admin-volume"><span>Громкость</span><input aria-label="Громкость уведомлений" type="range" min="0" max="1" step="0.05" value={volume} onChange={event => saveSound(soundEnabled, Number(event.target.value))}/><span className="admin-volume-value">{Math.round(volume * 100)}%</span></label>
+              {soundEnabled && !soundReady && <p className="admin-notification-hint">Звук включён. Нажмите в панели, чтобы браузер разрешил воспроизведение.</p>}
             </div>
             <div className="admin-notification-group"><div className="admin-notification-row"><span className="admin-notification-label"><BellRing className="admin-notification-icon" aria-hidden="true"/>Системные уведомления</span><Switch checked={pushState === "on"} onCheckedChange={() => void togglePush()} disabled={!registration || pushState === "busy" || pushState === "unsupported"} aria-busy={pushState === "busy"} aria-label={pushState === "on" ? "Отключить системные уведомления" : "Включить системные уведомления"}/></div>{pushState === "unsupported" && <p className="admin-notification-hint">Недоступны в этом браузере</p>}</div>
           </>}
