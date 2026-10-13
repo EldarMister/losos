@@ -1,5 +1,8 @@
 "use client"
 
+import { translateAdmin as t } from "../i18n/store"
+import { useAdminLanguage } from "../i18n/react"
+
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
@@ -49,6 +52,7 @@ function DialogContent({
   showCloseButton?: boolean
   overlayClassName?: string
 }) {
+  useAdminLanguage()
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
@@ -73,7 +77,7 @@ function DialogContent({
             }
           >
             <XIcon />
-            <span className="sr-only">Закрыть</span>
+            <span className="sr-only">{t("Закрыть")}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -99,6 +103,7 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
 }) {
+  useAdminLanguage()
   return (
     <div
       data-slot="dialog-footer"
@@ -111,8 +116,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close render={<Button variant="outline" />}>
-          Закрыть
-        </DialogPrimitive.Close>
+          {t("Закрыть")}</DialogPrimitive.Close>
       )}
     </div>
   )

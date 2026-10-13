@@ -1,5 +1,8 @@
 "use client"
 
+import { translateAdmin as t } from "../i18n/store"
+import { useAdminLanguage } from "../i18n/react"
+
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
@@ -27,8 +30,8 @@ import { PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "16rem"
-const SIDEBAR_WIDTH_MOBILE = "18rem"
+const SIDEBAR_WIDTH = "14.5rem"
+const SIDEBAR_WIDTH_MOBILE = "min(15rem, calc(100vw - 3rem))"
 const SIDEBAR_WIDTH_ICON = "3rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -162,6 +165,7 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
+  useAdminLanguage()
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
   if (collapsible === "none") {
@@ -191,13 +195,14 @@ function Sidebar({
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+              width: SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
           side={side}
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>Меню</SheetTitle>
-            <SheetDescription>Навигация по разделам панели.</SheetDescription>
+            <SheetTitle>{t("Меню")}</SheetTitle>
+            <SheetDescription>{t("Навигация по разделам панели.")}</SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
@@ -256,6 +261,7 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
+  useAdminLanguage()
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -272,22 +278,23 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Переключить меню</span>
+      <span className="sr-only">{t("Переключить меню")}</span>
     </Button>
   )
 }
 
 function SidebarRail({ className, ...props }: React.ComponentProps<"button">) {
+  useAdminLanguage()
   const { toggleSidebar } = useSidebar()
 
   return (
     <button
       data-sidebar="rail"
       data-slot="sidebar-rail"
-      aria-label="Переключить меню"
+      aria-label={t("Переключить меню")}
       tabIndex={-1}
       onClick={toggleSidebar}
-      title="Переключить меню"
+      title={t("Переключить меню")}
       className={cn(
         "absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2",
         "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
