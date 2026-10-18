@@ -1,4 +1,6 @@
 "use client";
+import { siteLocale, translateSite as t } from "../lib/site-i18n/store";
+import { useSiteLanguage, useInitializeSiteLanguage } from "../lib/site-i18n/react";
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
@@ -40,6 +42,7 @@ import { aggregateProductKitItems, selectedKitQuantity } from "../lib/product-ki
 import type { DeliveryLocation } from "./YandexDeliveryMap";
 import { NumberTicker } from "./NumberTicker";
 import { TurnstileWidget } from "./TurnstileWidget";
+import { SiteLanguageSelector } from "./SiteLanguageSelector";
 import { ProductSheet } from "./ProductSheet";
 
 const YandexDeliveryMap = lazy(() => import("./YandexDeliveryMap").then(({ YandexDeliveryMap: Map }) => ({ default: Map })));
@@ -231,29 +234,29 @@ const readPhoneAuthSession = (raw: string | null): StoredPhoneAuthSession | null
     return null;
   }
 };
-const money = (value: number) => new Intl.NumberFormat("ru-RU").format(value) + " сом";
+const money = (value: number) => new Intl.NumberFormat(siteLocale()).format(value) + t(" сом");
 const profileOrderStatuses: Record<ProfileOrder["status"], string> = {
-  new: "Принят", confirmed: "Подтверждён", preparing: "Готовим", ready: "Готов", delivering: "В пути", completed: "Выполнен", cancelled: "Отменён",
+  get new() { return t("Принят"); }, get confirmed() { return t("Подтверждён"); }, get preparing() { return t("Готовим"); }, get ready() { return t("Готов"); }, get delivering() { return t("В пути"); }, get completed() { return t("Выполнен"); }, get cancelled() { return t("Отменён"); },
 };
 const profileOrderDetailStatuses: Record<ProfileOrder["status"], string> = {
-  new: "Заказ принят",
-  confirmed: "Заказ подтверждён",
-  preparing: "Готовим ваш заказ",
-  ready: "Заказ готов",
-  delivering: "Курьер уже в пути",
-  completed: "Заказ выполнен",
-  cancelled: "Заказ отменён",
+  get new() { return t("Заказ принят"); },
+  get confirmed() { return t("Заказ подтверждён"); },
+  get preparing() { return t("Готовим ваш заказ"); },
+  get ready() { return t("Заказ готов"); },
+  get delivering() { return t("Курьер уже в пути"); },
+  get completed() { return t("Заказ выполнен"); },
+  get cancelled() { return t("Заказ отменён"); },
 };
 const posStatusLabels: Record<string, string> = {
-  sent_to_kitchen: "Заказ передан на кухню",
-  accepted_by_kitchen: "Кухня приняла заказ",
-  cooking: "Заказ готовится",
-  partially_rejected: "Некоторые блюда недоступны",
-  ready: "Заказ готов",
-  rejected: "Кухня отклонила заказ",
-  cancelled: "Заказ отменён",
+  get sent_to_kitchen() { return t("Заказ передан на кухню"); },
+  get accepted_by_kitchen() { return t("Кухня приняла заказ"); },
+  get cooking() { return t("Заказ готовится"); },
+  get partially_rejected() { return t("Некоторые блюда недоступны"); },
+  get ready() { return t("Заказ готов"); },
+  get rejected() { return t("Кухня отклонила заказ"); },
+  get cancelled() { return t("Заказ отменён"); },
 };
-const profileOrderDate = (value: string) => new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+const profileOrderDate = (value: string) => new Intl.DateTimeFormat(siteLocale(), { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 
 function addressWithSingleCity(value: string, city: string) {
   const cleaned = value
@@ -539,8 +542,8 @@ const normalizedDeliveryDays = (value: number[] | undefined) => {
   return [...new Set(value.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))];
 };
 const deliveryDaysLabel = (days: number[]) => days.length === 7
-  ? "Ежедневно, без выходных"
-  : days.length ? days.map((day) => deliveryWeekdayLabels[day]).join(", ") : "Нет рабочих дней";
+  ? t("Ежедневно, без выходных")
+  : days.length ? days.map((day) => t(deliveryWeekdayLabels[day])).join(", ") : t("Нет рабочих дней");
 const bishkekWeekday = (timestamp: number) => {
   const weekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bishkek", weekday: "short" }).format(new Date(timestamp));
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekday);
@@ -552,7 +555,7 @@ const getDeliveryAvailability = (
   workingDays: number[],
   timestamp: number,
 ) => {
-  if (!timestamp) return { isOpen: true, opensLabel: `Откроемся в ${openTime}` };
+  if (!timestamp) return { isOpen: true, opensLabel: t("Откроемся в {0}", { "0": openTime }) };
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Bishkek",
     hour: "2-digit",
@@ -575,18 +578,18 @@ const getDeliveryAvailability = (
       : opensAt < closesAt
         ? days.has(today) && currentMinutes >= opensAt && currentMinutes < closesAt
         : currentMinutes >= opensAt ? days.has(today) : currentMinutes < closesAt && days.has(yesterday);
-  if (isOpen) return { isOpen: true, opensLabel: "Кухня открыта" };
+  if (isOpen) return { isOpen: true, opensLabel: t("Кухня открыта") };
   const nextOpenTime = is24Hours ? "00:00" : openTime;
   for (let offset = 0; offset <= 7; offset += 1) {
     const candidateDay = (today + offset) % 7;
     if (!days.has(candidateDay)) continue;
     if (offset === 0 && !is24Hours && currentMinutes >= opensAt) continue;
     const dayLabel = offset === 0
-      ? "сегодня"
-      : offset === 1 ? "завтра" : deliveryWeekdayOpenLabels[candidateDay];
-    return { isOpen: false, opensLabel: `Откроемся ${dayLabel} в ${nextOpenTime}` };
+      ? t("сегодня")
+      : offset === 1 ? t("завтра") : t(deliveryWeekdayOpenLabels[candidateDay]);
+    return { isOpen: false, opensLabel: t("Откроемся {0} в {1}", { "0": dayLabel, "1": nextOpenTime }) };
   }
-  return { isOpen: false, opensLabel: "Кухня временно закрыта" };
+  return { isOpen: false, opensLabel: t("Кухня временно закрыта") };
 };
 
 const writeOverlayQuery = (name: "product" | "storyInspect", value: string | null, mode: "push" | "replace") => {
@@ -655,15 +658,15 @@ const promotionsToStories = (promotions: Promotion[]): StoryGroup[] => promotion
 
 function ProductArt({ product, mode, loading, fetchPriority }: { product: Product; mode: "card" | "detail" | "related" | "cart"; loading?: "lazy" | "eager"; fetchPriority?: "high" | "auto" }) {
   if (mode === "detail") {
-    return <img src={product.image} alt={product.name} loading="eager" fetchPriority="high" />;
+    return <img src={product.image} alt={t(product.name)} loading="eager" fetchPriority="high" />;
   }
   if (mode === "related") {
-    return <img src={product.image} alt={product.name} loading="lazy" />;
+    return <img src={product.image} alt={t(product.name)} loading="lazy" />;
   }
   if (mode === "cart") {
-    return <img src={product.image} alt={product.name} loading="lazy" />;
+    return <img src={product.image} alt={t(product.name)} loading="lazy" />;
   }
-  return <img src={product.image} alt={product.name} loading={loading} fetchPriority={fetchPriority} />;
+  return <img src={product.image} alt={t(product.name)} loading={loading} fetchPriority={fetchPriority} />;
 }
 
 export function Storefront({ categorySlug }: { categorySlug?: string }) {
@@ -671,6 +674,9 @@ export function Storefront({ categorySlug }: { categorySlug?: string }) {
 }
 
 function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
+  const language = useSiteLanguage();
+  useInitializeSiteLanguage();
+  useEffect(() => { const previous = document.documentElement.lang; document.documentElement.lang = language; return () => { document.documentElement.lang = previous; }; }, [language]);
   const searchParams = useSearchParams();
   const initialRegion = searchParams.get("region")?.trim() || "bishkek";
   const [search, setSearch] = useState("");
@@ -700,13 +706,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [selectedRegion]);
   const selectedPickupLocation = pickupLocations.find((location) => location.id === selectedPickupLocationId)
     || pickupLocations[0];
-  const pickupAddress = selectedPickupLocation?.address || "Выберите доступную кухню";
+  const pickupAddress = selectedPickupLocation?.address || t("Выберите доступную кухню");
   const deliveryOpenTime = selectedRegion?.deliveryOpenTime || "11:30";
   const deliveryCloseTime = selectedRegion?.deliveryCloseTime || "22:30";
   const deliveryIs24Hours = selectedRegion?.deliveryIs24Hours === true;
   const deliveryWorkingDays = normalizedDeliveryDays(selectedRegion?.deliveryWorkingDays);
   const deliveryScheduleLabel = deliveryDaysLabel(deliveryWorkingDays);
-  const deliveryHoursLabel = deliveryIs24Hours ? "Круглосуточно" : `${deliveryOpenTime} – ${deliveryCloseTime}`;
+  const deliveryHoursLabel = deliveryIs24Hours ? t("Круглосуточно") : `${deliveryOpenTime} – ${deliveryCloseTime}`;
   const freeDeliveryThreshold = Math.max(0, selectedRegion?.freeDeliveryThreshold ?? 4900);
   const deliveryFee = Math.max(0, selectedRegion?.deliveryFee ?? 99);
   const estimatedDeliveryMinutes = Math.max(1, selectedRegion?.estimatedDeliveryMinutes ?? 50);
@@ -925,7 +931,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         setCatalogSnapshot((current) => ({
           region: regionSlug,
           categories: current?.region === regionSlug ? current.categories : [],
-          error: "Не удалось обновить меню. Проверьте подключение и попробуйте ещё раз.",
+          error: t("Не удалось обновить меню. Проверьте подключение и попробуйте ещё раз."),
         }));
       })
       .finally(() => {
@@ -991,7 +997,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .then((response) => {
         if (response.status === 401) {
           controller.abort();
-          clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+          clearProfileSession(t("Сессия истекла. Войдите в профиль ещё раз."));
         }
         return response.ok ? response.json() : Promise.reject(new Error("Profile request failed"));
       })
@@ -1002,7 +1008,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       })
       .catch(() => {
         if (!controller.signal.aborted) {
-          setProfileLoadError("Не удалось обновить данные профиля. Проверьте подключение и попробуйте ещё раз.");
+          setProfileLoadError(t("Не удалось обновить данные профиля. Проверьте подключение и попробуйте ещё раз."));
         }
       });
     return () => controller.abort();
@@ -1030,7 +1036,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     })
       .then((response) => {
         if (response.status === 401) {
-          clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+          clearProfileSession(t("Сессия истекла. Войдите в профиль ещё раз."));
         }
         return response.ok ? response.json() : Promise.reject(new Error("Order details request failed"));
       })
@@ -1039,7 +1045,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         setProfileOrderDetail(data);
         setProfileOrderDetailError("");
       })
-      .catch(() => { if (!controller.signal.aborted) setProfileOrderDetailError("Не удалось загрузить детали заказа. Попробуйте ещё раз."); })
+      .catch(() => { if (!controller.signal.aborted) setProfileOrderDetailError(t("Не удалось загрузить детали заказа. Попробуйте ещё раз.")); })
       .finally(() => { if (!controller.signal.aborted) setProfileOrderDetailLoading(false); });
     return () => controller.abort();
   }, [clearProfileSession, phoneVerificationToken, profileRefreshIndex, selectedProfileOrderId, verifiedPhone]);
@@ -1182,6 +1188,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         .toLocaleLowerCase("ru")
         .includes(query))
       .filter((product, index, products) => products.findIndex((candidate) => candidate.name === product.name) === index);
+    // Keep the source label in cached data; translate it when rendering.
     return matches.length > 0 ? [{ slug: "search-results", title: "Нашли для вас", products: matches }] : [];
   }, [catalogCategories, categorySlug, search]);
 
@@ -1447,19 +1454,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         status?: ProfileOrder["status"];
       } | null;
       if (response.status === 401) {
-        clearProfileSession("Сессия истекла. Войдите в профиль ещё раз.");
+        clearProfileSession(t("Сессия истекла. Войдите в профиль ещё раз."));
         return;
       }
       if (!response.ok || body?.status !== "cancelled") {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        throw new Error(message || "Не удалось отменить заказ");
+        throw new Error(message || t("Не удалось отменить заказ"));
       }
       setProfileOrderDetail((current) => current ? { ...current, status: "cancelled" } : current);
       setSelectedProfileOrder((current) => current ? { ...current, status: "cancelled" } : current);
       setCancelOrderOpen(false);
       setProfileRefreshIndex((current) => current + 1);
     } catch (reason) {
-      setCancelOrderError(reason instanceof Error ? reason.message : "Не удалось отменить заказ");
+      setCancelOrderError(reason instanceof Error ? reason.message : t("Не удалось отменить заказ"));
       setProfileRefreshIndex((current) => current + 1);
     } finally {
       setCancelOrderBusy(false);
@@ -1539,11 +1546,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const requestPhoneCode = async () => {
     const phone = normalizePhone(checkoutForm.phone);
     if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {
-      setPhoneAuthMessage("Введите телефон в формате +996 XXX XXX XXX.");
+      setPhoneAuthMessage(t("Введите телефон в формате +996 XXX XXX XXX."));
       return;
     }
     if (!turnstileToken) {
-      setPhoneAuthMessage("Подтвердите, что вы не робот.");
+      setPhoneAuthMessage(t("Подтвердите, что вы не робот."));
       return;
     }
     const captchaToken = turnstileToken;
@@ -1560,7 +1567,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       if (!response.ok) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
         if (Number.isInteger(body?.retryAfterSeconds)) setPhoneCodeRetryAfter(body.retryAfterSeconds);
-        throw new Error(message || "Не удалось отправить код");
+        throw new Error(message || t("Не удалось отправить код"));
       }
       if (body?.verified === true && typeof body.verificationToken === "string") {
         completePhoneVerification(
@@ -1573,9 +1580,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setPhoneCodeRequested(true);
       setPhoneCode("");
       setPhoneCodeRetryAfter(Number(body?.retryAfterSeconds) || 60);
-      setPhoneAuthMessage("Код отправлен по SMS");
+      setPhoneAuthMessage(t("Код отправлен по SMS"));
     } catch (error) {
-      setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось отправить код");
+      setPhoneAuthMessage(error instanceof Error ? error.message : t("Не удалось отправить код"));
     } finally {
       setPhoneAuthBusy(false);
       setTurnstileToken("");
@@ -1590,7 +1597,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   ) => {
     setPhoneVerificationToken(verificationToken);
     setVerifiedPhone(phone);
-    setPhoneAuthMessage("Телефон подтверждён");
+    setPhoneAuthMessage(t("Телефон подтверждён"));
     setPhoneAuthOpen(false);
     try {
       window.localStorage.setItem(PHONE_AUTH_SESSION_STORAGE_KEY, JSON.stringify({
@@ -1612,7 +1619,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const verifyPhoneCode = async () => {
     const phone = normalizePhone(checkoutForm.phone);
     if (!/^\d{6}$/.test(phoneCode)) {
-      setPhoneAuthMessage("Введите шестизначный код");
+      setPhoneAuthMessage(t("Введите шестизначный код"));
       return;
     }
     setPhoneAuthBusy(true);
@@ -1626,7 +1633,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       const body = await response.json().catch(() => null);
       if (!response.ok) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        throw new Error(message || "Не удалось подтвердить номер");
+        throw new Error(message || t("Не удалось подтвердить номер"));
       }
       completePhoneVerification(
         phone,
@@ -1634,7 +1641,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         Number(body.expiresInSeconds) || 1_800,
       );
     } catch (error) {
-      setPhoneAuthMessage(error instanceof Error ? error.message : "Не удалось подтвердить номер");
+      setPhoneAuthMessage(error instanceof Error ? error.message : t("Не удалось подтвердить номер"));
     } finally {
       setPhoneAuthBusy(false);
     }
@@ -1644,18 +1651,18 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     event.preventDefault();
     if (!cart.length || checkoutSubmitting) return;
     if (orderingClosed) {
-      setCheckoutError(`Кухня сейчас закрыта. ${deliveryAvailability.opensLabel}.`);
+      setCheckoutError(t("Кухня сейчас закрыта. {0}.", { "0": deliveryAvailability.opensLabel }));
       return;
     }
     const orderApiUrl = STOREFRONT_API_URL;
 
     const phone = normalizePhone(checkoutForm.phone);
     if (!/^(?:\+996\d{9}|\+7\d{10})$/.test(phone)) {
-      setCheckoutError("Введите телефон в формате +996 XXX XXX XXX или +7 XXX XXX-XX-XX.");
+      setCheckoutError(t("Введите телефон в формате +996 XXX XXX XXX или +7 XXX XXX-XX-XX."));
       return;
     }
     if (!phoneVerificationToken || verifiedPhone !== phone) {
-      setCheckoutError("Сначала подтвердите номер кодом из SMS.");
+      setCheckoutError(t("Сначала подтвердите номер кодом из SMS."));
       return;
     }
 
@@ -1705,7 +1712,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       const body = await response.json().catch(() => null);
       if (!response.ok) {
         const message = Array.isArray(body?.message) ? body.message.join(", ") : body?.message;
-        throw new Error(message || "Не удалось отправить заказ. Попробуйте ещё раз.");
+        throw new Error(message || t("Не удалось отправить заказ. Попробуйте ещё раз."));
       }
       if (
         !body
@@ -1714,7 +1721,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         || !["new", "confirmed", "preparing", "ready", "delivering", "completed", "cancelled"].includes(body.status)
         || typeof body.total !== "number"
       ) {
-        throw new Error("Сервер не подтвердил сохранение заказа. Корзина сохранена — попробуйте ещё раз.");
+        throw new Error(t("Сервер не подтвердил сохранение заказа. Корзина сохранена — попробуйте ещё раз."));
       }
       setPlacedOrder(body as PlacedOrder);
       setProfileRefreshIndex((current) => current + 1);
@@ -1725,7 +1732,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       setKitAdjustments({});
       setPendingCartLine(null);
     } catch (error) {
-      setCheckoutError(error instanceof Error ? error.message : "Не удалось отправить заказ. Попробуйте ещё раз.");
+      setCheckoutError(error instanceof Error ? error.message : t("Не удалось отправить заказ. Попробуйте ещё раз."));
     } finally {
       setCheckoutSubmitting(false);
     }
@@ -1825,17 +1832,17 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     .slice(0, 12);
   const modifierGroups = selected?.modifierGroups || [];
   const nutritionValues = [
-    { value: selected?.calories, label: "ккал" },
-    { value: selected?.protein, label: "белок" },
-    { value: selected?.fat, label: "жиры" },
-    { value: selected?.carbs, label: "углеводы" },
+    { value: selected?.calories, label: t("ккал") },
+    { value: selected?.protein, label: t("белок") },
+    { value: selected?.fat, label: t("жиры") },
+    { value: selected?.carbs, label: t("углеводы") },
   ];
   // The API represents unspecified nutrition with zeros. Once nutrition is
   // provided, zero is still a valid value for an individual nutrient.
   const hasNutrition = nutritionValues.some(({ value }) => typeof value === "number" && Number.isFinite(value) && value > 0);
   const productMetrics = [
     ...(typeof selected?.weight === "number" && Number.isFinite(selected.weight) && selected.weight > 0
-      ? [{ value: selected.weight, label: "граммы" }] : []),
+      ? [{ value: selected.weight, label: t("граммы") }] : []),
     ...(hasNutrition ? nutritionValues.filter((metric): metric is { value: number; label: string } => (
       typeof metric.value === "number" && Number.isFinite(metric.value) && metric.value >= 0
     )) : []),
@@ -2083,72 +2090,74 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
             <button
               className="city-picker-close"
               type="button"
-              aria-label="Закрыть и выбрать первый доступный город"
+              aria-label={t("Закрыть и выбрать первый доступный город")}
               onClick={() => chooseCity(regionOptions[0] || defaultRegions[0])}
             >×</button>
-            <h2 id="city-picker-title">Выберите город</h2>
-            <p>Чтобы показать доступное меню<br />и время доставки</p>
+            <h2 id="city-picker-title">{t("Выберите город")}</h2>
+            <p>{t("Чтобы показать доступное меню")}<br />{t("и время доставки")}</p>
             <div className="city-picker-options">
               {regionOptions.map((option) => (
-                <button key={option.slug} type="button" onClick={() => chooseCity(option)}>{option.name}</button>
+                <button key={option.slug} type="button" onClick={() => chooseCity(option)}>{t(option.name)}</button>
               ))}
             </div>
+            <div className="profile-language-guest"><SiteLanguageSelector /></div>
           </section>
         </div>
       ) : null}
       <section className="brand-hero" aria-label="Salmon Lovers Club">
         <picture className="brand-main">
           <source media="(max-width: 720px)" srcSet="/mobile-header-1600-transparent-v2.png" />
-          <img src="/desktop-header-20260726-v3.png" alt="Накта суши" />
+          <img src="/desktop-header-20260726-v3.png" alt={t("Накта суши")} />
         </picture>
         <img className="brand-smile" src={encodeURI("/смайлик.webp")} alt="" aria-hidden="true" />
-        <a className="download-app download-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">
+        <div className="hero-language"><SiteLanguageSelector light /></div>
+        <a className="download-app download-app-nakta" href="/support" aria-label={t("Скачайте приложение Накта суши")}>
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
-          <strong>Скачайте<br />приложение</strong>
+          <strong>{t("Скачайте")}<br />{t("приложение")}</strong>
         </a>
       </section>
 
       <div className="store-shell">
         <header className="delivery-header">
-          <button type="button" className="cat-avatar" aria-label={hasProfileSession ? "Открыть профиль" : "Войти в профиль"} onClick={openAccount}><Icon path={mdiAccountOutline} size={1.25} aria-hidden="true" /></button>
-          <div className="brand-shortcuts" aria-label="Способ получения заказа">
-            <button type="button" className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>Доставка</span></button>
-            <button type="button" className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>Самовывоз</span></button>
+          <button type="button" className="cat-avatar" aria-label={hasProfileSession ? t("Открыть профиль") : t("Войти в профиль")} onClick={openAccount}><Icon path={mdiAccountOutline} size={1.25} aria-hidden="true" /></button>
+          <div className="brand-shortcuts" aria-label={t("Способ получения заказа")}>
+            <button type="button" className={`brand-shortcut ${deliveryType === "delivery" ? "active" : "muted"}`} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>{t("Доставка")}</span></button>
+            <button type="button" className={`brand-shortcut pickup-shortcut ${deliveryType === "pickup" ? "active" : "muted"}`} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>{t("Самовывоз")}</span></button>
           </div>
           <div className="order-location-bar">
             <div className="city-select" ref={citySelectRef}>
-              <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{city} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
-              {cityOpen ? <div className="city-dropdown" role="listbox" aria-label="Город">
-                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => chooseCity(option)}>{option.name}</button>)}
+              <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{t(city)} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
+              {cityOpen ? <div className="city-dropdown" role="listbox" aria-label={t("Город")}>
+                {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => chooseCity(option)}>{t(option.name)}</button>)}
               </div> : null}
             </div>
-            <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? "Выберите ресторан для самовывоза" : "Введите адрес доставки")}</button>
-            <div className="delivery-mode" aria-label={orderingClosed ? `Кухня закрыта. ${deliveryAvailability.opensLabel}` : deliveryType === "pickup" ? "Самовывоз примерно 40 минут" : "Доставка примерно 45 минут"}>
-              <div className="desktop-mode-icons"><button type="button" className={deliveryType === "delivery" ? "active" : "muted"} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>Доставка</span></button><button type="button" className={deliveryType === "pickup" ? "active" : "muted"} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>Самовывоз</span></button></div>
+            <button className="address-button" onClick={() => { if (deliveryType === "delivery") { setDraftAddress(address); setDeliveryLocation(null); } else { setPickupLocationSelected(true); } setAddressOpen(true); }}>{address || (deliveryType === "pickup" ? t("Выберите ресторан для самовывоза") : t("Введите адрес доставки"))}</button>
+            <div className="delivery-mode" aria-label={orderingClosed ? t("Кухня закрыта. {0}", { "0": deliveryAvailability.opensLabel }) : deliveryType === "pickup" ? t("Самовывоз примерно 40 минут") : t("Доставка примерно 45 минут")}>
+              <div className="desktop-mode-icons"><button type="button" className={deliveryType === "delivery" ? "active" : "muted"} aria-pressed={deliveryType === "delivery"} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /><span>{t("Доставка")}</span></button><button type="button" className={deliveryType === "pickup" ? "active" : "muted"} aria-pressed={deliveryType === "pickup"} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /><span>{t("Самовывоз")}</span></button></div>
               <span className="delivery-connector" aria-hidden="true" />
-              <div className={`delivery-status${orderingClosed ? " closed" : ""}`}><strong>{orderingClosed ? "Закрыто" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "~40 минут" : "от ~45 минут"}</small></div>
+              <div className={`delivery-status${orderingClosed ? " closed" : ""}`}><strong>{orderingClosed ? t("Закрыто") : deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")}</strong><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? t("~40 минут") : t("от ~45 минут")}</small></div>
             </div>
           </div>
-          <button className="cart-button" onClick={() => setCartOpen(true)}>Корзина{cartCount > 0 ? <> <NumberTicker value={cartTotal} format={money} /></> : ""}</button>
+          <button className="cart-button" onClick={() => setCartOpen(true)}>{t("Корзина")}{cartCount > 0 ? <> <NumberTicker value={cartTotal} format={money} /></> : ""}</button>
         </header>
 
         {orderingClosed ? (
           <section className="closed-kitchen-card" aria-live="polite">
-            <h2>Мы откроемся<br />в {deliveryOpenTime}</h2>
-            <p>Сейчас кухня не работает. Немного отдохнём и откроемся снова.</p>
+            <h2>{t("Мы откроемся")}<br />{t("в ")}{deliveryOpenTime}</h2>
+            <p>{t("Сейчас кухня не работает. Немного отдохнём и откроемся снова.")}</p>
             <small>{deliveryAvailability.opensLabel}</small>
-            <button type="button" onClick={() => setDeliveryInfoOpen(true)}>График работы</button>
+            <button type="button" onClick={() => setDeliveryInfoOpen(true)}>{t("График работы")}</button>
           </section>
         ) : null}
 
-        <div className="promo-row" aria-label="Акции" ref={promoRowRef}>
+        <div className="promo-row" aria-label={t("Акции")} ref={promoRowRef}>
           {regionalPromotions
-            ? regionalPromotions.map((promotion, index) => <button className="promo-card" key={promotion.id} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${promotion.title}`}><img src={promotion.image} alt={promotion.title} /></button>)
-            : promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={`Открыть акцию: ${card.alt}`}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
+            ? regionalPromotions.map((promotion, index) => <button className="promo-card" key={promotion.id} onClick={() => openPromo(index)} aria-label={t("Открыть акцию: {0}", { "0": promotion.title })}><img src={promotion.image} alt={promotion.title} /></button>)
+            : promoCards.map((card, index) => <button className="promo-card" key={card.alt} onClick={() => openPromo(index)} aria-label={t("Открыть акцию: {0}", { "0": card.alt })}>{"referenceCrop" in card ? <span className={`promo-reference promo-reference-${card.referenceCrop}`} role="img" aria-label={card.alt} /> : <img src={card.src} alt={card.alt} />}</button>)}
         </div>
 
-        <nav className="category-nav" aria-label="Категории меню" ref={categoryNavRef}>
-          <div className={`search-pill ${searchOpen || search ? "search-open" : ""}`}><button className="search-toggle" type="button" onPointerDown={openSearch} onClick={openSearch} aria-label="Открыть поиск" aria-expanded={searchOpen || Boolean(search)}><span>⌕</span></button><input ref={searchInputRef} type="search" value={search} onFocus={openSearch} onBlur={() => { if (!search) setSearchOpen(false); }} onKeyDown={(event) => { if (event.key === "Escape") { setSearch(""); setSearchOpen(false); event.currentTarget.blur(); } }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? "Что ищем?" : "Поиск"} aria-label="Поиск блюд" /></div>
+        <nav className="category-nav" aria-label={t("Категории меню")} ref={categoryNavRef}>
+          <div className={`search-pill ${searchOpen || search ? "search-open" : ""}`}><button className="search-toggle" type="button" onPointerDown={openSearch} onClick={openSearch} aria-label={t("Открыть поиск")} aria-expanded={searchOpen || Boolean(search)}><span>⌕</span></button><input ref={searchInputRef} type="search" value={search} onFocus={openSearch} onBlur={() => { if (!search) setSearchOpen(false); }} onKeyDown={(event) => { if (event.key === "Escape") { setSearch(""); setSearchOpen(false); event.currentTarget.blur(); } }} onChange={(event) => setSearch(event.target.value)} placeholder={searchOpen ? t("Что ищем?") : t("Поиск")} aria-label={t("Поиск блюд")} /></div>
           {catalogCategories.map((category) => (
             <a
               key={category.slug}
@@ -2156,7 +2165,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               data-category-slug={category.slug}
               className={category.slug === highlightedCategory ? "active" : ""}
               onClick={() => setActiveCategory(category.slug)}
-            >{category.title}</a>
+            >{t(category.title)}</a>
           ))}
         </nav>
 
@@ -2164,7 +2173,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           {!categorySlug && catalogCategories.length > 0 ? (
             <section className="category-showcase" id="catalog-categories" aria-labelledby="category-showcase-title">
               <div className="category-showcase-heading">
-                <h1 id="category-showcase-title">Категории</h1>
+                <h1 id="category-showcase-title">{t("Категории")}</h1>
               </div>
               <div className="category-showcase-grid">
                 {catalogCategories.map((category, index) => {
@@ -2180,22 +2189,22 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                       <span className="category-showcase-art">
                         {previewImage ? <img src={previewImage} alt="" loading={index < 6 ? "eager" : "lazy"} fetchPriority={index < 3 ? "high" : undefined} /> : <span className="category-showcase-placeholder" aria-hidden="true">🍣</span>}
                       </span>
-                      <span className="category-showcase-name">{category.title}</span>
+                      <span className="category-showcase-name">{t(category.title)}</span>
                     </button>
                   );
                 })}
               </div>
             </section>
           ) : null}
-          {categorySlug && visibleCategories[0] ? <h1>{visibleCategories[0].title} в {city}</h1> : null}
-          {catalogLoading ? <div className="empty-search">Загружаем меню…</div> : null}
-          {catalogError ? <div className="empty-search" role="alert">{catalogError} <button type="button" className="underline" onClick={() => window.dispatchEvent(new Event(CATALOG_UPDATED_EVENT))}>Повторить</button></div> : null}
-          {!catalogLoading && !catalogError && visibleCategories.length === 0 ? <div className="empty-search">Ничего не нашли — попробуйте другое название</div> : null}
+          {categorySlug && visibleCategories[0] ? <h1>{t(visibleCategories[0].title)}{t(" в ")}{t(city)}</h1> : null}
+          {catalogLoading ? <div className="empty-search">{t("Загружаем меню…")}</div> : null}
+          {catalogError ? <div className="empty-search" role="alert">{catalogError} <button type="button" className="underline" onClick={() => window.dispatchEvent(new Event(CATALOG_UPDATED_EVENT))}>{t("Повторить")}</button></div> : null}
+          {!catalogLoading && !catalogError && visibleCategories.length === 0 ? <div className="empty-search">{t("Ничего не нашли — попробуйте другое название")}</div> : null}
           {visibleCategories.map((category, categoryIndex) => (
             <section className="category-section" id={category.slug} key={category.slug}>
               {!categorySlug ? search.trim()
-                ? <h2 className="category-title">{category.title}</h2>
-                : <Link href={`/category/${category.slug}?region=${regionSlug}`} className="category-title">{category.title}</Link>
+                ? <h2 className="category-title">{t(category.title)}</h2>
+                : <Link href={`/category/${category.slug}?region=${regionSlug}`} className="category-title">{t(category.title)}</Link>
                 : null}
               <div className="product-grid">
                 {category.products.map((product, productIndex) => {
@@ -2203,16 +2212,16 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   const productCartLine = productCartLines[0] ?? null;
                   const productCartQuantity = productCartLines.reduce((sum, line) => sum + line.quantity, 0);
 
-                  return <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={`Открыть ${product.name}`} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
+                  return <article className={`product-card${product.available === false ? " unavailable" : ""}`} data-product-id={product.id} key={`${category.slug}-${product.id}`} role="button" aria-disabled={product.available === false} aria-label={t("Открыть {0}", { "0": product.name })} onClick={() => { if (product.available !== false) openProduct(product); }} tabIndex={product.available === false ? -1 : 0} onKeyDown={(event) => { if (product.available !== false && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openProduct(product); } }}>
                     <div className="product-image-wrap">
                       <ProductArt product={product} mode="card" loading={categoryIndex === 0 && productIndex < 6 ? "eager" : "lazy"} fetchPriority={categoryIndex === 0 && productIndex < 2 ? "high" : undefined} />
-                      {product.available === false ? <span className="product-finished">Закончилось</span> : null}
+                      {product.available === false ? <span className="product-finished">{t("Закончилось")}</span> : null}
                     </div>
                     <div className="product-body">
                       <div className="product-name-row">
-                        <div className="product-name">{product.name}</div>
+                        <div className="product-name">{t(product.name)}</div>
                       </div>
-                      <div className={`product-actions${productCartLine ? " has-quantity" : ""}`}>{productCartLine ? <div className="product-quantity-controls" role="group" aria-label={`Количество ${product.name}`}><button type="button" aria-label={`Уменьшить ${product.name}`} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, -1); }}>−</button><span>{productCartQuantity}</span><button type="button" aria-label={`Увеличить ${product.name}`} disabled={productCartLine.quantity >= 20} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, 1); }}>+</button></div> : <><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</>}</div>
+                      <div className={`product-actions${productCartLine ? " has-quantity" : ""}`}>{productCartLine ? <div className="product-quantity-controls" role="group" aria-label={t("Количество {0}", { "0": product.name })}><button type="button" aria-label={t("Уменьшить {0}", { "0": product.name })} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, -1); }}>−</button><span>{productCartQuantity}</span><button type="button" aria-label={t("Увеличить {0}", { "0": product.name })} disabled={productCartLine.quantity >= 20} onClick={(event) => { event.stopPropagation(); changeQuantity(productCartLine.key, 1); }}>+</button></div> : <><span className="product-price"><b>{money(product.price)}</b>{product.oldPrice && product.oldPrice > product.price ? <small>{money(product.oldPrice)}</small> : null}</span>{product.available === false ? null : <button aria-label={t("Добавить {0}", { "0": product.name })} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button>}</>}</div>
                     </div>
                   </article>;
                 })}
@@ -2224,86 +2233,88 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       {!categorySlug ? (
         <section className="seo-intro" aria-labelledby="seo-intro-title">
-          <h2 id="seo-intro-title">Накта суши — доставка суши и роллов в Бишкеке и Оше</h2>
-          <p>Заказывайте роллы, суши, сеты, поке и горячие блюда онлайн. Выберите город, укажите адрес доставки или удобную точку самовывоза — актуальное меню и цены всегда доступны на сайте Nakta Sushi.</p>
-          <nav aria-label="Популярные разделы меню">
-            <Link href="/category/rolly-2">Роллы</Link>
-            <Link href="/category/sety-2">Сеты</Link>
-            <Link href="/category/susi-i-sasimi-2">Суши и сашими</Link>
-            <Link href="/category/goracie-bluda">Горячие блюда</Link>
+          <h2 id="seo-intro-title">{t("Накта суши — доставка суши и роллов в Бишкеке и Оше")}</h2>
+          <p>{t("Заказывайте роллы, суши, сеты, поке и горячие блюда онлайн. Выберите город, укажите адрес доставки или удобную точку самовывоза — актуальное меню и цены всегда доступны на сайте Nakta Sushi.")}</p>
+          <nav aria-label={t("Популярные разделы меню")}>
+            <Link href="/category/rolly-2">{t("Роллы")}</Link>
+            <Link href="/category/sety-2">{t("Сеты")}</Link>
+            <Link href="/category/susi-i-sasimi-2">{t("Суши и сашими")}</Link>
+            <Link href="/category/goracie-bluda">{t("Горячие блюда")}</Link>
           </nav>
         </section>
       ) : null}
 
       <footer className="footer" id="contacts">
-        <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt="Накта суши" /><span>{footerCompanyName}</span></div>
-        <a className="footer-app-link footer-app-nakta" href="/support" aria-label="Скачайте приложение Накта суши">
+        <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt={t("Накта суши")} /><span>{footerCompanyName}</span></div>
+        <a className="footer-app-link footer-app-nakta" href="/support" aria-label={t("Скачайте приложение Накта суши")}>
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
-          <strong>Скачайте<br />приложение</strong>
+          <strong>{t("Скачайте")}<br />{t("приложение")}</strong>
         </a>
-        <div className="footer-contacts"><b>Контакты</b><span><i aria-hidden="true">☎</i><small>Телефон</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>Электронная почта</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
-        <div className="footer-links"><a href="/privacy">Конфиденциальность</a><span>•</span><a href="/terms">Условия</a><span>•</span><a href="/delete-account">Удаление аккаунта</a><span>•</span><a href="/legal">Все документы</a><span>•</span><a href="/jobs">Работа</a><span>•</span><a href="/about">О нас</a></div>
+        <div className="footer-contacts"><b>{t("Контакты")}</b><span><i aria-hidden="true">☎</i><small>{t("Телефон")}</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>{t("Электронная почта")}</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
+        <div className="footer-links"><a href="/privacy">{t("Конфиденциальность")}</a><span>•</span><a href="/terms">{t("Условия")}</a><span>•</span><a href="/delete-account">{t("Удаление аккаунта")}</a><span>•</span><a href="/legal">{t("Все документы")}</a><span>•</span><a href="/jobs">{t("Работа")}</a><span>•</span><a href="/about">{t("О нас")}</a></div>
         <div className="footer-legal">
           <p>{footerLegalInfo}</p>
         </div>
       </footer>
 
-      {cartCount > 0 ? <button className="mobile-cart-button" onClick={() => setCartOpen(true)}><span>Далее</span><b><NumberTicker value={cartTotal} format={money} /></b></button> : null}
+      {cartCount > 0 ? <button className="mobile-cart-button" data-minimum-label={t("Минимальная сумма собрана!")} onClick={() => setCartOpen(true)}><span>{t("Далее")}</span><b><NumberTicker value={cartTotal} format={money} /></b></button> : null}
 
       {menuOpen ? (
-        <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label="Профиль" onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
+        <div className="overlay profile-overlay" role="dialog" aria-modal="true" aria-label={t("Профиль")} onMouseDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
           <section className={`profile-modal${profileSection === "orders" ? " profile-orders-screen" : ""}`}>
             {hasProfileSession ? <>
               <header className={`profile-screen-header${profileSection === "menu" ? " profile-menu-header" : ""}${profileSection === "orders" ? " profile-orders-header" : ""}`}>
-                <button type="button" onClick={() => profileSection === "menu" ? setMenuOpen(false) : setProfileSection("menu")} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
-                <h2>{profileSection === "settings" ? "Настройки" : ""}</h2>
+                <button type="button" onClick={() => profileSection === "menu" ? setMenuOpen(false) : setProfileSection("menu")} aria-label={t("Назад")}><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
+                <h2>{profileSection === "settings" ? t("Настройки") : ""}</h2>
                 <span />
               </header>
               <div className={`profile-account profile-section-${profileSection}`}>
                 {profileSection === "menu" ? <>
                   <div className="profile-account-card">
-                    <div><small>Привет!</small><strong>{verifiedPhone}</strong></div>
-                    <button type="button" onClick={logoutProfile}>Выйти <Icon path={mdiLogout} size={0.72} aria-hidden="true" /></button>
+                    <div><small>{t("Привет!")}</small><strong>{verifiedPhone}</strong></div>
+                    <button type="button" onClick={logoutProfile}>{t("Выйти ")}<Icon path={mdiLogout} size={0.72} aria-hidden="true" /></button>
                   </div>
-                  <nav className="profile-account-menu" aria-label="Разделы профиля">
-                    <button type="button" onClick={() => { setProfileOrderTab("active"); setProfileSection("orders"); }}><Icon path={mdiShoppingOutline} size={1} aria-hidden="true" /><b>Мои заказы</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
-                    <button type="button" onClick={() => setProfileSection("settings")}><Icon path={mdiCogOutline} size={1} aria-hidden="true" /><b>Настройки</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
-                    <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>Поддержка</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
-                    <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>О нас</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                  <nav className="profile-account-menu" aria-label={t("Разделы профиля")}>
+                    <button type="button" onClick={() => { setProfileOrderTab("active"); setProfileSection("orders"); }}><Icon path={mdiShoppingOutline} size={1} aria-hidden="true" /><b>{t("Мои заказы")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                    <button type="button" onClick={() => setProfileSection("settings")}><Icon path={mdiCogOutline} size={1} aria-hidden="true" /><b>{t("Настройки")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                    <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>{t("Поддержка")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                    <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>{t("О нас")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
                   </nav>
-                  <div className="profile-menu-footer"><img src="/логотип.png" alt="Накта суши" /><a href="/legal">Правовая информация</a><small>Версия 0.1.0</small></div>
+                  <div className="profile-menu-footer"><img src="/логотип.png" alt={t("Накта суши")} /><a href="/legal">{t("Правовая информация")}</a><small>{t("Версия 0.1.0")}</small></div>
                 </> : null}
 
                 {profileSection === "orders" ? <>
-                  <h2 className="profile-orders-title">Мои заказы</h2>
+                  <h2 className="profile-orders-title">{t("Мои заказы")}</h2>
                   <div className="profile-order-tabs" role="tablist">
-                    <button className={profileOrderTab === "active" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "active"} onClick={() => setProfileOrderTab("active")}>Активные</button>
-                    <button className={profileOrderTab === "history" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "history"} onClick={() => setProfileOrderTab("history")}>История</button>
+                    <button className={profileOrderTab === "active" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "active"} onClick={() => setProfileOrderTab("active")}>{t("Активные")}</button>
+                    <button className={profileOrderTab === "history" ? "active" : ""} type="button" role="tab" aria-selected={profileOrderTab === "history"} onClick={() => setProfileOrderTab("history")}>{t("История")}</button>
                   </div>
                   <div className="profile-order-list">
-                    {profileLoading ? <p className="profile-empty">Загружаем заказы…</p> : (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.length ? (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.map((order) => <button className="profile-order-card" type="button" key={order.id} onClick={() => openProfileOrder(order)}>
+                    {profileLoading ? <p className="profile-empty">{t("Загружаем заказы…")}</p> : (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.length ? (profileOrderTab === "active" ? profileData?.currentOrders : profileData?.orderHistory)?.map((order) => <button className="profile-order-card" type="button" key={order.id} onClick={() => openProfileOrder(order)}>
                       <span className={`profile-order-status status-${order.status}`}>{profileOrderStatuses[order.status]}</span>
-                      <span className="profile-order-main"><span><b>Заказ №{publicOrderNumber(order)}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? "самовывоз" : "доставка"}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
-                      <span className="profile-order-delivery"><i aria-hidden="true"><Icon path={mdiShoppingOutline} size={0.8} /></i><span><b>{order.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{order.address || "Загружаем адрес…"}</small></span></span>
-                    </button>) : <div className="profile-orders-empty"><span className="profile-orders-empty-art" aria-hidden="true"><Icon path={mdiFoodTakeoutBoxOutline} size={3.15} /><Icon path={mdiFish} size={1.55} /></span><p>Пока здесь пусто,<br />пора сделать первый заказ!</p><button type="button" onClick={() => setMenuOpen(false)}>Меню</button></div>}
+                      <span className="profile-order-main"><span><b>{t("Заказ №")}{publicOrderNumber(order)}</b><small>{profileOrderDate(order.createdAt)} · {order.deliveryType === "pickup" ? t("самовывоз") : t("доставка")}</small></span><strong>{money(order.total)} <i>›</i></strong></span>
+                      <span className="profile-order-delivery"><i aria-hidden="true"><Icon path={mdiShoppingOutline} size={0.8} /></i><span><b>{order.deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")}</b><small>{order.address || t("Загружаем адрес…")}</small></span></span>
+                    </button>) : <div className="profile-orders-empty"><span className="profile-orders-empty-art" aria-hidden="true"><Icon path={mdiFoodTakeoutBoxOutline} size={3.15} /><Icon path={mdiFish} size={1.55} /></span><p>{t("Пока здесь пусто,")}<br />{t("пора сделать первый заказ!")}</p><button type="button" onClick={() => setMenuOpen(false)}>{t("Меню")}</button></div>}
                   </div>
                 </> : null}
 
                 {profileSection === "settings" ? <>
-                  <section className="profile-settings-field"><span>Телефон аккаунта</span><strong>{verifiedPhone}</strong></section>
-                  <a className="profile-settings-link" href="/legal">Правовая информация <span>›</span></a>
-                  <button type="button" className="profile-logout" onClick={logoutProfile}>Выйти из профиля <span><Icon path={mdiLogout} size={0.9} aria-hidden="true" /></span></button>
+                  <section className="profile-settings-field profile-language-field"><span>{t("Язык сайта")}</span><SiteLanguageSelector /></section>
+                  <section className="profile-settings-field"><span>{t("Телефон аккаунта")}</span><strong>{verifiedPhone}</strong></section>
+                  <a className="profile-settings-link" href="/legal">{t("Правовая информация ")}<span>›</span></a>
+                  <button type="button" className="profile-logout" onClick={logoutProfile}>{t("Выйти из профиля ")}<span><Icon path={mdiLogout} size={0.9} aria-hidden="true" /></span></button>
                 </> : null}
               </div>
             </> : <>
-              <header className="profile-screen-header profile-menu-header"><button type="button" onClick={() => setMenuOpen(false)} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button><h2 /><span /></header>
+              <header className="profile-screen-header profile-menu-header"><button type="button" onClick={() => setMenuOpen(false)} aria-label={t("Назад")}><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button><h2 /><span /></header>
               <div className="profile-account profile-section-menu">
-                <nav className="profile-account-menu profile-guest-menu" aria-label="Меню профиля">
-                  <button type="button" onClick={() => { setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); setPhoneAuthOpen(true); }}><Icon path={mdiAccountCircleOutline} size={1} aria-hidden="true" /><b>Вход в личный кабинет</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
-                  <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>Поддержка</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
-                  <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>О нас</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                <div className="profile-language-guest"><SiteLanguageSelector /></div>
+                <nav className="profile-account-menu profile-guest-menu" aria-label={t("Меню профиля")}>
+                  <button type="button" onClick={() => { setMenuOpen(false); setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthPurpose("profile"); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); setPhoneAuthOpen(true); }}><Icon path={mdiAccountCircleOutline} size={1} aria-hidden="true" /><b>{t("Вход в личный кабинет")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></button>
+                  <a href={supportHref}><Icon path={mdiMessageReplyTextOutline} size={1} aria-hidden="true" /><b>{t("Поддержка")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
+                  <a href="/about"><Icon path={mdiInformationOutline} size={1} aria-hidden="true" /><b>{t("О нас")}</b><Icon path={mdiChevronRight} size={0.95} aria-hidden="true" /></a>
                 </nav>
-                <div className="profile-menu-footer"><img src="/логотип.png" alt="Накта суши" /><a href="/legal">Правовая информация</a><small>Версия 0.1.0</small></div>
+                <div className="profile-menu-footer"><img src="/логотип.png" alt={t("Накта суши")} /><a href="/legal">{t("Правовая информация")}</a><small>{t("Версия 0.1.0")}</small></div>
               </div>
             </>}
           </section>
@@ -2311,35 +2322,35 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       {promoOpen ? (
-        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={currentStory.title} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
-          <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label="Предыдущая акция">←</button>
+        <div className="promo-overlay" role="dialog" aria-modal="true" aria-label={t(currentStory.title)} onMouseDown={(event) => { if (event.target === event.currentTarget) closePromo(); }}>
+          <button className="story-arrow story-arrow-left" onClick={() => changePromo(-1)} aria-label={t("Предыдущая акция")}>←</button>
           <article className={`story-card story-${currentStory.kind}`}>
-            <img key={currentStory.pages[promoPage]?.src || currentStory.pages[0].src} className="story-image" src={currentStory.pages[promoPage]?.src || currentStory.pages[0].src} alt={currentStory.title} />
-            <div className="story-progress" aria-label="Следующая страница через 30 секунд">
+            <img key={currentStory.pages[promoPage]?.src || currentStory.pages[0].src} className="story-image" src={currentStory.pages[promoPage]?.src || currentStory.pages[0].src} alt={t(currentStory.title)} />
+            <div className="story-progress" aria-label={t("Следующая страница через 30 секунд")}>
               {currentStory.pages.map((page, index) => (
                 <span className={`story-progress-segment${index < promoPage ? " complete" : ""}${index === promoPage ? " active" : ""}`} key={page.src}>
                   {index === promoPage ? <i key={`${promoSlide}-${promoPage}`} /> : null}
                 </span>
               ))}
             </div>
-            <button className="story-close" onClick={closePromo} aria-label="Закрыть">×</button>
-            {currentStory.cta ? <button className="story-cta" type="button" onClick={() => { if (currentStory.ctaUrl) window.open(currentStory.ctaUrl, "_blank", "noopener,noreferrer"); }}>{currentStory.cta}</button> : null}
+            <button className="story-close" onClick={closePromo} aria-label={t("Закрыть")}>×</button>
+            {currentStory.cta ? <button className="story-cta" type="button" onClick={() => { if (currentStory.ctaUrl) window.open(currentStory.ctaUrl, "_blank", "noopener,noreferrer"); }}>{t(currentStory.cta)}</button> : null}
           </article>
-          <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label="Следующая акция">→</button>
+          <button className="story-arrow story-arrow-right" onClick={() => changePromo(1)} aria-label={t("Следующая акция")}>→</button>
         </div>
       ) : null}
 
       {selected && !addressOpen ? (
-        <div className="overlay product-overlay" role="dialog" aria-modal={!compositionOpen} aria-hidden={compositionOpen || undefined} inert={compositionOpen} aria-label={selected.name} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
+        <div className="overlay product-overlay" role="dialog" aria-modal={!compositionOpen} aria-hidden={compositionOpen || undefined} inert={compositionOpen} aria-label={t(selected.name)} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProduct(); }}>
           <ProductSheet key={selected.id} className={`product-modal product-modal-${selected.modalKind || "related"}`} onClose={closeProduct}>
-            <button className="modal-close" onClick={closeProduct} aria-label="Закрыть">×</button>
+            <button className="modal-close" onClick={closeProduct} aria-label={t("Закрыть")}>×</button>
             <div className="modal-art"><ProductArt product={selected} mode="detail" /></div>
             <div className="modal-info">
-              <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>← &nbsp; Предыдущее</button><span>·</span><button onClick={() => navigateProduct(1)}>Следующее &nbsp; →</button></div>
-              <div className="modal-description"><div className="modal-description-header"><h2>{selected.name}</h2></div>{selected.description ? <p>{selected.description}</p> : null}</div>
+              <div className="modal-arrows"><button onClick={() => navigateProduct(-1)}>{t("←   Предыдущее")}</button><span>·</span><button onClick={() => navigateProduct(1)}>{t("Следующее   →")}</button></div>
+              <div className="modal-description"><div className="modal-description-header"><h2>{t(selected.name)}</h2></div>{selected.description ? <p>{selected.description}</p> : null}</div>
               {productMetrics.length || hasComposition || hasEquipment ? <div className="nutrition">
                 {productMetrics.length ? <div className="nutrition-values" style={{ gridTemplateColumns: `repeat(${productMetrics.length}, minmax(0, 1fr))` }}>{productMetrics.map(({ value, label }) => <div key={label}><b>{value}</b><small>{label}</small></div>)}</div> : null}
-                {hasComposition || hasEquipment ? <div className={`nutrition-actions${hasComposition && hasEquipment ? " has-equipment" : ""}`}>{hasComposition ? <button type="button" onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>Состав</button> : null}{hasEquipment ? <button type="button" onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>Комплектация</button> : null}</div> : null}
+                {hasComposition || hasEquipment ? <div className={`nutrition-actions${hasComposition && hasEquipment ? " has-equipment" : ""}`}>{hasComposition ? <button type="button" onClick={() => { setCompositionView("composition"); setCompositionOpen(true); }}>{t("Состав")}</button> : null}{hasEquipment ? <button type="button" onClick={() => { setCompositionView("equipment"); setCompositionOpen(true); }}>{t("Комплектация")}</button> : null}</div> : null}
               </div> : null}
               {modifierGroups.length ? <div className="modifier-groups">{modifierGroups.map((group) => {
                 const selectedQuantities = modifierSelections[group.id] || {};
@@ -2350,21 +2361,21 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 const selectedItems = Object.values(selectedQuantities)
                   .filter((quantity) => quantity > 0).length;
                 return <section className={`modifier-group modifier-group-${group.selectionType} modifier-presentation-${presentation}`} key={group.id}>
-                  <div className="modifier-heading"><h3>{group.title}</h3>{group.required && selectedItems < minimumSelections ? <span>Нужно выбрать</span> : null}</div>
+                  <div className="modifier-heading"><h3>{group.title}</h3>{group.required && selectedItems < minimumSelections ? <span>{t("Нужно выбрать")}</span> : null}</div>
                   <div className="modifier-options">{group.items.filter((item) => item.enabled !== false).map((item) => {
                     const modifierQuantity = selectedQuantities[item.id] || 0;
                     const chosen = modifierQuantity > 0;
                     const maximumQuantity = modifierItemMaximum(group, item);
                     const art = item.image ? <img src={item.image} alt="" /> : <span className="modifier-option-placeholder" />;
-                    const copy = <span><strong>{item.name}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></span>;
+                    const copy = <span><strong>{t(item.name)}</strong><small>{item.price ? `+${money(item.price)}` : money(0)}</small></span>;
                     if (group.selectionType === "multiple" && chosen && maximumQuantity > 1) {
                       return <div className="modifier-option selected has-quantity" key={item.id}>
                         {art}
                         {copy}
-                        <span className="modifier-option-quantity" role="group" aria-label={`Количество ${item.name}`}>
-                          <button type="button" aria-label={`Уменьшить количество ${item.name}`} onClick={() => changeModifierQuantity(group.id, item.id, -1)}>−</button>
+                        <span className="modifier-option-quantity" role="group" aria-label={t("Количество {0}", { "0": item.name })}>
+                          <button type="button" aria-label={t("Уменьшить количество {0}", { "0": item.name })} onClick={() => changeModifierQuantity(group.id, item.id, -1)}>−</button>
                           <b aria-live="polite">{modifierQuantity}</b>
-                          <button type="button" aria-label={`Увеличить количество ${item.name}`} disabled={modifierQuantity >= maximumQuantity || selectedModifierUnits >= MAX_MODIFIER_UNITS} onClick={() => changeModifierQuantity(group.id, item.id, 1)}>+</button>
+                          <button type="button" aria-label={t("Увеличить количество {0}", { "0": item.name })} disabled={modifierQuantity >= maximumQuantity || selectedModifierUnits >= MAX_MODIFIER_UNITS} onClick={() => changeModifierQuantity(group.id, item.id, 1)}>+</button>
                         </span>
                       </div>;
                     }
@@ -2376,8 +2387,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   })}</div>
                 </section>;
               })}</div> : null}
-              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>Вместе вкуснее</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
-              <div className="modal-buy"><div className="quantity"><button aria-label="Уменьшить количество" disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label="Увеличить количество" disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? "Закончилось" : modifiersComplete ? <>Добавить <NumberTicker value={configuredModalTotal} format={money} /></> : "Настройте блюдо"}</button></div>
+              {selected.modalKind === "related" || selected.modalKind === "addons" ? <><h3>{t("Вместе вкуснее")}</h3><div className="related-row">{related.map((product) => <article key={`${product.category}-${product.id}`} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{t(product.name)}</span><div className="related-actions"><b>{money(product.price)}</b><button aria-label={t("Добавить {0}", { "0": product.name })} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
+              <div className="modal-buy"><div className="quantity"><button aria-label={t("Уменьшить количество")} disabled={modalQuantity === 1} onClick={() => setModalQuantity((current) => Math.max(1, current - 1))}>−</button><span>{modalQuantity}</span><button aria-label={t("Увеличить количество")} disabled={modalQuantity >= 20} onClick={() => setModalQuantity((current) => Math.min(20, current + 1))}>+</button></div><button className="buy-button" disabled={selected.available === false || !modifiersComplete} onClick={() => addToCart(selected, modalQuantity, selectedModifiersForCart)}>{selected.available === false ? t("Закончилось") : modifiersComplete ? <>{t("Добавить ")}<NumberTicker value={configuredModalTotal} format={money} /></> : t("Настройте блюдо")}</button></div>
             </div>
           </ProductSheet>
         </div>
@@ -2387,28 +2398,28 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay composition-overlay" role="dialog" aria-modal="true" aria-labelledby="composition-title">
           <section className="composition-modal">
             <div className="composition-navigation">
-              <button type="button" className="composition-close" onClick={closeProduct} aria-label="Закрыть карточку блюда">×</button>
+              <button type="button" className="composition-close" onClick={closeProduct} aria-label={t("Закрыть карточку блюда")}>×</button>
             </div>
-            <h2 id="composition-title">{compositionView === "composition" ? "Состав" : "Комплектация"}</h2>
+            <h2 id="composition-title">{compositionView === "composition" ? t("Состав") : t("Комплектация")}</h2>
             {compositionView === "composition"
               ? <div className="composition-copy">{selected.composition}</div>
               : <div className="composition-copy equipment-copy">
-                  <p>В комплекте с одной порцией этого блюда:</p>
-                  {selectedKitItems.map((item) => <div key={item.id}><span>{item.name}</span><b>{item.quantity} шт.</b></div>)}
-                  {selected.modifierGroups?.length ? <small>Соусы и добавки, выбранные в карточке блюда, будут сохранены в заказе отдельно.</small> : null}
+                  <p>{t("В комплекте с одной порцией этого блюда:")}</p>
+                  {selectedKitItems.map((item) => <div key={item.id}><span>{t(item.name)}</span><b>{item.quantity}{t(" шт.")}</b></div>)}
+                  {selected.modifierGroups?.length ? <small>{t("Соусы и добавки, выбранные в карточке блюда, будут сохранены в заказе отдельно.")}</small> : null}
                 </div>}
-            <button type="button" className="composition-return" onClick={() => setCompositionOpen(false)}>Вернуться к блюду</button>
+            <button type="button" className="composition-return" onClick={() => setCompositionOpen(false)}>{t("Вернуться к блюду")}</button>
           </section>
         </div>
       ) : null}
 
       {addressOpen ? (
-        <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Самовывоз" : "Адрес доставки"}>
+        <div className="overlay address-overlay" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? t("Самовывоз") : t("Адрес доставки")}>
           <div className="address-modal">
             <div className={`map-placeholder ${deliveryType === "pickup" ? "pickup-map yandex-map-host" : "delivery-map yandex-map-host"}`}>
-              <button className="map-back" onClick={closeAddress} aria-label="Назад"><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
+              <button className="map-back" onClick={closeAddress} aria-label={t("Назад")}><Icon path={mdiArrowLeft} size={1} aria-hidden="true" /></button>
               {deliveryType === "delivery" ? (
-                <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexDeliveryMap
+                <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>{t("Загружаем карту…")}</span></div>}><YandexDeliveryMap
                   inputId="delivery-address-input"
                   query={draftAddress}
                   region={regionSlug}
@@ -2418,7 +2429,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   onQueryChange={setDraftAddress}
                   onLocationChange={setDeliveryLocation}
                 /></Suspense>
-              ) : <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>Загружаем карту…</span></div>}><YandexPickupMap
+              ) : <Suspense fallback={<div className="map-state map-state-loading"><span className="map-spinner" aria-hidden="true" /><span>{t("Загружаем карту…")}</span></div>}><YandexPickupMap
                 region={regionSlug}
                 yandexUrl={pickupYandexUrl}
                 latitude={selectedPickupLocation?.latitude}
@@ -2427,20 +2438,20 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               /></Suspense>}
             </div>
             <div className={`address-panel${deliveryType === "delivery" && draftAddress.trim() && !deliveryLocation ? " address-panel-expanded" : ""}`}>
-              <button className="modal-close" onClick={closeAddress} aria-label="Закрыть">×</button>
-              <div className="modal-mode-switch" aria-label="Способ получения заказа">
+              <button className="modal-close" onClick={closeAddress} aria-label={t("Закрыть")}>×</button>
+              <div className="modal-mode-switch" aria-label={t("Способ получения заказа")}>
                 <div className="modal-mode-icons">
-                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label="Выбрать доставку" onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
-                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label="Выбрать самовывоз" onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
+                  <button className={deliveryType === "delivery" ? "active" : "muted"} aria-label={t("Выбрать доставку")} onClick={() => openDeliveryType("delivery")}><img src="/delivery.png" alt="" /></button>
+                  <button className={deliveryType === "pickup" ? "active" : "muted"} aria-label={t("Выбрать самовывоз")} onClick={() => openDeliveryType("pickup")}><img src="/pickup.png" alt="" /></button>
                 </div>
-                <div><strong>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</strong><small>{deliveryType === "pickup" ? "~45 минут" : "от ~45 минут"}</small></div>
+                <div><strong>{deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")}</strong><small>{deliveryType === "pickup" ? t("~45 минут") : t("от ~45 минут")}</small></div>
               </div>
               {deliveryType === "pickup" ? <>
-                <h2>Самовывоз</h2><p>Выберите точку для самовывоза<br />из доступных в списке или на карте</p>
+                <h2>{t("Самовывоз")}</h2><p>{t("Выберите точку для самовывоза")}<br />{t("из доступных в списке или на карте")}</p>
                 <div className="address-city-select">
-                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? "Выберите город" : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
-                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label="Выберите город">
-                    {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{option.name}</button>)}
+                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? t("Выберите город") : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
+                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label={t("Выберите город")}>
+                    {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{t(option.name)}</button>)}
                   </div> : null}
                 </div>
                 <div className="pickup-location-list">
@@ -2456,19 +2467,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     >
                       <span className="pickup-radio" />
                       <span>
-                        <b>{location.title ? `${location.title} · ${location.address}` : location.address}</b>
-                        <small>{location.workingHours || "Часы работы уточняются"}</small>
+                        <b>{location.title ? `${t(location.title)} · ${location.address}` : location.address}</b>
+                        <small>{location.workingHours || t("Часы работы уточняются")}</small>
                       </span>
                     </button>;
-                  }) : <div className="map-state">В этом городе пока нет доступных кухонь</div>}
+                  }) : <div className="map-state">{t("В этом городе пока нет доступных кухонь")}</div>}
                 </div>
-                <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>Забрать здесь</button>
+                <button className="save-address save-pickup" disabled={!pickupLocationSelected} onClick={savePickup}>{t("Забрать здесь")}</button>
               </> : <>
-                <h2>Адрес доставки</h2><p>Введите адрес для доставки курьером,<br />выберите подсказку или точку на карте</p>
+                <h2>{t("Адрес доставки")}</h2><p>{t("Введите адрес для доставки курьером,")}<br />{t("выберите подсказку или точку на карте")}</p>
                 <div className="address-city-select">
-                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? "Выберите город" : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
-                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label="Выберите город">
-                    {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{option.name}</button>)}
+                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? t("Выберите город") : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
+                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label={t("Выберите город")}>
+                    {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{t(option.name)}</button>)}
                   </div> : null}
                 </div>
                 <div className="address-search">
@@ -2480,7 +2491,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     value={draftAddress}
                     onChange={(event) => { setDraftAddress(event.target.value); setDeliveryLocation(null); }}
                     onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setAddressSearchRequest((current) => current + 1); } }}
-                    placeholder="Улица и номер дома"
+                    placeholder={t("Улица и номер дома")}
                   />
                   {draftAddress ? (
                     <button
@@ -2490,13 +2501,13 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                         setDeliveryLocation(null);
                         window.requestAnimationFrame(() => document.getElementById("delivery-address-input")?.focus());
                       }}
-                      aria-label="Очистить адрес"
+                      aria-label={t("Очистить адрес")}
                     >×</button>
                   ) : null}
                   <div id="delivery-address-input-suggestions" className="address-suggestions" />
                 </div>
                 {deliveryLocation ? <div className="resolved-address" aria-live="polite">{deliveryLocation.address}</div> : null}
-                <button className="save-address delivery-save" disabled={!deliveryLocation} onClick={saveAddress}>Заказать сюда</button>
+                <button className="save-address delivery-save" disabled={!deliveryLocation} onClick={saveAddress}>{t("Заказать сюда")}</button>
               </>}
             </div>
           </div>
@@ -2505,44 +2516,44 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       {cartOpen ? (
         <div className="drawer-overlay cart-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartOpen(false); }}>
-          <aside className="cart-drawer" data-filled={cart.length > 0 ? "true" : "false"} aria-label="Корзина">
-            <button className="modal-close" onClick={() => setCartOpen(false)} aria-label="Закрыть">×</button>
-            {cart.length === 0 ? <div className="cart-empty"><span className="cart-empty-mark" aria-hidden="true">🍣</span><div>Место сбора<br />вкусных блюд</div></div> : <>
+          <aside className="cart-drawer" data-filled={cart.length > 0 ? "true" : "false"} aria-label={t("Корзина")}>
+            <button className="modal-close" onClick={() => setCartOpen(false)} aria-label={t("Закрыть")}>×</button>
+            {cart.length === 0 ? <div className="cart-empty"><span className="cart-empty-mark" aria-hidden="true">🍣</span><div>{t("Место сбора")}<br />{t("вкусных блюд")}</div></div> : <>
               <div className="cart-address">{cartLocation}</div>
               <div className="cart-layout">
                 <div className="cart-products-column">
                   <section className="cart-products">
-                    <div className="cart-section-heading"><h2>Корзина</h2><button aria-label="Очистить корзину" onClick={() => { setCart([]); setKitAdjustments({}); }}><svg className="trash-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.9 12h9.2l.9-12" /><path d="M10 11v5" /><path d="M14 11v5" /></svg><span>Очистить</span></button></div>
+                    <div className="cart-section-heading"><h2>{t("Корзина")}</h2><button aria-label={t("Очистить корзину")} onClick={() => { setCart([]); setKitAdjustments({}); }}><svg className="trash-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16" /><path d="M9 7V5h6v2" /><path d="M6.5 7l.9 12h9.2l.9-12" /><path d="M10 11v5" /><path d="M14 11v5" /></svg><span>{t("Очистить")}</span></button></div>
                     {cart.map((line) => (
                       <div className="cart-line" key={line.key}>
                         <div className="cart-line-art"><ProductArt product={line.product} mode="cart" /></div>
                         <div className="cart-line-copy">
-                          <b>{line.product.name}</b>
+                          <b>{t(line.product.name)}</b>
                           {line.product.description ? <p>{line.product.description}</p> : null}
                           {line.modifiers.length ? <div className="cart-line-modifiers">{line.modifiers.map((modifier) => <span key={`${modifier.groupId}-${modifier.itemId}`}>{modifier.itemName} ×{modifier.quantity}{modifier.price ? ` +${money(modifier.price * modifier.quantity)}` : ""}</span>)}</div> : null}
-                          <div className="cart-line-footer"><span><NumberTicker value={cartLineTotal(line)} format={money} /></span><div className="line-controls"><button aria-label={`Уменьшить ${line.product.name}`} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={`Увеличить ${line.product.name}`} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
+                          <div className="cart-line-footer"><span><NumberTicker value={cartLineTotal(line)} format={money} /></span><div className="line-controls"><button aria-label={t("Уменьшить {0}", { "0": line.product.name })} onClick={() => changeQuantity(line.key, -1)}>−</button><span>{line.quantity}</span><button aria-label={t("Увеличить {0}", { "0": line.product.name })} disabled={line.quantity >= 20} onClick={() => changeQuantity(line.key, 1)}>+</button></div></div>
                         </div>
                       </div>
                     ))}
                   </section>
                   {cartRecommendations.length > 0 ? <div className="cart-related">
-                    <h3>Вместе вкуснее</h3>
+                    <h3>{t("Вместе вкуснее")}</h3>
                     <div className="cart-related-grid">
                       {cartRecommendations.map((product) => <article key={`${product.category}-${product.id}`}>
                         <div className="cart-related-art"><ProductArt product={product} mode="related" /></div>
-                        <b>{product.name}</b>
-                        <div><span>{money(product.price)}</span><button aria-label={`Добавить ${product.name}`} onClick={() => { if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div>
+                        <b>{t(product.name)}</b>
+                        <div><span>{money(product.price)}</span><button aria-label={t("Добавить {0}", { "0": product.name })} onClick={() => { if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div>
                       </article>)}
                     </div>
                   </div> : null}
                 </div>
                 <section className="cart-options">
                   <div className="cart-kit">
-                    <span><b>Комплектация</b><small>{cartKitItems.length ? "приборы и дополнения к блюдам" : "приборы"}</small></span>
-                    <button type="button" onClick={() => setCartKitOpen(true)}>Управлять</button>
+                    <span><b>{t("Комплектация")}</b><small>{cartKitItems.length ? t("приборы и дополнения к блюдам") : t("приборы")}</small></span>
+                    <button type="button" onClick={() => setCartKitOpen(true)}>{t("Управлять")}</button>
                   </div>
-                  <div className="cart-benefit"><span><b>Промокод или скидка</b><small>Нужно будет авторизоваться</small></span><button type="button">Ввести</button></div>
-                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</b><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? "Примерно через 40 минут" : "Примерно через 45 минут"}</small></span><span className="cart-delivery-mobile">{orderingClosed ? "Кухня закрыта" : deliveryType === "pickup" ? "Самовывоз" : "Доставка"} ›</span></button><button className={`checkout${orderingClosed ? " closed" : ""}`} disabled={orderingClosed} onClick={beginCheckout}><span>{orderingClosed ? "Закрыто" : "Далее"}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
+                  <div className="cart-benefit"><span><b>{t("Промокод или скидка")}</b><small>{t("Нужно будет авторизоваться")}</small></span><button type="button">{t("Ввести")}</button></div>
+                  <div className="cart-summary"><button type="button" className="cart-delivery-summary" onClick={() => setDeliveryInfoOpen(true)}><img src={deliveryType === "pickup" ? "/pickup.png" : "/delivery.png"} alt="" /><span><b>{orderingClosed ? t("Кухня закрыта") : deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")}</b><small>{orderingClosed ? deliveryAvailability.opensLabel : deliveryType === "pickup" ? t("Примерно через 40 минут") : t("Примерно через 45 минут")}</small></span><span className="cart-delivery-mobile">{orderingClosed ? t("Кухня закрыта") : deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")} ›</span></button><button className={`checkout${orderingClosed ? " closed" : ""}`} disabled={orderingClosed} onClick={beginCheckout}><span>{orderingClosed ? t("Закрыто") : t("Далее")}</span><b><NumberTicker value={cartTotal} format={money} /></b></button></div>
                 </section>
               </div>
             </>}
@@ -2551,28 +2562,28 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       ) : null}
 
       {selectedProfileOrder ? (
-        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={`Заказ №${publicOrderNumber(selectedProfileOrder)}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
+        <div className="overlay order-details-overlay" role="dialog" aria-modal="true" aria-label={t("Заказ \u2116{0}", { "0": publicOrderNumber(selectedProfileOrder) })} onMouseDown={(event) => { if (event.target === event.currentTarget) closeProfileOrder(); }}>
           <section className="order-details-modal">
             <header>
-              <button type="button" onClick={closeProfileOrder} aria-label="Назад"><Icon path={mdiArrowLeft} size={0.96} aria-hidden="true" /></button>
-              <h2>Заказ №{publicOrderNumber(profileOrderDetail ?? selectedProfileOrder)}</h2>
+              <button type="button" onClick={closeProfileOrder} aria-label={t("Назад")}><Icon path={mdiArrowLeft} size={0.96} aria-hidden="true" /></button>
+              <h2>{t("Заказ №")}{publicOrderNumber(profileOrderDetail ?? selectedProfileOrder)}</h2>
               <span aria-hidden="true" />
             </header>
-            {profileOrderDetailLoading ? <p className="order-details-state">Загружаем детали заказа…</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
+            {profileOrderDetailLoading ? <p className="order-details-state">{t("Загружаем детали заказа…")}</p> : profileOrderDetailError ? <p className="order-details-state error">{profileOrderDetailError}</p> : profileOrderDetail ? <div className="order-details-scroll">
               <section className={`order-status-summary${profileOrderDetail.status === "cancelled" ? " cancelled" : ""}`}>
                 <Icon path={profileOrderDetail.status === "cancelled" ? mdiCloseCircle : mdiCheckCircle} size={1.04} aria-hidden="true" />
                 <span><b>{profileOrderDetail.posStatus ? posStatusLabels[profileOrderDetail.posStatus] || profileOrderDetailStatuses[profileOrderDetail.status] : profileOrderDetailStatuses[profileOrderDetail.status]}</b><small>{profileOrderDate(profileOrderDetail.createdAt)}</small></span>
               </section>
               {profileOrderDetail.posProgress?.itemsTotal ? <section className="kitchen-progress" role="status">
-                  <span>Готово {profileOrderDetail.posProgress.itemsReady} из {profileOrderDetail.posProgress.itemsTotal} блюд</span>
+                  <span>{t("Готово ")}{profileOrderDetail.posProgress.itemsReady}{t(" из ")}{profileOrderDetail.posProgress.itemsTotal}{t(" блюд")}</span>
                   <i><em style={{ width: `${Math.min(100, (profileOrderDetail.posProgress.itemsReady / profileOrderDetail.posProgress.itemsTotal) * 100)}%` }} /></i>
-                  {profileOrderDetail.posProgress.itemsRejected > 0 ? <small>Отклонено: {profileOrderDetail.posProgress.itemsRejected}</small> : null}
+                  {profileOrderDetail.posProgress.itemsRejected > 0 ? <small>{t("Отклонено: ")}{profileOrderDetail.posProgress.itemsRejected}</small> : null}
                 </section> : null}
-              <section className="order-details-section order-items-section"><h3>Состав заказа</h3>{profileOrderDetail.items.map((item, index) => <div className={`order-detail-line${item.posStatus === "rejected" ? " rejected" : ""}`} key={`${item.productName}-${index}`}><i className="order-item-quantity">{item.quantity}</i><span><b>{item.productName}</b>{item.modifierSnapshots?.length ? <small>{item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}{item.posStatus ? <small className={`kitchen-item-status status-${item.posStatus}`}>{item.posStatus === "ready" ? "Готово" : item.posStatus === "cooking" ? `Готовится${item.posReadyQuantity ? ` · готово ${item.posReadyQuantity}` : ""}` : item.posStatus === "rejected" ? `Отклонено${item.posRejectReason ? `: ${item.posRejectReason}` : ""}` : item.posStatus === "accepted" ? "Принято кухней" : "Ожидает кухню"}</small> : null}</span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>Итого</span><b>{money(profileOrderDetail.total)}</b></div></section>
-              <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h3><div className="order-info-row"><Icon path={mdiMapMarkerOutline} size={0.84} aria-hidden="true" /><span><p className="order-destination">{profileOrderDetail.address || "Адрес не указан"}</p>{[profileOrderDetail.apartment && `кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && `кв. ${profileOrderDetail.apartment}`, profileOrderDetail.entrance && `подъезд ${profileOrderDetail.entrance}`, profileOrderDetail.floor && `этаж ${profileOrderDetail.floor}`].filter(Boolean).join(", ")}</small> : null}</span></div>{profileOrderDetail.comment ? <p className="order-comment">Комментарий: {profileOrderDetail.comment}</p> : null}</section>
-              <section className="order-details-section"><h3>Оплата и комплектация</h3><div className="order-info-row"><Icon path={mdiWalletOutline} size={0.84} aria-hidden="true" /><span><p className="order-destination">{profileOrderDetail.paymentMethod === "cash" ? "Наличными" : "Картой"}</p><small className="order-destination-details">{profileOrderDetail.noUtensils ? "Без палочек" : `Палочки: ${profileOrderDetail.utensilsCount}`}</small><span className="order-kit-detail">{orderKitItemsForDisplay(profileOrderDetail.kitItems).filter((item) => item.quantity > 0).map((item) => <small key={item.id}>{item.name}: {item.quantity}</small>)}</span></span></div></section>
-              <a className="order-support-button" href={supportHref}><Icon path={mdiPhoneOutline} size={0.84} aria-hidden="true" />Связаться с поддержкой</a>
-              {canCancelSelectedProfileOrder ? <button type="button" className="order-cancel-open" onClick={() => { setCancelOrderError(""); setCancelOrderOpen(true); }}>Отменить заказ</button> : null}
+              <section className="order-details-section order-items-section"><h3>{t("Состав заказа")}</h3>{profileOrderDetail.items.map((item, index) => <div className={`order-detail-line${item.posStatus === "rejected" ? " rejected" : ""}`} key={`${item.productName}-${index}`}><i className="order-item-quantity">{item.quantity}</i><span><b>{item.productName}</b>{item.modifierSnapshots?.length ? <small>{item.modifierSnapshots.map((modifier) => `${modifier.itemName} ×${modifier.quantity}`).join(", ")}</small> : null}{item.posStatus ? <small className={`kitchen-item-status status-${item.posStatus}`}>{item.posStatus === "ready" ? t("Готово") : item.posStatus === "cooking" ? t("Готовится{0}", { "0": item.posReadyQuantity ? t(" \u00B7 готово {0}", { "0": item.posReadyQuantity }) : "" }) : item.posStatus === "rejected" ? t("Отклонено{0}", { "0": item.posRejectReason ? `: ${item.posRejectReason}` : "" }) : item.posStatus === "accepted" ? t("Принято кухней") : t("Ожидает кухню")}</small> : null}</span><strong>{money(item.lineTotal)}</strong></div>)}<div className="order-detail-total"><span>{t("Итого")}</span><b>{money(profileOrderDetail.total)}</b></div></section>
+              <section className="order-details-section"><h3>{profileOrderDetail.deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")}</h3><div className="order-info-row"><Icon path={mdiMapMarkerOutline} size={0.84} aria-hidden="true" /><span><p className="order-destination">{profileOrderDetail.address || t("Адрес не указан")}</p>{[profileOrderDetail.apartment && t("кв. {0}", { "0": profileOrderDetail.apartment }), profileOrderDetail.entrance && t("подъезд {0}", { "0": profileOrderDetail.entrance }), profileOrderDetail.floor && t("этаж {0}", { "0": profileOrderDetail.floor })].filter(Boolean).length ? <small className="order-destination-details">{[profileOrderDetail.apartment && t("кв. {0}", { "0": profileOrderDetail.apartment }), profileOrderDetail.entrance && t("подъезд {0}", { "0": profileOrderDetail.entrance }), profileOrderDetail.floor && t("этаж {0}", { "0": profileOrderDetail.floor })].filter(Boolean).join(", ")}</small> : null}</span></div>{profileOrderDetail.comment ? <p className="order-comment">{t("Комментарий: ")}{profileOrderDetail.comment}</p> : null}</section>
+              <section className="order-details-section"><h3>{t("Оплата и комплектация")}</h3><div className="order-info-row"><Icon path={mdiWalletOutline} size={0.84} aria-hidden="true" /><span><p className="order-destination">{profileOrderDetail.paymentMethod === "cash" ? t("Наличными") : t("Картой")}</p><small className="order-destination-details">{profileOrderDetail.noUtensils ? t("Без палочек") : t("Палочки: {0}", { "0": profileOrderDetail.utensilsCount })}</small><span className="order-kit-detail">{orderKitItemsForDisplay(profileOrderDetail.kitItems).filter((item) => item.quantity > 0).map((item) => <small key={item.id}>{t(item.name)}: {item.quantity}</small>)}</span></span></div></section>
+              <a className="order-support-button" href={supportHref}><Icon path={mdiPhoneOutline} size={0.84} aria-hidden="true" />{t("Связаться с поддержкой")}</a>
+              {canCancelSelectedProfileOrder ? <button type="button" className="order-cancel-open" onClick={() => { setCancelOrderError(""); setCancelOrderOpen(true); }}>{t("Отменить заказ")}</button> : null}
             </div> : null}
           </section>
         </div>
@@ -2582,96 +2593,96 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
         <div className="overlay order-cancel-overlay" role="alertdialog" aria-modal="true" aria-labelledby="cancel-order-title" onMouseDown={(event) => { if (event.target === event.currentTarget && !cancelOrderBusy) { setCancelOrderOpen(false); setCancelOrderError(""); } }}>
           <section className="order-cancel-confirm">
             <span className="order-cancel-icon" aria-hidden="true">!</span>
-            <h2 id="cancel-order-title">Отменить заказ?</h2>
-            <p>После отмены восстановить заказ не получится.</p>
+            <h2 id="cancel-order-title">{t("Отменить заказ?")}</h2>
+            <p>{t("После отмены восстановить заказ не получится.")}</p>
             {cancelOrderError ? <small role="alert">{cancelOrderError}</small> : null}
-            <button type="button" className="order-cancel-confirm-button" disabled={cancelOrderBusy} onClick={() => void cancelProfileOrder()}>{cancelOrderBusy ? "Отменяем…" : "Да, отменить"}</button>
-            <button type="button" className="order-cancel-keep" disabled={cancelOrderBusy} onClick={() => { setCancelOrderOpen(false); setCancelOrderError(""); }}>Оставить заказ</button>
+            <button type="button" className="order-cancel-confirm-button" disabled={cancelOrderBusy} onClick={() => void cancelProfileOrder()}>{cancelOrderBusy ? t("Отменяем…") : t("Да, отменить")}</button>
+            <button type="button" className="order-cancel-keep" disabled={cancelOrderBusy} onClick={() => { setCancelOrderOpen(false); setCancelOrderError(""); }}>{t("Оставить заказ")}</button>
           </section>
         </div>
       ) : null}
 
       {deliveryInfoOpen ? (
         <div className="drawer-overlay delivery-info-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeliveryInfoOpen(false); }}>
-          <section className="delivery-info-sheet" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? "Информация о самовывозе" : "Информация о доставке"}>
-            <button className="delivery-info-close" type="button" onClick={() => setDeliveryInfoOpen(false)} aria-label="Закрыть">×</button>
+          <section className="delivery-info-sheet" role="dialog" aria-modal="true" aria-label={deliveryType === "pickup" ? t("Информация о самовывозе") : t("Информация о доставке")}>
+            <button className="delivery-info-close" type="button" onClick={() => setDeliveryInfoOpen(false)} aria-label={t("Закрыть")}>×</button>
             {deliveryType === "pickup" ? (
               <>
-                <small>Самовывоз</small>
+                <small>{t("Самовывоз")}</small>
                 <h2>{pickupAddress}</h2>
-                <p className={`delivery-info-hours${orderingClosed ? " closed" : ""}`}>{orderingClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
+                <p className={`delivery-info-hours${orderingClosed ? " closed" : ""}`}>{orderingClosed ? t("Сейчас закрыто. {0}", { "0": deliveryAvailability.opensLabel }) : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
                 <div className="delivery-info-details">
-                  <h3>Детали</h3>
-                  <div><span>Время приготовления</span><b>~40 мин</b></div>
-                  <div><span>Стоимость самовывоза</span><b>Бесплатно</b></div>
+                  <h3>{t("Детали")}</h3>
+                  <div><span>{t("Время приготовления")}</span><b>{t("~40 мин")}</b></div>
+                  <div><span>{t("Стоимость самовывоза")}</span><b>{t("Бесплатно")}</b></div>
                 </div>
               </>
             ) : (
               <>
-                <small>{freeDeliveryThreshold > 0 ? `Бесплатная доставка от ${money(freeDeliveryThreshold)}` : "Бесплатная доставка"}</small>
-                <h2>{address || `Доставка в город ${city}`}</h2>
-                <p className={`delivery-info-hours${orderingClosed ? " closed" : ""}`}>{orderingClosed ? `Сейчас закрыто. ${deliveryAvailability.opensLabel}` : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
+                <small>{freeDeliveryThreshold > 0 ? t("Бесплатная доставка от {0}", { "0": money(freeDeliveryThreshold) }) : t("Бесплатная доставка")}</small>
+                <h2>{address || t("Доставка в город {0}", { "0": city })}</h2>
+                <p className={`delivery-info-hours${orderingClosed ? " closed" : ""}`}>{orderingClosed ? t("Сейчас закрыто. {0}", { "0": deliveryAvailability.opensLabel }) : deliveryScheduleLabel}<br />{deliveryHoursLabel}</p>
                 <div className="delivery-info-details">
-                  <h3>Детали</h3>
-                  <div><span>Время доставки</span><b>~{estimatedDeliveryMinutes} мин</b></div>
-                  <div><span>Минимальный заказ</span><b>{money(minimumOrderAmount)}</b></div>
-                  <div><span>Максимальный заказ</span><b>{money(maximumOrderAmount)}</b></div>
-                  <div><span>Рабочее время</span><b>{deliveryHoursLabel}</b></div>
-                  <div><span>При заказе до {money(freeDeliveryThreshold)}</span><b>{money(deliveryFee)}</b></div>
-                  <div><span>При заказе от {money(freeDeliveryThreshold)}</span><b>Бесплатно</b></div>
-                  {cartTotal < freeDeliveryThreshold ? <div><span>До бесплатной доставки</span><b><NumberTicker value={freeDeliveryThreshold - cartTotal} format={money} /></b></div> : null}
+                  <h3>{t("Детали")}</h3>
+                  <div><span>{t("Время доставки")}</span><b>~{estimatedDeliveryMinutes}{t(" мин")}</b></div>
+                  <div><span>{t("Минимальный заказ")}</span><b>{money(minimumOrderAmount)}</b></div>
+                  <div><span>{t("Максимальный заказ")}</span><b>{money(maximumOrderAmount)}</b></div>
+                  <div><span>{t("Рабочее время")}</span><b>{deliveryHoursLabel}</b></div>
+                  <div><span>{t("При заказе до ")}{money(freeDeliveryThreshold)}</span><b>{money(deliveryFee)}</b></div>
+                  <div><span>{t("При заказе от ")}{money(freeDeliveryThreshold)}</span><b>{t("Бесплатно")}</b></div>
+                  {cartTotal < freeDeliveryThreshold ? <div><span>{t("До бесплатной доставки")}</span><b><NumberTicker value={freeDeliveryThreshold - cartTotal} format={money} /></b></div> : null}
                 </div>
               </>
             )}
-            <button className="delivery-info-confirm" type="button" onClick={() => setDeliveryInfoOpen(false)}>Понятно</button>
+            <button className="delivery-info-confirm" type="button" onClick={() => setDeliveryInfoOpen(false)}>{t("Понятно")}</button>
           </section>
         </div>
       ) : null}
 
       {cartKitOpen ? (
         <div className="drawer-overlay cart-kit-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setCartKitOpen(false); }}>
-          <aside className="cart-kit-modal" aria-label="Комплектация заказа">
-            <header><h2>Комплектация</h2><button type="button" onClick={() => setCartKitOpen(false)} aria-label="Закрыть">×</button></header>
-            <h3>Приборы</h3>
-            <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>Палочки</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>Без приборов</b><small>Если не используете — это экологично</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
+          <aside className="cart-kit-modal" aria-label={t("Комплектация заказа")}>
+            <header><h2>{t("Комплектация")}</h2><button type="button" onClick={() => setCartKitOpen(false)} aria-label={t("Закрыть")}>×</button></header>
+            <h3>{t("Приборы")}</h3>
+            <div className="kit-row"><span className="chopsticks-art" aria-hidden="true"><svg className="chopsticks-icon" viewBox="0 0 64 64"><path d="M12 58 42 8" /><path d="M24 58 54 9" /></svg></span><div><b>{t("Палочки")}</b><div className="kit-quantity"><button disabled={noUtensils || utensilsCount === 0} onClick={() => setUtensilsCount((current) => Math.max(0, current - 1))}>−</button><span>{noUtensils ? 0 : utensilsCount}</span><button disabled={noUtensils || utensilsCount >= 20} onClick={() => setUtensilsCount((current) => Math.min(20, current + 1))}>+</button></div></div><label className="no-utensils"><span><b>{t("Без приборов")}</b><small>{t("Если не используете — это экологично")}</small></span><button role="switch" aria-checked={noUtensils} className={noUtensils ? "active" : ""} onClick={() => setNoUtensils((current) => !current)}><i /></button></label></div>
             <div className="kit-extras">{cartKitItems.map((item) => {
               const quantity = selectedKitQuantity(item.quantity, kitAdjustments[item.id]);
               return <div className="kit-extra" key={item.id}>
                 {item.image ? <img src={item.image} alt="" /> : <span className="kit-extra-placeholder" aria-hidden="true" />}
-                <span><b>{item.name}</b><span className="kit-quantity kit-extra-quantity">
-                  <button type="button" aria-label={`Уменьшить: ${item.name}`} disabled={quantity === 0} onClick={() => setKitAdjustments((current) => ({ ...current, [item.id]: Math.max(0, selectedKitQuantity(item.quantity, current[item.id]) - 1) - item.quantity }))}>−</button>
+                <span><b>{t(item.name)}</b><span className="kit-quantity kit-extra-quantity">
+                  <button type="button" aria-label={t("Уменьшить: {0}", { "0": item.name })} disabled={quantity === 0} onClick={() => setKitAdjustments((current) => ({ ...current, [item.id]: Math.max(0, selectedKitQuantity(item.quantity, current[item.id]) - 1) - item.quantity }))}>−</button>
                   <span>{quantity}</span>
-                  <button type="button" aria-label={`Увеличить: ${item.name}`} disabled={quantity >= item.quantity} onClick={() => setKitAdjustments((current) => ({ ...current, [item.id]: Math.min(item.quantity, selectedKitQuantity(item.quantity, current[item.id]) + 1) - item.quantity }))}>+</button>
+                  <button type="button" aria-label={t("Увеличить: {0}", { "0": item.name })} disabled={quantity >= item.quantity} onClick={() => setKitAdjustments((current) => ({ ...current, [item.id]: Math.min(item.quantity, selectedKitQuantity(item.quantity, current[item.id]) + 1) - item.quantity }))}>+</button>
                 </span></span>
               </div>;
             })}</div>
-            {!cartKitItems.length ? <p>К выбранным блюдам дополнительная комплектация не предусмотрена.</p> : null}
-            {toppingProducts.length ? <><h3 className="kit-toppings-title">Дополнительно</h3><div className="related-row kit-toppings-row">{toppingProducts.map((product) => <article key={product.id} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{product.name}</span><div className="related-actions"><b>{money(product.price)}</b><button type="button" aria-label={`Добавить ${product.name}`} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
-            <button className="cart-kit-save" type="button" onClick={() => setCartKitOpen(false)}>Готово</button>
+            {!cartKitItems.length ? <p>{t("К выбранным блюдам дополнительная комплектация не предусмотрена.")}</p> : null}
+            {toppingProducts.length ? <><h3 className="kit-toppings-title">{t("Дополнительно")}</h3><div className="related-row kit-toppings-row">{toppingProducts.map((product) => <article key={product.id} onClick={() => openProduct(product)}><div className="related-image"><ProductArt product={product} mode="related" /></div><span>{t(product.name)}</span><div className="related-actions"><b>{money(product.price)}</b><button type="button" aria-label={t("Добавить {0}", { "0": product.name })} onClick={(event) => { event.stopPropagation(); if (product.modifierGroups?.length) openProduct(product); else addToCart(product); }}>+</button></div></article>)}</div></> : null}
+            <button className="cart-kit-save" type="button" onClick={() => setCartKitOpen(false)}>{t("Готово")}</button>
           </aside>
         </div>
       ) : null}
 
       {phoneAuthOpen ? (
         <div className="drawer-overlay phone-auth-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !phoneAuthBusy) setPhoneAuthOpen(false); }}>
-          <aside className="phone-auth-modal" aria-label="Авторизация по номеру телефона">
-            <button className="phone-auth-close" type="button" onClick={() => setPhoneAuthOpen(false)} aria-label="Закрыть">×</button>
-            <div className="phone-auth-brand" aria-label="Накта суши"><span><img src="/логотип.png" alt="" /></span><strong>НАКТА<br />СУШИ</strong></div>
-            <h2>{phoneCodeRequested ? "Введите код" : "Войдите или зарегистрируйтесь"}</h2>
+          <aside className="phone-auth-modal" aria-label={t("Авторизация по номеру телефона")}>
+            <button className="phone-auth-close" type="button" onClick={() => setPhoneAuthOpen(false)} aria-label={t("Закрыть")}>×</button>
+            <div className="phone-auth-brand" aria-label={t("Накта суши")}><span><img src="/логотип.png" alt="" /></span><strong>{t("НАКТА")}<br />{t("СУШИ")}</strong></div>
+            <h2>{phoneCodeRequested ? t("Введите код") : t("Войдите или зарегистрируйтесь")}</h2>
             <p>{phoneCodeRequested
-              ? `Код отправлен на ${checkoutForm.phone}`
-              : "Введите номер телефона, чтобы войти в личный кабинет"}</p>
+              ? t("Код отправлен на {0}", { "0": checkoutForm.phone })
+              : t("Введите номер телефона, чтобы войти в личный кабинет")}</p>
             <form onSubmit={(event) => { event.preventDefault(); if (phoneCodeRequested) void verifyPhoneCode(); }}>
               {!phoneCodeRequested ? (
                 <label className="phone-auth-phone-field">
-                  <span>Номер телефона</span>
+                  <span>{t("Номер телефона")}</span>
                   <span className="phone-auth-input-shell">
                     <Icon path={mdiPhoneOutline} size={1.1} aria-hidden="true" />
                     <b>+996</b>
                     <input
                       autoFocus
                       required
-                      aria-label="Номер телефона"
+                      aria-label={t("Номер телефона")}
                       autoComplete="tel"
                       inputMode="numeric"
                       maxLength={11}
@@ -2682,51 +2693,52 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                   </span>
                 </label>
               ) : (
-                <label><span>Код подтверждения</span><input autoFocus required aria-label="Код из SMS" autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
+                <label><span>{t("Код подтверждения")}</span><input autoFocus required aria-label={t("Код из SMS")} autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={phoneCode} onChange={(event) => setPhoneCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" /></label>
               )}
               {!phoneCodeRequested ? (
                 <div className="phone-auth-turnstile">
-                  <span>Проверка, что вы человек</span>
+                  <span>{t("Проверка, что вы человек")}</span>
                   <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileResetKey} />
                 </div>
               ) : null}
               {phoneAuthMessage ? <div className="phone-auth-message" role="status">{phoneAuthMessage}</div> : null}
               {phoneCodeRequested ? (
                 <>
-                  <button className="phone-auth-submit" type="submit" disabled={phoneAuthBusy || phoneCode.length !== 6}>{phoneAuthBusy ? "Подождите…" : "Подтвердить"}</button>
-                  <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>Изменить номер</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => { setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>{phoneCodeRetryAfter > 0 ? `Повторно через ${phoneCodeRetryAfter} сек.` : "Получить новый код"}</button></div>
+                  <button className="phone-auth-submit" type="submit" disabled={phoneAuthBusy || phoneCode.length !== 6}>{phoneAuthBusy ? t("Подождите…") : t("Подтвердить")}</button>
+                  <div className="phone-auth-actions"><button type="button" onClick={() => { setPhoneAuthMethod("choose"); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>{t("Изменить номер")}</button><button type="button" disabled={phoneAuthBusy || phoneCodeRetryAfter > 0} onClick={() => { setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setTurnstileToken(""); setTurnstileResetKey((current) => current + 1); }}>{phoneCodeRetryAfter > 0 ? t("Повторно через {0} сек.", { "0": phoneCodeRetryAfter }) : t("Получить новый код")}</button></div>
                 </>
               ) : (
-                <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || checkoutForm.phone.replace(/\D/g, "").length !== 12 || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? "Отправляем SMS…" : "Получить код"}</button>
+                <button className="phone-auth-submit" type="button" disabled={phoneAuthBusy || checkoutForm.phone.replace(/\D/g, "").length !== 12 || !turnstileToken} onClick={() => void requestPhoneCode()}>{phoneAuthBusy && phoneAuthMethod === "sms" ? t("Отправляем SMS…") : t("Получить код")}</button>
               )}
             </form>
             {!phoneCodeRequested ? <div className="phone-auth-legal">
-              <p>Нажимая «Получить код», вы соглашаетесь с <a href="/legal">Согласием на обработку персональных данных</a>, <a href="/privacy">Политикой конфиденциальности</a> и <a href="/terms">Условиями использования</a>.</p>
-              <nav aria-label="Правовая информация">
-                <a href="/privacy"><Icon path={mdiShieldAccountOutline} size={1} aria-hidden="true" />Политика конфиденциальности<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
-                <a href="/terms"><Icon path={mdiFileDocumentOutline} size={1} aria-hidden="true" />Условия использования<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
-                <a href="/terms"><Icon path={mdiClipboardTextOutline} size={1} aria-hidden="true" />Условия доставки и оплаты<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
+              <p>{t("Нажимая «Получить код», вы соглашаетесь с ")}<a href="/legal">{t("Согласием на обработку персональных данных")}</a>, <a href="/privacy">{t("Политикой конфиденциальности")}</a>{t(" и ")}<a href="/terms">{t("Условиями использования")}</a>.</p>
+              <nav aria-label={t("Правовая информация")}>
+                <a href="/privacy"><Icon path={mdiShieldAccountOutline} size={1} aria-hidden="true" />{t("Политика конфиденциальности")}<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
+                <a href="/terms"><Icon path={mdiFileDocumentOutline} size={1} aria-hidden="true" />{t("Условия использования")}<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
+                <a href="/terms"><Icon path={mdiClipboardTextOutline} size={1} aria-hidden="true" />{t("Условия доставки и оплаты")}<Icon path={mdiChevronRight} size={1} aria-hidden="true" /></a>
               </nav>
             </div> : null}
-            {phoneAuthPurpose === "checkout" ? <button className="phone-auth-back" type="button" onClick={() => { setPhoneAuthOpen(false); setCartOpen(true); }}>Вернуться в корзину</button> : null}
+            <div className="phone-auth-language"><SiteLanguageSelector /></div>
+            {phoneAuthPurpose === "checkout" ? <button className="phone-auth-back" type="button" onClick={() => { setPhoneAuthOpen(false); setCartOpen(true); }}>{t("Вернуться в корзину")}</button> : null}
           </aside>
         </div>
       ) : null}
 
       {checkoutOpen ? (
         <div className="drawer-overlay checkout-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !checkoutSubmitting) setCheckoutOpen(false); }}>
-          <aside className="checkout-drawer" aria-label={placedOrder ? "Заказ принят" : "Оформление заказа"}>
+          <aside className="checkout-drawer" aria-label={placedOrder ? t("Заказ принят") : t("Оформление заказа")}>
             {placedOrder ? <section className="checkout-success">
               <div className="checkout-success-mark" aria-hidden="true">✓</div>
-              <span>Спасибо!</span>
-              <h2>Заказ принят</h2>
-              <p>Номер заказа <b>#{publicOrderNumber(placedOrder)}</b>. Администратор скоро проверит и подтвердит его.</p>
-              <div><span>К оплате</span><b><NumberTicker value={placedOrder.total} format={money} /></b></div>
-              <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>Вернуться в меню</button>
+              <span>{t("Спасибо!")}</span>
+              <h2>{t("Заказ принят")}</h2>
+              <p>{t("Номер заказа ")}<b>#{publicOrderNumber(placedOrder)}</b>{t(". Администратор скоро проверит и подтвердит его.")}</p>
+              <div><span>{t("К оплате")}</span><b><NumberTicker value={placedOrder.total} format={money} /></b></div>
+              <button type="button" onClick={() => { setCheckoutOpen(false); setPlacedOrder(null); }}>{t("Вернуться в меню")}</button>
             </section> : <form className="checkout-form" onSubmit={submitOrder}>
               <header className="checkout-head">
-                <button type="button" onClick={() => { setCheckoutOpen(false); setCartOpen(true); }} aria-label="Вернуться в корзину"><Icon path={mdiArrowLeft} size={1.12} aria-hidden="true" /></button>
-                <h2>{deliveryType === "pickup" ? "Самовывоз" : "Доставка"}</h2>
+                <button type="button" onClick={() => { setCheckoutOpen(false); setCartOpen(true); }} aria-label={t("Вернуться в корзину")}><Icon path={mdiArrowLeft} size={1.12} aria-hidden="true" /></button>
+                <h2>{deliveryType === "pickup" ? t("Самовывоз") : t("Доставка")}</h2>
                 <span className="checkout-head-spacer" aria-hidden="true" />
               </header>
 
@@ -2738,43 +2750,43 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                     <Icon path={mdiChevronRight} size={1.12} aria-hidden="true" />
                   </button>
                   {deliveryType === "delivery" ? <div className="checkout-address-details">
-                    <label><Icon path={mdiOfficeBuildingOutline} size={0.83} aria-hidden="true" /><input aria-label="Квартира" placeholder="Квартира" value={checkoutForm.apartment} onChange={(event) => updateCheckoutField("apartment", event.target.value)} /></label>
-                    <label><Icon path={mdiDoorOpen} size={0.83} aria-hidden="true" /><input aria-label="Подъезд" placeholder="Подъезд" value={checkoutForm.entrance} onChange={(event) => updateCheckoutField("entrance", event.target.value)} /></label>
-                    <label><Icon path={mdiStairs} size={0.83} aria-hidden="true" /><input aria-label="Этаж" placeholder="Этаж" value={checkoutForm.floor} onChange={(event) => updateCheckoutField("floor", event.target.value)} /></label>
+                    <label><Icon path={mdiOfficeBuildingOutline} size={0.83} aria-hidden="true" /><input aria-label={t("Квартира")} placeholder={t("Квартира")} value={checkoutForm.apartment} onChange={(event) => updateCheckoutField("apartment", event.target.value)} /></label>
+                    <label><Icon path={mdiDoorOpen} size={0.83} aria-hidden="true" /><input aria-label={t("Подъезд")} placeholder={t("Подъезд")} value={checkoutForm.entrance} onChange={(event) => updateCheckoutField("entrance", event.target.value)} /></label>
+                    <label><Icon path={mdiStairs} size={0.83} aria-hidden="true" /><input aria-label={t("Этаж")} placeholder={t("Этаж")} value={checkoutForm.floor} onChange={(event) => updateCheckoutField("floor", event.target.value)} /></label>
                   </div> : null}
                 </section>
 
-                <h3 className="checkout-section-title">Получатель</h3>
+                <h3 className="checkout-section-title">{t("Получатель")}</h3>
                 <section className="checkout-recipient-card">
                   <label className="checkout-recipient-name">
                     <Icon path={mdiAccountOutline} size={1.2} aria-hidden="true" />
-                    <input required autoComplete="name" aria-label="Имя получателя" value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder="Ваше имя" />
+                    <input required autoComplete="name" aria-label={t("Имя получателя")} value={checkoutForm.customerName} onChange={(event) => updateCheckoutField("customerName", event.target.value)} placeholder={t("Ваше имя")} />
                   </label>
                   <span className="checkout-recipient-divider" aria-hidden="true" />
-                  <button className="checkout-phone-button" type="button" title="Изменить номер телефона" onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthMethod("choose"); try { window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY); } catch {} setPhoneAuthOpen(true); }}>
+                  <button className="checkout-phone-button" type="button" title={t("Изменить номер телефона")} onClick={() => { setCheckoutOpen(false); setPhoneVerificationToken(""); setVerifiedPhone(""); setPhoneCodeRequested(false); setPhoneCode(""); setPhoneAuthMessage(""); setPhoneAuthMethod("choose"); try { window.localStorage.removeItem(PHONE_AUTH_SESSION_STORAGE_KEY); } catch {} setPhoneAuthOpen(true); }}>
                     <Icon path={mdiPhoneOutline} size={1} aria-hidden="true" />
                     <b>{checkoutForm.phone}</b>
                   </button>
                 </section>
 
-                <h3 className="checkout-section-title checkout-payment-title">Оплата</h3>
-                <div className="checkout-payment" role="radiogroup" aria-label="Способ оплаты">
-                  <button type="button" role="radio" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-checked={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><Icon path={mdiCashMultiple} size={1.12} aria-hidden="true" /><b>Наличными</b><span className="checkout-payment-radio" aria-hidden="true"><i /></span></button>
-                  <button type="button" role="radio" className={checkoutForm.paymentMethod === "card_on_delivery" ? "active" : ""} aria-checked={checkoutForm.paymentMethod === "card_on_delivery"} onClick={() => updateCheckoutField("paymentMethod", "card_on_delivery")}><Icon path={mdiCreditCardOutline} size={1.12} aria-hidden="true" /><b>Картой</b><span className="checkout-payment-radio" aria-hidden="true"><i /></span></button>
+                <h3 className="checkout-section-title checkout-payment-title">{t("Оплата")}</h3>
+                <div className="checkout-payment" role="radiogroup" aria-label={t("Способ оплаты")}>
+                  <button type="button" role="radio" className={checkoutForm.paymentMethod === "cash" ? "active" : ""} aria-checked={checkoutForm.paymentMethod === "cash"} onClick={() => updateCheckoutField("paymentMethod", "cash")}><Icon path={mdiCashMultiple} size={1.12} aria-hidden="true" /><b>{t("Наличными")}</b><span className="checkout-payment-radio" aria-hidden="true"><i /></span></button>
+                  <button type="button" role="radio" className={checkoutForm.paymentMethod === "card_on_delivery" ? "active" : ""} aria-checked={checkoutForm.paymentMethod === "card_on_delivery"} onClick={() => updateCheckoutField("paymentMethod", "card_on_delivery")}><Icon path={mdiCreditCardOutline} size={1.12} aria-hidden="true" /><b>{t("Картой")}</b><span className="checkout-payment-radio" aria-hidden="true"><i /></span></button>
                 </div>
 
                 <label className="checkout-comment-field">
                   <Icon path={mdiMessageTextOutline} size={1.02} aria-hidden="true" />
-                  <textarea aria-label="Пожелания к заказу" value={checkoutForm.comment} onChange={(event) => updateCheckoutField("comment", event.target.value)} placeholder="Пожелания к заказу" maxLength={500} />
+                  <textarea aria-label={t("Пожелания к заказу")} value={checkoutForm.comment} onChange={(event) => updateCheckoutField("comment", event.target.value)} placeholder={t("Пожелания к заказу")} maxLength={500} />
                 </label>
-                <p className="checkout-terms">Оформляя заказ, вы принимаете <a href="/terms">Условия заказа</a></p>
+                <p className="checkout-terms">{t("Оформляя заказ, вы принимаете ")}<a href="/terms">{t("Условия заказа")}</a></p>
                 {checkoutError ? <div className="checkout-error" role="alert">{checkoutError}</div> : null}
               </div>
 
               <footer className="checkout-footer">
-                <div className="checkout-total-block"><span>Итого</span><b><NumberTicker value={cartTotal} format={money} /></b></div>
+                <div className="checkout-total-block"><span>{t("Итого")}</span><b><NumberTicker value={cartTotal} format={money} /></b></div>
                 <button className="checkout-submit" type="submit" disabled={checkoutSubmitting || orderingClosed || !checkoutForm.customerName.trim() || !phoneVerificationToken}>
-                  <span>{checkoutSubmitting ? "Отправляем заказ…" : orderingClosed ? "Кухня закрыта" : "Заказать"}</span>
+                  <span>{checkoutSubmitting ? t("Отправляем заказ…") : orderingClosed ? t("Кухня закрыта") : t("Заказать")}</span>
                 </button>
               </footer>
             </form>}

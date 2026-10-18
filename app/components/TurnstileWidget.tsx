@@ -1,4 +1,6 @@
 "use client";
+import { translateSite as t } from "../lib/site-i18n/store";
+import { useSiteLanguage } from "../lib/site-i18n/react";
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +36,7 @@ type Props = {
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || "";
 
 export function TurnstileWidget({ onToken, resetKey }: Props) {
+  useSiteLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [scriptReady, setScriptReady] = useState(Boolean(globalThis.window?.turnstile));
@@ -65,7 +68,7 @@ export function TurnstileWidget({ onToken, resetKey }: Props) {
   }, [onToken, resetKey, scriptReady]);
 
   if (!SITE_KEY) {
-    return <p className="turnstile-config-error">Проверка безопасности не настроена.</p>;
+    return <p className="turnstile-config-error">{t("Проверка безопасности не настроена.")}</p>;
   }
 
   return (

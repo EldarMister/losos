@@ -1,4 +1,6 @@
 "use client";
+import { translateSite as t } from "../lib/site-i18n/store";
+import { useSiteLanguage } from "../lib/site-i18n/react";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -70,7 +72,7 @@ function getRegionMapConfig(
 let yandexMapsPromise: Promise<any> | null = null;
 
 function loadYandexMaps(apiKey: string, suggestApiKey: string) {
-  if (typeof window === "undefined") return Promise.reject(new Error("Карта доступна только в браузере"));
+  if (typeof window === "undefined") return Promise.reject(new Error(t("Карта доступна только в браузере")));
   if ((window as any).ymaps) {
     return new Promise<any>((resolve) => (window as any).ymaps.ready(() => resolve((window as any).ymaps)));
   }
@@ -90,12 +92,12 @@ function loadYandexMaps(apiKey: string, suggestApiKey: string) {
     script.onload = () => {
       const ymaps = (window as any).ymaps;
       if (!ymaps) {
-        reject(new Error("Яндекс Карты не загрузились"));
+        reject(new Error(t("Яндекс Карты не загрузились")));
         return;
       }
       ymaps.ready(() => resolve(ymaps));
     };
-    script.onerror = () => reject(new Error("Не удалось загрузить Яндекс Карты"));
+    script.onerror = () => reject(new Error(t("Не удалось загрузить Яндекс Карты")));
     document.head.appendChild(script);
   }).catch((error) => {
     yandexMapsPromise = null;
@@ -260,7 +262,7 @@ async function geocodeViaApi(options: {
   if (options.kind) params.set("kind", options.kind);
   const response = await fetch(`/api/geocode?${params}`, { cache: "no-store" });
   const data = await response.json() as { items?: GeocodedLocation[]; error?: string };
-  if (!response.ok) throw new Error(data.error || "Не удалось определить адрес");
+  if (!response.ok) throw new Error(data.error || t("Не удалось определить адрес"));
   return data.items || [];
 }
 
@@ -274,6 +276,7 @@ export function YandexDeliveryMap({
   onQueryChange,
   onLocationChange,
 }: YandexDeliveryMapProps) {
+  useSiteLanguage();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const geocodeAddressRef = useRef<(
     value: string,
@@ -286,7 +289,7 @@ export function YandexDeliveryMap({
   const handledSearchRequestRef = useRef(searchRequest);
   const [credentials, setCredentials] = useState<MapCredentials | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [message, setMessage] = useState("Настраиваем карту…");
+  const [message, setMessage] = useState(t("Настраиваем карту…"));
   const [suggestionResult, setSuggestionResult] = useState<{ query: string; items: AddressSuggestion[] }>({
     query: "",
     items: [],
@@ -303,7 +306,7 @@ export function YandexDeliveryMap({
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/maps-config", { signal: controller.signal, cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Настройки карты недоступны")))
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error(t("Настройки карты недоступны"))))
       .then((data: MapCredentials) => {
         const nextCredentials = {
           mapsApiKey: data.mapsApiKey || "",
@@ -312,13 +315,13 @@ export function YandexDeliveryMap({
         setCredentials(nextCredentials);
         if (!nextCredentials.mapsApiKey || !nextCredentials.suggestApiKey) {
           setStatus("error");
-          setMessage("Нужен бесплатный ключ Яндекс Карт");
+          setMessage(t("Нужен бесплатный ключ Яндекс Карт"));
         }
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
         setStatus("error");
-        setMessage(error instanceof Error ? error.message : "Настройки карты недоступны");
+        setMessage(error instanceof Error ? error.message : t("Настройки карты недоступны"));
       });
     return () => controller.abort();
   }, []);
@@ -353,7 +356,7 @@ export function YandexDeliveryMap({
         const response = await fetch(`https://suggest-maps.yandex.ru/v1/suggest?${params}`, {
           signal: controller.signal,
         });
-        if (!response.ok) throw new Error(`Геосаджест: ${response.status}`);
+        if (!response.ok) throw new Error(t("Геосаджест: {0}", { "0": response.status }));
         const data = await response.json() as {
           results?: Array<{
             title?: { text?: string };
@@ -421,7 +424,7 @@ export function YandexDeliveryMap({
 
     const reverseGeocode = async (point: [number, number]) => {
       if (!isInsideDeliveryArea(point, config.bounds, deliveryZone)) {
-        setMessage(`Выберите адрес в городе ${config.city}`);
+        setMessage(t("Выберите адрес в городе {0}", { "0": config.city }));
         onLocationChange(null);
         updatePoint(config.center, 13);
         return;
@@ -431,10 +434,10 @@ export function YandexDeliveryMap({
       // ровно в месте клика, а не переносим её к центру найденного здания.
       updatePoint(point);
       onLocationChange({
-        address: `${config.city}, выбранная точка на карте`,
+        address: t("{0}, выбранная точка на карте", { "0": config.city }),
         coordinates: point,
       });
-      setMessage("Определяем адрес…");
+      setMessage(t("Определяем адрес…"));
       try {
         let result = await geocodeViaApi({
           region,
@@ -451,17 +454,17 @@ export function YandexDeliveryMap({
         }
         if (cancelled) return;
         const geoObject = result[0];
-        if (!geoObject) throw new Error("Адрес не найден");
-        if (!isInsideDeliveryArea(geoObject.coordinates, config.bounds, deliveryZone)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!geoObject) throw new Error(t("Адрес не найден"));
+        if (!isInsideDeliveryArea(geoObject.coordinates, config.bounds, deliveryZone)) throw new Error(t("Выберите адрес в городе {0}", { "0": config.city }));
         const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
         onLocationChange({ address: resolvedAddress, coordinates: point });
-        setMessage("Адрес найден");
+        setMessage(t("Адрес найден"));
       } catch (error) {
         if (cancelled) return;
         console.error("Yandex reverse geocoding failed", error);
-        setMessage("Точка выбрана — при необходимости уточните адрес");
+        setMessage(t("Точка выбрана — при необходимости уточните адрес"));
       }
     };
 
@@ -473,7 +476,7 @@ export function YandexDeliveryMap({
     ) => {
       const trimmed = value.trim();
       if (!trimmed) return;
-      setMessage("Ищем адрес…");
+      setMessage(t("Ищем адрес…"));
       onLocationChange(null);
 
       try {
@@ -499,7 +502,7 @@ export function YandexDeliveryMap({
               suppressSuggestionsRef.current = trimmed;
               onQueryChange(trimmed);
               onLocationChange({ address: resolvedAddress, coordinates: uriPoint });
-              setMessage(isOrganization ? "Место найдено" : "Адрес найден");
+              setMessage(isOrganization ? t("Место найдено") : t("Адрес найден"));
               return;
             }
           } catch (error) {
@@ -519,7 +522,7 @@ export function YandexDeliveryMap({
               suppressSuggestionsRef.current = trimmed;
               onQueryChange(trimmed);
               onLocationChange({ address: resolvedAddress, coordinates: organizationPoint });
-              setMessage("Место найдено");
+              setMessage(t("Место найдено"));
               return;
             }
           } catch (error) {
@@ -548,7 +551,7 @@ export function YandexDeliveryMap({
                 suppressSuggestionsRef.current = trimmed;
                 onQueryChange(trimmed);
                 onLocationChange({ address: resolvedAddress, coordinates: candidatePoint });
-                setMessage("Место найдено");
+                setMessage(t("Место найдено"));
                 return;
               }
             } catch (error) {
@@ -567,19 +570,19 @@ export function YandexDeliveryMap({
             break;
           }
         }
-        if (!geoObject) throw new Error(`Адрес в городе ${config.city} не найден`);
+        if (!geoObject) throw new Error(t("Адрес в городе {0} не найден", { "0": config.city }));
         const point = geoObject.coordinates;
-        if (!isInsideDeliveryArea(point, config.bounds, deliveryZone)) throw new Error(`Выберите адрес в городе ${config.city}`);
+        if (!isInsideDeliveryArea(point, config.bounds, deliveryZone)) throw new Error(t("Выберите адрес в городе {0}", { "0": config.city }));
         const resolvedAddress = addressWithoutCity(geoObject.address, config.city);
         updatePoint(point);
         suppressSuggestionsRef.current = resolvedAddress;
         onQueryChange(resolvedAddress);
         onLocationChange({ address: resolvedAddress, coordinates: point });
-        setMessage("Адрес найден");
+        setMessage(t("Адрес найден"));
       } catch (error) {
         if (cancelled) return;
         console.error("Yandex geocoding failed", error);
-        setMessage(yandexErrorMessage(error, "Не удалось найти адрес"));
+        setMessage(yandexErrorMessage(error, t("Не удалось найти адрес")));
       }
     };
 
@@ -647,13 +650,13 @@ export function YandexDeliveryMap({
         reverseGeocodeRef.current = reverseGeocode;
         geocodeAddressRef.current = geocodeAddress;
         setStatus("ready");
-        setMessage("Введите адрес или выберите точку на карте");
+        setMessage(t("Введите адрес или выберите точку на карте"));
       })
       .catch((error) => {
         if (cancelled) return;
         console.error("Yandex Maps loading failed", error);
         setStatus("error");
-        setMessage(yandexErrorMessage(error, "Карта временно недоступна"));
+        setMessage(yandexErrorMessage(error, t("Карта временно недоступна")));
       });
 
     return () => {
@@ -674,7 +677,7 @@ export function YandexDeliveryMap({
 
   const locateUser = () => {
     if (!navigator.geolocation || status !== "ready") {
-      setMessage("Геолокация недоступна");
+      setMessage(t("Геолокация недоступна"));
       return;
     }
 
@@ -691,17 +694,17 @@ export function YandexDeliveryMap({
         return;
       }
       if (error.code === error.PERMISSION_DENIED) {
-        setMessage("Разрешите доступ к геолокации в настройках браузера");
+        setMessage(t("Разрешите доступ к геолокации в настройках браузера"));
         return;
       }
       if (error.code === error.POSITION_UNAVAILABLE) {
-        setMessage("Не удалось получить геопозицию — проверьте GPS или интернет");
+        setMessage(t("Не удалось получить геопозицию — проверьте GPS или интернет"));
         return;
       }
-      setMessage("Не удалось определить местоположение — попробуйте ещё раз");
+      setMessage(t("Не удалось определить местоположение — попробуйте ещё раз"));
     };
 
-    setMessage("Определяем местоположение…");
+    setMessage(t("Определяем местоположение…"));
     navigator.geolocation.getCurrentPosition(
       usePosition,
       (error) => showLocationError(error),
@@ -723,9 +726,9 @@ export function YandexDeliveryMap({
 
   return (
     <>
-      <div ref={mapContainerRef} className="yandex-map-canvas" aria-label={`Интерактивная карта города ${config.city}`} />
+      <div ref={mapContainerRef} className="yandex-map-canvas" aria-label={t("Интерактивная карта города {0}", { "0": config.city })} />
       {suggestionsHost && suggestions.length > 0 ? createPortal(
-        <div className="custom-address-suggestions" role="listbox" aria-label="Подсказки адресов">
+        <div className="custom-address-suggestions" role="listbox" aria-label={t("Подсказки адресов")}>
           {suggestions.map((suggestion, index) => (
             <button
               key={`${suggestion.value}-${suggestion.subtitle || ""}-${index}`}
@@ -742,7 +745,7 @@ export function YandexDeliveryMap({
         </div>,
         suggestionsHost,
       ) : null}
-      {status === "ready" ? <button className="map-locate" type="button" onClick={locateUser} aria-label="Определить моё местоположение"><Icon path={mdiNavigationVariant} size={0.85} aria-hidden="true" /></button> : null}
+      {status === "ready" ? <button className="map-locate" type="button" onClick={locateUser} aria-label={t("Определить моё местоположение")}><Icon path={mdiNavigationVariant} size={0.85} aria-hidden="true" /></button> : null}
       {status !== "ready" ? (
         <div className={`map-state map-state-${status}`} role={status === "error" ? "alert" : "status"}>
           {status === "loading" ? <span className="map-spinner" aria-hidden="true" /> : null}
@@ -761,10 +764,11 @@ export function YandexPickupMap({
   longitude,
   selected,
 }: YandexPickupMapProps) {
+  useSiteLanguage();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [credentials, setCredentials] = useState<MapCredentials | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [message, setMessage] = useState("Настраиваем карту…");
+  const [message, setMessage] = useState(t("Настраиваем карту…"));
   const config = regionMapConfig[region];
   const point = pickupCoordinates(yandexUrl, region, latitude, longitude);
   const mapsApiKey = credentials?.mapsApiKey || "";
@@ -773,7 +777,7 @@ export function YandexPickupMap({
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/maps-config", { signal: controller.signal, cache: "no-store" })
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("Настройки карты недоступны")))
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error(t("Настройки карты недоступны"))))
       .then((data: MapCredentials) => {
         const nextCredentials = {
           mapsApiKey: data.mapsApiKey || "",
@@ -782,13 +786,13 @@ export function YandexPickupMap({
         setCredentials(nextCredentials);
         if (!nextCredentials.mapsApiKey || !nextCredentials.suggestApiKey) {
           setStatus("error");
-          setMessage("Нужен бесплатный ключ Яндекс Карт");
+          setMessage(t("Нужен бесплатный ключ Яндекс Карт"));
         }
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
         setStatus("error");
-        setMessage(error instanceof Error ? error.message : "Настройки карты недоступны");
+        setMessage(error instanceof Error ? error.message : t("Настройки карты недоступны"));
       });
     return () => controller.abort();
   }, []);
@@ -836,7 +840,7 @@ export function YandexPickupMap({
         if (cancelled) return;
         console.error("Yandex pickup map loading failed", error);
         setStatus("error");
-        setMessage(yandexErrorMessage(error, "Карта временно недоступна"));
+        setMessage(yandexErrorMessage(error, t("Карта временно недоступна")));
       });
 
     return () => {
@@ -850,7 +854,7 @@ export function YandexPickupMap({
 
   return (
     <>
-      <div ref={mapContainerRef} className="yandex-map-canvas" aria-label={`Интерактивная карта самовывоза в городе ${config.city}`} />
+      <div ref={mapContainerRef} className="yandex-map-canvas" aria-label={t("Интерактивная карта самовывоза в городе {0}", { "0": config.city })} />
       {status !== "ready" ? (
         <div className={`map-state map-state-${status}`} role={status === "error" ? "alert" : "status"}>
           {status === "loading" ? <span className="map-spinner" aria-hidden="true" /> : null}
