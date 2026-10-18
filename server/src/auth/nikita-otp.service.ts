@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { isNikitaSmsToken, NikitaSmsError, sendNikitaSmsCode, verifyNikitaSmsCode } from "./nikita-sms";
 
 type NikitaOtpResponse = {
   token?: string;
@@ -12,17 +13,32 @@ export class NikitaOtpService {
   constructor(private readonly config: ConfigService) {}
 
   async send(phone: string, transactionId: string) {
-    const result = await this.request("/api/otp/send", {
-      transaction_id: transactionId,
-      phone: phone.replace(/^\+/, ""),
-    });
-    if (String(result.status) !== "0" || !result.token) {
-      this.throwProviderError(result, "Не удалось отправить SMS");
+    try {
+      return await sendNikitaSmsCode({
+        login: this.config.get<string>("NIKITA_SMS_LOGIN") || "",
+        password: this.config.get<string>("NIKITA_SMS_PASSWORD") || "",
+        secret: this.config.get<string>("OTP_HASH_SECRET") || "",
+        sender: "NktaSushiKG",
+        brand: "NAKTA SUSHI",
+        phone,
+        transactionId,
+      });
+    } catch (error) {
+      if (error instanceof NikitaSmsError) throw new ServiceUnavailableException(error.message);
+      throw error;
     }
-    return result.token;
   }
 
   async verify(token: string, code: string) {
+    if (isNikitaSmsToken(token)) {
+      try {
+        return verifyNikitaSmsCode(this.config.get<string>("OTP_HASH_SECRET") || "", "NktaSushiKG", token, code);
+      } catch (error) {
+        if (error instanceof NikitaSmsError) throw new ServiceUnavailableException(error.message);
+        throw error;
+      }
+    }
+    // Finish verification of OTP challenges issued before the sender migration.
     const result = await this.request("/api/otp/verify", { token, code });
     return {
       valid: String(result.status) === "0",
@@ -33,9 +49,7 @@ export class NikitaOtpService {
 
   private async request(path: string, body: Record<string, string>) {
     const apiKey = this.config.get<string>("NIKITA_OTP_API_KEY")?.trim();
-    if (!apiKey) {
-      throw new ServiceUnavailableException("Отправка SMS пока не настроена");
-    }
+    if (!apiKey) throw new ServiceUnavailableException("Отправка SMS пока не настроена");
 
     let response: Response;
     try {
@@ -55,27 +69,9 @@ export class NikitaOtpService {
 
     const result = await response.json().catch(() => null) as NikitaOtpResponse | null;
     if (!response.ok || !result) {
-      console.error("Nikita OTP returned an invalid response", {
-        path,
-        httpStatus: response.status,
-      });
+      console.error("Nikita OTP returned an invalid response", { path, httpStatus: response.status });
       throw new ServiceUnavailableException("Сервис SMS временно недоступен");
     }
     return result;
-  }
-
-  private throwProviderError(result: NikitaOtpResponse, fallback: string): never {
-    console.error("Nikita OTP rejected request", {
-      providerStatus: result.status,
-      providerDescription: result.description,
-    });
-    const status = String(result.status ?? "");
-    if (status === "4") {
-      throw new ServiceUnavailableException("Отправка SMS временно недоступна");
-    }
-    if (status === "7") {
-      throw new ServiceUnavailableException("Проверьте номер телефона");
-    }
-    throw new ServiceUnavailableException(fallback);
   }
 }

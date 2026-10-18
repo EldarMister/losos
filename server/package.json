@@ -13,7 +13,7 @@
     "catalog:generate": "tsx ../scripts/generate-server-catalog-seed.ts",
     "migration:run": "npm run build && typeorm -d dist/data-source.js migration:run",
     "migration:revert": "npm run build && typeorm -d dist/data-source.js migration:revert",
-    "test": "tsx --test test/backend.test.ts",
+    "test": "tsx --test test/backend.test.ts test/nikita-sms.test.ts",
     "test:admin": "npm run build && node --test test/admin-security.test.cjs test/admin-reports.integration.cjs && tsx --test test/admin-notifications.test.ts",
     "test:admin:integration": "npm run build && node test/run-admin-integration.cjs all",
     "test:admin-security": "npm run build && node --test test/admin-security.test.cjs",
@@ -26,7 +26,8 @@
     "test:kits": "npm run build && node --test test/product-kit.test.cjs",
     "test:promotions": "npm run build && node --test test/promotions.test.cjs",
     "test:cities": "npm run build && node --test test/city-visibility.integration.cjs",
-    "test:integration": "npm run build && node test/postgres.integration.cjs"
+    "test:integration": "npm run build && node test/postgres.integration.cjs",
+    "test:sms:integration": "npm run build && node test/nikita-auth.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

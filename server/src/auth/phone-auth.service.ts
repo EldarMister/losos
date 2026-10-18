@@ -216,53 +216,53 @@ export class PhoneAuthService {
   }
 
   async verifyCode(phone: string, code: string) {
-    const now = new Date();
-    const challenge = await this.challenges.findOne({
-      where: {
-        phone,
-        channel: "sms",
-        verifiedAt: IsNull(),
-        consumedAt: IsNull(),
-        expiresAt: MoreThan(now),
-      },
-      order: { createdAt: "DESC" },
+    const verificationError = await this.challenges.manager.transaction(async (manager) => {
+      const now = new Date();
+      const challenges = manager.getRepository(PhoneAuthChallenge);
+      // Local verification must consume a challenge atomically, including across API instances.
+      const challenge = await challenges.createQueryBuilder("challenge")
+        .setLock("pessimistic_write")
+        .where("challenge.phone = :phone", { phone })
+        .andWhere("challenge.channel = :channel", { channel: "sms" })
+        .andWhere("challenge.verifiedAt IS NULL")
+        .andWhere("challenge.consumedAt IS NULL")
+        .andWhere("challenge.expiresAt > :now", { now })
+        .orderBy("challenge.createdAt", "DESC")
+        .getOne();
+      if (!challenge) throw new UnauthorizedException("Код истёк. Запросите новый");
+      if (challenge.attemptCount >= MAX_ATTEMPTS) {
+        throw new UnauthorizedException("Слишком много попыток. Запросите новый код");
+      }
+
+      const verification = await this.otp.verify(challenge.providerToken, code);
+      if (!verification.valid) {
+        if (verification.status === "13" || verification.status === "12") {
+          throw new UnauthorizedException("Код истёк. Запросите новый");
+        }
+        if (verification.status !== "14") {
+          console.error("Nikita OTP verification failed", {
+            providerStatus: verification.status,
+            providerDescription: verification.description,
+          });
+          throw new ServiceUnavailableException("Не удалось проверить код. Попробуйте позже");
+        }
+        challenge.attemptCount += 1;
+        await challenges.save(challenge);
+        const attemptsLeft = Math.max(0, MAX_ATTEMPTS - challenge.attemptCount);
+        // Commit the failed-attempt count before returning the authentication error.
+        return new UnauthorizedException(
+          attemptsLeft > 0
+            ? `Неверный код. Осталось попыток: ${attemptsLeft}`
+            : "Слишком много попыток. Запросите новый код",
+        );
+      }
+
+      challenge.verifiedAt = now;
+      await challenges.save(challenge);
+      return null;
     });
-    if (!challenge) {
-      throw new UnauthorizedException("Код истёк. Запросите новый");
-    }
-    if (challenge.attemptCount >= MAX_ATTEMPTS) {
-      throw new UnauthorizedException("Слишком много попыток. Запросите новый код");
-    }
-
-    const verification = await this.otp.verify(challenge.providerToken, code);
-    if (!verification.valid) {
-      if (verification.status === "13" || verification.status === "12") {
-        throw new UnauthorizedException("Код истёк. Запросите новый");
-      }
-      if (verification.status !== "14") {
-        console.error("Nikita OTP verification failed", {
-          providerStatus: verification.status,
-          providerDescription: verification.description,
-        });
-        throw new ServiceUnavailableException("Не удалось проверить код. Попробуйте позже");
-      }
-      challenge.attemptCount += 1;
-      await this.challenges.save(challenge);
-      const attemptsLeft = Math.max(0, MAX_ATTEMPTS - challenge.attemptCount);
-      throw new UnauthorizedException(
-        attemptsLeft > 0
-          ? `Неверный код. Осталось попыток: ${attemptsLeft}`
-          : "Слишком много попыток. Запросите новый код",
-      );
-    }
-
-    challenge.verifiedAt = now;
-    await this.challenges.save(challenge);
-
-    return {
-      phone,
-      ...(await this.issueAccountSession(phone)),
-    };
+    if (verificationError) throw verificationError;
+    return { phone, ...(await this.issueAccountSession(phone)) };
   }
 
   async consumeVerification(phone: string, verificationToken: string, manager: EntityManager) {
