@@ -7,13 +7,13 @@ import { useSiteLanguage } from "../lib/site-i18n/react";
 import { setSiteLanguage, siteLanguages, translateSite as t } from "../lib/site-i18n/store";
 import "./site-language.css";
 
-export function SiteLanguageSelector({ light = false }: { light?: boolean }) {
+export function SiteLanguageSelector() {
   const language = useSiteLanguage();
   const [open, setOpen] = useState(false);
   const selectedRef = useRef<HTMLButtonElement>(null);
   const selected = siteLanguages.find(item => item.code === language)!;
   return <Popover.Root open={open} onOpenChange={setOpen}>
-    <Popover.Trigger type="button" className={`site-language-trigger${light ? " site-language-light" : ""}`} aria-label={`${t("Язык сайта")}: ${selected.label}`}>
+    <Popover.Trigger type="button" className="site-language-trigger" aria-label={`${t("Язык сайта")}: ${selected.label}`}>
       <Icon path={mdiWeb} size={0.96} aria-hidden="true" /><span lang={selected.code}>{selected.label}</span><Icon path={open ? mdiChevronUp : mdiChevronDown} size={1} aria-hidden="true" />
     </Popover.Trigger>
     <Popover.Portal><Popover.Positioner side="top" align="center" sideOffset={8} collisionPadding={16} className="site-language-positioner">

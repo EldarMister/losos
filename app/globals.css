@@ -103,6 +103,7 @@ a { color: inherit; text-decoration: none; }
 .city-select { position: relative; z-index: 32; height: 52px; flex: 0 0 auto; }
 .city-button { height: 52px; background: transparent; min-width: 130px; text-align: left; padding: 0 18px; font-weight: 600; font-size: 18px; }
 .city-button:focus { outline: 0; }
+.city-button:disabled, .address-city-select .address-input:disabled { cursor: default; }
 .city-chevron { display: inline-block; width: 8px; height: 8px; margin: 0 0 4px 10px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
 .city-chevron.open { margin-bottom: -1px; transform: rotate(225deg); }
 .city-dropdown { position: fixed; z-index: 60; width: 286px; margin-top: 12px; padding: 0; overflow: hidden; border-radius: 0 0 18px 18px; background: #fff; box-shadow: 0 12px 24px rgba(0,0,0,.12); }

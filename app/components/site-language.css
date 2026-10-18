@@ -1,10 +1,7 @@
-.hero-language { position: absolute; z-index: 3; top: 132px; right: max(16px, calc((100vw - 1280px) / 2)); }
 .site-language-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; max-width: 100%; padding: 0 14px; color: #111; background: transparent; border: 0; border-radius: 16px; font-family: inherit; font-size: 15px; font-weight: 500; line-height: 22px; white-space: nowrap; }
 .site-language-trigger svg { display: block; flex: 0 0 auto; }
 .site-language-trigger:hover { background: #fff0e9; }
 .site-language-trigger:focus-visible, .site-language-option:focus-visible { outline: 2px solid #f84901; outline-offset: 2px; }
-.site-language-trigger.site-language-light { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.18); }
-.site-language-trigger.site-language-light:hover { background: rgba(255,255,255,.14); }
 .site-language-positioner { z-index: 210; }
 .site-language-menu { width: 208px; max-width: calc(100vw - 32px); padding: 6px 0; border: 1px solid #e7e7e7; border-radius: 16px; background: #fafafa; box-shadow: 0 3px 16px rgba(0,0,0,.14); color: #111; outline: none; }
 .site-language-option { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 0 18px; border: 0; background: transparent; color: #999; font-family: inherit; font-size: 15px; line-height: 22px; text-align: left; }
@@ -16,4 +13,3 @@
 .profile-language-field .site-language-trigger > span { display: inline; color: inherit; font-size: 15px; }
 .profile-language-field .site-language-trigger { margin-top: 4px; margin-left: -14px; }
 .profile-language-guest, .phone-auth-language { display: flex; justify-content: center; padding: 12px 0; }
-@media (max-width: 720px) { .hero-language { top: 8px; right: 8px; } }

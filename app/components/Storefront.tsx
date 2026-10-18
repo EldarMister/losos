@@ -686,6 +686,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   );
   const [regionSlug, setRegionSlug] = useState(initialRegion);
   const [regionOptions, setRegionOptions] = useState<RegionOption[]>(defaultRegions);
+  const [regionsLoaded, setRegionsLoaded] = useState(false);
+  const canChooseCity = regionsLoaded && regionOptions.length > 1;
   const [selectedPickupLocationId, setSelectedPickupLocationId] = useState<number | null>(null);
   const selectedRegion = regionOptions.find((option) => option.slug === regionSlug);
   const pickupLocations = useMemo<PickupLocationOption[]>(() => {
@@ -883,6 +885,46 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     setSearchOpen(true);
   };
 
+  const chooseCity = useCallback((option: RegionOption, automatic = false) => {
+    const regionChanged = option.slug !== regionSlug;
+    const url = new URL(window.location.href);
+    url.searchParams.set("region", option.slug);
+    window.history.replaceState(window.history.state, "", url);
+    try {
+      window.localStorage.setItem(CITY_SELECTION_STORAGE_KEY, option.slug);
+    } catch {
+      // The city choice will still apply for the current visit.
+    }
+    setCity(option.name);
+    if (regionChanged) {
+      setCatalogSnapshot(null);
+      setStoryGroups([]);
+      setRegionalPromotions([]);
+      setAddress("");
+      setDeliveryLocation(null);
+      setCart([]);
+      setKitAdjustments({});
+      setPendingCartLine(null);
+      setUtensilsCount(1);
+      setNoUtensils(false);
+      setPickupLocationSelected(false);
+      setSelectedPickupLocationId(null);
+    }
+    setRegionSlug(option.slug);
+    setCityOpen(false);
+    setCityPickerOpen(false);
+    setAddressCityOpen(false);
+    // Resolving the current city must not close sign-in opened during loading.
+    if (!automatic || regionChanged) {
+      setCheckoutOpen(false);
+      setPhoneAuthOpen(false);
+      setCartKitOpen(false);
+      setDeliveryInfoOpen(false);
+      setPlacedOrder(null);
+      setSelected(null);
+    }
+  }, [regionSlug, setKitAdjustments, setUtensilsCount, setNoUtensils, setCheckoutOpen, setPhoneAuthOpen, setCartKitOpen, setPlacedOrder]);
+
   useEffect(() => {
     const controller = new AbortController();
     const baseUrl = STOREFRONT_API_URL;
@@ -890,13 +932,19 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     fetch(`${baseUrl}/regions`, { signal: controller.signal, cache: "no-store" })
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Regions request failed")))
       .then((data: RegionOption[]) => {
+        if (controller.signal.aborted) return;
         if (!Array.isArray(data) || data.length === 0) return;
         setRegionOptions(data);
+        if (data.length === 1) {
+          chooseCity(data[0], true);
+          return;
+        }
         const active = data.find((region) => region.slug === regionSlug) || data[0];
         setCity(active.name);
         if (active.slug !== regionSlug) setRegionSlug(active.slug);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => { if (!controller.signal.aborted) setRegionsLoaded(true); });
 
     let catalogRequestPending = false;
     let catalogRefreshQueued = false;
@@ -976,7 +1024,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       document.removeEventListener("visibilitychange", refreshCatalog);
       controller.abort();
     };
-  }, [regionSlug]);
+  }, [regionSlug, chooseCity]);
 
   useEffect(() => {
     const updateSchedule = () => setScheduleTimestamp(Date.now());
@@ -1080,7 +1128,10 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   }, [initialRegion]);
 
   useEffect(() => {
+    let cancelled = false;
     const checkStoredCity = () => {
+      if (cancelled) return;
+      if (!canChooseCity) { setCityPickerOpen(false); return; }
       try {
         const selectedCity = window.localStorage.getItem(CITY_SELECTION_STORAGE_KEY);
         setCityPickerOpen(!regionOptions.some((item) => item.slug === selectedCity));
@@ -1089,7 +1140,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       }
     };
     queueMicrotask(checkStoredCity);
-  }, [regionOptions]);
+    return () => { cancelled = true; };
+  }, [canChooseCity, regionOptions]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -1225,43 +1277,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     }, 1_000);
     return () => window.clearInterval(timer);
   }, [phoneCodeRetryAfter]);
-
-  const chooseCity = (option: RegionOption) => {
-    const regionChanged = option.slug !== regionSlug;
-    const url = new URL(window.location.href);
-    url.searchParams.set("region", option.slug);
-    window.history.replaceState(window.history.state, "", url);
-    try {
-      window.localStorage.setItem(CITY_SELECTION_STORAGE_KEY, option.slug);
-    } catch {
-      // The city choice will still apply for the current visit.
-    }
-    setCity(option.name);
-    if (regionChanged) {
-      setCatalogSnapshot(null);
-      setStoryGroups([]);
-      setRegionalPromotions([]);
-      setAddress("");
-      setDeliveryLocation(null);
-      setCart([]);
-      setKitAdjustments({});
-      setPendingCartLine(null);
-      setUtensilsCount(1);
-      setNoUtensils(false);
-      setPickupLocationSelected(false);
-      setSelectedPickupLocationId(null);
-    }
-    setRegionSlug(option.slug);
-    setCityOpen(false);
-    setCityPickerOpen(false);
-    setAddressCityOpen(false);
-    setCheckoutOpen(false);
-    setPhoneAuthOpen(false);
-    setCartKitOpen(false);
-    setDeliveryInfoOpen(false);
-    setPlacedOrder(null);
-    setSelected(null);
-  };
 
   const openProduct = (product: Product, historyMode: "push" | "replace" = "push") => {
     if (product.available === false) return;
@@ -2084,7 +2099,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
   return (
     <div className="site">
-      {cityPickerOpen ? (
+      {canChooseCity && cityPickerOpen ? (
         <div className="city-picker-overlay" role="dialog" aria-modal="true" aria-labelledby="city-picker-title">
           <section className="city-picker-modal">
             <button
@@ -2100,7 +2115,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
                 <button key={option.slug} type="button" onClick={() => chooseCity(option)}>{t(option.name)}</button>
               ))}
             </div>
-            <div className="profile-language-guest"><SiteLanguageSelector /></div>
           </section>
         </div>
       ) : null}
@@ -2110,7 +2124,6 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <img src="/desktop-header-20260726-v3.png" alt={t("Накта суши")} />
         </picture>
         <img className="brand-smile" src={encodeURI("/смайлик.webp")} alt="" aria-hidden="true" />
-        <div className="hero-language"><SiteLanguageSelector light /></div>
         <a className="download-app download-app-nakta" href="/support" aria-label={t("Скачайте приложение Накта суши")}>
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
           <strong>{t("Скачайте")}<br />{t("приложение")}</strong>
@@ -2126,8 +2139,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           </div>
           <div className="order-location-bar">
             <div className="city-select" ref={citySelectRef}>
-              <button className="city-button" aria-expanded={cityOpen} aria-haspopup="listbox" onClick={() => setCityOpen((current) => !current)}>{t(city)} <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /></button>
-              {cityOpen ? <div className="city-dropdown" role="listbox" aria-label={t("Город")}>
+              <button className="city-button" disabled={!canChooseCity} aria-expanded={canChooseCity ? cityOpen : undefined} aria-haspopup={canChooseCity ? "listbox" : undefined} onClick={() => setCityOpen((current) => !current)}>{t(city)} {canChooseCity ? <span className={`city-chevron${cityOpen ? " open" : ""}`} aria-hidden="true" /> : null}</button>
+              {canChooseCity && cityOpen ? <div className="city-dropdown" role="listbox" aria-label={t("Город")}>
                 {regionOptions.filter((option) => option.name !== city).map((option) => <button key={option.slug} role="option" aria-selected={city === option.name} onClick={() => chooseCity(option)}>{t(option.name)}</button>)}
               </div> : null}
             </div>
@@ -2449,8 +2462,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               {deliveryType === "pickup" ? <>
                 <h2>{t("Самовывоз")}</h2><p>{t("Выберите точку для самовывоза")}<br />{t("из доступных в списке или на карте")}</p>
                 <div className="address-city-select">
-                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? t("Выберите город") : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
-                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label={t("Выберите город")}>
+                  <button className="address-input muted" type="button" disabled={!canChooseCity} aria-expanded={canChooseCity ? addressCityOpen : undefined} onClick={() => setAddressCityOpen((current) => !current)}>{canChooseCity && addressCityOpen ? t("Выберите город") : t(city)}{canChooseCity ? <span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /> : null}</button>
+                  {canChooseCity && addressCityOpen ? <div className="address-city-options" role="listbox" aria-label={t("Выберите город")}>
                     {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{t(option.name)}</button>)}
                   </div> : null}
                 </div>
@@ -2477,8 +2490,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
               </> : <>
                 <h2>{t("Адрес доставки")}</h2><p>{t("Введите адрес для доставки курьером,")}<br />{t("выберите подсказку или точку на карте")}</p>
                 <div className="address-city-select">
-                  <button className="address-input muted" type="button" aria-expanded={addressCityOpen} onClick={() => setAddressCityOpen((current) => !current)}>{addressCityOpen ? t("Выберите город") : city}<span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /></button>
-                  {addressCityOpen ? <div className="address-city-options" role="listbox" aria-label={t("Выберите город")}>
+                  <button className="address-input muted" type="button" disabled={!canChooseCity} aria-expanded={canChooseCity ? addressCityOpen : undefined} onClick={() => setAddressCityOpen((current) => !current)}>{canChooseCity && addressCityOpen ? t("Выберите город") : t(city)}{canChooseCity ? <span className={`city-chevron${addressCityOpen ? " open" : ""}`} aria-hidden="true" /> : null}</button>
+                  {canChooseCity && addressCityOpen ? <div className="address-city-options" role="listbox" aria-label={t("Выберите город")}>
                     {regionOptions.map((option) => <button key={option.slug} type="button" role="option" aria-selected={option.slug === regionSlug} onClick={() => chooseCity(option)}>{t(option.name)}</button>)}
                   </div> : null}
                 </div>
