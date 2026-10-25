@@ -1,6 +1,8 @@
 // Russian source phrases are stable message keys. Customer and catalogue data stays unchanged.
 export type Translations = Record<"ky" | "uz" | "en" | "kk", string>;
 export const messages: Record<string, Translations> = {
+  "Показать пароль": { ky: "Сырсөздү көрсөтүү", uz: "Parolni ko‘rsatish", en: "Show password", kk: "Құпиясөзді көрсету" },
+  "Скрыть пароль": { ky: "Сырсөздү жашыруу", uz: "Parolni yashirish", en: "Hide password", kk: "Құпиясөзді жасыру" },
   "Нет соединения с сервером. Изменения не сохранены.": {
     "ky": "Сервер менен байланыш жок. Өзгөртүүлөр сакталган жок.",
     "uz": "Server bilan aloqa yo‘q. O‘zgarishlar saqlanmadi.",

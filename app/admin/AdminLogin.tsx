@@ -4,7 +4,7 @@ import { AdminLanguageMenu, useAdminLanguage } from "./i18n/react";
 
 import Image from "next/image";
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./ui/card";
 import { Input } from "./ui/input";
@@ -22,6 +22,7 @@ export function AdminLogin({ onLogin, notice }: {
     const [error, setError] = useState("");
     const [login, setLogin] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [name, setName] = useState("");
     const [bootstrapToken, setBootstrapToken] = useState("");
     useEffect(() => {
@@ -76,14 +77,22 @@ export function AdminLogin({ onLogin, notice }: {
                 <div className="grid gap-2"><Label htmlFor="bootstrap-key">{t("Ключ настройки")}</Label><Input id="bootstrap-key" type="password" required value={bootstrapToken} onChange={event => setBootstrapToken(event.target.value)} autoComplete="off"/></div>
               </>}
               <div className="grid gap-2"><Label htmlFor="admin-login-name">{t("Логин")}</Label><Input id="admin-login-name" autoComplete="username" autoFocus required value={login} onChange={event => setLogin(event.target.value)}/></div>
-              <div className="grid gap-2"><Label htmlFor="admin-password">{t("Пароль")}</Label><Input id="admin-password" type="password" autoComplete={bootstrap ? "new-password" : "current-password"} minLength={bootstrap ? 12 : 1} required value={password} onChange={event => setPassword(event.target.value)}/></div>
+              <div className="grid gap-2">
+                <Label htmlFor="admin-password">{t("Пароль")}</Label>
+                <div className="relative">
+                  <Input id="admin-password" className="pr-10" type={showPassword ? "text" : "password"} autoComplete={bootstrap ? "new-password" : "current-password"} minLength={bootstrap ? 12 : 1} required value={password} onChange={event => setPassword(event.target.value)}/>
+                  <Button type="button" variant="ghost" size="icon" className="absolute top-0 right-0 text-muted-foreground" aria-label={showPassword ? t("Скрыть пароль") : t("Показать пароль")} aria-pressed={showPassword} aria-controls="admin-password" onClick={() => setShowPassword(current => !current)}>
+                    {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                  </Button>
+                </div>
+              </div>
               {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
               <Button className="h-10 w-full" type="submit">{busy ? t("Проверяем\u2026") : bootstrap ? t("Создать владельца") : t("Войти")}</Button>
             </fieldset>
           </form>
         </CardContent>
         {(bootstrap || setupAvailable) && <CardFooter>
-          <Button type="button" variant="link" disabled={busy} className="w-full" onClick={() => { setBootstrap(!bootstrap); setError(""); }}>
+          <Button type="button" variant="link" disabled={busy} className="w-full" onClick={() => { setBootstrap(!bootstrap); setShowPassword(false); setError(""); }}>
             {bootstrap && <ArrowLeft className="size-4" aria-hidden="true"/>}
             {bootstrap ? t("Вернуться ко входу") : t("Создать первого владельца")}
           </Button>
