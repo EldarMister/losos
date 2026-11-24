@@ -1,5 +1,6 @@
 "use client";
 import { siteLocale, translateSite as t } from "../lib/site-i18n/store";
+import { ANDROID_APP_URL, SITE_CONTACT_PHONE, SITE_CONTACT_PHONE_HREF } from "../lib/site-links";
 import { useSiteLanguage, useInitializeSiteLanguage } from "../lib/site-i18n/react";
 /* eslint-disable @next/next/no-img-element */
 
@@ -721,10 +722,9 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const minimumOrderAmount = Math.max(0, selectedRegion?.minimumOrderAmount ?? 900);
   const maximumOrderAmount = Math.max(minimumOrderAmount, selectedRegion?.maximumOrderAmount ?? 30000);
   const pickupYandexUrl = selectedPickupLocation?.yandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
-  const footerPhone = "0550766656";
-  const supportPhone = selectedRegion?.supportPhone?.trim() || selectedRegion?.contactPhone?.trim();
+  const footerPhone = SITE_CONTACT_PHONE;
   const supportHref = selectedRegion?.supportUrl?.trim()
-    || (supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, "")}` : `/support?region=${encodeURIComponent(regionSlug)}`);
+    || SITE_CONTACT_PHONE_HREF;
   const footerEmail = "naktasushi@gmail.com";
   const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Ж";
   const footerLegalInfo = "Оператор сервиса: ИП Мусаев Ж. Регистрационный номер: 032-2026-169-3446. Адрес: мкр Анар 15а.";
@@ -2124,7 +2124,7 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <img src="/desktop-header-20260726-v3.png" alt={t("Накта суши")} />
         </picture>
         <img className="brand-smile" src={encodeURI("/смайлик.webp")} alt="" aria-hidden="true" />
-        <a className="download-app download-app-nakta" href="/support" aria-label={t("Скачайте приложение Накта суши")}>
+        <a className="download-app download-app-nakta" href={ANDROID_APP_URL} aria-label={t("Скачайте приложение Накта суши")}>
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
           <strong>{t("Скачайте")}<br />{t("приложение")}</strong>
         </a>
@@ -2259,11 +2259,11 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
 
       <footer className="footer" id="contacts">
         <div className="footer-brand"><img className="footer-logo" src="/logo.webp" alt={t("Накта суши")} /><span>{footerCompanyName}</span></div>
-        <a className="footer-app-link footer-app-nakta" href="/support" aria-label={t("Скачайте приложение Накта суши")}>
+        <a className="footer-app-link footer-app-nakta" href={ANDROID_APP_URL} aria-label={t("Скачайте приложение Накта суши")}>
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
           <strong>{t("Скачайте")}<br />{t("приложение")}</strong>
         </a>
-        <div className="footer-contacts"><b>{t("Контакты")}</b><span><i aria-hidden="true">☎</i><small>{t("Телефон")}</small><a href={`tel:${footerPhone.replace(/[^+\d]/g, "")}`}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>{t("Электронная почта")}</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
+        <div className="footer-contacts"><b>{t("Контакты")}</b><span><i aria-hidden="true">☎</i><small>{t("Телефон")}</small><a href={SITE_CONTACT_PHONE_HREF}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>{t("Электронная почта")}</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
         <div className="footer-links"><a href="/privacy">{t("Конфиденциальность")}</a><span>•</span><a href="/terms">{t("Условия")}</a><span>•</span><a href="/delete-account">{t("Удаление аккаунта")}</a><span>•</span><a href="/legal">{t("Все документы")}</a><span>•</span><a href="/jobs">{t("Работа")}</a><span>•</span><a href="/about">{t("О нас")}</a></div>
         <div className="footer-legal">
           <p>{footerLegalInfo}</p>

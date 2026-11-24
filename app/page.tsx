@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JsonLd } from "./components/JsonLd";
 import { Storefront } from "./components/Storefront";
 import { absoluteUrl } from "./lib/seo";
+import { SITE_CONTACT_PHONE_E164 } from "./lib/site-links";
 
 export const metadata: Metadata = {
   title: "Доставка суши и роллов в Бишкеке и Оше",
@@ -33,7 +34,7 @@ export default function Home() {
               logo: absoluteUrl("/logo.webp"),
               image: absoluteUrl("/og-social-v2.png"),
               email: "naktasushi@gmail.com",
-              telephone: "+996503178916",
+              telephone: SITE_CONTACT_PHONE_E164,
               areaServed: [
                 { "@type": "City", name: "Бишкек" },
                 { "@type": "City", name: "Ош" },
