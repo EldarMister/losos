@@ -6,6 +6,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "test:site-contacts": "npm run build && node --test test/site-contacts.test.cjs && tsx --test test/site-contact-formatting.test.ts",
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "typeorm -d dist/data-source.js migration:run && node dist/main.js",
@@ -44,6 +45,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.6.0",
     "@nestjs/cli": "^11.0.10",
     "@types/node": "^22.18.6",
     "@types/web-push": "^3.6.4",

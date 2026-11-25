@@ -1,6 +1,19 @@
 // Russian source phrases are stable message keys. Customer and catalogue data stays unchanged.
 export type Translations = Record<"ky" | "uz" | "en" | "kk", string>;
 export const messages: Record<string, Translations> = {
+  "Телефон": { ky: "Телефон", uz: "Telefon", en: "Phone", kk: "Телефон" },
+  "Электронная почта": { ky: "Электрондук почта", uz: "Elektron pochta", en: "Email", kk: "Электрондық пошта" },
+  "Контакты сайта": { ky: "Сайттын байланыштары", uz: "Sayt kontaktlari", en: "Website contacts", kk: "Сайт байланыстары" },
+  "Телефон, адрес, почта и Instagram в подвале сайта и поддержке.": { ky: "Сайттын төмөнкү бөлүгүндөгү жана колдоо бөлүмүндөгү телефон, дарек, почта жана Instagram.", uz: "Saytning pastki qismi va yordam bo‘limidagi telefon, manzil, pochta va Instagram.", en: "Phone, address, email and Instagram in the website footer and support page.", kk: "Сайттың төменгі бөлігіндегі және қолдау бөліміндегі телефон, мекенжай, пошта және Instagram." },
+  "Для каких городов": { ky: "Кайсы шаарлар үчүн", uz: "Qaysi shaharlar uchun", en: "Apply to", kk: "Қай қалалар үшін" },
+  "Общие для всех городов": { ky: "Бардык шаарлар үчүн жалпы", uz: "Barcha shaharlar uchun umumiy", en: "Shared by all cities", kk: "Барлық қалаларға ортақ" },
+  "Текущий город": { ky: "Учурдагы шаар", uz: "Joriy shahar", en: "Current city", kk: "Ағымдағы қала" },
+  "Общие данные используются в городах без собственных настроек.": { ky: "Өз жөндөөлөрү жок шаарлар жалпы маалыматтарды колдонот.", uz: "Alohida sozlamalari bo‘lmagan shaharlar umumiy ma’lumotlardan foydalanadi.", en: "Cities without their own settings use these shared details.", kk: "Жеке баптаулары жоқ қалалар ортақ деректерді пайдаланады." },
+  "Изменения в этом городе не затрагивают остальные города.": { ky: "Бул шаардагы өзгөртүүлөр башка шаарларга таасир этпейт.", uz: "Bu shahardagi o‘zgarishlar boshqa shaharlarga ta’sir qilmaydi.", en: "Changes for this city do not affect other cities.", kk: "Бұл қаладағы өзгерістер басқа қалаларға әсер етпейді." },
+  "Использовать общие данные": { ky: "Жалпы маалыматтарды колдонуу", uz: "Umumiy ma’lumotlardan foydalanish", en: "Use shared details", kk: "Ортақ деректерді пайдалану" },
+  "Предпросмотр контактов": { ky: "Байланыштарды алдын ала көрүү", uz: "Kontaktlarni oldindan ko‘rish", en: "Contact preview", kk: "Байланыстарды алдын ала қарау" },
+  "Общие данные нельзя сбросить на самих себя": { ky: "Жалпы маалыматтарды өзүнө кайтарууга болбойт", uz: "Umumiy ma’lumotlarni o‘ziga qaytarib bo‘lmaydi", en: "Shared details cannot inherit from themselves", kk: "Ортақ деректерді өзіне қайтаруға болмайды" },
+  "Укажите контактные данные": { ky: "Байланыш маалыматтарын көрсөтүңүз", uz: "Kontakt ma’lumotlarini kiriting", en: "Enter contact details", kk: "Байланыс деректерін енгізіңіз" },
   "Показать пароль": { ky: "Сырсөздү көрсөтүү", uz: "Parolni ko‘rsatish", en: "Show password", kk: "Құпиясөзді көрсету" },
   "Скрыть пароль": { ky: "Сырсөздү жашыруу", uz: "Parolni yashirish", en: "Hide password", kk: "Құпиясөзді жасыру" },
   "Нет соединения с сервером. Изменения не сохранены.": {

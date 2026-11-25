@@ -18,6 +18,7 @@ import { useAdminAccess } from "./admin-access";
 import { DeliveryZoneEditor } from "./DeliveryZoneEditor";
 import { ImageUpload } from "./ImageUpload";
 import { CitiesWorkspace } from "./CitiesWorkspace";
+import { SiteContactsWorkspace } from "./SiteContactsWorkspace";
 import { fallbackFreeKitItems } from "./kit-catalog";
 import type { AdminRequest, DeliveryZonePoint, PickupLocation, Region, Category, Dashboard, FreeKitItem, } from "./admin-types";
 type SettingsWorkspaceProps = {
@@ -30,7 +31,7 @@ type SettingsWorkspaceProps = {
     onSelectRegion: (regionSlug: string) => void;
     onNotice: (message: string, tone?: "success" | "error") => void;
 };
-export type SettingsTab = "basic" | "cities" | "delivery" | "hours" | "pickup" | "kit" | "edu-pos";
+export type SettingsTab = "basic" | "site" | "cities" | "delivery" | "hours" | "pickup" | "kit" | "edu-pos";
 type SettingsDraft = {
     enabled: boolean;
     contactPhone: string;
@@ -91,6 +92,7 @@ const tabs: Array<{
     id: SettingsTab;
     label: string;
 }> = [
+    { id: "site", get label() { return t("Контакты сайта"); } },
     { id: "basic", get label() {
             return t("Основное");
         } },
@@ -192,7 +194,7 @@ function formatDate(value: string | null) {
 export function SettingsWorkspace({ region, regions, request, onRegionUpdated, onRegionRemoved, onSelectRegion, onNotice, initialTab = "basic" }: SettingsWorkspaceProps) {
     useAdminLanguage();
     const { can } = useAdminAccess();
-    const tabPermissions: Record<SettingsTab, string> = { basic: "cities", cities: "cities", delivery: "settings", hours: "hours", pickup: "cities", kit: "kits", "edu-pos": "integrations" };
+    const tabPermissions: Record<SettingsTab, string> = { basic: "cities", site: "settings", cities: "cities", delivery: "settings", hours: "hours", pickup: "cities", kit: "kits", "edu-pos": "integrations" };
     const [requestedTab, setTab] = useState<SettingsTab>(initialTab);
     const tab = can(`${tabPermissions[requestedTab]}.view`) ? requestedTab : tabs.find((entry) => can(`${tabPermissions[entry.id]}.view`))?.id ?? initialTab;
     const canEditTab = can(`${tabPermissions[tab]}.edit`);
@@ -486,7 +488,7 @@ export function SettingsWorkspace({ region, regions, request, onRegionUpdated, o
       {initialTab !== "hours" ? <Card className="gap-1 p-2 lg:sticky lg:top-20"><nav className="flex gap-1 overflow-x-auto lg:flex-col" aria-label={t("Разделы настроек")}>{tabs.filter((entry) => can(`${tabPermissions[entry.id]}.view`)).map((entry) => <Button key={entry.id} type="button" variant={tab === entry.id ? "secondary" : "ghost"} className="justify-start" aria-current={tab === entry.id ? "page" : undefined} onClick={() => changeTab(entry.id)}>{entry.label}</Button>)}</nav></Card> : null}
       <div className="min-w-0 space-y-4">
       {tab === "kit" ? <Card className="p-4"><Label className="grid gap-2 text-sm font-medium">{t("Поиск платных топпингов")}<Input type="search" placeholder={t("Найти товар для топпинга")} value={productSearch} onChange={(event) => { setProductSearch(event.target.value); setProductPage(0); }}/></Label></Card> : null}
-      {tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onRegionRemoved={onRegionRemoved} onNotice={onNotice}/> : <form className="space-y-4" onSubmit={saveRegion}><fieldset disabled={!canEditTab || saving} className="space-y-4">
+      {tab === "site" ? <SiteContactsWorkspace regions={regions} region={region} request={request} onNotice={onNotice}/> : tab === "cities" ? <CitiesWorkspace regions={regions} request={request} onRegionUpdated={handleRegionUpdated} onRegionRemoved={onRegionRemoved} onNotice={onNotice}/> : <form className="space-y-4" onSubmit={saveRegion}><fieldset disabled={!canEditTab || saving} className="space-y-4">
         {tab === "basic" ? (<Card className="rounded-xl border border-border bg-card p-5">
             <div className="border-b border-border pb-4">
               <h2 className="font-semibold text-foreground">{t("Основные настройки")}</h2>

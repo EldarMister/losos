@@ -1,6 +1,7 @@
 "use client";
 import { siteLocale, translateSite as t } from "../lib/site-i18n/store";
-import { ANDROID_APP_URL, SITE_CONTACT_PHONE, SITE_CONTACT_PHONE_HREF } from "../lib/site-links";
+import { ANDROID_APP_URL } from "../lib/site-links";
+import { DEFAULT_SITE_CONTACTS, contactPhoneHref, instagramHref, readSiteContacts, type SiteContacts } from "../lib/site-settings";
 import { useSiteLanguage, useInitializeSiteLanguage } from "../lib/site-i18n/react";
 /* eslint-disable @next/next/no-img-element */
 
@@ -34,6 +35,8 @@ import {
   mdiShoppingOutline,
   mdiStairs,
   mdiWalletOutline,
+  mdiInstagram,
+  mdiEmailOutline,
 } from "@mdi/js";
 import { lazy, Suspense, type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { promoCards, type Category, type Product } from "../data/catalog";
@@ -84,6 +87,7 @@ type PickupLocationOption = {
   sortOrder?: number;
 };
 type RegionOption = {
+  enabled?: boolean;
   slug: string;
   name: string;
   menuSourceRegionSlug?: string | null;
@@ -686,7 +690,8 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
     defaultRegions.find((region) => region.slug === initialRegion)?.name || initialRegion,
   );
   const [regionSlug, setRegionSlug] = useState(initialRegion);
-  const [regionOptions, setRegionOptions] = useState<RegionOption[]>(defaultRegions);
+  const [regionOptions, setRegionOptions] = useState<RegionOption[]>([]);
+  const [siteContactsSnapshot, setSiteContactsSnapshot] = useState<{ region: string; contacts: SiteContacts } | null>(null);
   const [regionsLoaded, setRegionsLoaded] = useState(false);
   const canChooseCity = regionsLoaded && regionOptions.length > 1;
   const [selectedPickupLocationId, setSelectedPickupLocationId] = useState<number | null>(null);
@@ -722,12 +727,12 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
   const minimumOrderAmount = Math.max(0, selectedRegion?.minimumOrderAmount ?? 900);
   const maximumOrderAmount = Math.max(minimumOrderAmount, selectedRegion?.maximumOrderAmount ?? 30000);
   const pickupYandexUrl = selectedPickupLocation?.yandexUrl || `https://yandex.ru/maps/?text=${encodeURIComponent(pickupAddress)}`;
-  const footerPhone = SITE_CONTACT_PHONE;
+  const siteContacts = siteContactsSnapshot?.region === regionSlug ? siteContactsSnapshot.contacts : DEFAULT_SITE_CONTACTS;
+  const footerPhone = siteContacts.phone;
   const supportHref = selectedRegion?.supportUrl?.trim()
-    || SITE_CONTACT_PHONE_HREF;
-  const footerEmail = "naktasushi@gmail.com";
-  const footerCompanyName = "ДААНА СУШИ © 2026 ИП Мусаев Ж";
-  const footerLegalInfo = "Оператор сервиса: ИП Мусаев Ж. Регистрационный номер: 032-2026-169-3446. Адрес: мкр Анар 15а.";
+    || contactPhoneHref(footerPhone);
+  const footerEmail = siteContacts.email;
+  const footerCompanyName = `Накта суши © ${new Date().getFullYear()}`;
   const [cityOpen, setCityOpen] = useState(false);
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
   const [addressCityOpen, setAddressCityOpen] = useState(false);
@@ -933,13 +938,15 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       .then((response) => response.ok ? response.json() : Promise.reject(new Error("Regions request failed")))
       .then((data: RegionOption[]) => {
         if (controller.signal.aborted) return;
-        if (!Array.isArray(data) || data.length === 0) return;
-        setRegionOptions(data);
-        if (data.length === 1) {
-          chooseCity(data[0], true);
+        if (!Array.isArray(data)) return;
+        const available = data.filter((region, index) => region.enabled !== false && data.findIndex(item => item.slug === region.slug) === index);
+        setRegionOptions(available);
+        if (available.length === 0) return;
+        if (available.length === 1) {
+          chooseCity(available[0], true);
           return;
         }
-        const active = data.find((region) => region.slug === regionSlug) || data[0];
+        const active = available.find((region) => region.slug === regionSlug) || available[0];
         setCity(active.name);
         if (active.slug !== regionSlug) setRegionSlug(active.slug);
       })
@@ -1025,6 +1032,28 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
       controller.abort();
     };
   }, [regionSlug, chooseCity]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let latestRequest = 0;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      const requestId = ++latestRequest;
+      try {
+        const response = await fetch(`${STOREFRONT_API_URL}/site-settings?region=${encodeURIComponent(regionSlug)}`, { cache: "no-store", signal: controller.signal });
+        const contacts = response.ok ? readSiteContacts(await response.json()) : null;
+        if (contacts && !controller.signal.aborted && requestId === latestRequest) setSiteContactsSnapshot({ region: regionSlug, contacts });
+      } catch { /* Keep the last available contacts. */ }
+    };
+    const onStorage = (event: StorageEvent) => { if (event.key === CATALOG_UPDATE_STORAGE_KEY) void refresh(); };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 45_000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener(CATALOG_UPDATED_EVENT, refresh);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener("focus", refresh); window.removeEventListener(CATALOG_UPDATED_EVENT, refresh); window.removeEventListener("storage", onStorage); document.removeEventListener("visibilitychange", refresh); };
+  }, [regionSlug]);
 
   useEffect(() => {
     const updateSchedule = () => setScheduleTimestamp(Date.now());
@@ -2263,10 +2292,16 @@ function StorefrontContent({ categorySlug }: { categorySlug?: string }) {
           <span className="app-badge-logo" aria-hidden="true"><img src="/favicon.jpg" alt="" /></span>
           <strong>{t("Скачайте")}<br />{t("приложение")}</strong>
         </a>
-        <div className="footer-contacts"><b>{t("Контакты")}</b><span><i aria-hidden="true">☎</i><small>{t("Телефон")}</small><a href={SITE_CONTACT_PHONE_HREF}>{footerPhone}</a></span><span><i aria-hidden="true">✉</i><small>{t("Электронная почта")}</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span></div>
+        <div className="footer-contacts">
+          <b>{t("Контакты")}</b>
+          <span><i aria-hidden="true"><Icon path={mdiPhoneOutline} size={0.85}/></i><small>{t("Телефон")}</small><a href={contactPhoneHref(footerPhone)}>{footerPhone}</a></span>
+          <span><i aria-hidden="true"><Icon path={mdiEmailOutline} size={0.85}/></i><small>{t("Электронная почта")}</small><a href={`mailto:${footerEmail}`}>{footerEmail}</a></span>
+          {siteContacts.address ? <span className="footer-address"><i aria-hidden="true"><Icon path={mdiMapMarkerOutline} size={0.95}/></i><small>{t("Адрес")}</small><a href={`https://yandex.com/maps/?text=${encodeURIComponent(siteContacts.address)}`} target="_blank" rel="noopener noreferrer">{siteContacts.address}</a></span> : null}
+          {siteContacts.instagram ? <a className="footer-instagram" href={instagramHref(siteContacts.instagram)} target="_blank" rel="noopener noreferrer" aria-label={`Instagram @${siteContacts.instagram}`}><span className="footer-instagram-logo" aria-hidden="true"><Icon path={mdiInstagram} size={1.2}/></span><span><small>Instagram</small><strong>@{siteContacts.instagram}</strong></span><Icon path={mdiChevronRight} size={0.8} aria-hidden="true"/></a> : null}
+        </div>
         <div className="footer-links"><a href="/privacy">{t("Конфиденциальность")}</a><span>•</span><a href="/terms">{t("Условия")}</a><span>•</span><a href="/delete-account">{t("Удаление аккаунта")}</a><span>•</span><a href="/legal">{t("Все документы")}</a><span>•</span><a href="/jobs">{t("Работа")}</a><span>•</span><a href="/about">{t("О нас")}</a></div>
         <div className="footer-legal">
-          <p>{footerLegalInfo}</p>
+          <p><a href="/legal">{t("Правовая информация")}</a></p>
         </div>
       </footer>
 

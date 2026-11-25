@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { InfoPage } from "../components/InfoPage";
+import { getSiteContacts } from "../lib/site-settings-server";
 
 export const metadata: Metadata = {
   title: "Политика конфиденциальности",
@@ -7,12 +8,13 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" },
 };
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const contacts = await getSiteContacts();
   return (
     <InfoPage title="Политика конфиденциальности">
-      <p className="legal-updated">Дата вступления в силу: 3 августа 2026 года</p>
+      <p className="legal-updated">Дата вступления в силу: 25 ноября 2026 года</p>
       <p>Настоящая политика описывает обработку данных при использовании сайта naktasushi.com и мобильного приложения «Накта суши» (далее вместе — «Сервис»). Сведения об операторе Сервиса и персональных данных приведены в разделе <a href="/legal">«Правовая информация»</a>.</p>
-      <p>По вопросам обработки персональных данных можно обратиться по адресу <a href="mailto:naktasushi@gmail.com">naktasushi@gmail.com</a> или через раздел <a href="/support">«Поддержка»</a>.</p>
+      <p>По вопросам обработки персональных данных можно обратиться по адресу <a href={`mailto:${contacts.email}`}>{contacts.email}</a> или через раздел <a href="/support">«Поддержка»</a>.</p>
 
       <h2>1. Какие данные обрабатываются</h2>
       <ul>
@@ -68,7 +70,7 @@ export default function PrivacyPage() {
       <p>Политика может обновляться при изменении функций Сервиса или требований закона. Новая редакция публикуется на этой странице с новой датой вступления в силу.</p>
 
       <h2>10. Контакты</h2>
-      <p>Вопросы о данных и запросы на удаление можно направить оператору через <a href="mailto:naktasushi@gmail.com">naktasushi@gmail.com</a> или <a href="/support">службу поддержки</a>. Сведения об операторе доступны в разделе <a href="/legal">«Правовая информация»</a>.</p>
+      <p>Вопросы о данных и запросы на удаление можно направить оператору через <a href={`mailto:${contacts.email}`}>{contacts.email}</a> или <a href="/support">службу поддержки</a>. Сведения об операторе доступны в разделе <a href="/legal">«Правовая информация»</a>.</p>
     </InfoPage>
   );
 }

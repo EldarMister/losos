@@ -1,5 +1,6 @@
 // Shared interface wording with the Losos mobile app; website-specific messages are included below.
 export const messages: Record<string, Record<"ru" | "ky" | "en" | "uz" | "kk", string>> = {
+  "Адрес": { ru: "Адрес", ky: "Дарек", en: "Address", uz: "Manzil", kk: "Мекенжай" },
   "Сервер вернул ошибку {0}": {
     "ru": "Сервер вернул ошибку {0}",
     "ky": "Сервер {0} катасын кайтарды",

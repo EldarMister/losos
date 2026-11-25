@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { JsonLd } from "./components/JsonLd";
 import { Storefront } from "./components/Storefront";
 import { absoluteUrl } from "./lib/seo";
-import { SITE_CONTACT_PHONE_E164 } from "./lib/site-links";
+import { contactPhoneHref, SITE_OPERATOR_NAME } from "./lib/site-settings";
+import { getSiteContacts } from "./lib/site-settings-server";
 
 export const metadata: Metadata = {
   title: "Доставка суши и роллов в Бишкеке и Оше",
@@ -14,7 +15,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  const contacts = await getSiteContacts();
   const organizationId = `${absoluteUrl("/")}#organization`;
   const websiteId = `${absoluteUrl("/")}#website`;
 
@@ -29,12 +31,12 @@ export default function Home() {
               "@id": organizationId,
               name: "Накта суши",
               alternateName: ["Nakta Sushi", "NAKTA SUSHI", "НАКТА СУШИ"],
-              legalName: "ИП Мусаев Жаныбек Кочкорбаевич",
+              legalName: SITE_OPERATOR_NAME,
               url: absoluteUrl("/"),
               logo: absoluteUrl("/logo.webp"),
               image: absoluteUrl("/og-social-v2.png"),
-              email: "naktasushi@gmail.com",
-              telephone: SITE_CONTACT_PHONE_E164,
+              email: contacts.email,
+              telephone: contactPhoneHref(contacts.phone).slice(4),
               areaServed: [
                 { "@type": "City", name: "Бишкек" },
                 { "@type": "City", name: "Ош" },

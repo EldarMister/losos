@@ -54,8 +54,8 @@ test("renders the public legal documents", async () => {
   const legalHtml = await legalResponse.text();
   assert.match(legalHtml, /ИП Мусаев Жаныбек Кочкорбаевич/);
   assert.match(legalHtml, /naktasushi@gmail\.com/);
-  assert.match(legalHtml, /22309199201100/);
-  assert.match(legalHtml, /032-2026-169-3446/);
+  assert.doesNotMatch(legalHtml, /22309199201100/);
+  assert.doesNotMatch(legalHtml, /032-2026-169-3446/);
   assert.match(legalHtml, /Ошская область, Кара-Суйский район, с\. Отуз-Адыр, ул\. Токтогула, дом 4/);
 });
 
@@ -257,10 +257,7 @@ test("includes the product, cart and address flows", async () => {
   assert.match(storefront, /item\.slug === productSlug && item\.available !== false/);
   assert.match(storefront, /disabled=\{selected\.available === false \|\| !modifiersComplete\}/);
   assert.match(storefront, /className="footer-app-link footer-app-nakta"/);
-  assert.match(storefront, /const footerPhone = "\+?[\d ]{7,}"/);
-  assert.match(storefront, /href=\{`tel:\$\{footerPhone\.replace/);
   assert.match(storefront, /\{footerPhone\}<\/a>/);
-  assert.match(storefront, /naktasushi@gmail\.com/);
   assert.doesNotMatch(storefront, /musaev\.janybek\.kg@gmail\.com/);
   assert.match(storefront, /format\(value\) \+ " сом"/);
   assert.match(storefront, /const cartLocation = address\.trim\(\)/);

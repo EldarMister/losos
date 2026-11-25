@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { InfoPage } from "../components/InfoPage";
-import { SITE_CONTACT_PHONE, SITE_CONTACT_PHONE_HREF } from "../lib/site-links";
+import { contactPhoneHref, instagramHref } from "../lib/site-settings";
+import { getSiteContacts } from "../lib/site-settings-server";
 
 export const metadata: Metadata = {
   title: "Поддержка",
@@ -40,16 +41,18 @@ export default async function SupportPage({
     // Static fallback keeps the page usable while the API is unavailable.
   }
   const selected = contacts.find((region) => region.slug === requestedRegion) || contacts[0];
-  const phone = SITE_CONTACT_PHONE;
-  const supportHref = selected?.supportUrl?.trim() || SITE_CONTACT_PHONE_HREF;
-  const email = "naktasushi@gmail.com";
+  const contactsForSite = await getSiteContacts(selected?.slug);
+  const phone = contactsForSite.phone;
+  const supportHref = selected?.supportUrl?.trim() || contactPhoneHref(phone);
+  const email = contactsForSite.email;
   return (
     <InfoPage title="Поддержка" action={{ label: selected?.supportUrl?.trim() ? "Написать в поддержку" : "Позвонить нам", href: supportHref }}>
       <p>Поможем с заказом, оплатой, доставкой и работой приложения Накта суши.</p>
       <h2>Как связаться</h2>
       {selected ? <p>Город: {selected.name}</p> : null}
-      <p>{selected?.supportUrl?.trim() ? <>Поддержка: <a href={supportHref}>Открыть чат</a><br /></> : null}Телефон: <a href={SITE_CONTACT_PHONE_HREF}>{phone}</a><br />Электронная почта: <a href={`mailto:${email}`}>{email}</a></p>
-      {selected?.contactAddress ? <p>Адрес: {selected.contactAddress}</p> : null}
+      <p>{selected?.supportUrl?.trim() ? <>Поддержка: <a href={supportHref}>Открыть чат</a><br /></> : null}Телефон: <a href={contactPhoneHref(phone)}>{phone}</a><br />Электронная почта: <a href={`mailto:${email}`}>{email}</a></p>
+      {contactsForSite.address ? <p>Адрес: {contactsForSite.address}</p> : null}
+      {contactsForSite.instagram ? <p>Instagram: <a href={instagramHref(contactsForSite.instagram)} target="_blank" rel="noopener noreferrer">@{contactsForSite.instagram}</a></p> : null}
       <p>Для быстрого решения вопроса подготовьте номер заказа и телефон, с которого он был оформлен.</p>
     </InfoPage>
   );
